@@ -110,3 +110,31 @@ public class Delivery
     public int Attempts { get; set; }
     public Instant CreatedAt { get; set; }
 }
+
+/// <summary>A Discord user's linked external calendar. Tokens are Data-Protection-encrypted at rest;
+/// raw tokens never leave CalCrony.Api (never exposed via CalCrony.Contracts).</summary>
+public class CalendarConnection
+{
+    public Guid Id { get; set; }
+    public long UserId { get; set; }
+    public CalendarProvider Provider { get; set; }
+    public required string EncryptedAccessToken { get; set; }
+    public required string EncryptedRefreshToken { get; set; }
+    public Instant AccessTokenExpiresAt { get; set; }
+    public Instant ConnectedAt { get; set; }
+    public Instant? LastRefreshedAt { get; set; }
+}
+
+/// <summary>Short-lived, single-use token binding a Discord user to one in-flight OAuth linking
+/// attempt; also serves as the OAuth `state` value (see OAuthEndpoints) since there is no browser
+/// session to bind CSRF protection to.</summary>
+public class CalendarLinkToken
+{
+    public Guid Id { get; set; }
+    public long UserId { get; set; }
+    public CalendarProvider Provider { get; set; }
+    public required string Token { get; set; }
+    public Instant CreatedAt { get; set; }
+    public Instant ExpiresAt { get; set; }
+    public Instant? ConsumedAt { get; set; }
+}

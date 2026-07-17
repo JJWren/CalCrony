@@ -3,6 +3,7 @@ using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Endpoints;
 using CalCrony.Api.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -22,6 +23,16 @@ builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddScoped<ApiKeyValidator>();
 builder.Services.AddSingleton<NaturalDateTimeParser>();
 builder.Services.AddScoped<DeliveryScheduler>();
+
+builder.Services.AddDataProtection()
+    .SetApplicationName("CalCrony.Api")
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        builder.Configuration["Calendar:DataProtectionKeyPath"] ?? "./keys"));
+builder.Services.AddSingleton<CalendarTokenProtector>();
+builder.Services.AddHttpClient<ICalendarProvider, GoogleCalendarProvider>(
+    http => http.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddScoped<CalendarAvailabilityService>();
+
 builder.Services.AddHostedService<StartupMigrationService>();
 if (builder.Configuration.GetValue("Scheduler:Enabled", true))
 {
@@ -41,6 +52,8 @@ app.MapSettingsEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
 app.MapFeedEndpoints();
+app.MapCalendarEndpoints();
+app.MapOAuthEndpoints();
 
 app.Run();
 

@@ -8,7 +8,9 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddSingleton(new DiscordSocketConfig
 {
-    GatewayIntents = GatewayIntents.Guilds,
+    // GuildMembers is a privileged intent — must also be enabled for the bot application in the
+    // Discord Developer Portal (Bot settings → "Server Members Intent"), or gateway login fails.
+    GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
 });
 builder.Services.AddSingleton<DiscordSocketClient>();
 builder.Services.AddSingleton(sp => new InteractionService(

@@ -9,6 +9,7 @@ A self-hosted event & calendar bot for Discord, inspired by [sesh.fyi](https://s
 - Events with natural-language datetimes ("tomorrow 6pm"), RSVPs via buttons, timezone-aware throughout (NodaTime)
 - Reminders and per-event scheduled notifications, delivered through an outbox the bot polls
 - ICS calendar feed per server (`/link`) — subscribe from Google/Apple/Outlook calendars
+- Google Calendar availability: `/calendar connect` links a member's Google Calendar (least-privilege free/busy OAuth scope); `/availability role` or `/availability event` shows an on-demand, Teams-Scheduling-Assistant-style grid of who's free/busy — read-only, never blocks event creation or RSVPing
 
 ## Layout
 
@@ -27,6 +28,8 @@ tests/
 ```
 docker compose up   # postgres + api + bot (bot requires DISCORD_BOT_TOKEN)
 ```
+
+Google Calendar availability additionally requires `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` (from a Google Cloud OAuth 2.0 Web Client) and `CALCRONY_PUBLIC_BASE_URL` set to a real, publicly-reachable HTTPS URL for the API — Google's consent screen redirects back to `{CALCRONY_PUBLIC_BASE_URL}/oauth/google/callback`, which must be registered as an authorized redirect URI on the OAuth client. Without these set, `/calendar connect` fails gracefully; every other feature is unaffected.
 
 ## Contributing & releases
 

@@ -13,8 +13,9 @@ A self-hosted clone of sesh.fyi for Joshua's personal Discord servers, built in 
 | Bot library | Discord.Net (3.20.x) |
 | Database | PostgreSQL via EF Core/Npgsql |
 | Runtime | .NET 9 |
-| Calendar sync (v1) | ICS subscribe URL only; Google OAuth sync deferred |
+| Calendar sync (v1) | ICS subscribe URL only; Google OAuth *push* sync deferred |
 | Extras roadmap | Polls/time polls → recurring events → web dashboard |
+| Calendar availability (Milestone 5) | Google Calendar OAuth (read-only, least-privilege freebusy scope) + on-demand `/availability role\|event` grid — distinct from the deferred push-sync item above; Apple deferred (no calendar OAuth, CalDAV + app-specific password only) |
 
 ## Functional requirements (v1)
 
@@ -23,7 +24,8 @@ A self-hosted clone of sesh.fyi for Joshua's personal Discord servers, built in 
 3. **Reminders/notifications**: one-off `/remind`; up to 5 scheduled notifications per event plus event-start ping; delivered via outbox the bot polls.
 4. **ICS feed**: per-guild tokenized ICS URL subscribable from external calendar apps.
 5. **Timezones**: per-guild and per-user timezone settings; all storage UTC (NodaTime Instant + IANA tz id).
-6. **Auth**: every API request (except health and feeds) requires `X-Api-Key`; keys stored as SHA-256 hashes; bootstrap key seeded from configuration.
+6. **Auth**: every API request (except health, feeds, and oauth) requires `X-Api-Key`; keys stored as SHA-256 hashes; bootstrap key seeded from configuration.
+7. **Calendar availability**: a Discord user links their Google Calendar via OAuth (`/calendar connect|status|disconnect`); anyone can run `/availability role` or `/availability event` to see a live free/busy grid for that group (max 50 users, Google's own limit). Read-only — never gates event creation or RSVPing. OAuth tokens encrypted at rest.
 
 ## Non-functional requirements
 

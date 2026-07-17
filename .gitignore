@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# ASP.NET Core Data Protection keys (local, non-Docker runs default to ./keys) — real key material,
+# never commit. Docker deployments persist these to the dpkeys volume instead.
+keys/
+
 # User-specific files
 *.rsuser
 *.suo

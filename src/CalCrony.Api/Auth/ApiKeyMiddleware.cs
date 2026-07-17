@@ -1,14 +1,15 @@
 namespace CalCrony.Api.Auth;
 
 /// <summary>
-/// Requires a valid <c>X-Api-Key</c> header on every request except the anonymous
-/// prefixes (health checks and token-authenticated ICS feeds).
+/// Requires a valid <c>X-Api-Key</c> header on every request except the anonymous prefixes:
+/// health checks, token-authenticated ICS feeds, and the browser-facing OAuth redirect routes
+/// (which authenticate via single-use CalendarLinkTokens instead).
 /// </summary>
 public sealed class ApiKeyMiddleware(RequestDelegate next)
 {
     public const string HeaderName = "X-Api-Key";
 
-    private static readonly PathString[] AnonymousPrefixes = ["/health", "/feeds"];
+    private static readonly PathString[] AnonymousPrefixes = ["/health", "/feeds", "/oauth"];
 
     public async Task InvokeAsync(HttpContext context, ApiKeyValidator validator)
     {
