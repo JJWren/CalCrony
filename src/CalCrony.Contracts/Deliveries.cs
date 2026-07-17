@@ -28,3 +28,6 @@ public record CreateEventNotificationRequest(
 
 public record EventNotificationDto(
     Guid Id, Guid EventId, int MinutesBefore, string? Message, string? Mentions, long? ChannelId);
+
+/// <summary>The guild's ICS feed token; the feed lives at <c>/feeds/{token}.ics</c>.</summary>
+public record FeedTokenDto(string Token, string Path);

@@ -65,6 +65,9 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<Unit>> AckDeliveryAsync(Guid id, CancellationToken ct = default) =>
         SendAsync<Unit>(http.PostAsync($"/deliveries/{id}/ack", null, ct), ct);
 
+    public Task<ApiResult<FeedTokenDto>> GetOrCreateFeedTokenAsync(long guildId, CancellationToken ct = default) =>
+        SendAsync<FeedTokenDto>(http.PostAsync($"/guilds/{guildId}/feed-token", null, ct), ct);
+
     public readonly record struct Unit;
 
     private static async Task<ApiResult<T>> SendAsync<T>(Task<HttpResponseMessage> sending, CancellationToken ct)

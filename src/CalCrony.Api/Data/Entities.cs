@@ -89,6 +89,15 @@ public enum DeliveryStatus
     Failed = 2,
 }
 
+/// <summary>Unguessable token embedded in a guild's public ICS feed URL.</summary>
+public class IcsFeedToken
+{
+    public Guid Id { get; set; }
+    public long GuildId { get; set; }
+    public required string Token { get; set; }
+    public Instant CreatedAt { get; set; }
+}
+
 /// <summary>Outbox row. The bot polls pending due rows, posts to Discord, and acks.</summary>
 public class Delivery
 {

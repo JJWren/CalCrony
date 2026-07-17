@@ -15,7 +15,7 @@
 - [x] Milestone 1: Foundation — solution scaffold, EF Core + Postgres, API-key auth middleware, health endpoint, docker-compose, InitialCreate migration, smoke tests green
 - [x] Milestone 2: Events + RSVPs — event/RSVP/settings endpoints, NL datetime parser (Recognizers + NodaTime), bot /create /list /edit /delete /settings /timestamp, RSVP buttons with live embed updates; 15 tests green (incl. Testcontainers Postgres integration)
 - [x] Milestone 3: Reminders & notifications — DeliveryScheduler sweep (notifications due, Scheduled→Started ping, Started→Ended), Delivery outbox + pending/ack endpoints, /reminders endpoint, bot DeliveryPollerService + /remind + /notify; 18 tests green
-- [ ] Milestone 4: ICS feed export (/link)
+- [x] Milestone 4: ICS feed export — IcsFeedToken entity, anonymous /feeds/{token}.ics (Ical.Net), POST /guilds/{id}/feed-token, bot /link; 20 tests green; full docker-compose E2E verified (health, NL event create, ICS feed)
 
 ## Operations
 - [ ] Placeholder (deployment target TBD — docker compose on personal machine/VPS)

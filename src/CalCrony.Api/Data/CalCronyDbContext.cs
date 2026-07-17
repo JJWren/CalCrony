@@ -12,6 +12,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<Rsvp> Rsvps => Set<Rsvp>();
     public DbSet<EventNotification> EventNotifications => Set<EventNotification>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
+    public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +70,13 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             e.Property(d => d.PayloadJson).HasMaxLength(8192);
             e.HasIndex(d => new { d.Status, d.DueAt });
+        });
+
+        modelBuilder.Entity<IcsFeedToken>(e =>
+        {
+            e.Property(t => t.Token).HasMaxLength(64);
+            e.HasIndex(t => t.Token).IsUnique();
+            e.HasIndex(t => t.GuildId).IsUnique();
         });
     }
 }

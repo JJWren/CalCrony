@@ -47,3 +47,11 @@
 **Context**: Construction — Milestone 2 code generation + verification.
 
 ---
+
+## Milestones 3 & 4 Completion
+**Timestamp**: 2026-07-17T00:00:00Z
+**User Input**: (none — autonomous execution of approved plan)
+**AI Response**: Milestone 3: EventNotification/Delivery entities, DeliveryScheduler sweep, outbox pending/ack endpoints, /reminders, bot poller, /remind, /notify. Milestone 4: IcsFeedToken, anonymous ICS feed endpoint (Ical.Net), /link command. 20 automated tests green. Full docker-compose E2E verified: health, NL event creation ("tomorrow 6pm" parsed correctly), 3 default RSVP options, feed-token mint, ICS feed served with correct DTSTART/SUMMARY. Compose stack and test volume torn down after verification.
+**Context**: Construction — Milestones 3–4 code generation + verification.
+
+---

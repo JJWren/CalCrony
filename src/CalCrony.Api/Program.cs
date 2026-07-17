@@ -36,6 +36,7 @@ app.MapEventEndpoints();
 app.MapSettingsEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
+app.MapFeedEndpoints();
 
 app.Run();
 
