@@ -18,4 +18,8 @@
 - [x] Milestone 4: ICS feed export — IcsFeedToken entity, anonymous /feeds/{token}.ics (Ical.Net), POST /guilds/{id}/feed-token, bot /link; 20 tests green; full docker-compose E2E verified (health, NL event create, ICS feed)
 
 ## Operations
-- [ ] Placeholder (deployment target TBD — docker compose on personal machine/VPS)
+- [x] CI/CD & process (2026-07-17): GitHub Actions CI (build-test + pr-title lint), release-please auto-versioning from conventional commits, GHCR image publishing (calcrony-api / calcrony-bot), squash-only GitHub Flow with CONTRIBUTING.md, issue forms + label taxonomy. First release: v0.1.0.
+- [ ] Deployment target TBD — docker compose pulling GHCR images on personal machine/VPS
+
+## Known constraints
+- Branch protection/rulesets unavailable (free-plan private repo) — no-direct-push is enforced by convention; enable the protect-master ruleset if the repo goes public or the plan upgrades.

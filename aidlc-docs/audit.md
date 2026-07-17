@@ -55,3 +55,11 @@
 **Context**: Construction — Milestones 3–4 code generation + verification.
 
 ---
+
+## CI/CD & Process Setup
+**Timestamp**: 2026-07-17T17:45:00Z
+**User Input**: "Immediate need: the project needs github workflow for ci/cd operations. We should have PR review cycles. We need versioning and releases. We also need standardized branching for developing/testing/implementing new features, taking care of bugs, etc. We should have a branching strategy and documentation of such. Additionally, we should have a standardized way of opening and closing issues/requests."
+**AI Response**: Plan approved with decisions: GitHub Flow branching, conventional commits + release-please auto-versioning, GHCR images + GitHub Releases, squash-only merges. Implemented via PR #1 (CI workflow, release-please workflow, PR/issue templates, CONTRIBUTING.md, version-stamped Dockerfiles, /health version). Repo configured: squash-only + auto-delete branches, label set, Actions allowed to create PRs. Branch protection attempt rejected (403 — free-plan private repo), documented as convention instead. Two bootstrap findings: Release-As footer was swallowed by the markdown PR body (fixed with a clean empty bootstrap commit), and "Allow GitHub Actions to create and approve pull requests" was off by default. Release PR #2 merged → v0.1.0 tag, GitHub Release, GHCR images.
+**Context**: Operations — CI/CD pipeline and engineering process.
+
+---
