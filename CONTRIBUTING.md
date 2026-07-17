@@ -6,7 +6,7 @@ This document is the standard for how changes, releases, and issues flow through
 
 `master` is the trunk and is **always releasable**. No direct pushes; every change lands through a pull request.
 
-> **Note:** GitHub branch-protection/rulesets are unavailable on free-plan private repos, so the no-direct-push rule is enforced by discipline, not the server. If the repo ever goes public or the account upgrades to Pro, enable the `protect-master` ruleset (require PR + `build-test`/`pr-title` checks, block force-push and deletion).
+> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
 
 | Branch prefix | Use for | Example |
 |---|---|---|
