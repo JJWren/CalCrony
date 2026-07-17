@@ -8,7 +8,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
 {
     public const string HeaderName = "X-Api-Key";
 
-    private static readonly PathString[] AnonymousPrefixes = ["/health", "/feeds"];
+    private static readonly PathString[] AnonymousPrefixes = ["/health", "/feeds", "/oauth"];
 
     public async Task InvokeAsync(HttpContext context, ApiKeyValidator validator)
     {

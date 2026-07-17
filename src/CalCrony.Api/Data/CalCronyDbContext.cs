@@ -13,6 +13,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<EventNotification> EventNotifications => Set<EventNotification>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
+    public DbSet<CalendarConnection> CalendarConnections => Set<CalendarConnection>();
+    public DbSet<CalendarLinkToken> CalendarLinkTokens => Set<CalendarLinkToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,6 +79,19 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(t => t.Token).HasMaxLength(64);
             e.HasIndex(t => t.Token).IsUnique();
             e.HasIndex(t => t.GuildId).IsUnique();
+        });
+
+        modelBuilder.Entity<CalendarConnection>(e =>
+        {
+            e.Property(c => c.EncryptedAccessToken).HasMaxLength(2000);
+            e.Property(c => c.EncryptedRefreshToken).HasMaxLength(2000);
+            e.HasIndex(c => new { c.UserId, c.Provider }).IsUnique();
+        });
+
+        modelBuilder.Entity<CalendarLinkToken>(e =>
+        {
+            e.Property(t => t.Token).HasMaxLength(64);
+            e.HasIndex(t => t.Token).IsUnique();
         });
     }
 }

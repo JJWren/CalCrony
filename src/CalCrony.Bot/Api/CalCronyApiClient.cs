@@ -68,6 +68,18 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<FeedTokenDto>> GetOrCreateFeedTokenAsync(long guildId, CancellationToken ct = default) =>
         SendAsync<FeedTokenDto>(http.PostAsync($"/guilds/{guildId}/feed-token", null, ct), ct);
 
+    public Task<ApiResult<CalendarLinkTokenDto>> CreateCalendarLinkTokenAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<CalendarLinkTokenDto>(http.PostAsync($"/calendar/connections/{userId}/link-token", null, ct), ct);
+
+    public Task<ApiResult<CalendarConnectionStatusDto>> GetCalendarStatusAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<CalendarConnectionStatusDto>(http.GetAsync($"/calendar/connections/{userId}", ct), ct);
+
+    public Task<ApiResult<Unit>> DisconnectCalendarAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/calendar/connections/{userId}", ct), ct);
+
+    public Task<ApiResult<AvailabilityResponse>> CheckAvailabilityAsync(AvailabilityRequest request, CancellationToken ct = default) =>
+        SendAsync<AvailabilityResponse>(http.PostAsJsonAsync("/calendar/availability", request, ct), ct);
+
     public readonly record struct Unit;
 
     private static async Task<ApiResult<T>> SendAsync<T>(Task<HttpResponseMessage> sending, CancellationToken ct)

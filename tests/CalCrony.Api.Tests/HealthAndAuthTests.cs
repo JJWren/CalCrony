@@ -34,4 +34,34 @@ public class HealthAndAuthTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("/oauth/google/start?token=x")]
+    [InlineData("/oauth/google/callback?state=x&error=access_denied")]
+    public async Task Oauth_routes_are_reachable_without_an_api_key(string path)
+    {
+        // These routes have no real DB behind them in this factory, so the handler itself may fail —
+        // the only thing under test is that ApiKeyMiddleware's "/oauth" allowlist let the request
+        // past without a 401, which happens before any DB access.
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(path);
+
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/calendar/connections/1")]
+    [InlineData("/calendar/connections/1/link-token")]
+    [InlineData("/calendar/availability")]
+    public async Task Calendar_routes_still_require_an_api_key(string path)
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

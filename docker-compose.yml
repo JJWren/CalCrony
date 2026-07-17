@@ -23,8 +23,14 @@ services:
       ConnectionStrings__CalCrony: Host=postgres;Port=5432;Database=calcrony;Username=calcrony;Password=calcrony
       Auth__BootstrapApiKey: ${CALCRONY_API_KEY:-dev-api-key-change-me}
       ASPNETCORE_URLS: http://+:8080
+      Api__PublicBaseUrl: ${CALCRONY_PUBLIC_BASE_URL:-http://localhost:8080}
+      Calendar__Google__ClientId: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      Calendar__Google__ClientSecret: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      Calendar__DataProtectionKeyPath: /data/keys
     ports:
       - "8080:8080"
+    volumes:
+      - dpkeys:/data/keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,3 +48,4 @@ services:
 
 volumes:
   pgdata:
+  dpkeys:
