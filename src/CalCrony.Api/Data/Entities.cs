@@ -44,6 +44,7 @@ public class Event
 
     public List<RsvpOption> Options { get; set; } = [];
     public List<Rsvp> Rsvps { get; set; } = [];
+    public List<EventNotification> Notifications { get; set; } = [];
 }
 
 public class RsvpOption
@@ -62,5 +63,41 @@ public class Rsvp
     public Guid EventId { get; set; }
     public long UserId { get; set; }
     public Guid OptionId { get; set; }
+    public Instant CreatedAt { get; set; }
+}
+
+/// <summary>A scheduled ping relative to an event's start; fire time is recomputed from the
+/// event's current StartsAt each scheduler sweep, so edits to the event shift pings automatically.</summary>
+public class EventNotification
+{
+    public Guid Id { get; set; }
+    public Guid EventId { get; set; }
+    public int MinutesBefore { get; set; }
+    public string? Message { get; set; }
+    public string? Mentions { get; set; }
+
+    /// <summary>Target channel; null means the event's channel.</summary>
+    public long? ChannelId { get; set; }
+
+    public bool Enqueued { get; set; }
+}
+
+public enum DeliveryStatus
+{
+    Pending = 0,
+    Sent = 1,
+    Failed = 2,
+}
+
+/// <summary>Outbox row. The bot polls pending due rows, posts to Discord, and acks.</summary>
+public class Delivery
+{
+    public Guid Id { get; set; }
+    public Contracts.DeliveryType Type { get; set; }
+    public long ChannelId { get; set; }
+    public required string PayloadJson { get; set; }
+    public Instant DueAt { get; set; }
+    public DeliveryStatus Status { get; set; }
+    public int Attempts { get; set; }
     public Instant CreatedAt { get; set; }
 }

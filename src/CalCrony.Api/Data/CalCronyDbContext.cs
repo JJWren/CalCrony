@@ -10,6 +10,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<Event> Events => Set<Event>();
     public DbSet<RsvpOption> RsvpOptions => Set<RsvpOption>();
     public DbSet<Rsvp> Rsvps => Set<Rsvp>();
+    public DbSet<EventNotification> EventNotifications => Set<EventNotification>();
+    public DbSet<Delivery> Deliveries => Set<Delivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +44,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.HasIndex(ev => new { ev.GuildId, ev.StartsAt });
             e.HasMany(ev => ev.Options).WithOne().HasForeignKey(o => o.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(ev => ev.Rsvps).WithOne().HasForeignKey(r => r.EventId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(ev => ev.Notifications).WithOne().HasForeignKey(n => n.EventId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RsvpOption>(e =>
@@ -54,6 +57,18 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             // One RSVP per user per event in v1; multi-select is a later premium-parity feature.
             e.HasIndex(r => new { r.EventId, r.UserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<EventNotification>(e =>
+        {
+            e.Property(n => n.Message).HasMaxLength(1024);
+            e.Property(n => n.Mentions).HasMaxLength(256);
+        });
+
+        modelBuilder.Entity<Delivery>(e =>
+        {
+            e.Property(d => d.PayloadJson).HasMaxLength(8192);
+            e.HasIndex(d => new { d.Status, d.DueAt });
         });
     }
 }

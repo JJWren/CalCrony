@@ -7,7 +7,11 @@ public class HealthAndAuthTests
 {
     private static WebApplicationFactory<Program> CreateFactory() =>
         new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.UseSetting("Database:AutoMigrate", "false"));
+            .WithWebHostBuilder(b =>
+            {
+                b.UseSetting("Database:AutoMigrate", "false");
+                b.UseSetting("Scheduler:Enabled", "false");
+            });
 
     [Fact]
     public async Task Health_endpoint_is_anonymous_and_returns_ok()

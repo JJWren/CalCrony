@@ -162,25 +162,8 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 
-    private async Task<(EventDto? Event, string? Problem)> FindSingleEventAsync(string name)
-    {
-        var result = await api.ListEventsAsync((long)Context.Guild.Id, limit: 25);
-        if (!result.Success || result.Value is null)
-        {
-            return (null, $"❌ {result.Error}");
-        }
-
-        var matches = result.Value
-            .Where(e => e.Title.Contains(name, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return matches.Count switch
-        {
-            0 => (null, $"No upcoming event matching \"{name}\"."),
-            1 => (matches[0], null),
-            _ => (null, $"Multiple events match \"{name}\": {string.Join(", ", matches.Select(m => $"**{m.Title}**"))}. Be more specific."),
-        };
-    }
+    private Task<(EventDto? Event, string? Problem)> FindSingleEventAsync(string name) =>
+        EventFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);
 
     private async Task TryUpdateMessageAsync(EventDto ev)
     {

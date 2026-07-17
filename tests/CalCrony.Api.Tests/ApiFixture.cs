@@ -25,6 +25,7 @@ public sealed class ApiFixture : IAsyncLifetime
             b.UseSetting("ConnectionStrings:CalCrony", container.GetConnectionString());
             b.UseSetting("Database:AutoMigrate", "true");
             b.UseSetting("Auth:BootstrapApiKey", ApiKeyValue);
+            b.UseSetting("Scheduler:Enabled", "false");
         });
 
         Client = Factory.CreateClient();

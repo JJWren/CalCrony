@@ -53,6 +53,18 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<ParseDateTimeResponse>> ParseDateTimeAsync(ParseDateTimeRequest request, CancellationToken ct = default) =>
         SendAsync<ParseDateTimeResponse>(http.PostAsJsonAsync("/tools/parse-datetime", request, ct), ct);
 
+    public Task<ApiResult<ReminderDto>> CreateReminderAsync(CreateReminderRequest request, CancellationToken ct = default) =>
+        SendAsync<ReminderDto>(http.PostAsJsonAsync("/reminders", request, ct), ct);
+
+    public Task<ApiResult<EventNotificationDto>> CreateNotificationAsync(Guid eventId, CreateEventNotificationRequest request, CancellationToken ct = default) =>
+        SendAsync<EventNotificationDto>(http.PostAsJsonAsync($"/events/{eventId}/notifications", request, ct), ct);
+
+    public Task<ApiResult<List<DeliveryDto>>> GetPendingDeliveriesAsync(int limit = 20, CancellationToken ct = default) =>
+        SendAsync<List<DeliveryDto>>(http.GetAsync($"/deliveries/pending?limit={limit}", ct), ct);
+
+    public Task<ApiResult<Unit>> AckDeliveryAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PostAsync($"/deliveries/{id}/ack", null, ct), ct);
+
     public readonly record struct Unit;
 
     private static async Task<ApiResult<T>> SendAsync<T>(Task<HttpResponseMessage> sending, CancellationToken ct)
