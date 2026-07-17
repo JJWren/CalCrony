@@ -4,16 +4,13 @@ A self-hosted event & calendar bot for Discord, inspired by [sesh.fyi](https://s
 
 **Architecture:** the backend is an API (`CalCrony.Api`); the Discord bot (`CalCrony.Bot`) is a pure client of that API, authenticating with an `X-Api-Key` header. The API owns all domain logic, persistence (PostgreSQL/EF Core), scheduling, ICS generation, and Google OAuth — it knows nothing about Discord.Net and stores Discord snowflakes as opaque IDs. Shared DTOs live in `CalCrony.Contracts`. Scheduled sends (reminders, event pings) flow through an outbox: the API materializes due `Delivery` rows; the bot polls and acks each only after the Discord post succeeds.
 
-```
-┌─────────────┐  slash cmds / buttons  ┌──────────────┐
-│   Discord    │◄──────────────────────►│ CalCrony.Bot  │  Discord.Net worker
-└─────────────┘                        │ (API client)  │
-                                       └──────┬───────┘
-                                  HTTPS + X-Api-Key │
-   Google/Apple/Outlook ──ICS feed──┐   ┌──────▼───────┐     ┌────────────┐
-   Google OAuth + freebusy ─────────┼──►│ CalCrony.Api  │◄───►│ PostgreSQL │
-   (browser-facing /oauth routes)   ┘   │ ASP.NET Core  │     └────────────┘
-                                        └──────────────┘
+```mermaid
+flowchart LR
+    discord["Discord"] <-- "slash commands / RSVP buttons" --> bot["CalCrony.Bot<br/>(Discord.Net worker)"]
+    bot -- "HTTPS + X-Api-Key" --> api["CalCrony.Api<br/>(ASP.NET Core)"]
+    api <--> db[("PostgreSQL")]
+    calapps["Calendar apps<br/>Google / Apple / Outlook"] -- "ICS feed<br/>(tokenized URL)" --> api
+    google["Google<br/>(OAuth consent + freebusy API)"] <-- "browser-facing /oauth routes<br/>live free/busy queries" --> api
 ```
 
 ## Features
