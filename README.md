@@ -27,3 +27,7 @@ tests/
 ```
 docker compose up   # postgres + api + bot (bot requires DISCORD_BOT_TOKEN)
 ```
+
+## Contributing & releases
+
+All changes flow through PRs on GitHub Flow branches with conventional-commit titles; releases are cut automatically by release-please and published as GHCR images. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching strategy, PR cycle, versioning rules, and issue conventions.

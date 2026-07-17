@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+jobs:
+  build-test:
+    name: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore CalCrony.slnx
+
+      - name: Build
+        run: dotnet build CalCrony.slnx --no-restore -c Release
+
+      # Integration tests use Testcontainers; the ubuntu runner provides Docker.
+      - name: Test
+        run: dotnet test CalCrony.slnx --no-build -c Release --logger "console;verbosity=normal"
+
+  pr-title:
+    name: pr-title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      # Squash merges use the PR title as the commit on master, and release-please
+      # derives versions from those commits — so titles must be conventional.
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            test
+            ci
+            perf
+            build
