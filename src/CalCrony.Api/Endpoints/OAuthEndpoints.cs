@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
@@ -124,13 +125,17 @@ public static class OAuthEndpoints
 
     private static IResult RenderPage(string title, string message, int statusCode)
     {
+        // Both values can carry attacker-influenced query-string content (e.g. Google's `error`
+        // param) on an anonymous, browser-facing route — always HTML-encode to prevent reflected XSS.
+        var safeTitle = HtmlEncoder.Default.Encode(title);
+        var safeMessage = HtmlEncoder.Default.Encode(message);
         var html = $"""
             <!doctype html>
             <html>
-            <head><meta charset="utf-8"><title>{title} — CalCrony</title></head>
+            <head><meta charset="utf-8"><title>{safeTitle} — CalCrony</title></head>
             <body style="font-family: sans-serif; max-width: 32rem; margin: 4rem auto; text-align: center;">
-                <h1>{title}</h1>
-                <p>{message}</p>
+                <h1>{safeTitle}</h1>
+                <p>{safeMessage}</p>
             </body>
             </html>
             """;

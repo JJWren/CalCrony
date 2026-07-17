@@ -13,9 +13,10 @@ public sealed class CalendarApiFixture : ApiFixture
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Only presence is checked (CalendarEndpoints.CreateLinkToken); the value is never used
+        // Only presence is checked (CalendarEndpoints.CreateLinkToken); the values are never used
         // for a real Google call since ICalendarProvider is swapped for the fake below.
         builder.UseSetting("Calendar:Google:ClientId", "test-client-id");
+        builder.UseSetting("Api:PublicBaseUrl", "http://localhost:8080");
     }
 
     protected override void ConfigureTestServices(IServiceCollection services)

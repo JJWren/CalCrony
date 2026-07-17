@@ -63,6 +63,21 @@ public class CalendarAvailabilityTests(CalendarApiFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Duplicate_user_ids_are_deduplicated_not_a_500()
+    {
+        const long userId = 2015;
+        var now = DateTimeOffset.UtcNow;
+
+        var response = await Client.PostAsJsonAsync("/calendar/availability", new AvailabilityRequest(
+            [userId, userId, userId], now.AddHours(1), now.AddHours(2)));
+
+        response.EnsureSuccessStatusCode();
+        var result = (await response.Content.ReadFromJsonAsync<AvailabilityResponse>())!;
+        Assert.Single(result.Results);
+        Assert.Equal(CalendarAvailabilityStatus.NotConnected, result.Results[0].Status);
+    }
+
+    [Fact]
     public async Task Zero_or_too_many_user_ids_are_rejected()
     {
         var now = DateTimeOffset.UtcNow;

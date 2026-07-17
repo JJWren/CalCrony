@@ -96,6 +96,18 @@ public class CalendarConnectionTests(CalendarApiFixture fixture) : IClassFixture
     }
 
     [Fact]
+    public async Task Callback_html_encodes_attacker_controlled_error_text()
+    {
+        var token = (await MintTokenDtoAsync(1007)).Token;
+
+        var callback = await fixture.Factory.CreateClient()
+            .GetAsync($"/oauth/google/callback?state={token}&error=<script>alert(1)</script>");
+
+        var body = await callback.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("<script>", body);
+    }
+
+    [Fact]
     public async Task Disconnect_removes_the_connection_and_revokes_at_the_provider()
     {
         const long userId = 1006;

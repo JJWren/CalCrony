@@ -29,12 +29,14 @@ public static class CalendarEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(configuration["Calendar:Google:ClientId"]))
+        // Both are required to mint a usable link: without PublicBaseUrl the StartUrl would be a
+        // relative path, useless when pasted into Discord. ErrorResponse shape (not RFC 7807) so
+        // CalCronyApiClient.SendAsync surfaces the message rather than a generic status code.
+        if (string.IsNullOrWhiteSpace(configuration["Calendar:Google:ClientId"]) ||
+            string.IsNullOrWhiteSpace(configuration["Api:PublicBaseUrl"]))
         {
-            // Matches every other endpoint's ErrorResponse shape (not Results.Problem's RFC 7807
-            // body) so CalCronyApiClient.SendAsync surfaces this message, not a generic status code.
             return Results.Json(
-                new ErrorResponse("Google Calendar isn't configured on this server yet — ask the operator to set Calendar:Google:ClientId/ClientSecret."),
+                new ErrorResponse("Google Calendar isn't configured on this server yet — ask the operator to set Calendar:Google:ClientId/ClientSecret and Api:PublicBaseUrl."),
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
@@ -97,9 +99,12 @@ public static class CalendarEndpoints
         CalendarAvailabilityService availability,
         CancellationToken cancellationToken)
     {
-        if (request.UserIds.Count is 0 or > MaxUsersPerQuery)
+        // De-duplicate first: repeated IDs would otherwise create duplicate pipeline entries and
+        // crash the per-user result keying downstream.
+        var userIds = request.UserIds.Distinct().ToList();
+        if (userIds.Count is 0 or > MaxUsersPerQuery)
         {
-            return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {MaxUsersPerQuery} entries."));
+            return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {MaxUsersPerQuery} distinct entries."));
         }
 
         if (request.EndsAtUtc <= request.StartsAtUtc)
@@ -109,7 +114,7 @@ public static class CalendarEndpoints
 
         var start = Instant.FromDateTimeOffset(request.StartsAtUtc);
         var end = Instant.FromDateTimeOffset(request.EndsAtUtc);
-        var results = await availability.CheckAsync(request.UserIds, start, end, cancellationToken);
+        var results = await availability.CheckAsync(userIds, start, end, cancellationToken);
         return Results.Ok(new AvailabilityResponse(request.StartsAtUtc, request.EndsAtUtc, results));
     }
 }
