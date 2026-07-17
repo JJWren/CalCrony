@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: calcrony
+      POSTGRES_USER: calcrony
+      POSTGRES_PASSWORD: calcrony
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U calcrony"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/CalCrony.Api/Dockerfile
+    environment:
+      ConnectionStrings__CalCrony: Host=postgres;Port=5432;Database=calcrony;Username=calcrony;Password=calcrony
+      Auth__BootstrapApiKey: ${CALCRONY_API_KEY:-dev-api-key-change-me}
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  bot:
+    build:
+      context: .
+      dockerfile: src/CalCrony.Bot/Dockerfile
+    environment:
+      Discord__BotToken: ${DISCORD_BOT_TOKEN:-}
+      Api__BaseUrl: http://api:8080
+      Api__ApiKey: ${CALCRONY_API_KEY:-dev-api-key-change-me}
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
