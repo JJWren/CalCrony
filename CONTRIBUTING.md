@@ -6,6 +6,8 @@ This document is the standard for how changes, releases, and issues flow through
 
 `master` is the trunk and is **always releasable**. No direct pushes; every change lands through a pull request.
 
+> **Note:** GitHub branch-protection/rulesets are unavailable on free-plan private repos, so the no-direct-push rule is enforced by discipline, not the server. If the repo ever goes public or the account upgrades to Pro, enable the `protect-master` ruleset (require PR + `build-test`/`pr-title` checks, block force-push and deletion).
+
 | Branch prefix | Use for | Example |
 |---|---|---|
 | `feature/` | New functionality | `feature/time-polls` |
