@@ -1,0 +1,63 @@
+name: release-please
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: simple
+
+  # Runs only when the release PR is merged and the tag/release were just created.
+  # (Kept in this workflow because tags pushed with GITHUB_TOKEN don't trigger others.)
+  publish-images:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Test release commit
+        run: dotnet test CalCrony.slnx -c Release
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push images
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          build_and_push() {
+            local dockerfile="$1" image="ghcr.io/${OWNER}/$2"
+            docker build --build-arg VERSION="${VERSION}" -f "${dockerfile}" \
+              -t "${image}:${VERSION}" -t "${image}:latest" .
+            docker push "${image}:${VERSION}"
+            docker push "${image}:latest"
+          }
+          build_and_push src/CalCrony.Api/Dockerfile calcrony-api
+          build_and_push src/CalCrony.Bot/Dockerfile calcrony-bot

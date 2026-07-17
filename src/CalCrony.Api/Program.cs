@@ -1,3 +1,4 @@
+using System.Reflection;
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Endpoints;
@@ -31,7 +32,10 @@ var app = builder.Build();
 
 app.UseMiddleware<ApiKeyMiddleware>();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+var version = typeof(Program).Assembly
+    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+    .InformationalVersion ?? "unknown";
+app.MapGet("/health", () => Results.Ok(new { status = "ok", version }));
 app.MapEventEndpoints();
 app.MapSettingsEndpoints();
 app.MapNotificationEndpoints();

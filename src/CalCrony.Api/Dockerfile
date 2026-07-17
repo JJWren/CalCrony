@@ -1,10 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ARG VERSION=0.0.0-local
 WORKDIR /source
 COPY src/CalCrony.Contracts/CalCrony.Contracts.csproj src/CalCrony.Contracts/
 COPY src/CalCrony.Api/CalCrony.Api.csproj src/CalCrony.Api/
 RUN dotnet restore src/CalCrony.Api/CalCrony.Api.csproj
 COPY src/ src/
-RUN dotnet publish src/CalCrony.Api/CalCrony.Api.csproj -c Release -o /app
+RUN dotnet publish src/CalCrony.Api/CalCrony.Api.csproj -c Release -o /app -p:Version=$VERSION
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app

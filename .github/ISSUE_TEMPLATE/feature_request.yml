@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose new functionality or an improvement
+title: "[Feat]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What can't you do today, or what is painful?
+      placeholder: "I want members to vote on the best time before an event is created."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should CalCrony do? Sketch commands/API shape if you have one.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use now, or other designs that could work.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - API
+        - Bot / Discord commands
+        - Scheduler / reminders / notifications
+        - ICS feed / calendar
+        - Infrastructure / docker / CI
+        - New capability
+    validations:
+      required: true

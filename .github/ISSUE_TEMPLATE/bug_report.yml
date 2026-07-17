@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in CalCrony misbehaves
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+      placeholder: "Created an event with /create for 'friday 8pm' but the embed shows Thursday."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. /settings timezone America/Chicago
+        2. /create title:Test when:"friday 8pm"
+        3. Look at the embed timestamp
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - API
+        - Bot / Discord commands
+        - Scheduler / reminders / notifications
+        - ICS feed
+        - Infrastructure / docker / CI
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From `/health` (version field) or the release/image tag.
+      placeholder: "0.1.0"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: API or bot logs around the failure. Redact tokens and keys.
+      render: text
