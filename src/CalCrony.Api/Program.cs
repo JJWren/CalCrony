@@ -1,5 +1,7 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
+using CalCrony.Api.Endpoints;
+using CalCrony.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -17,6 +19,7 @@ builder.Services.AddDbContext<CalCronyDbContext>(o =>
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddScoped<ApiKeyValidator>();
+builder.Services.AddSingleton<NaturalDateTimeParser>();
 builder.Services.AddHostedService<StartupMigrationService>();
 
 var app = builder.Build();
@@ -24,6 +27,8 @@ var app = builder.Build();
 app.UseMiddleware<ApiKeyMiddleware>();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapEventEndpoints();
+app.MapSettingsEndpoints();
 
 app.Run();
 

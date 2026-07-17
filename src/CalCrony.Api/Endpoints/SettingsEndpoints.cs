@@ -1,0 +1,65 @@
+using CalCrony.Api.Data;
+using CalCrony.Contracts;
+
+namespace CalCrony.Api.Endpoints;
+
+public static class SettingsEndpoints
+{
+    public static void MapSettingsEndpoints(this IEndpointRouteBuilder app)
+    {
+        app.MapGet("/guilds/{guildId:long}/settings", GetGuildSettings);
+        app.MapPut("/guilds/{guildId:long}/settings", PutGuildSettings);
+        app.MapGet("/users/{userId:long}/settings", GetUserSettings);
+        app.MapPut("/users/{userId:long}/settings", PutUserSettings);
+    }
+
+    private static async Task<IResult> GetGuildSettings(
+        long guildId, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        var guild = await db.Guilds.FindAsync([guildId], cancellationToken);
+        return Results.Ok(new GuildSettingsDto(guild?.TimeZone ?? "UTC", guild?.DefaultChannelId));
+    }
+
+    private static async Task<IResult> PutGuildSettings(
+        long guildId, GuildSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        if (Mapping.FindZone(settings.TimeZone) is null)
+        {
+            return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
+        }
+
+        var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
+        guild.TimeZone = settings.TimeZone;
+        guild.DefaultChannelId = settings.DefaultChannelId;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new GuildSettingsDto(guild.TimeZone, guild.DefaultChannelId));
+    }
+
+    private static async Task<IResult> GetUserSettings(
+        long userId, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
+        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true));
+    }
+
+    private static async Task<IResult> PutUserSettings(
+        long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        if (settings.TimeZone is not null && Mapping.FindZone(settings.TimeZone) is null)
+        {
+            return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
+        }
+
+        var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
+        if (user is null)
+        {
+            user = new UserProfile { Id = userId };
+            db.UserProfiles.Add(user);
+        }
+
+        user.TimeZone = settings.TimeZone;
+        user.DmConfirmations = settings.DmConfirmations;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations));
+    }
+}

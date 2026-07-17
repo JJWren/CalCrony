@@ -13,7 +13,7 @@
 ## Construction (in progress)
 - [x] Milestone 0: Repo bootstrap (private GitHub repo JJWren/CalCrony + local repo)
 - [x] Milestone 1: Foundation — solution scaffold, EF Core + Postgres, API-key auth middleware, health endpoint, docker-compose, InitialCreate migration, smoke tests green
-- [ ] Milestone 2: Events + RSVPs (API + bot commands)
+- [x] Milestone 2: Events + RSVPs — event/RSVP/settings endpoints, NL datetime parser (Recognizers + NodaTime), bot /create /list /edit /delete /settings /timestamp, RSVP buttons with live embed updates; 15 tests green (incl. Testcontainers Postgres integration)
 - [ ] Milestone 3: Reminders & notifications (scheduler, outbox, bot poller)
 - [ ] Milestone 4: ICS feed export (/link)
 

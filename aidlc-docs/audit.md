@@ -39,3 +39,11 @@
 **Context**: Construction — Milestone 0/1.
 
 ---
+
+## Milestone 2 Completion
+**Timestamp**: 2026-07-17T00:00:00Z
+**User Input**: (none — autonomous execution of approved plan)
+**AI Response**: Implemented events + RSVPs end to end. Notable defects found and fixed during verification: (1) ASP.NET minimal APIs treated NaturalDateTimeParser's TryParse method as a bindable-primitive signature and threw at route building — renamed to TryResolve; (2) new Rsvp entities with client-set Guid keys attached via navigation fixup were issued as UPDATEs — switched to explicit DbSet.Add; (3) duplicate collection entry after fixup — removed manual nav add. All 15 tests pass.
+**Context**: Construction — Milestone 2 code generation + verification.
+
+---
