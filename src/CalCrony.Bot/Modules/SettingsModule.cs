@@ -70,9 +70,16 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         await DeferAsync(ephemeral: true);
 
         var current = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
+        if (!current.Success || current.Value is null)
+        {
+            // Proceeding blind would overwrite the server timezone with the UTC fallback.
+            await FollowupAsync($"❌ Couldn't load current settings: {current.Error}", ephemeral: true);
+            return;
+        }
+
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(current.Value?.TimeZone ?? "UTC", (long)channel.Id));
+            new GuildSettingsDto(current.Value.TimeZone, (long)channel.Id));
         await FollowupAsync(
             result.Success
                 ? $"📌 Web-created events and reminders will post in {channel.Mention}."

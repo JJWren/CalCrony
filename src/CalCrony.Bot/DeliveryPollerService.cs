@@ -123,7 +123,25 @@ public sealed class DeliveryPollerService(
         var message = await channel.SendMessageAsync(
             embed: EventEmbedBuilder.Build(ev),
             components: EventEmbedBuilder.BuildComponents(ev));
-        await api.SetMessageAsync(ev.Id, new SetEventMessageRequest(delivery.ChannelId, (long)message.Id));
+
+        var recorded = await api.SetMessageAsync(ev.Id, new SetEventMessageRequest(delivery.ChannelId, (long)message.Id));
+        if (!recorded.Success)
+        {
+            // Without a recorded MessageId, future syncs/deletes can't find the embed — and a
+            // bare retry would re-post it. Compensate by removing this post, then let the
+            // delivery retry cleanly.
+            try
+            {
+                await message.DeleteAsync();
+            }
+            catch
+            {
+                // Best effort; the retry-time MessageId-not-null check has no help here, but a
+                // stray embed beats a silent one that never syncs.
+            }
+
+            throw new InvalidOperationException($"Failed to record posted message id: {recorded.Error}");
+        }
     }
 
     /// <summary>A web-deleted event's embed should disappear; the ids were captured before the

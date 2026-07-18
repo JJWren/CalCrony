@@ -68,7 +68,11 @@ public class WebAuthorizationTests(WebAuthFixture fixture) : IClassFixture<WebAu
         using var request = new HttpRequestMessage(new HttpMethod(method), path);
         if (method is "PATCH" or "POST")
         {
-            request.Content = JsonContent.Create(new { minutesBefore = 30 });
+            // Explicit full-shape bodies (STJ would default missing positional-record args
+            // anyway, but explicitness keeps the 403-not-400 intent obvious).
+            request.Content = method == "PATCH"
+                ? JsonContent.Create(new { editorId = 0, title = "Hijacked" })
+                : JsonContent.Create(new { minutesBefore = 30 });
         }
 
         var response = await member.SendAsync(request);

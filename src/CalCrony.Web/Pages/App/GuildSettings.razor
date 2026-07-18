@@ -99,9 +99,16 @@ else
     private async Task SaveTimezoneAsync()
     {
         saveMessage = null;
+        var trimmed = timezoneInput.Trim();
+        if (trimmed.Length == 0)
+        {
+            saveMessage = "❌ Enter an IANA timezone id, e.g. America/Chicago.";
+            return;
+        }
+
         busy = true;
         // Read-modify-write: preserve the bot-managed DefaultChannelId.
-        var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(timezoneInput, settings?.DefaultChannelId));
+        var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(trimmed, settings?.DefaultChannelId));
         busy = false;
         if (!result.Success || result.Value is null)
         {
