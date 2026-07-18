@@ -41,6 +41,12 @@ public sealed class ApiKeyAuthenticationHandler(
 
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
     {
+        // With a multi-scheme policy both schemes get challenged; only the first writes.
+        if (Response.HasStarted)
+        {
+            return;
+        }
+
         // Keep the pre-scheme-conversion response shape the bot's SendAsync surfaces.
         Response.StatusCode = StatusCodes.Status401Unauthorized;
         await Response.WriteAsJsonAsync(new { error = "Missing or invalid API key." });

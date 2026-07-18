@@ -64,6 +64,11 @@ builder.Services
             OnChallenge = async context =>
             {
                 context.HandleResponse();
+                if (context.Response.HasStarted)
+                {
+                    return;
+                }
+
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 await context.Response.WriteAsJsonAsync(new { error = "Missing or invalid credentials." });
             },

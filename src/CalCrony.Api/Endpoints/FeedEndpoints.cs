@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Contracts;
 using Ical.Net.CalendarComponents;
@@ -13,16 +14,21 @@ public static class FeedEndpoints
 {
     public static void MapFeedEndpoints(this IEndpointRouteBuilder app)
     {
-        // API-key protected: mints (or returns) the guild's feed token.
+        // Authenticated (bot, or a web member of the guild): mints/returns the guild's feed token.
         app.MapPost("/guilds/{guildId:long}/feed-token", GetOrCreateToken);
 
-        // Anonymous by design (token IS the credential); /feeds is whitelisted in ApiKeyMiddleware.
+        // Anonymous by design — the unguessable token IS the credential.
         app.MapGet("/feeds/{token}.ics", GetFeed).AllowAnonymous();
     }
 
     private static async Task<IResult> GetOrCreateToken(
-        long guildId, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
+        HttpContext context, GuildAccessService access, long guildId, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
+        if (await EventEndpoints.GuardGuildReadAsync(context, access, guildId, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
         await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
 
         var existing = await db.IcsFeedTokens.FirstOrDefaultAsync(t => t.GuildId == guildId, cancellationToken);

@@ -1,3 +1,4 @@
+using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -11,15 +12,22 @@ public static class NotificationEndpoints
     public static void MapNotificationEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/events/{id:guid}/notifications", List);
-        app.MapPost("/events/{id:guid}/notifications", Create);
-        app.MapDelete("/events/{id:guid}/notifications/{notificationId:guid}", Delete);
+        app.MapPost("/events/{id:guid}/notifications", Create).RequireAuthorization("BotOnly");
+        app.MapDelete("/events/{id:guid}/notifications/{notificationId:guid}", Delete).RequireAuthorization("BotOnly");
     }
 
-    private static async Task<IResult> List(Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> List(
+        HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
-        if (!await db.Events.AnyAsync(e => e.Id == id, cancellationToken))
+        var ev = await db.Events.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        if (ev is null)
         {
             return Results.NotFound();
+        }
+
+        if (await EventEndpoints.GuardEventReadAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
         }
 
         var notifications = await db.EventNotifications

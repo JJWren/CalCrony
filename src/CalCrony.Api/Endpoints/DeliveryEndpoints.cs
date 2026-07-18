@@ -14,9 +14,11 @@ public static class DeliveryEndpoints
 
     public static void MapDeliveryEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/deliveries/pending", GetPending);
-        app.MapPost("/deliveries/{id:guid}/ack", Ack);
-        app.MapPost("/reminders", CreateReminder);
+        // The outbox and reminder creation are bot-facing surfaces (Phase A).
+        var group = app.MapGroup("").RequireAuthorization("BotOnly");
+        group.MapGet("/deliveries/pending", GetPending);
+        group.MapPost("/deliveries/{id:guid}/ack", Ack);
+        group.MapPost("/reminders", CreateReminder);
     }
 
     private static async Task<IResult> GetPending(

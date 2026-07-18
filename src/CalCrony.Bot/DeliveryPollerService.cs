@@ -68,6 +68,12 @@ public sealed class DeliveryPollerService(
 
     private async Task PostAsync(DeliveryDto delivery)
     {
+        if (delivery.Type == DeliveryType.SyncEventMessage)
+        {
+            await SyncEventMessageAsync(delivery);
+            return;
+        }
+
         if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
         {
             throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
@@ -82,6 +88,31 @@ public sealed class DeliveryPollerService(
         };
 
         await channel.SendMessageAsync(text);
+    }
+
+    /// <summary>A web action changed event data shown on the posted Discord embed — re-render it.
+    /// Anything already gone (event deleted, message removed, channel missing) counts as done.</summary>
+    private async Task SyncEventMessageAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<SyncEventMessagePayload>(delivery.PayloadJson)!;
+        var result = await api.GetEventAsync(payload.EventId);
+        if (!result.Success || result.Value is null || result.Value.MessageId is not long messageId)
+        {
+            return;
+        }
+
+        var ev = result.Value;
+        if (await client.GetChannelAsync((ulong)ev.ChannelId) is not IMessageChannel channel ||
+            await channel.GetMessageAsync((ulong)messageId) is not IUserMessage message)
+        {
+            return;
+        }
+
+        await message.ModifyAsync(m =>
+        {
+            m.Embed = EventEmbedBuilder.Build(ev);
+            m.Components = EventEmbedBuilder.BuildComponents(ev);
+        });
     }
 
     private static string FormatReminder(string payloadJson)

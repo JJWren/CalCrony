@@ -1,3 +1,5 @@
+using System.Text.Json;
+using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
@@ -10,15 +12,97 @@ public static class EventEndpoints
 {
     public static void MapEventEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/guilds/{guildId:long}/events", CreateEvent);
+        // Phase A: web (JWT) callers may read and RSVP; every other mutation is BotOnly.
+        app.MapPost("/guilds/{guildId:long}/events", CreateEvent).RequireAuthorization("BotOnly");
         app.MapGet("/guilds/{guildId:long}/events", ListEvents);
         app.MapGet("/events/{id:guid}", GetEvent);
-        app.MapPatch("/events/{id:guid}", UpdateEvent);
-        app.MapDelete("/events/{id:guid}", DeleteEvent);
-        app.MapPut("/events/{id:guid}/message", SetMessage);
+        app.MapPatch("/events/{id:guid}", UpdateEvent).RequireAuthorization("BotOnly");
+        app.MapDelete("/events/{id:guid}", DeleteEvent).RequireAuthorization("BotOnly");
+        app.MapPut("/events/{id:guid}/message", SetMessage).RequireAuthorization("BotOnly");
         app.MapPut("/events/{id:guid}/rsvps/{userId:long}", PutRsvp);
         app.MapDelete("/events/{id:guid}/rsvps/{userId:long}", DeleteRsvp);
-        app.MapPost("/tools/parse-datetime", ParseDateTime);
+        app.MapPost("/tools/parse-datetime", ParseDateTime).RequireAuthorization("BotOnly");
+    }
+
+    /// <summary>Guild-read guard for web callers: bot passes, members pass, others get 403/stale.</summary>
+    internal static async Task<IResult?> GuardGuildReadAsync(
+        HttpContext context, GuildAccessService access, long guildId, CancellationToken cancellationToken)
+    {
+        if (context.User.IsBot())
+        {
+            return null;
+        }
+
+        var userId = context.User.WebUserId();
+        if (userId is null)
+        {
+            return GuildAccessService.Forbidden();
+        }
+
+        return await access.CheckAsync(userId.Value, guildId, cancellationToken) switch
+        {
+            GuildAccess.Stale => GuildAccessService.StaleSnapshot(),
+            GuildAccess.None => GuildAccessService.Forbidden(),
+            _ => null,
+        };
+    }
+
+    /// <summary>Event-read guard: like GuardGuildReadAsync but non-members get 404 so event ids
+    /// can't be probed for existence.</summary>
+    internal static async Task<IResult?> GuardEventReadAsync(
+        HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken)
+    {
+        if (context.User.IsBot())
+        {
+            return null;
+        }
+
+        var userId = context.User.WebUserId();
+        if (userId is null)
+        {
+            return Results.NotFound();
+        }
+
+        return await access.CheckAsync(userId.Value, ev.GuildId, cancellationToken) switch
+        {
+            GuildAccess.Stale => GuildAccessService.StaleSnapshot(),
+            GuildAccess.Member or GuildAccess.Manager => null,
+            _ => Results.NotFound(),
+        };
+    }
+
+    /// <summary>Enqueue a Discord-embed re-render for web-initiated changes. Bot callers skip
+    /// this (the bot edits the message itself); coalesces with an identical pending sync.</summary>
+    internal static async Task EnqueueEmbedSyncAsync(
+        HttpContext context, CalCronyDbContext db, Event ev, IClock clock, CancellationToken cancellationToken)
+    {
+        if (context.User.IsBot() || ev.MessageId is null)
+        {
+            return;
+        }
+
+        var payloadJson = JsonSerializer.Serialize(new SyncEventMessagePayload(ev.Id));
+        var alreadyQueued = await db.Deliveries.AnyAsync(
+            d => d.Type == DeliveryType.SyncEventMessage
+                 && d.Status == DeliveryStatus.Pending
+                 && d.PayloadJson == payloadJson,
+            cancellationToken);
+        if (alreadyQueued)
+        {
+            return;
+        }
+
+        var now = clock.GetCurrentInstant();
+        db.Deliveries.Add(new Delivery
+        {
+            Id = Guid.NewGuid(),
+            Type = DeliveryType.SyncEventMessage,
+            ChannelId = ev.ChannelId,
+            PayloadJson = payloadJson,
+            DueAt = now,
+            Status = DeliveryStatus.Pending,
+            CreatedAt = now,
+        });
     }
 
     private static async Task<IResult> CreateEvent(
@@ -66,6 +150,8 @@ public static class EventEndpoints
     }
 
     private static async Task<IResult> ListEvents(
+        HttpContext context,
+        GuildAccessService access,
         long guildId,
         CalCronyDbContext db,
         IClock clock,
@@ -74,6 +160,11 @@ public static class EventEndpoints
         int limit = 10,
         bool includePast = false)
     {
+        if (await GuardGuildReadAsync(context, access, guildId, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
         limit = Math.Clamp(limit, 1, 25);
         var query = db.Events
             .Include(e => e.Options)
@@ -95,10 +186,21 @@ public static class EventEndpoints
         return Results.Ok(events.Select(e => e.ToDto()));
     }
 
-    private static async Task<IResult> GetEvent(Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> GetEvent(
+        HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
         var ev = await LoadEventAsync(db, id, cancellationToken);
-        return ev is null ? Results.NotFound() : Results.Ok(ev.ToDto());
+        if (ev is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await GuardEventReadAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        return Results.Ok(ev.ToDto());
     }
 
     private static async Task<IResult> UpdateEvent(
@@ -158,6 +260,8 @@ public static class EventEndpoints
     }
 
     private static async Task<IResult> PutRsvp(
+        HttpContext context,
+        GuildAccessService access,
         Guid id,
         long userId,
         RsvpRequest request,
@@ -169,6 +273,16 @@ public static class EventEndpoints
         if (ev is null)
         {
             return Results.NotFound();
+        }
+
+        if (await GuardEventReadAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
         }
 
         var option = ev.Options.FirstOrDefault(o => o.Id == request.OptionId);
@@ -206,12 +320,19 @@ public static class EventEndpoints
             existing.CreatedAt = clock.GetCurrentInstant();
         }
 
+        await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ev.ToDto());
     }
 
     private static async Task<IResult> DeleteRsvp(
-        Guid id, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        long userId,
+        CalCronyDbContext db,
+        IClock clock,
+        CancellationToken cancellationToken)
     {
         var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
@@ -219,11 +340,22 @@ public static class EventEndpoints
             return Results.NotFound();
         }
 
+        if (await GuardEventReadAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
+        }
+
         var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
         if (existing is not null)
         {
             db.Rsvps.Remove(existing);
             ev.Rsvps.Remove(existing);
+            await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
 

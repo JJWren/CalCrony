@@ -1,3 +1,4 @@
+using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Contracts;
 
@@ -8,14 +9,19 @@ public static class SettingsEndpoints
     public static void MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/guilds/{guildId:long}/settings", GetGuildSettings);
-        app.MapPut("/guilds/{guildId:long}/settings", PutGuildSettings);
+        app.MapPut("/guilds/{guildId:long}/settings", PutGuildSettings).RequireAuthorization("BotOnly");
         app.MapGet("/users/{userId:long}/settings", GetUserSettings);
-        app.MapPut("/users/{userId:long}/settings", PutUserSettings);
+        app.MapPut("/users/{userId:long}/settings", PutUserSettings).RequireAuthorization("BotOnly");
     }
 
     private static async Task<IResult> GetGuildSettings(
-        long guildId, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context, GuildAccessService access, long guildId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
+        if (await EventEndpoints.GuardGuildReadAsync(context, access, guildId, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
         var guild = await db.Guilds.FindAsync([guildId], cancellationToken);
         return Results.Ok(new GuildSettingsDto(guild?.TimeZone ?? "UTC", guild?.DefaultChannelId));
     }
@@ -36,8 +42,13 @@ public static class SettingsEndpoints
     }
 
     private static async Task<IResult> GetUserSettings(
-        long userId, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
+        }
+
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
         return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true));
     }
