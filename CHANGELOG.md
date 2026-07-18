@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/JJWren/CalCrony/compare/v0.3.0...v0.4.0) (2026-07-18)
+
+
+### Features
+
+* add CalCrony.Web mutation parity ([#13](https://github.com/JJWren/CalCrony/issues/13)) ([b2c9b7a](https://github.com/JJWren/CalCrony/commit/b2c9b7aa709276d112470129a5ca8de20e6680a0))
+
+
+### Bug Fixes
+
+* sidebar navigation blocked by offcanvas dismiss and heading focus ring ([#11](https://github.com/JJWren/CalCrony/issues/11)) ([7d30332](https://github.com/JJWren/CalCrony/commit/7d3033263891e3c2c611eac1d46d686c6c5d2d7b))
+
 ## [0.3.0](https://github.com/JJWren/CalCrony/compare/v0.2.0...v0.3.0) (2026-07-18)
 
 
