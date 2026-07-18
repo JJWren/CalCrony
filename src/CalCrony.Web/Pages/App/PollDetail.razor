@@ -169,6 +169,14 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        // Reset load errors and per-poll transient state so a retried load (or navigation
+        // to another poll) doesn't stay stuck on a stale error or confirm prompt.
+        error = null;
+        addOptionError = null;
+        convertError = null;
+        confirmingClose = false;
+        confirmingDelete = false;
+
         var result = await Api.GetPollAsync(PollId);
         if (!result.Success || result.Value is null)
         {
@@ -178,8 +186,11 @@ else
 
         poll = result.Value;
         convertTitle = poll.Question.Length > 128 ? poll.Question[..128] : poll.Question;
-        isGuildManager = (await Api.GetMyGuildsAsync()).Value?.Guilds
-            .Any(g => g.Id == poll.GuildId && g.CanManage) ?? false;
+        var guilds = await Api.GetMyGuildsAsync();
+        if (guilds.Success && guilds.Value is not null)
+        {
+            isGuildManager = guilds.Value.Guilds.Any(g => g.Id == poll.GuildId && g.CanManage);
+        }
     }
 
     private async Task PreviewNewOptionAsync()

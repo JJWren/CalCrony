@@ -3,7 +3,7 @@
 <div class="d-flex flex-column gap-2">
     @foreach (var option in Poll.Options)
     {
-        var isMine = MyOptionIds.Contains(option.Id);
+        var isMine = myOptionIds.Contains(option.Id);
         var share = maxVotes == 0 ? 0 : (double)option.VoteCount / maxVotes;
         <div>
             <button type="button"
@@ -59,20 +59,27 @@
     private bool busy;
     private string? error;
 
-    private int maxVotes => Poll.Options.Count == 0 ? 0 : Poll.Options.Max(o => o.VoteCount);
+    // Cached once per parameter set — computing these per option in the render loop
+    // would allocate and re-enumerate Votes O(options × votes) times.
+    private HashSet<Guid> myOptionIds = [];
+    private int maxVotes;
+    private Guid? winnerId;
 
-    private HashSet<Guid> MyOptionIds =>
-        [.. Poll.Votes.Where(v => v.UserId == UserId).Select(v => v.OptionId)];
+    protected override void OnParametersSet()
+    {
+        myOptionIds = [.. Poll.Votes.Where(v => v.UserId == UserId).Select(v => v.OptionId)];
+        maxVotes = Poll.Options.Count == 0 ? 0 : Poll.Options.Max(o => o.VoteCount);
+        winnerId = Poll.Status == PollStatus.Closed && Poll.Options.Count > 0
+            ? Poll.Options.OrderByDescending(o => o.VoteCount).First().Id
+            : null;
+    }
 
-    private bool IsWinner(PollOptionDto option) =>
-        Poll.Status == PollStatus.Closed &&
-        Poll.Options.Count > 0 &&
-        Poll.Options.OrderByDescending(o => o.VoteCount).First().Id == option.Id;
+    private bool IsWinner(PollOptionDto option) => winnerId == option.Id;
 
     private async Task ToggleAsync(Guid optionId, bool isMine)
     {
         error = null;
-        var next = new HashSet<Guid>(MyOptionIds);
+        var next = new HashSet<Guid>(myOptionIds);
         if (Poll.SingleVote)
         {
             next = isMine ? [] : [optionId];
