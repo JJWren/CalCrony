@@ -1,0 +1,290 @@
+@page "/app/polls/{PollId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject AuthApiClient AuthApi
+@inject NavigationManager Nav
+
+<PageTitle>Poll — CalCrony</PageTitle>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (poll is null)
+{
+    <div class="spinner-border text-primary" role="status"></div>
+}
+else
+{
+    <p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@poll.GuildId/polls">← Back to polls</a></p>
+    <div class="d-flex gap-3 align-items-start flex-wrap">
+        <div class="flex-grow-1 min-w-0">
+            <h1 class="h3 mb-1">@(poll.IsTimePoll ? "🗓️" : "📊") @poll.Question</h1>
+            <div class="meta-mono d-flex gap-2 flex-wrap align-items-center">
+                @if (poll.Status == PollStatus.Closed)
+                {
+                    <span class="badge text-bg-secondary">Closed</span>
+                }
+                else if (poll.ClosesAtUtc is { } closes)
+                {
+                    <span>closes <LocalTime Utc="closes" /></span>
+                }
+                @if (poll.Anonymous)
+                {
+                    <span class="badge text-bg-secondary">Anonymous</span>
+                }
+                @if (poll.SingleVote)
+                {
+                    <span class="badge text-bg-secondary">Single vote</span>
+                }
+                <span>@TotalVotes vote@(TotalVotes == 1 ? "" : "s")</span>
+            </div>
+        </div>
+        @if (CanManage)
+        {
+            <div class="d-flex gap-2 flex-shrink-0">
+                @if (poll.Status == PollStatus.Open)
+                {
+                    @if (!confirmingClose)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => confirmingClose = true">Close poll</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary btn-sm" @onclick="CloseAsync" disabled="@busy">Really close?</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingClose = false">Keep open</button>
+                    }
+                }
+                @if (!confirmingDelete)
+                {
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingDelete = true">Delete</button>
+                }
+                else
+                {
+                    <button class="btn btn-danger btn-sm" @onclick="DeleteAsync" disabled="@busy">Really delete?</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingDelete = false">Keep</button>
+                }
+            </div>
+        }
+    </div>
+
+    <h2 class="h5 mt-4 mb-2">@(poll.Status == PollStatus.Open ? "Your vote" : "Results")</h2>
+    <div class="card p-3" style="max-width:560px">
+        <PollVotePanel Poll="poll" UserId="UserId" OnChanged="dto => poll = dto"
+                       NameResolver="@(poll.Anonymous ? null : NameFor)" />
+        @if (poll.Anonymous)
+        {
+            <p class="meta-mono mt-2 mb-0">🕶️ Anonymous poll — only counts are shown, but your own picks stay highlighted.</p>
+        }
+        @if (poll.Status == PollStatus.Open && !poll.SingleVote)
+        {
+            <p class="meta-mono mt-2 mb-0">Pick every option that works — clicking again removes it.</p>
+        }
+    </div>
+    <p class="meta-mono mt-2"><span class="status-dot status-free"></span> changes update the Discord embed within ~15 seconds</p>
+
+    @if (CanAddOption)
+    {
+        <h2 class="h6 mt-4 mb-2">Add an option <span class="meta-mono fw-normal">(@poll.Options.Count/10)</span></h2>
+        <div class="card p-3" style="max-width:560px">
+            <div class="d-flex gap-2 align-items-start">
+                <div class="flex-grow-1">
+                    <input class="form-control form-control-sm" maxlength="100" aria-label="New option"
+                           placeholder="@(poll.IsTimePoll ? "saturday 7pm" : "another choice")"
+                           @bind="newOptionText" @bind:after="PreviewNewOptionAsync" />
+                    @if (poll.IsTimePoll && newOptionPreview is not null)
+                    {
+                        <div class="form-text text-primary mb-0">→ <LocalTime Utc="newOptionPreview.Value" /></div>
+                    }
+                    else if (poll.IsTimePoll && newOptionParseError is not null)
+                    {
+                        <div class="form-text text-danger mb-0">@newOptionParseError</div>
+                    }
+                </div>
+                <button class="btn btn-outline-primary btn-sm flex-shrink-0" @onclick="AddOptionAsync" disabled="@busy">Add</button>
+            </div>
+            @if (addOptionError is not null)
+            {
+                <div class="alert alert-danger py-1 mt-2 mb-0 small">@addOptionError</div>
+            }
+        </div>
+    }
+
+    @if (poll.IsTimePoll && poll.ConvertedEventId is { } eventId)
+    {
+        <div class="card p-3 mt-4" style="max-width:560px">
+            <div class="fw-semibold">🎉 Event created from this poll</div>
+            <a class="mt-1" href="/app/events/@eventId">View the event →</a>
+        </div>
+    }
+    else if (poll.IsTimePoll && poll.Status == PollStatus.Closed && CanManage)
+    {
+        <h2 class="h6 mt-4 mb-2">Create event from winner</h2>
+        <div class="card p-3" style="max-width:560px">
+            <p class="text-body-secondary small mb-2">Schedules the winning time slot as a regular event with RSVP buttons, posted to the poll's channel.</p>
+            <div class="mb-2">
+                <label class="form-label small mb-1" for="conv-title">Event title</label>
+                <input id="conv-title" class="form-control form-control-sm" maxlength="128" @bind="convertTitle" />
+            </div>
+            <div class="d-flex gap-2 align-items-end flex-wrap">
+                <div>
+                    <label class="form-label small mb-1" for="conv-duration">Duration (min)</label>
+                    <input id="conv-duration" class="form-control form-control-sm" type="number" min="1" max="1440" style="width:8rem" @bind="convertDuration" />
+                </div>
+                <button class="btn btn-primary btn-sm" @onclick="ConvertAsync" disabled="@busy">📅 Create event</button>
+            </div>
+            @if (convertError is not null)
+            {
+                <div class="alert alert-danger py-1 mt-2 mb-0 small">@convertError</div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid PollId { get; set; }
+
+    private PollDto? poll;
+    private string? error;
+    private bool busy;
+    private bool confirmingClose;
+    private bool confirmingDelete;
+    private bool isGuildManager;
+    private string? newOptionText;
+    private DateTimeOffset? newOptionPreview;
+    private string? newOptionParseError;
+    private string? addOptionError;
+    private string convertTitle = "";
+    private int? convertDuration = 60;
+    private string? convertError;
+
+    private long UserId => AuthApi.Session?.UserId ?? 0;
+
+    private bool CanManage => poll is not null && (poll.CreatorId == UserId || isGuildManager);
+
+    private int TotalVotes => poll?.Options.Sum(o => o.VoteCount) ?? 0;
+
+    private bool CanAddOption =>
+        poll is { Status: PollStatus.Open, Options.Count: < 10 } && (poll.AllowUserOptions || CanManage);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reset load errors and per-poll transient state so a retried load (or navigation
+        // to another poll) doesn't stay stuck on a stale error or confirm prompt.
+        error = null;
+        addOptionError = null;
+        convertError = null;
+        confirmingClose = false;
+        confirmingDelete = false;
+
+        var result = await Api.GetPollAsync(PollId);
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error ?? "Poll not found.";
+            return;
+        }
+
+        poll = result.Value;
+        convertTitle = poll.Question.Length > 128 ? poll.Question[..128] : poll.Question;
+        var guilds = await Api.GetMyGuildsAsync();
+        if (guilds.Success && guilds.Value is not null)
+        {
+            isGuildManager = guilds.Value.Guilds.Any(g => g.Id == poll.GuildId && g.CanManage);
+        }
+    }
+
+    private async Task PreviewNewOptionAsync()
+    {
+        newOptionPreview = null;
+        newOptionParseError = null;
+        if (poll is not { IsTimePoll: true } || string.IsNullOrWhiteSpace(newOptionText))
+        {
+            return;
+        }
+
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(newOptionText, null, poll.GuildId));
+        if (result.Success && result.Value is not null)
+        {
+            newOptionPreview = result.Value.Utc;
+        }
+        else
+        {
+            newOptionParseError = result.Error;
+        }
+    }
+
+    private async Task AddOptionAsync()
+    {
+        addOptionError = null;
+        if (string.IsNullOrWhiteSpace(newOptionText))
+        {
+            return;
+        }
+
+        busy = true;
+        // UserId is forced server-side for web callers; 0 is a placeholder.
+        var result = await Api.AddPollOptionAsync(PollId, new AddPollOptionRequest(0, newOptionText.Trim()));
+        busy = false;
+
+        if (!result.Success || result.Value is null)
+        {
+            addOptionError = result.Error;
+            return;
+        }
+
+        poll = result.Value;
+        newOptionText = null;
+        newOptionPreview = null;
+    }
+
+    private async Task CloseAsync()
+    {
+        busy = true;
+        var result = await Api.ClosePollAsync(PollId);
+        busy = false;
+        confirmingClose = false;
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        poll = result.Value;
+    }
+
+    private async Task DeleteAsync()
+    {
+        busy = true;
+        var result = await Api.DeletePollAsync(PollId);
+        busy = false;
+        if (!result.Success)
+        {
+            error = result.Error;
+            return;
+        }
+
+        Nav.NavigateTo($"/app/guilds/{poll!.GuildId}/polls");
+    }
+
+    private async Task ConvertAsync()
+    {
+        convertError = null;
+        busy = true;
+        // UserId is forced server-side for web callers; 0 is a placeholder.
+        var result = await Api.ConvertPollAsync(PollId, new ConvertPollRequest(
+            0, string.IsNullOrWhiteSpace(convertTitle) ? null : convertTitle, convertDuration));
+        busy = false;
+
+        if (!result.Success || result.Value is null)
+        {
+            convertError = result.Error;
+            return;
+        }
+
+        Nav.NavigateTo($"/app/events/{result.Value.Id}");
+    }
+
+    // The web only knows Discord user ids from vote rows; show the session name for the signed-in user.
+    private string NameFor(long userId) =>
+        userId == UserId ? (AuthApi.Session?.Username ?? "you") : $"user {userId}";
+}

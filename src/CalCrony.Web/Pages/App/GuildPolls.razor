@@ -1,0 +1,90 @@
+@page "/app/guilds/{GuildId:long}/polls"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+
+<PageTitle>Polls — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="/app">← My servers</a></p>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <h1 class="h3 mb-0">Polls</h1>
+        <GuildTabs GuildId="GuildId" Active="polls" />
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="showClosed" @bind="showClosed" @bind:after="LoadAsync" />
+            <label class="form-check-label meta-mono" for="showClosed">show closed</label>
+        </div>
+        <a class="btn btn-primary btn-sm" href="/app/guilds/@GuildId/polls/new">＋ New poll</a>
+    </div>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger mt-3">@error</div>
+}
+else if (polls is null)
+{
+    <div class="spinner-border text-primary mt-3" role="status"></div>
+}
+else if (polls.Count == 0)
+{
+    <p class="text-body-secondary mt-3">No @(showClosed ? "closed" : "open") polls — start one here or in Discord with <code>/poll create</code>.</p>
+}
+else
+{
+    <div class="d-flex flex-column gap-3 mt-3">
+        @foreach (var poll in polls)
+        {
+            var totalVotes = poll.Options.Sum(o => o.VoteCount);
+            <a class="card p-3 text-decoration-none" href="/app/polls/@poll.Id">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="fs-5">@(poll.IsTimePoll ? "🗓️" : "📊")</span>
+                    <span class="fw-semibold flex-grow-1 min-w-0">@poll.Question</span>
+                    @if (poll.Status == PollStatus.Closed)
+                    {
+                        <span class="badge text-bg-secondary">Closed</span>
+                    }
+                    @if (poll.Anonymous)
+                    {
+                        <span class="badge text-bg-secondary">Anonymous</span>
+                    }
+                </div>
+                <div class="meta-mono mt-1 d-flex gap-3 flex-wrap">
+                    <span>@poll.Options.Count options · @totalVotes vote@(totalVotes == 1 ? "" : "s")</span>
+                    @if (poll.Status == PollStatus.Open && poll.ClosesAtUtc is { } closes)
+                    {
+                        <span>closes <LocalTime Utc="closes" /></span>
+                    }
+                    @if (poll.ConvertedEventId is not null)
+                    {
+                        <span>🎉 event created</span>
+                    }
+                </div>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private List<PollDto>? polls;
+    private string? error;
+    private bool showClosed;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.ListPollsAsync(GuildId, showClosed ? PollStatus.Closed : PollStatus.Open);
+        if (!result.Success)
+        {
+            error = result.Error;
+            return;
+        }
+
+        error = null;
+        polls = result.Value;
+    }
+}

@@ -78,6 +78,33 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     public Task<ApiResult<ParseDateTimeResponse>> ParseDateTimeAsync(ParseDateTimeRequest request, CancellationToken ct = default) =>
         SendAsync<ParseDateTimeResponse>(http.PostAsJsonAsync("/tools/parse-datetime", request, ct), ct);
 
+    public Task<ApiResult<List<PollDto>>> ListPollsAsync(long guildId, PollStatus? status = null, CancellationToken ct = default)
+    {
+        var query = "?limit=25" + (status is null ? "" : $"&status={status}");
+        return SendAsync<List<PollDto>>(http.GetAsync($"/guilds/{guildId}/polls{query}", ct), ct);
+    }
+
+    public Task<ApiResult<PollDto>> GetPollAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.GetAsync($"/polls/{id}", ct), ct);
+
+    public Task<ApiResult<PollDto>> CreatePollAsync(long guildId, CreatePollRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PostAsJsonAsync($"/guilds/{guildId}/polls", request, ct), ct);
+
+    public Task<ApiResult<PollDto>> PutPollVotesAsync(Guid pollId, long userId, PutPollVotesRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PutAsJsonAsync($"/polls/{pollId}/votes/{userId}", request, ct), ct);
+
+    public Task<ApiResult<PollDto>> AddPollOptionAsync(Guid pollId, AddPollOptionRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PostAsJsonAsync($"/polls/{pollId}/options", request, ct), ct);
+
+    public Task<ApiResult<PollDto>> ClosePollAsync(Guid pollId, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PostAsync($"/polls/{pollId}/close", null, ct), ct);
+
+    public Task<ApiResult<EventDto>> ConvertPollAsync(Guid pollId, ConvertPollRequest request, CancellationToken ct = default) =>
+        SendAsync<EventDto>(http.PostAsJsonAsync($"/polls/{pollId}/convert", request, ct), ct);
+
+    public Task<ApiResult<Unit>> DeletePollAsync(Guid pollId, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/polls/{pollId}", ct), ct);
+
     public string FeedUrl(FeedTokenDto token) => $"{http.BaseAddress!.ToString().TrimEnd('/')}{token.Path}";
 
     public readonly record struct Unit;
