@@ -68,6 +68,33 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<FeedTokenDto>> GetOrCreateFeedTokenAsync(long guildId, CancellationToken ct = default) =>
         SendAsync<FeedTokenDto>(http.PostAsync($"/guilds/{guildId}/feed-token", null, ct), ct);
 
+    public Task<ApiResult<PollDto>> CreatePollAsync(long guildId, CreatePollRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PostAsJsonAsync($"/guilds/{guildId}/polls", request, ct), ct);
+
+    public Task<ApiResult<List<PollDto>>> ListPollsAsync(long guildId, PollStatus? status = null, int limit = 25, CancellationToken ct = default)
+    {
+        var query = $"?limit={limit}" + (status is null ? "" : $"&status={status}");
+        return SendAsync<List<PollDto>>(http.GetAsync($"/guilds/{guildId}/polls{query}", ct), ct);
+    }
+
+    public Task<ApiResult<PollDto>> GetPollAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.GetAsync($"/polls/{id}", ct), ct);
+
+    public Task<ApiResult<PollDto>> SetPollMessageAsync(Guid id, SetPollMessageRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PutAsJsonAsync($"/polls/{id}/message", request, ct), ct);
+
+    public Task<ApiResult<PollDto>> PutPollVotesAsync(Guid pollId, long userId, PutPollVotesRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PutAsJsonAsync($"/polls/{pollId}/votes/{userId}", request, ct), ct);
+
+    public Task<ApiResult<PollDto>> AddPollOptionAsync(Guid pollId, AddPollOptionRequest request, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PostAsJsonAsync($"/polls/{pollId}/options", request, ct), ct);
+
+    public Task<ApiResult<PollDto>> ClosePollAsync(Guid pollId, CancellationToken ct = default) =>
+        SendAsync<PollDto>(http.PostAsync($"/polls/{pollId}/close", null, ct), ct);
+
+    public Task<ApiResult<EventDto>> ConvertPollAsync(Guid pollId, ConvertPollRequest request, CancellationToken ct = default) =>
+        SendAsync<EventDto>(http.PostAsJsonAsync($"/polls/{pollId}/convert", request, ct), ct);
+
     public Task<ApiResult<CalendarLinkTokenDto>> CreateCalendarLinkTokenAsync(long userId, CancellationToken ct = default) =>
         SendAsync<CalendarLinkTokenDto>(http.PostAsync($"/calendar/connections/{userId}/link-token", null, ct), ct);
 

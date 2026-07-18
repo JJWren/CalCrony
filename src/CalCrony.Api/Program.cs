@@ -128,6 +128,7 @@ var version = typeof(Program).Assembly
     .InformationalVersion ?? "unknown";
 app.MapGet("/health", () => Results.Ok(new { status = "ok", version })).AllowAnonymous();
 app.MapEventEndpoints();
+app.MapPollEndpoints();
 app.MapSettingsEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();

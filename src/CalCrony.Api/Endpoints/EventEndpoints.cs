@@ -53,6 +53,14 @@ public static class EventEndpoints
         };
     }
 
+    /// <summary>The standard RSVP option set every event starts with (also used by poll conversion).</summary>
+    internal static List<RsvpOption> DefaultRsvpOptions() =>
+    [
+        new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", SortOrder = 0 },
+        new RsvpOption { Id = Guid.NewGuid(), Emote = "❌", Label = "Not going", SortOrder = 1 },
+        new RsvpOption { Id = Guid.NewGuid(), Emote = "🤔", Label = "Maybe", SortOrder = 2 },
+    ];
+
     /// <summary>Guild-read guard for web callers: bot passes, members pass, others get 403/stale.</summary>
     internal static async Task<IResult?> GuardGuildReadAsync(
         HttpContext context, GuildAccessService access, long guildId, CancellationToken cancellationToken)
@@ -193,12 +201,7 @@ public static class EventEndpoints
             ImageUrl = request.ImageUrl,
             Status = EventStatus.Scheduled,
             CreatedAt = now,
-            Options =
-            [
-                new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", SortOrder = 0 },
-                new RsvpOption { Id = Guid.NewGuid(), Emote = "❌", Label = "Not going", SortOrder = 1 },
-                new RsvpOption { Id = Guid.NewGuid(), Emote = "🤔", Label = "Maybe", SortOrder = 2 },
-            ],
+            Options = DefaultRsvpOptions(),
         };
         db.Events.Add(ev);
 

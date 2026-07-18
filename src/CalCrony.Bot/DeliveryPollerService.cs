@@ -86,6 +86,24 @@ public sealed class DeliveryPollerService(
             return;
         }
 
+        if (delivery.Type == DeliveryType.SyncPollMessage)
+        {
+            await SyncPollMessageAsync(delivery);
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.PostPollMessage)
+        {
+            await PostPollMessageAsync(delivery);
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.DeletePollMessage)
+        {
+            await DeletePollMessageAsync(delivery);
+            return;
+        }
+
         if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
         {
             throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
@@ -181,6 +199,81 @@ public sealed class DeliveryPollerService(
             m.Embed = EventEmbedBuilder.Build(ev);
             m.Components = EventEmbedBuilder.BuildComponents(ev);
         });
+    }
+
+    /// <summary>A web/scheduler action changed poll data shown on the posted embed — re-render.
+    /// Anything already gone counts as done.</summary>
+    private async Task SyncPollMessageAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<SyncPollMessagePayload>(delivery.PayloadJson)!;
+        var result = await api.GetPollAsync(payload.PollId);
+        if (!result.Success || result.Value is null || result.Value.MessageId is not long messageId)
+        {
+            return;
+        }
+
+        var poll = result.Value;
+        if (await client.GetChannelAsync((ulong)poll.ChannelId) is not IMessageChannel channel ||
+            await channel.GetMessageAsync((ulong)messageId) is not IUserMessage message)
+        {
+            return;
+        }
+
+        await message.ModifyAsync(m =>
+        {
+            m.Embed = PollEmbedBuilder.Build(poll);
+            m.Components = PollEmbedBuilder.BuildComponents(poll);
+        });
+    }
+
+    /// <summary>A web-created poll needs its embed posted; mirrors PostEventMessageAsync,
+    /// including the compensating delete when recording the message id fails.</summary>
+    private async Task PostPollMessageAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<PostPollMessagePayload>(delivery.PayloadJson)!;
+        var result = await api.GetPollAsync(payload.PollId);
+        if (!result.Success || result.Value is null || result.Value.MessageId is not null)
+        {
+            return;
+        }
+
+        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
+        {
+            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
+        }
+
+        var poll = result.Value;
+        var message = await channel.SendMessageAsync(
+            embed: PollEmbedBuilder.Build(poll),
+            components: PollEmbedBuilder.BuildComponents(poll));
+
+        var recorded = await api.SetPollMessageAsync(poll.Id, new SetPollMessageRequest(delivery.ChannelId, (long)message.Id));
+        if (!recorded.Success)
+        {
+            try
+            {
+                await message.DeleteAsync();
+            }
+            catch
+            {
+                // Best effort; a stray embed beats one that never syncs.
+            }
+
+            throw new InvalidOperationException($"Failed to record posted poll message id: {recorded.Error}");
+        }
+    }
+
+    /// <summary>A web-deleted poll's embed should disappear; ids were captured pre-delete.</summary>
+    private async Task DeletePollMessageAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<DeletePollMessagePayload>(delivery.PayloadJson)!;
+        if (await client.GetChannelAsync((ulong)payload.ChannelId) is not IMessageChannel channel ||
+            await channel.GetMessageAsync((ulong)payload.MessageId) is not IMessage message)
+        {
+            return;
+        }
+
+        await message.DeleteAsync();
     }
 
     private static string FormatReminder(string payloadJson)
