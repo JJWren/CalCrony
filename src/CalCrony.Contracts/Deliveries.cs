@@ -14,6 +14,15 @@ public enum DeliveryType
 
     /// <summary>Delete a web-deleted event's posted embed (ids captured before the row died).</summary>
     DeleteEventMessage = 5,
+
+    /// <summary>Re-render a poll's posted Discord embed (votes/options/status changed).</summary>
+    SyncPollMessage = 6,
+
+    /// <summary>Post the embed for a web-created poll.</summary>
+    PostPollMessage = 7,
+
+    /// <summary>Delete a web-deleted poll's posted embed (ids captured before the row died).</summary>
+    DeletePollMessage = 8,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -30,6 +39,12 @@ public record SyncEventMessagePayload(Guid EventId);
 public record PostEventMessagePayload(Guid EventId);
 
 public record DeleteEventMessagePayload(long ChannelId, long MessageId);
+
+public record SyncPollMessagePayload(Guid PollId);
+
+public record PostPollMessagePayload(Guid PollId);
+
+public record DeletePollMessagePayload(long ChannelId, long MessageId);
 
 public record CreateReminderRequest(long GuildId, long UserId, long ChannelId, string WhenText, string Text);
 

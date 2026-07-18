@@ -78,6 +78,26 @@ public sealed class DeliveryScheduler(CalCronyDbContext db, ILogger<DeliverySche
             }
         }
 
+        // Auto-close polls whose deadline passed; re-render their embeds in the closed state.
+        var closingPolls = await db.Polls
+            .Where(p => p.Status == PollStatus.Open && p.ClosesAt != null && p.ClosesAt <= now)
+            .ToListAsync(cancellationToken);
+        foreach (var poll in closingPolls)
+        {
+            poll.Status = PollStatus.Closed;
+            poll.ClosedAt = now;
+            if (poll.MessageId is not null)
+            {
+                db.Deliveries.Add(NewDelivery(
+                    DeliveryType.SyncPollMessage,
+                    poll.ChannelId,
+                    new SyncPollMessagePayload(poll.Id),
+                    now,
+                    now));
+                enqueued++;
+            }
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         if (enqueued > 0)
         {

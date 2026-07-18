@@ -10,6 +10,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<Event> Events => Set<Event>();
     public DbSet<RsvpOption> RsvpOptions => Set<RsvpOption>();
     public DbSet<Rsvp> Rsvps => Set<Rsvp>();
+    public DbSet<Poll> Polls => Set<Poll>();
+    public DbSet<PollOption> PollOptions => Set<PollOption>();
+    public DbSet<PollVote> PollVotes => Set<PollVote>();
     public DbSet<EventNotification> EventNotifications => Set<EventNotification>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
@@ -65,6 +68,26 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             // One RSVP per user per event in v1; multi-select is a later premium-parity feature.
             e.HasIndex(r => new { r.EventId, r.UserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<Poll>(e =>
+        {
+            e.Property(p => p.Question).HasMaxLength(252);
+            e.Property(p => p.TimeZone).HasMaxLength(64);
+            e.HasIndex(p => new { p.GuildId, p.CreatedAt });
+            e.HasIndex(p => new { p.Status, p.ClosesAt });
+            e.HasMany(p => p.Options).WithOne().HasForeignKey(o => o.PollId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(p => p.Votes).WithOne().HasForeignKey(v => v.PollId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PollOption>(e =>
+        {
+            e.Property(o => o.Text).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<PollVote>(e =>
+        {
+            e.HasIndex(v => new { v.PollId, v.UserId, v.OptionId }).IsUnique();
         });
 
         modelBuilder.Entity<EventNotification>(e =>

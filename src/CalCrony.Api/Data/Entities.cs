@@ -72,6 +72,59 @@ public class Rsvp
     public Instant CreatedAt { get; set; }
 }
 
+public class Poll
+{
+    public Guid Id { get; set; }
+    public long GuildId { get; set; }
+    public long CreatorId { get; set; }
+    public required string Question { get; set; }
+    public bool IsTimePoll { get; set; }
+    public bool SingleVote { get; set; }
+    public bool Anonymous { get; set; }
+    public bool AllowUserOptions { get; set; }
+    public long ChannelId { get; set; }
+    public long? MessageId { get; set; }
+    public Contracts.PollStatus Status { get; set; }
+    public Instant? ClosesAt { get; set; }
+    public Instant? ClosedAt { get; set; }
+
+    /// <summary>Creator's zone at creation; later-added time slots parse in it (mirrors Event.TimeZone).</summary>
+    public string TimeZone { get; set; } = "UTC";
+
+    /// <summary>Set once when a time poll's winner becomes an event — the convert-idempotency guard.</summary>
+    public Guid? ConvertedEventId { get; set; }
+
+    public Instant CreatedAt { get; set; }
+    public List<PollOption> Options { get; set; } = [];
+    public List<PollVote> Votes { get; set; } = [];
+}
+
+public class PollOption
+{
+    public Guid Id { get; set; }
+    public Guid PollId { get; set; }
+    public required string Text { get; set; }
+
+    /// <summary>Time polls only: the resolved slot this option represents.</summary>
+    public Instant? SlotAt { get; set; }
+
+    /// <summary>Null when supplied at creation; set for voter-added options.</summary>
+    public long? AddedByUserId { get; set; }
+
+    public int SortOrder { get; set; }
+}
+
+/// <summary>Row-per-option: multi-vote polls have several rows per user; single-vote is
+/// enforced in handler logic, not schema.</summary>
+public class PollVote
+{
+    public Guid Id { get; set; }
+    public Guid PollId { get; set; }
+    public long UserId { get; set; }
+    public Guid OptionId { get; set; }
+    public Instant CreatedAt { get; set; }
+}
+
 /// <summary>A scheduled ping relative to an event's start; fire time is recomputed from the
 /// event's current StartsAt each scheduler sweep, so edits to the event shift pings automatically.</summary>
 public class EventNotification
