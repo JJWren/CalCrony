@@ -15,6 +15,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
     public DbSet<CalendarConnection> CalendarConnections => Set<CalendarConnection>();
     public DbSet<CalendarLinkToken> CalendarLinkTokens => Set<CalendarLinkToken>();
+    public DbSet<WebLoginState> WebLoginStates => Set<WebLoginState>();
+    public DbSet<WebRefreshToken> WebRefreshTokens => Set<WebRefreshToken>();
+    public DbSet<UserGuildMembership> UserGuildMemberships => Set<UserGuildMembership>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +38,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             e.Property(u => u.Id).ValueGeneratedNever();
             e.Property(u => u.TimeZone).HasMaxLength(64);
+            e.Property(u => u.Username).HasMaxLength(64);
+            e.Property(u => u.AvatarHash).HasMaxLength(64);
         });
 
         modelBuilder.Entity<Event>(e =>
@@ -92,6 +97,27 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             e.Property(t => t.Token).HasMaxLength(64);
             e.HasIndex(t => t.Token).IsUnique();
+        });
+
+        modelBuilder.Entity<WebLoginState>(e =>
+        {
+            e.Property(t => t.Token).HasMaxLength(64);
+            e.Property(t => t.ReturnUrl).HasMaxLength(256);
+            e.HasIndex(t => t.Token).IsUnique();
+        });
+
+        modelBuilder.Entity<WebRefreshToken>(e =>
+        {
+            e.Property(t => t.TokenHash).HasMaxLength(64);
+            e.HasIndex(t => t.TokenHash).IsUnique();
+            e.HasIndex(t => t.UserId);
+        });
+
+        modelBuilder.Entity<UserGuildMembership>(e =>
+        {
+            e.HasKey(m => new { m.UserId, m.GuildId });
+            e.Property(m => m.GuildName).HasMaxLength(128);
+            e.Property(m => m.IconHash).HasMaxLength(64);
         });
     }
 }

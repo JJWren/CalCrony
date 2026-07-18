@@ -5,6 +5,9 @@ public enum DeliveryType
     Reminder = 0,
     EventNotification = 1,
     EventStart = 2,
+
+    /// <summary>Re-render an event's posted Discord embed (a web action changed its data).</summary>
+    SyncEventMessage = 3,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -15,6 +18,8 @@ public record ReminderPayload(long UserId, string Text);
 public record EventStartPayload(Guid EventId, string Title, long StartsAtUnix, long? MessageId);
 
 public record EventNotificationPayload(Guid EventId, string Title, long StartsAtUnix, string? Message, string? Mentions);
+
+public record SyncEventMessagePayload(Guid EventId);
 
 public record CreateReminderRequest(long GuildId, long UserId, long ChannelId, string WhenText, string Text);
 

@@ -16,8 +16,8 @@ public static class OAuthEndpoints
 {
     public static void MapOAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/oauth/google/start", Start);
-        app.MapGet("/oauth/google/callback", Callback);
+        app.MapGet("/oauth/google/start", Start).AllowAnonymous();
+        app.MapGet("/oauth/google/callback", Callback).AllowAnonymous();
     }
 
     private static async Task<IResult> Start(

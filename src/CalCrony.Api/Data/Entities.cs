@@ -16,6 +16,12 @@ public class UserProfile
     public long Id { get; set; }
     public string? TimeZone { get; set; }
     public bool DmConfirmations { get; set; } = true;
+
+    /// <summary>Display name captured at web login (global name, falling back to username);
+    /// null until the user has signed in to the web app at least once.</summary>
+    public string? Username { get; set; }
+
+    public string? AvatarHash { get; set; }
 }
 
 public class Event
@@ -137,4 +143,44 @@ public class CalendarLinkToken
     public Instant CreatedAt { get; set; }
     public Instant ExpiresAt { get; set; }
     public Instant? ConsumedAt { get; set; }
+}
+
+/// <summary>Single-use CSRF state for an in-flight Discord web login. Unlike CalendarLinkToken
+/// there is no UserId — identity is unknown until Discord's callback.</summary>
+public class WebLoginState
+{
+    public Guid Id { get; set; }
+    public required string Token { get; set; }
+    public string? ReturnUrl { get; set; }
+    public Instant CreatedAt { get; set; }
+    public Instant ExpiresAt { get; set; }
+    public Instant? ConsumedAt { get; set; }
+}
+
+/// <summary>Rotate-on-use web session refresh token; only the SHA-256 hash is stored. The raw
+/// value lives in the browser's HttpOnly cookie.</summary>
+public class WebRefreshToken
+{
+    public Guid Id { get; set; }
+    public long UserId { get; set; }
+    public required string TokenHash { get; set; }
+    public Instant CreatedAt { get; set; }
+    public Instant ExpiresAt { get; set; }
+    public Instant? RevokedAt { get; set; }
+}
+
+/// <summary>Login-time snapshot of one Discord guild a web user belongs to. Stores ALL the
+/// user's guilds; the bot-present intersection (join against Guilds) happens at query time so a
+/// guild that adds the bot later appears without re-login. Refreshed wholesale on each login.</summary>
+public class UserGuildMembership
+{
+    public long UserId { get; set; }
+    public long GuildId { get; set; }
+    public required string GuildName { get; set; }
+    public string? IconHash { get; set; }
+
+    /// <summary>User has ManageGuild permission (or owns the guild) — drives admin parity.</summary>
+    public bool CanManage { get; set; }
+
+    public Instant SnapshotAt { get; set; }
 }

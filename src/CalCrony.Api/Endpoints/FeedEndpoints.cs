@@ -17,7 +17,7 @@ public static class FeedEndpoints
         app.MapPost("/guilds/{guildId:long}/feed-token", GetOrCreateToken);
 
         // Anonymous by design (token IS the credential); /feeds is whitelisted in ApiKeyMiddleware.
-        app.MapGet("/feeds/{token}.ics", GetFeed);
+        app.MapGet("/feeds/{token}.ics", GetFeed).AllowAnonymous();
     }
 
     private static async Task<IResult> GetOrCreateToken(
