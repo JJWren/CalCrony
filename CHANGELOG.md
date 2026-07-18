@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/JJWren/CalCrony/compare/v0.2.0...v0.3.0) (2026-07-18)
+
+
+### Features
+
+* add CalCrony.Web with Discord login and read-interact app ([#9](https://github.com/JJWren/CalCrony/issues/9)) ([54a1db3](https://github.com/JJWren/CalCrony/commit/54a1db3794c7375923c42f8c723c899ed18d9245))
+
 ## [0.2.0](https://github.com/JJWren/CalCrony/compare/v0.1.0...v0.2.0) (2026-07-17)
 
 
