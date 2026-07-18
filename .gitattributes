@@ -1,0 +1,5 @@
+# Normalize line endings by default.
+* text=auto
+
+# Shell scripts run inside Linux containers — CRLF from a Windows checkout breaks them.
+*.sh text eol=lf
