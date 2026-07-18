@@ -4,6 +4,10 @@
 html { font-size: 14px; }
 @media (min-width: 768px) { html { font-size: 16px; } }
 
+/* FocusOnNavigate focuses the page's h1 after routing (screen-reader aid); suppress the
+   visual ring it triggers — keyboard/AT focus behavior is unaffected. */
+h1:focus, h1:focus-visible { outline: none; }
+
 body { min-height: 100vh; }
 
 .app-shell { display: flex; min-height: 100vh; }

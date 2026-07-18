@@ -1,5 +1,7 @@
 using Bunit;
+using Bunit.TestDoubles;
 using CalCrony.Contracts;
+using CalCrony.Web.Auth;
 using CalCrony.Web.Components;
 using CalCrony.Web.Pages;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,28 @@ public class ComponentTests : TestContext
         Assert.Single(cut.FindAll(".status-reconnect"));
         Assert.Equal(2, cut.FindAll(".status-off").Count);
         Assert.Contains("needs to reconnect", cut.Markup);
+    }
+
+    [Fact]
+    public void Nav_internal_links_never_carry_bootstrap_dismiss()
+    {
+        // Regression: data-bs-dismiss on anchors makes Bootstrap preventDefault() the click,
+        // which silently kills Blazor navigation for every internal link.
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+        Services.AddSingleton<JwtAuthenticationStateProvider>();
+        Services.AddScoped(sp => new AuthApiClient(
+            new HttpClient { BaseAddress = new Uri("http://localhost") },
+            sp.GetRequiredService<ITokenStore>(),
+            sp.GetRequiredService<JwtAuthenticationStateProvider>()));
+        this.AddTestAuthorization();
+
+        var cut = RenderComponent<CalCrony.Web.Layout.NavMenu>();
+
+        foreach (var anchor in cut.FindAll("a[href^='/'], a[href='']"))
+        {
+            Assert.Null(anchor.GetAttribute("data-bs-dismiss"));
+        }
     }
 
     [Fact]
