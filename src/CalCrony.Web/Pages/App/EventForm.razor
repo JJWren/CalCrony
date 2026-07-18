@@ -1,0 +1,181 @@
+@page "/app/guilds/{GuildId:long}/events/new"
+@page "/app/events/{EventId:guid}/edit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>@(IsEdit ? "Edit event" : "New event") — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="" @onclick="Back" @onclick:preventDefault>← Back</a></p>
+<h1 class="h3">@(IsEdit ? "Edit event" : "New event")</h1>
+@if (!IsEdit)
+{
+    <p class="text-body-secondary">Posts to this server's default events channel with RSVP buttons, just like <code>/create</code>.</p>
+}
+
+@if (loading)
+{
+    <div class="spinner-border text-primary" role="status"></div>
+}
+else
+{
+    <div class="card p-3" style="max-width:560px">
+        <div class="mb-3">
+            <label class="form-label" for="ev-title">Title</label>
+            <input id="ev-title" class="form-control" maxlength="128" @bind="title" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="ev-when">When @(IsEdit ? "(leave blank to keep the current time)" : "")</label>
+            <input id="ev-when" class="form-control" placeholder="tomorrow 6pm · in 3 hours · friday at 8" @bind="when" @bind:after="PreviewAsync" />
+            @if (whenPreview is not null)
+            {
+                <div class="form-text text-primary">→ <LocalTime Utc="whenPreview.Value" /></div>
+            }
+            else if (whenError is not null)
+            {
+                <div class="form-text text-danger">@whenError</div>
+            }
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="ev-desc">Description <span class="text-body-secondary">(optional)</span></label>
+            <textarea id="ev-desc" class="form-control" rows="3" maxlength="4096" @bind="description"></textarea>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-6">
+                <label class="form-label" for="ev-duration">Duration (min)</label>
+                <input id="ev-duration" class="form-control" type="number" min="1" max="1440" @bind="duration" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" for="ev-location">Location <span class="text-body-secondary">(optional)</span></label>
+                <input id="ev-location" class="form-control" maxlength="256" @bind="location" />
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="ev-image">Image URL <span class="text-body-secondary">(optional)</span></label>
+            <input id="ev-image" class="form-control" maxlength="512" @bind="imageUrl" />
+        </div>
+
+        @if (error is not null)
+        {
+            <div class="alert alert-danger py-2">@error</div>
+        }
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@busy">@(IsEdit ? "Save changes" : "Create event")</button>
+            <button class="btn btn-outline-secondary" @onclick="Back" disabled="@busy">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    [Parameter] public Guid? EventId { get; set; }
+
+    private bool IsEdit => EventId is not null;
+
+    private bool loading = true;
+    private bool busy;
+    private string title = "";
+    private string when = "";
+    private string? description;
+    private int? duration;
+    private string? location;
+    private string? imageUrl;
+    private string? error;
+    private DateTimeOffset? whenPreview;
+    private string? whenError;
+    private long backGuildId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        backGuildId = GuildId;
+        if (IsEdit)
+        {
+            var result = await Api.GetEventAsync(EventId!.Value);
+            if (!result.Success || result.Value is null)
+            {
+                error = result.Error ?? "Event not found.";
+                loading = false;
+                return;
+            }
+
+            var ev = result.Value;
+            backGuildId = ev.GuildId;
+            title = ev.Title;
+            description = ev.Description;
+            duration = ev.DurationMinutes;
+            location = ev.Location;
+            imageUrl = ev.ImageUrl;
+        }
+
+        loading = false;
+    }
+
+    private async Task PreviewAsync()
+    {
+        whenPreview = null;
+        whenError = null;
+        if (string.IsNullOrWhiteSpace(when))
+        {
+            return;
+        }
+
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(when, null, backGuildId));
+        if (result.Success && result.Value is not null)
+        {
+            whenPreview = result.Value.Utc;
+        }
+        else
+        {
+            whenError = result.Error;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(title) || (!IsEdit && string.IsNullOrWhiteSpace(when)))
+        {
+            error = "Title and time are required.";
+            return;
+        }
+
+        busy = true;
+        if (IsEdit)
+        {
+            var result = await Api.UpdateEventAsync(EventId!.Value, new UpdateEventRequest(
+                0, // EditorId is ignored for web callers — identity comes from the session.
+                Title: title,
+                WhenText: string.IsNullOrWhiteSpace(when) ? null : when,
+                Description: description,
+                DurationMinutes: duration,
+                Location: location,
+                ImageUrl: imageUrl));
+            busy = false;
+            if (!result.Success || result.Value is null)
+            {
+                error = result.Error;
+                return;
+            }
+
+            Nav.NavigateTo($"/app/events/{result.Value.Id}");
+        }
+        else
+        {
+            var result = await Api.CreateEventAsync(GuildId, new CreateEventRequest(
+                0, // CreatorId is forced server-side to the signed-in user.
+                title, when, 0, description, duration, location, imageUrl));
+            busy = false;
+            if (!result.Success || result.Value is null)
+            {
+                error = result.Error;
+                return;
+            }
+
+            Nav.NavigateTo($"/app/events/{result.Value.Id}");
+        }
+    }
+
+    private void Back() => Nav.NavigateTo(IsEdit ? $"/app/events/{EventId}" : $"/app/guilds/{backGuildId}/events");
+}

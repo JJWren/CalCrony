@@ -74,6 +74,18 @@ public sealed class DeliveryPollerService(
             return;
         }
 
+        if (delivery.Type == DeliveryType.PostEventMessage)
+        {
+            await PostEventMessageAsync(delivery);
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.DeleteEventMessage)
+        {
+            await DeleteEventMessageAsync(delivery);
+            return;
+        }
+
         if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
         {
             throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
@@ -88,6 +100,44 @@ public sealed class DeliveryPollerService(
         };
 
         await channel.SendMessageAsync(text);
+    }
+
+    /// <summary>A web-created event needs its Discord embed posted (mirrors what /create does):
+    /// post to the delivery's channel, then record the message id with the API. Event already
+    /// gone or already posted ⇒ done.</summary>
+    private async Task PostEventMessageAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<PostEventMessagePayload>(delivery.PayloadJson)!;
+        var result = await api.GetEventAsync(payload.EventId);
+        if (!result.Success || result.Value is null || result.Value.MessageId is not null)
+        {
+            return;
+        }
+
+        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
+        {
+            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
+        }
+
+        var ev = result.Value;
+        var message = await channel.SendMessageAsync(
+            embed: EventEmbedBuilder.Build(ev),
+            components: EventEmbedBuilder.BuildComponents(ev));
+        await api.SetMessageAsync(ev.Id, new SetEventMessageRequest(delivery.ChannelId, (long)message.Id));
+    }
+
+    /// <summary>A web-deleted event's embed should disappear; the ids were captured before the
+    /// row died. Best-effort — anything already gone counts as done.</summary>
+    private async Task DeleteEventMessageAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<DeleteEventMessagePayload>(delivery.PayloadJson)!;
+        if (await client.GetChannelAsync((ulong)payload.ChannelId) is not IMessageChannel channel ||
+            await channel.GetMessageAsync((ulong)payload.MessageId) is not IMessage message)
+        {
+            return;
+        }
+
+        await message.DeleteAsync();
     }
 
     /// <summary>A web action changed event data shown on the posted Discord embed — re-render it.

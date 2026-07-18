@@ -22,7 +22,7 @@ flowchart LR
 - **Reminders & notifications** — one-off `/remind`, up to 5 scheduled pings per event plus an automatic start announcement, crash-safe delivery via the outbox
 - **ICS calendar feed** — per-server tokenized subscribe URL (`/link`), importable into Google/Apple/Outlook calendars
 - **Google Calendar availability** — members link their Google Calendar via OAuth (least-privilege free/busy scope: CalCrony never sees event titles or details, and tokens are encrypted at rest); anyone can then check an on-demand, Teams-Scheduling-Assistant-style free/busy grid for a role or an event's attendees. Read-only — it never blocks creating or RSVPing.
-- **Web app** — sign in with Discord (identify + guilds scopes only) and browse your servers' events in a mobile-first, dark-by-default UI: RSVP from the browser (the Discord embed updates within ~15s), see availability grids, link your calendar, grab the ICS subscribe URL. Read + interact today; event management from the web is the next phase.
+- **Web app** — sign in with Discord (identify + guilds scopes only) and use your servers' events in a mobile-first, dark-by-default UI: create, edit, and delete events (embeds post/update/disappear in Discord automatically), RSVP from the browser, manage notifications, set reminders, edit server & personal settings, see availability grids, link your calendar, grab the ICS subscribe URL. Web-created events post to the server's default channel, set once with `/settings default-channel`.
 
 ## Commands
 
