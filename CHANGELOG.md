@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/JJWren/CalCrony/compare/v0.5.0...v0.6.0) (2026-07-18)
+
+
+### Features
+
+* add polls to the web app ([#16](https://github.com/JJWren/CalCrony/issues/16)) ([6947ad2](https://github.com/JJWren/CalCrony/commit/6947ad2f22141191f9d83ee1211cf26ff19a4673))
+
 ## [0.5.0](https://github.com/JJWren/CalCrony/compare/v0.4.0...v0.5.0) (2026-07-18)
 
 
