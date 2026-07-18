@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/JJWren/CalCrony/compare/v0.4.0...v0.5.0) (2026-07-18)
+
+
+### Features
+
+* add polls and time polls (bot + API) ([#14](https://github.com/JJWren/CalCrony/issues/14)) ([43c5db7](https://github.com/JJWren/CalCrony/commit/43c5db72fe4373742d17e247e24c23fc5d919e8f))
+
 ## [0.4.0](https://github.com/JJWren/CalCrony/compare/v0.3.0...v0.4.0) (2026-07-18)
 
 
