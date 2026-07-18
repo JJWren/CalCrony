@@ -1,0 +1,205 @@
+@page "/app/guilds/{GuildId:long}/polls/new"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>New poll — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@GuildId/polls">← Back to polls</a></p>
+<h1 class="h3">New poll</h1>
+<p class="text-body-secondary">Posts to this server's default events channel with vote buttons, just like <code>/poll create</code>.</p>
+
+<div class="card p-3" style="max-width:560px">
+    <div class="mb-3">
+        <label class="form-label" for="poll-question">Question</label>
+        <input id="poll-question" class="form-control" maxlength="252" @bind="question" />
+    </div>
+
+    <div class="mb-3">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Poll kind">
+            <button type="button" class="btn @(isTimePoll ? "btn-outline-primary" : "btn-primary")" @onclick="() => SetKind(false)">Standard</button>
+            <button type="button" class="btn @(isTimePoll ? "btn-primary" : "btn-outline-primary")" @onclick="() => SetKind(true)">Time poll</button>
+        </div>
+        <div class="form-text">
+            @(isTimePoll
+                ? "Each option is a candidate time — voters pick every slot that works, and the winner can become an event."
+                : "Free-text options; voters pick their favorites.")
+        </div>
+    </div>
+
+    <label class="form-label">Options <span class="meta-mono">(@options.Count/10)</span></label>
+    @for (var i = 0; i < options.Count; i++)
+    {
+        var row = options[i];
+        <div class="mb-2">
+            <div class="d-flex gap-2">
+                <input class="form-control form-control-sm"
+                       maxlength="100"
+                       placeholder="@(isTimePoll ? "friday 8pm · tomorrow at 6" : $"option {i + 1}")"
+                       aria-label="Option @(i + 1)"
+                       @bind="row.Text" @bind:after="() => PreviewSlotAsync(row)" />
+                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
+                        aria-label="Remove option @(i + 1)"
+                        disabled="@(options.Count <= 2)"
+                        @onclick="() => options.Remove(row)">✕</button>
+            </div>
+            @if (isTimePoll && row.Preview is not null)
+            {
+                <div class="form-text text-primary mb-0">→ <LocalTime Utc="row.Preview.Value" /></div>
+            }
+            else if (isTimePoll && row.ParseError is not null)
+            {
+                <div class="form-text text-danger mb-0">@row.ParseError</div>
+            }
+        </div>
+    }
+    <div class="mb-3">
+        <button type="button" class="btn btn-outline-primary btn-sm" disabled="@(options.Count >= 10)"
+                @onclick="() => options.Add(new OptionRow())">＋ Add option</button>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="poll-closes">Closes <span class="text-body-secondary">(optional)</span></label>
+        <input id="poll-closes" class="form-control" placeholder="in 2 hours · sunday at noon" @bind="closesText" @bind:after="PreviewClosesAsync" />
+        @if (closesPreview is not null)
+        {
+            <div class="form-text text-primary">→ closes <LocalTime Utc="closesPreview.Value" /></div>
+        }
+        else if (closesError is not null)
+        {
+            <div class="form-text text-danger">@closesError</div>
+        }
+    </div>
+
+    @if (!isTimePoll)
+    {
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="poll-single" @bind="singleVote" />
+            <label class="form-check-label" for="poll-single">Single vote — one choice per person</label>
+        </div>
+    }
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="poll-anon" @bind="anonymous" />
+        <label class="form-check-label" for="poll-anon">Anonymous — show counts, hide who voted</label>
+    </div>
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="poll-useropts" @bind="allowUserOptions" />
+        <label class="form-check-label" for="poll-useropts">Let voters add options</label>
+    </div>
+
+    @if (error is not null)
+    {
+        <div class="alert alert-danger py-2">@error</div>
+    }
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" @onclick="CreateAsync" disabled="@busy">Create poll</button>
+        <a class="btn btn-outline-secondary" href="/app/guilds/@GuildId/polls">Cancel</a>
+    </div>
+</div>
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private sealed class OptionRow
+    {
+        public string Text { get; set; } = "";
+
+        public DateTimeOffset? Preview { get; set; }
+
+        public string? ParseError { get; set; }
+    }
+
+    private readonly List<OptionRow> options = [new(), new()];
+    private string question = "";
+    private bool isTimePoll;
+    private bool singleVote;
+    private bool anonymous;
+    private bool allowUserOptions;
+    private string closesText = "";
+    private DateTimeOffset? closesPreview;
+    private string? closesError;
+    private string? error;
+    private bool busy;
+
+    private void SetKind(bool timePoll)
+    {
+        isTimePoll = timePoll;
+        if (timePoll)
+        {
+            singleVote = false; // time polls are always multi-vote
+        }
+
+        foreach (var row in options)
+        {
+            row.Preview = null;
+            row.ParseError = null;
+        }
+    }
+
+    private async Task PreviewSlotAsync(OptionRow row)
+    {
+        row.Preview = null;
+        row.ParseError = null;
+        if (!isTimePoll || string.IsNullOrWhiteSpace(row.Text))
+        {
+            return;
+        }
+
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(row.Text, null, GuildId));
+        if (result.Success && result.Value is not null)
+        {
+            row.Preview = result.Value.Utc;
+        }
+        else
+        {
+            row.ParseError = result.Error;
+        }
+    }
+
+    private async Task PreviewClosesAsync()
+    {
+        closesPreview = null;
+        closesError = null;
+        if (string.IsNullOrWhiteSpace(closesText))
+        {
+            return;
+        }
+
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(closesText, null, GuildId));
+        if (result.Success && result.Value is not null)
+        {
+            closesPreview = result.Value.Utc;
+        }
+        else
+        {
+            closesError = result.Error;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        error = null;
+        var texts = options.Select(o => o.Text.Trim()).Where(t => t.Length > 0).ToList();
+        if (string.IsNullOrWhiteSpace(question) || texts.Count < 2)
+        {
+            error = "A question and at least two options are required.";
+            return;
+        }
+
+        busy = true;
+        // CreatorId/ChannelId are forced server-side for web callers; 0s are placeholders.
+        var result = await Api.CreatePollAsync(GuildId, new CreatePollRequest(
+            0, question, 0, texts, isTimePoll, singleVote, anonymous, allowUserOptions,
+            string.IsNullOrWhiteSpace(closesText) ? null : closesText));
+        busy = false;
+
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        Nav.NavigateTo($"/app/polls/{result.Value.Id}");
+    }
+}

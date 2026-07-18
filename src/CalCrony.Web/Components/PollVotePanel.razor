@@ -1,0 +1,97 @@
+@* Voting UI mirroring the bot's semantics: single-vote = click to set / click again to clear;
+   multi-vote = each click toggles that option within your set (submitted as a full set-replace). *@
+<div class="d-flex flex-column gap-2">
+    @foreach (var option in Poll.Options)
+    {
+        var isMine = MyOptionIds.Contains(option.Id);
+        var share = maxVotes == 0 ? 0 : (double)option.VoteCount / maxVotes;
+        <div>
+            <button type="button"
+                    class="rsvp-btn w-100 text-start @(isMine ? "selected" : null)"
+                    disabled="@(busy || Poll.Status == PollStatus.Closed)"
+                    @onclick="() => ToggleAsync(option.Id, isMine)">
+                <span class="d-flex justify-content-between gap-2">
+                    <span>
+                        @if (IsWinner(option))
+                        {
+                            <span>🏆 </span>
+                        }
+                        @if (Poll.IsTimePoll && option.SlotAtUtc is { } slot)
+                        {
+                            <LocalTime Utc="slot" />
+                        }
+                        else
+                        {
+                            @option.Text
+                        }
+                    </span>
+                    <span class="meta-mono">@option.VoteCount</span>
+                </span>
+            </button>
+            <div class="progress mt-1" style="height:4px" role="presentation">
+                <div class="progress-bar" style="width:@((share * 100).ToString("0"))%;background-color:var(--calcrony-azure)"></div>
+            </div>
+            @if (!Poll.Anonymous && NameResolver is not null && option.VoteCount > 0)
+            {
+                var voters = Poll.Votes.Where(v => v.OptionId == option.Id).Select(v => NameResolver(v.UserId)).ToList();
+                <div class="meta-mono mt-1">@string.Join(", ", voters)</div>
+            }
+        </div>
+    }
+</div>
+@if (error is not null)
+{
+    <div class="alert alert-danger mt-2 py-2">@error</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public PollDto Poll { get; set; } = default!;
+
+    [Parameter, EditorRequired] public long UserId { get; set; }
+
+    [Parameter] public EventCallback<PollDto> OnChanged { get; set; }
+
+    /// <summary>Only used for non-anonymous polls.</summary>
+    [Parameter] public Func<long, string>? NameResolver { get; set; }
+
+    [Inject] private CalCronyWebApiClient Api { get; set; } = default!;
+
+    private bool busy;
+    private string? error;
+
+    private int maxVotes => Poll.Options.Count == 0 ? 0 : Poll.Options.Max(o => o.VoteCount);
+
+    private HashSet<Guid> MyOptionIds =>
+        [.. Poll.Votes.Where(v => v.UserId == UserId).Select(v => v.OptionId)];
+
+    private bool IsWinner(PollOptionDto option) =>
+        Poll.Status == PollStatus.Closed &&
+        Poll.Options.Count > 0 &&
+        Poll.Options.OrderByDescending(o => o.VoteCount).First().Id == option.Id;
+
+    private async Task ToggleAsync(Guid optionId, bool isMine)
+    {
+        error = null;
+        var next = new HashSet<Guid>(MyOptionIds);
+        if (Poll.SingleVote)
+        {
+            next = isMine ? [] : [optionId];
+        }
+        else if (!next.Remove(optionId))
+        {
+            next.Add(optionId);
+        }
+
+        busy = true;
+        var result = await Api.PutPollVotesAsync(Poll.Id, UserId, new PutPollVotesRequest([.. next]));
+        busy = false;
+
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        await OnChanged.InvokeAsync(result.Value);
+    }
+}
