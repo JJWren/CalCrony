@@ -1,0 +1,88 @@
+/* CalCrony palette mapped onto Bootstrap 5.3 CSS variables.
+   Pinned palette: #000000 · #1098F7 (azure) · #FFFFFF · #B89E97 (taupe) · #DECCCC (dust rose). */
+
+:root {
+    --bs-primary: #1098f7;
+    --bs-primary-rgb: 16, 152, 247;
+    --bs-secondary: #b89e97;
+    --bs-secondary-rgb: 184, 158, 151;
+    --bs-link-color: #1098f7;
+    --bs-link-color-rgb: 16, 152, 247;
+    --bs-link-hover-color: #4cb2f9;
+    --bs-link-hover-color-rgb: 76, 178, 249;
+    --bs-focus-ring-color: rgba(16, 152, 247, .3);
+    --calcrony-azure: #1098f7;
+    --calcrony-azure-press: #0c7ac6;
+    --calcrony-azure-soft: rgba(16, 152, 247, .14);
+    --calcrony-taupe: #b89e97;
+    --calcrony-rose: #decccc;
+}
+
+/* Dark (the default): true black ground, stepped near-black surfaces, white text,
+   taupe muted text, dust-rose low-alpha borders. */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #000000;
+    --bs-body-bg-rgb: 0, 0, 0;
+    --bs-body-color: #ffffff;
+    --bs-body-color-rgb: 255, 255, 255;
+    --bs-secondary-bg: #141414;
+    --bs-secondary-bg-rgb: 20, 20, 20;
+    --bs-tertiary-bg: #0a0a0a;
+    --bs-tertiary-bg-rgb: 10, 10, 10;
+    --bs-secondary-color: #b89e97;
+    --bs-tertiary-color: rgba(184, 158, 151, .7);
+    --bs-border-color: rgba(222, 204, 204, .18);
+    --bs-border-color-translucent: rgba(222, 204, 204, .18);
+    --bs-emphasis-color: #ffffff;
+}
+
+/* Light: white ground with dust-rose-tinted surfaces and taupe muted text. */
+[data-bs-theme="light"] {
+    --bs-body-bg: #ffffff;
+    --bs-body-color: #141414;
+    --bs-secondary-bg: #f4ecea;
+    --bs-tertiary-bg: #faf6f5;
+    --bs-secondary-color: #8d7268;
+    --bs-tertiary-color: rgba(141, 114, 104, .75);
+    --bs-border-color: rgba(184, 158, 151, .35);
+    --bs-border-color-translucent: rgba(184, 158, 151, .35);
+}
+
+/* Azure primary buttons carry BLACK text: ~6.8:1 contrast (white-on-azure fails AA). */
+.btn-primary {
+    --bs-btn-bg: #1098f7;
+    --bs-btn-border-color: #1098f7;
+    --bs-btn-color: #000000;
+    --bs-btn-hover-bg: #0c7ac6;
+    --bs-btn-hover-border-color: #0c7ac6;
+    --bs-btn-hover-color: #000000;
+    --bs-btn-active-bg: #0a68a9;
+    --bs-btn-active-border-color: #0a68a9;
+    --bs-btn-active-color: #000000;
+    --bs-btn-disabled-bg: #1098f7;
+    --bs-btn-disabled-border-color: #1098f7;
+    --bs-btn-disabled-color: #000000;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: #1098f7;
+    --bs-btn-border-color: #1098f7;
+    --bs-btn-hover-bg: #1098f7;
+    --bs-btn-hover-border-color: #1098f7;
+    --bs-btn-hover-color: #000000;
+    --bs-btn-active-bg: #1098f7;
+    --bs-btn-active-border-color: #1098f7;
+    --bs-btn-active-color: #000000;
+}
+
+.btn-secondary {
+    --bs-btn-bg: #b89e97;
+    --bs-btn-border-color: #b89e97;
+    --bs-btn-color: #000000;
+    --bs-btn-hover-bg: #a78b83;
+    --bs-btn-hover-border-color: #a78b83;
+    --bs-btn-hover-color: #000000;
+}
+
+.text-primary { color: #1098f7 !important; }
+.bg-primary-soft { background-color: var(--calcrony-azure-soft); }

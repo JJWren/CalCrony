@@ -1,0 +1,45 @@
+@page "/docs"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>User docs — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2">User documentation</p>
+<h1>Using CalCrony</h1>
+<p class="lead text-body-secondary" style="max-width:58ch">
+    Everything works from Discord; this web app adds a friendlier view of the same data.
+    Sign in with Discord and you'll see exactly the servers you share with the bot.
+</p>
+
+<h2 class="h5 mt-4 mb-3">Slash commands</h2>
+<div class="table-responsive border rounded">
+    <table class="table table-sm mb-0 align-middle">
+        <thead>
+            <tr><th class="meta-mono text-uppercase">Command</th><th class="meta-mono text-uppercase">What it does</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language ("tomorrow 6pm")</td></tr>
+            <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager)</td></tr>
+            <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
+            <tr><td><code>/availability role|event</code></td><td>Free/busy grid for a role or an event's Going list</td></tr>
+            <tr><td><code>/calendar connect</code></td><td>Link your Google Calendar (free/busy scope only)</td></tr>
+            <tr><td><code>/link</code></td><td>Your server's calendar-subscribe URL</td></tr>
+            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td>Timezones (server &amp; personal) · Discord timestamp helper</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 class="h5 mt-4 mb-2">The web app</h2>
+<ul class="text-body-secondary">
+    <li><b>Sign in</b> with Discord — CalCrony only asks for your identity and server list, never your messages.</li>
+    <li><b>RSVP from any page</b>: your choice syncs to the Discord embed within about 15 seconds.</li>
+    <li><b>Link your Google Calendar</b> under My settings; the availability grid on each event shows who's free.</li>
+    <li><b>Subscribe</b> to a server's calendar from its settings page — works with Google, Apple, and Outlook.</li>
+</ul>
+
+<h2 class="h5 mt-4 mb-2">Good to know</h2>
+<p class="text-body-secondary" style="max-width:66ch">
+    Google links currently expire every 7 days (the app runs in Google's testing mode). When that happens
+    you'll see a 🔄 "needs to reconnect" badge — re-running <code>/calendar connect</code> or clicking
+    Connect in My settings fixes it in seconds. Server lists are a snapshot from sign-in; the
+    "re-sync servers" link in the sidebar refreshes yours instantly.
+</p>

@@ -1,0 +1,20 @@
+@if (UserId is long id && !string.IsNullOrEmpty(AvatarHash))
+{
+    <img class="avatar @(Small ? "avatar-sm" : null)" src="https://cdn.discordapp.com/avatars/@id/@(AvatarHash).png?size=64" alt="@Name" />
+}
+else
+{
+    <span class="avatar @(Small ? "avatar-sm" : null)">@Initial</span>
+}
+
+@code {
+    [Parameter] public long? UserId { get; set; }
+
+    [Parameter] public string? AvatarHash { get; set; }
+
+    [Parameter] public string? Name { get; set; }
+
+    [Parameter] public bool Small { get; set; }
+
+    private string Initial => string.IsNullOrEmpty(Name) ? "?" : Name[..1].ToUpperInvariant();
+}

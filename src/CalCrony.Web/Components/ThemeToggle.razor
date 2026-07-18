@@ -1,0 +1,27 @@
+@inject IJSRuntime Js
+
+<div class="btn-group btn-group-sm w-100" role="group" aria-label="Theme">
+    <button type="button" class="btn @(current == "dark" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("dark")'>Dark</button>
+    <button type="button" class="btn @(current == "light" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("light")'>Light</button>
+    <button type="button" class="btn @(current == "auto" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("auto")'>Auto</button>
+</div>
+
+@code {
+    // CalCrony's default theme is dark — an explicit product decision, not "auto".
+    private string current = "dark";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            current = await Js.InvokeAsync<string>("calcronyTheme.getTheme");
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetAsync(string theme)
+    {
+        current = theme;
+        await Js.InvokeVoidAsync("calcronyTheme.setTheme", theme);
+    }
+}

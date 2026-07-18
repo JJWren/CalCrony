@@ -1,0 +1,91 @@
+@page "/app"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject NavigationManager Nav
+@inject AuthApiClient AuthApi
+
+<PageTitle>My servers — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2">My servers</p>
+<h1 class="h3">Pick a server</h1>
+<p class="text-body-secondary">You see the servers you're in that also have CalCrony installed.</p>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (guilds is null)
+{
+    <div class="spinner-border text-primary" role="status"></div>
+}
+else if (guilds.Guilds.Count == 0)
+{
+    <div class="card p-4">
+        <p class="mb-2">None of your servers have CalCrony yet.</p>
+        <a class="btn btn-primary align-self-start"
+           href="https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=84992&integration_type=0&scope=bot+applications.commands"
+           target="_blank" rel="noopener">＋ Add CalCrony to a server</a>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var guild in guilds.Guilds)
+        {
+            <div class="col-12 col-sm-6 col-lg-4">
+                <div class="card event-card p-3 h-100" role="button" tabindex="0"
+                     @onclick="() => Open(guild.Id)" @onkeydown="e => OnKey(e, guild.Id)">
+                    <div class="d-flex align-items-center gap-3">
+                        @if (guild.IconHash is not null)
+                        {
+                            <img class="rounded" width="44" height="44" alt=""
+                                 src="https://cdn.discordapp.com/icons/@guild.Id/@(guild.IconHash).png?size=64" />
+                        }
+                        else
+                        {
+                            <span class="avatar" style="width:44px;height:44px;border-radius:.7rem">@guild.Name[..1]</span>
+                        }
+                        <div class="min-w-0">
+                            <div class="fw-bold text-truncate">@guild.Name</div>
+                            @if (guild.CanManage)
+                            {
+                                <span class="badge rounded-pill text-primary border border-primary bg-transparent">manager</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    <p class="meta-mono mt-4">
+        server list synced <LocalTime Utc="guilds.SnapshotAtUtc" Format="g" /> ·
+        <a href="@AuthApi.BuildLoginUrl("/app")">↻ re-sync</a>
+    </p>
+}
+
+@code {
+    private WebGuildListResponse? guilds;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetMyGuildsAsync();
+        if (!result.Success)
+        {
+            error = result.Error;
+            return;
+        }
+
+        guilds = result.Value;
+    }
+
+    private void Open(long guildId) => Nav.NavigateTo($"/app/guilds/{guildId}/events");
+
+    private void OnKey(KeyboardEventArgs e, long guildId)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            Open(guildId);
+        }
+    }
+}

@@ -27,6 +27,10 @@ services:
       Calendar__Google__ClientId: ${GOOGLE_OAUTH_CLIENT_ID:-}
       Calendar__Google__ClientSecret: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
       Calendar__DataProtectionKeyPath: /data/keys
+      Auth__Discord__ClientId: ${DISCORD_OAUTH_CLIENT_ID:-}
+      Auth__Discord__ClientSecret: ${DISCORD_OAUTH_CLIENT_SECRET:-}
+      Auth__Jwt__SigningKey: ${CALCRONY_JWT_SIGNING_KEY:-dev-signing-key-change-me-32chars!}
+      Web__Origin: ${CALCRONY_WEB_ORIGIN:-http://localhost:8082}
     ports:
       - "8080:8080"
     volumes:
@@ -34,6 +38,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: src/CalCrony.Web/Dockerfile
+    environment:
+      # Browser-visible API URL (the browser makes the calls, not this container).
+      API_BASE_URL: ${CALCRONY_PUBLIC_BASE_URL:-http://localhost:8080}
+    ports:
+      - "8082:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
   bot:
     build:

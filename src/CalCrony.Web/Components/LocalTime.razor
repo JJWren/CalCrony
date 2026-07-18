@@ -1,0 +1,9 @@
+@* Renders a UTC instant in the viewer's local time — the web analog of Discord's <t:...> markup. *@
+<span title="@Utc.ToString("u")">@Utc.ToLocalTime().ToString(Format)</span>
+
+@code {
+    [Parameter, EditorRequired] public DateTimeOffset Utc { get; set; }
+
+    /// <summary>"f" full · "ddd h:mm tt" short · "t" time-only.</summary>
+    [Parameter] public string Format { get; set; } = "f";
+}

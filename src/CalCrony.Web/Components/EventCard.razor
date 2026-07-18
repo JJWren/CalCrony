@@ -1,0 +1,45 @@
+@inject NavigationManager Nav
+
+<div class="card event-card p-3" role="button" tabindex="0"
+     @onclick="Open" @onkeydown="OnKey">
+    <div class="d-flex gap-3 align-items-start">
+        <div class="datechip">
+            <div class="datechip-month">@Event.StartsAtUtc.ToLocalTime().ToString("MMM")</div>
+            <div class="datechip-day">@Event.StartsAtUtc.ToLocalTime().Day</div>
+        </div>
+        <div class="flex-grow-1 min-w-0">
+            <div class="fw-bold">@Event.Title</div>
+            <div class="meta-mono d-flex gap-3 flex-wrap">
+                <span><LocalTime Utc="Event.StartsAtUtc" Format="ddd h:mm tt" /> · @(Event.DurationMinutes ?? 60) min</span>
+                @if (!string.IsNullOrWhiteSpace(Event.Location))
+                {
+                    <span>📍 @Event.Location</span>
+                }
+            </div>
+        </div>
+        <div class="meta-mono flex-shrink-0">✅ @GoingCount</div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventDto Event { get; set; } = default!;
+
+    private int GoingCount
+    {
+        get
+        {
+            var going = Event.Options.FirstOrDefault(o => o.SortOrder == 0);
+            return going is null ? 0 : Event.Rsvps.Count(r => r.OptionId == going.Id);
+        }
+    }
+
+    private void Open() => Nav.NavigateTo($"/app/events/{Event.Id}");
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            Open();
+        }
+    }
+}

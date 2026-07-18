@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
@@ -19,16 +20,31 @@ public static class CalendarEndpoints
         app.MapPost("/calendar/connections/{userId:long}/link-token", CreateLinkToken);
         app.MapGet("/calendar/connections/{userId:long}", GetStatus);
         app.MapDelete("/calendar/connections/{userId:long}", Disconnect);
-        app.MapPost("/calendar/availability", CheckAvailability);
+        // BotOnly: accepts arbitrary UserIds — exposing it to web callers would let any
+        // signed-in user probe any Discord user's free/busy. Web uses the event-scoped route.
+        app.MapPost("/calendar/availability", CheckAvailability).RequireAuthorization("BotOnly");
+        app.MapGet("/events/{id:guid}/availability", GetEventAvailability);
     }
 
+    /// <summary>Web callers may only manage their own calendar connection.</summary>
+    private static IResult? GuardSelf(HttpContext context, long userId) =>
+        !context.User.IsBot() && context.User.WebUserId() != userId
+            ? GuildAccessService.SelfOnly()
+            : null;
+
     private static async Task<IResult> CreateLinkToken(
+        HttpContext context,
         long userId,
         CalCronyDbContext db,
         IConfiguration configuration,
         IClock clock,
         CancellationToken cancellationToken)
     {
+        if (GuardSelf(context, userId) is { } denied)
+        {
+            return denied;
+        }
+
         // Both are required to mint a usable link: without PublicBaseUrl the StartUrl would be a
         // relative path, useless when pasted into Discord. ErrorResponse shape (not RFC 7807) so
         // CalCronyApiClient.SendAsync surfaces the message rather than a generic status code.
@@ -57,8 +73,14 @@ public static class CalendarEndpoints
         return Results.Ok(new CalendarLinkTokenDto(token.Token, $"{baseUrl}/oauth/google/start?token={token.Token}"));
     }
 
-    private static async Task<IResult> GetStatus(long userId, CalCronyDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> GetStatus(
+        HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
+        if (GuardSelf(context, userId) is { } denied)
+        {
+            return denied;
+        }
+
         var connection = await db.CalendarConnections.FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
         return Results.Ok(connection is null
             ? new CalendarConnectionStatusDto(false, null, null)
@@ -66,6 +88,7 @@ public static class CalendarEndpoints
     }
 
     private static async Task<IResult> Disconnect(
+        HttpContext context,
         long userId,
         CalCronyDbContext db,
         ICalendarProvider provider,
@@ -73,6 +96,11 @@ public static class CalendarEndpoints
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
+        if (GuardSelf(context, userId) is { } denied)
+        {
+            return denied;
+        }
+
         var connection = await db.CalendarConnections.FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
         if (connection is null)
         {
@@ -116,5 +144,43 @@ public static class CalendarEndpoints
         var end = Instant.FromDateTimeOffset(request.EndsAtUtc);
         var results = await availability.CheckAsync(userIds, start, end, cancellationToken);
         return Results.Ok(new AvailabilityResponse(request.StartsAtUtc, request.EndsAtUtc, results));
+    }
+
+    /// <summary>Web-safe availability: the user set is the event's "Going" RSVPs and the window
+    /// is the event's own — nothing caller-controlled to probe with.</summary>
+    private static async Task<IResult> GetEventAvailability(
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        CalCronyDbContext db,
+        CalendarAvailabilityService availability,
+        CancellationToken cancellationToken)
+    {
+        var ev = await db.Events
+            .Include(e => e.Options)
+            .Include(e => e.Rsvps)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        if (ev is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await EventEndpoints.GuardEventReadAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        var going = ev.Options.FirstOrDefault(o => o.SortOrder == 0);
+        var userIds = going is null
+            ? []
+            : ev.Rsvps.Where(r => r.OptionId == going.Id).Select(r => r.UserId).Distinct().Take(MaxUsersPerQuery).ToList();
+
+        var start = ev.StartsAt;
+        var end = ev.StartsAt + Duration.FromMinutes(ev.DurationMinutes ?? 60);
+        IReadOnlyList<UserAvailabilityDto> results = userIds.Count == 0
+            ? []
+            : await availability.CheckAsync(userIds, start, end, cancellationToken);
+
+        return Results.Ok(new AvailabilityResponse(start.ToDateTimeOffset(), end.ToDateTimeOffset(), results));
     }
 }

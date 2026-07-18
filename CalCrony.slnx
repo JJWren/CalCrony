@@ -3,9 +3,11 @@
     <Project Path="src/CalCrony.Api/CalCrony.Api.csproj" />
     <Project Path="src/CalCrony.Bot/CalCrony.Bot.csproj" />
     <Project Path="src/CalCrony.Contracts/CalCrony.Contracts.csproj" />
+    <Project Path="src/CalCrony.Web/CalCrony.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CalCrony.Api.Tests/CalCrony.Api.Tests.csproj" />
     <Project Path="tests/CalCrony.Bot.Tests/CalCrony.Bot.Tests.csproj" />
+    <Project Path="tests/CalCrony.Web.Tests/CalCrony.Web.Tests.csproj" />
   </Folder>
 </Solution>

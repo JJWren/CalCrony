@@ -61,3 +61,4 @@ jobs:
           }
           build_and_push src/CalCrony.Api/Dockerfile calcrony-api
           build_and_push src/CalCrony.Bot/Dockerfile calcrony-bot
+          build_and_push src/CalCrony.Web/Dockerfile calcrony-web
