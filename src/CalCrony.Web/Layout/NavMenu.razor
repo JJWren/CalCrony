@@ -1,0 +1,71 @@
+@inject AuthApiClient AuthApi
+@inject NavigationManager Nav
+
+<nav id="appSidebar" class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" aria-label="Main navigation">
+    <div class="sidebar-inner">
+        <div class="d-flex align-items-start justify-content-between px-2 pb-3">
+            <div class="wordmark">
+                <b>Cal</b><span class="nav-label">Crony</span>
+                <span class="wordmark-sub nav-label">events · calendars · discord</span>
+            </div>
+            <button class="btn-close d-lg-none" type="button" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close menu"></button>
+        </div>
+
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+            <span class="nav-ic">⌂</span><span class="nav-label">Home</span>
+        </NavLink>
+        <NavLink class="nav-link" href="/docs" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+            <span class="nav-ic">✎</span><span class="nav-label">User docs</span>
+        </NavLink>
+        <a class="nav-link" href="https://github.com/JJWren/CalCrony#readme" target="_blank" rel="noopener">
+            <span class="nav-ic">{}</span><span class="nav-label">Developer docs</span><span class="nav-ext nav-label">↗</span>
+        </a>
+        <a class="nav-link" href="https://github.com/JJWren/CalCrony" target="_blank" rel="noopener">
+            <span class="nav-ic">⌥</span><span class="nav-label">Source code</span><span class="nav-ext nav-label">↗</span>
+        </a>
+
+        <div class="sidebar-eyebrow nav-label">The app</div>
+        <NavLink class="nav-link" href="/app" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+            <span class="nav-ic">▤</span><span class="nav-label">My servers</span>
+        </NavLink>
+        <NavLink class="nav-link" href="/app/settings" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+            <span class="nav-ic">⚙</span><span class="nav-label">My settings</span>
+        </NavLink>
+
+        <div class="sidebar-foot">
+            <ThemeToggle />
+            <AuthorizeView>
+                <Authorized>
+                    <div class="userchip">
+                        <UserAvatar UserId="AuthApi.Session?.UserId" AvatarHash="@AuthApi.Session?.AvatarHash" Name="@context.User.Identity?.Name" />
+                        <div class="userchip-meta nav-label">
+                            <div class="userchip-name">@context.User.Identity?.Name</div>
+                            <a class="meta-mono" href="" @onclick="LogoutAsync" @onclick:preventDefault>sign out</a>
+                        </div>
+                    </div>
+                    <a class="meta-mono px-2 nav-label" href="@AuthApi.BuildLoginUrl("/app")">↻ re-sync servers</a>
+                </Authorized>
+                <NotAuthorized>
+                    <NavLink class="nav-link" href="/login" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+                        <span class="nav-ic">→</span><span class="nav-label">Sign in</span>
+                    </NavLink>
+                </NotAuthorized>
+            </AuthorizeView>
+            <button class="btn btn-outline-secondary btn-sm d-none d-lg-block" type="button" @onclick="OnRailToggle">
+                @(RailCollapsed ? "⇥" : "⇤")<span class="nav-label"> collapse</span>
+            </button>
+        </div>
+    </div>
+</nav>
+
+@code {
+    [Parameter] public EventCallback OnRailToggle { get; set; }
+
+    [Parameter] public bool RailCollapsed { get; set; }
+
+    private async Task LogoutAsync()
+    {
+        await AuthApi.LogoutAsync();
+        Nav.NavigateTo("/");
+    }
+}

@@ -1,0 +1,22 @@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <div class="container py-5"><h3>Access denied</h3><p class="text-body-secondary">You don't have access to this page.</p></div>
+                }
+                else
+                {
+                    <RedirectToLogin />
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <div class="container py-5"><h3>Not found</h3><p class="text-body-secondary">That page doesn't exist. <a href="/">Back home</a>.</p></div>
+        </LayoutView>
+    </NotFound>
+</Router>

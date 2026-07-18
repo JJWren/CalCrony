@@ -1,0 +1,63 @@
+@page "/app/guilds/{GuildId:long}/events"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+
+<PageTitle>Events — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="/app">← My servers</a></p>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <h1 class="h3 mb-0">Upcoming events</h1>
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="includePast" @bind="includePast" @bind:after="LoadAsync" />
+        <label class="form-check-label meta-mono" for="includePast">include past</label>
+    </div>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger mt-3">@error</div>
+}
+else if (events is null)
+{
+    <div class="spinner-border text-primary mt-3" role="status"></div>
+}
+else if (events.Count == 0)
+{
+    <p class="text-body-secondary mt-3">No events yet — create one in Discord with <code>/create</code>.</p>
+}
+else
+{
+    <div class="d-flex flex-column gap-3 mt-3">
+        @foreach (var ev in events)
+        {
+            <EventCard Event="ev" />
+        }
+    </div>
+}
+
+<div class="mt-4">
+    <a class="meta-mono" href="/app/guilds/@GuildId/settings">server settings &amp; calendar feed →</a>
+</div>
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private List<EventDto>? events;
+    private string? error;
+    private bool includePast;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.ListEventsAsync(GuildId, includePast);
+        if (!result.Success)
+        {
+            error = result.Error;
+            return;
+        }
+
+        error = null;
+        events = result.Value;
+    }
+}

@@ -1,0 +1,76 @@
+@page "/app/guilds/{GuildId:long}/settings"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject IJSRuntime Js
+
+<PageTitle>Server settings — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@GuildId/events">← Back to events</a></p>
+<h1 class="h3">Server settings</h1>
+<p class="text-body-secondary">Read-only for now — change these in Discord with <code>/settings</code>.</p>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <div class="card p-3 h-100">
+                <div class="fw-bold">Timezone</div>
+                <p class="meta-mono mb-0 mt-2">@(settings?.TimeZone ?? "…")</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="card p-3 h-100">
+                <div class="fw-bold">Calendar feed</div>
+                <p class="text-body-secondary small mt-1 mb-2">Subscribe from Google, Apple, or Outlook — anyone with this URL can read this server's events.</p>
+                @if (feedUrl is null)
+                {
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                }
+                else
+                {
+                    <p class="meta-mono text-break mb-2">@feedUrl</p>
+                    <button class="btn btn-outline-primary btn-sm align-self-start" @onclick="CopyAsync">@copyLabel</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private GuildSettingsDto? settings;
+    private string? feedUrl;
+    private string? error;
+    private string copyLabel = "Copy URL";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var settingsResult = await Api.GetGuildSettingsAsync(GuildId);
+        if (!settingsResult.Success)
+        {
+            error = settingsResult.Error;
+            return;
+        }
+
+        settings = settingsResult.Value;
+
+        var feedResult = await Api.GetFeedTokenAsync(GuildId);
+        if (feedResult.Success && feedResult.Value is not null)
+        {
+            feedUrl = Api.FeedUrl(feedResult.Value);
+        }
+    }
+
+    private async Task CopyAsync()
+    {
+        var ok = await Js.InvokeAsync<bool>("calcronyCopy", feedUrl);
+        copyLabel = ok ? "Copied ✓" : "Copy failed";
+        await Task.Delay(1500);
+        copyLabel = "Copy URL";
+    }
+}

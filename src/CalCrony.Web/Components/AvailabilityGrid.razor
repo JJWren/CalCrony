@@ -1,0 +1,44 @@
+@if (Response.Results.Count == 0)
+{
+    <p class="text-body-secondary mb-0">Nobody has RSVP'd Going yet — the grid covers Going members over the event window.</p>
+}
+else
+{
+    <ul class="list-unstyled mb-0">
+        @foreach (var row in Response.Results)
+        {
+            <li class="d-flex align-items-center gap-2 py-2 border-bottom">
+                <span class="status-dot @DotClass(row.Status)"></span>
+                <span class="fw-semibold">@DisplayName(row.UserId)</span>
+                <span class="meta-mono">@Describe(row)</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired] public AvailabilityResponse Response { get; set; } = default!;
+
+    /// <summary>UserId → display name (from the event's RSVP list); falls back to the id.</summary>
+    [Parameter] public Func<long, string>? NameResolver { get; set; }
+
+    private string DisplayName(long userId) => NameResolver?.Invoke(userId) ?? $"user {userId}";
+
+    private static string DotClass(CalendarAvailabilityStatus status) => status switch
+    {
+        CalendarAvailabilityStatus.Free => "status-free",
+        CalendarAvailabilityStatus.Busy => "status-busy",
+        CalendarAvailabilityStatus.ReconnectRequired => "status-reconnect",
+        _ => "status-off",
+    };
+
+    private static string Describe(UserAvailabilityDto row) => row.Status switch
+    {
+        CalendarAvailabilityStatus.Free => "free",
+        CalendarAvailabilityStatus.Busy => "busy " + string.Join(", ",
+            row.BusyBlocks.Select(b => $"{b.StartUtc.ToLocalTime():t}–{b.EndUtc.ToLocalTime():t}")),
+        CalendarAvailabilityStatus.ReconnectRequired => "needs to reconnect (/calendar connect)",
+        CalendarAvailabilityStatus.Error => "couldn't check right now",
+        _ => "no calendar linked",
+    };
+}

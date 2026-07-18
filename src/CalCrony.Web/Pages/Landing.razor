@@ -1,0 +1,50 @@
+@page "/"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>CalCrony — events &amp; calendars for Discord</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2">Self-hosted · open source · for your Discord server</p>
+<h1 class="display-6 fw-bold" style="letter-spacing:-.02em">
+    Every event your server plans, in Discord <em class="text-primary fst-normal">and</em> in the browser.
+</h1>
+<p class="lead text-body-secondary" style="max-width:58ch">
+    CalCrony is an event &amp; calendar bot with a real web app behind it. Create events in plain English,
+    RSVP with one tap, get reminders, subscribe from any calendar app — and check the whole group's
+    free/busy before you pick a time.
+</p>
+
+<div class="d-flex flex-wrap gap-2 my-4">
+    <a class="btn btn-primary"
+       href="https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=84992&integration_type=0&scope=bot+applications.commands"
+       target="_blank" rel="noopener">＋ Add CalCrony to your server</a>
+    <a class="btn btn-outline-primary" href="/app">Open the app →</a>
+    <a class="btn btn-outline-secondary" href="https://github.com/JJWren/CalCrony" target="_blank" rel="noopener">View source</a>
+</div>
+
+<div class="row g-3 mt-4">
+    <div class="col-12 col-md-4">
+        <div class="card h-100 p-3">
+            <div class="fw-bold">Plain-English scheduling</div>
+            <p class="text-body-secondary small mb-0 mt-1">"tomorrow 6pm", "friday at 8" — parsed in your timezone, DST-proof.</p>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card h-100 p-3">
+            <div class="fw-bold">Group availability</div>
+            <p class="text-body-secondary small mb-0 mt-1">Link Google Calendar (free/busy only — never event details) and see who's actually free.</p>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card h-100 p-3">
+            <div class="fw-bold">Subscribe anywhere</div>
+            <p class="text-body-secondary small mb-0 mt-1">Every server gets a calendar feed for Google, Apple, or Outlook.</p>
+        </div>
+    </div>
+</div>
+
+<h2 class="h5 mt-5 mb-3">One suite, two surfaces</h2>
+<p class="text-body-secondary" style="max-width:66ch">
+    RSVP from the browser and the Discord embed updates within seconds; RSVP in Discord and the web
+    reflects it. Same events, same reminders, same calendar — wherever your people already are.
+    The bot's <a href="/docs">command reference</a> covers everything Discord-side.
+</p>

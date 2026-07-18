@@ -1,0 +1,50 @@
+@* One button per RSVP option; clicking your current choice clears it (bot parity). *@
+<div class="d-flex flex-wrap gap-2">
+    @foreach (var option in Event.Options.OrderBy(o => o.SortOrder))
+    {
+        var isMine = MyOptionId == option.Id;
+        <button type="button"
+                class="rsvp-btn @(isMine ? "selected" : null)"
+                disabled="@busy"
+                @onclick="() => ClickAsync(option.Id, isMine)">
+            @option.Emote @option.Label
+        </button>
+    }
+</div>
+@if (error is not null)
+{
+    <div class="alert alert-danger mt-2 py-2">@error</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public EventDto Event { get; set; } = default!;
+
+    [Parameter, EditorRequired] public long UserId { get; set; }
+
+    [Parameter] public EventCallback<EventDto> OnChanged { get; set; }
+
+    [Inject] private CalCronyWebApiClient Api { get; set; } = default!;
+
+    private bool busy;
+    private string? error;
+
+    private Guid? MyOptionId => Event.Rsvps.FirstOrDefault(r => r.UserId == UserId)?.OptionId;
+
+    private async Task ClickAsync(Guid optionId, bool isMine)
+    {
+        busy = true;
+        error = null;
+        var result = isMine
+            ? await Api.DeleteRsvpAsync(Event.Id, UserId)
+            : await Api.PutRsvpAsync(Event.Id, UserId, optionId);
+        busy = false;
+
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        await OnChanged.InvokeAsync(result.Value);
+    }
+}

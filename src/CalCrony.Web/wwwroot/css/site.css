@@ -1,0 +1,77 @@
+/* App shell: left sidebar ≥992px (collapsible to an icon rail), top bar + offcanvas drawer below.
+   Mobile-first: base styles are the small-screen experience. */
+
+html { font-size: 14px; }
+@media (min-width: 768px) { html { font-size: 16px; } }
+
+body { min-height: 100vh; }
+
+.app-shell { display: flex; min-height: 100vh; }
+.app-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.app-content { flex: 1 1 auto; width: 100%; max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3.5rem; }
+@media (min-width: 992px) { .app-content { padding: 2.25rem 1.75rem 4rem; } }
+
+/* Top bar (mobile only — the sidebar header replaces it on desktop). */
+.app-topbar { position: sticky; top: 0; z-index: 1030; border-bottom: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); }
+@media (min-width: 992px) { .app-topbar { display: none !important; } }
+
+/* Sidebar: Bootstrap's responsive offcanvas (offcanvas-lg) gives drawer behavior below lg
+   and a normal in-flow element at lg+, where we style it as a fixed-width column. */
+.app-sidebar { width: 272px; background-color: var(--bs-tertiary-bg); border-right: 1px solid var(--bs-border-color); }
+@media (min-width: 992px) {
+    .app-sidebar { width: 248px; flex-shrink: 0; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; transition: width .15s ease; }
+    .app-shell.rail .app-sidebar { width: 66px; }
+    .app-shell.rail .app-sidebar .nav-label,
+    .app-shell.rail .app-sidebar .sidebar-eyebrow,
+    .app-shell.rail .app-sidebar .wordmark-sub,
+    .app-shell.rail .app-sidebar .userchip-meta { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .app-sidebar { transition: none; } }
+
+.sidebar-inner { display: flex; flex-direction: column; height: 100%; padding: 1.1rem .8rem; overflow-y: auto; }
+
+.wordmark { font-size: 1.3rem; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
+.wordmark b { color: var(--calcrony-azure); font-weight: 800; }
+.wordmark-sub { display: block; font-family: var(--bs-font-monospace); font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--bs-secondary-color); margin-top: .15rem; }
+
+.sidebar-eyebrow { font-family: var(--bs-font-monospace); font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--bs-secondary-color); padding: .9rem .6rem .35rem; }
+
+.app-sidebar .nav-link { display: flex; align-items: center; gap: .7rem; padding: .55rem .6rem; border-radius: .5rem; color: var(--bs-body-color); font-size: .93rem; white-space: nowrap; }
+.app-sidebar .nav-link:hover { background-color: var(--bs-secondary-bg); }
+.app-sidebar .nav-link.active { background-color: var(--calcrony-azure-soft); color: var(--calcrony-azure); font-weight: 600; }
+.app-sidebar .nav-ic { width: 1.25rem; text-align: center; flex-shrink: 0; }
+.app-sidebar .nav-ext { margin-left: auto; color: var(--bs-secondary-color); font-size: .7rem; }
+
+.sidebar-foot { margin-top: auto; padding-top: .8rem; display: flex; flex-direction: column; gap: .6rem; }
+
+.userchip { display: flex; align-items: center; gap: .6rem; padding: .5rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; background-color: var(--bs-secondary-bg); }
+.userchip-meta { min-width: 0; }
+.userchip-name { font-size: .85rem; font-weight: 600; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; }
+
+.avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; object-fit: cover; background: linear-gradient(135deg, var(--calcrony-azure), #5bb8ff); display: grid; place-items: center; font-weight: 700; font-size: .75rem; color: #000; }
+.avatar-sm { width: 22px; height: 22px; font-size: .6rem; }
+
+/* Event cards */
+.event-card { transition: border-color .12s ease, transform .12s ease; }
+.event-card:hover { border-color: var(--calcrony-azure); transform: translateY(-1px); }
+.datechip { flex-shrink: 0; text-align: center; border: 1px solid var(--bs-border-color); border-radius: .55rem; overflow: hidden; min-width: 3.4rem; }
+.datechip-month { font-family: var(--bs-font-monospace); font-size: .6rem; letter-spacing: .1em; background-color: var(--calcrony-azure); color: #000; font-weight: 700; padding: .17rem 0; text-transform: uppercase; }
+.datechip-day { font-size: 1.2rem; font-weight: 800; padding: .25rem 0 .35rem; font-variant-numeric: tabular-nums; }
+
+.meta-mono { font-family: var(--bs-font-monospace); font-size: .72rem; color: var(--bs-secondary-color); }
+
+/* RSVP buttons */
+.rsvp-btn { border: 1px solid var(--bs-border-color); background: none; color: var(--bs-body-color); border-radius: .55rem; padding: .55rem 1rem; font-size: .9rem; }
+.rsvp-btn:hover { background-color: var(--bs-secondary-bg); }
+.rsvp-btn.selected { border-color: var(--calcrony-azure); background-color: var(--calcrony-azure-soft); color: var(--calcrony-azure); font-weight: 600; }
+
+/* Availability rows: semantic dots, deliberately distinct from the azure accent. */
+.status-dot { width: .5rem; height: .5rem; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.status-free { background-color: #4caf7d; }
+.status-busy { background-color: #e5484d; }
+.status-reconnect { background-color: #e0a63a; }
+.status-off { background-color: #6f6a68; }
+
+.app-splash { min-height: 100vh; display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; color: var(--bs-secondary-color); }
+
+#blazor-error-ui { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2000; }

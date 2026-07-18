@@ -1,0 +1,107 @@
+@page "/app/settings"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject AuthApiClient AuthApi
+
+<PageTitle>My settings — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2">My settings</p>
+<h1 class="h3">You &amp; your calendar</h1>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="row g-3 mt-1">
+    <div class="col-12 col-md-6">
+        <div class="card p-3 h-100">
+            <div class="fw-bold">Timezone</div>
+            <p class="meta-mono mt-2 mb-1">@(settings?.TimeZone ?? "not set — server timezone is used")</p>
+            <p class="text-body-secondary small mb-0">Set with <code>/settings timezone</code> in Discord (editable here soon).</p>
+        </div>
+    </div>
+    <div class="col-12 col-md-6">
+        <div class="card p-3 h-100">
+            <div class="fw-bold">Google Calendar</div>
+            @if (calendar is null)
+            {
+                <div class="spinner-border spinner-border-sm text-primary mt-2" role="status"></div>
+            }
+            else if (calendar.Connected)
+            {
+                <p class="mt-2 mb-2">
+                    <span class="badge rounded-pill bg-transparent border border-success text-success">
+                        connected@(calendar.ConnectedAtUtc is { } at ? $" · since {at.ToLocalTime():MMM d}" : "")
+                    </span>
+                </p>
+                <button class="btn btn-outline-secondary btn-sm align-self-start" @onclick="DisconnectAsync" disabled="@busy">Disconnect</button>
+            }
+            else
+            {
+                <p class="text-body-secondary small mt-1 mb-2">Link your calendar so events can show your availability. CalCrony only ever sees busy/free blocks — never event names.</p>
+                <button class="btn btn-primary btn-sm align-self-start" @onclick="ConnectAsync" disabled="@busy">Connect Google Calendar</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private UserSettingsDto? settings;
+    private CalendarConnectionStatusDto? calendar;
+    private string? error;
+    private bool busy;
+
+    private long UserId => AuthApi.Session?.UserId ?? 0;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var settingsResult = await Api.GetUserSettingsAsync(UserId);
+        settings = settingsResult.Value;
+        var calendarResult = await Api.GetCalendarStatusAsync(UserId);
+        if (!calendarResult.Success)
+        {
+            error = calendarResult.Error;
+            return;
+        }
+
+        calendar = calendarResult.Value;
+    }
+
+    private async Task ConnectAsync()
+    {
+        busy = true;
+        var result = await Api.CreateCalendarLinkTokenAsync(UserId);
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        // Full-page navigation into the existing Google consent flow; the success page
+        // tells the user to come back.
+        await Task.Yield();
+        NavigateExternal(result.Value.StartUrl);
+    }
+
+    private async Task DisconnectAsync()
+    {
+        busy = true;
+        var result = await Api.DisconnectCalendarAsync(UserId);
+        busy = false;
+        if (!result.Success)
+        {
+            error = result.Error;
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private void NavigateExternal(string url) => Nav.NavigateTo(url, forceLoad: true);
+}

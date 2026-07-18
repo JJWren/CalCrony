@@ -1,0 +1,53 @@
+@page "/login"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@inject AuthApiClient AuthApi
+@inject NavigationManager Nav
+
+<PageTitle>Sign in — CalCrony</PageTitle>
+
+<div class="mx-auto text-center" style="max-width:400px;padding-top:8vh">
+    <p class="meta-mono text-uppercase mb-2">The app</p>
+    <h1 class="h3">Sign in</h1>
+    <p class="text-body-secondary">CalCrony uses your Discord account — that's how it knows which servers and events are yours.</p>
+
+    @if (errorMessage is not null)
+    {
+        <div class="alert alert-danger py-2">@errorMessage</div>
+    }
+
+    <a class="btn btn-primary w-100 py-2" style="background:#5865F2;border-color:#5865F2;color:#fff" href="@AuthApi.BuildLoginUrl(returnUrl)">
+        Sign in with Discord
+    </a>
+    <p class="meta-mono mt-3">scopes: identify · guilds — no messages, no DMs</p>
+</div>
+
+@code {
+    private string returnUrl = "/app";
+    private string? errorMessage;
+
+    protected override void OnInitialized()
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+
+        var requested = query["returnUrl"];
+        if (requested is not null && requested.StartsWith('/') && !requested.StartsWith("//"))
+        {
+            returnUrl = requested;
+        }
+
+        errorMessage = query["error"] switch
+        {
+            "denied" => "Discord sign-in was cancelled. Try again whenever you're ready.",
+            "expired" => "That sign-in link expired or was already used — start again.",
+            "discord" => "Discord didn't complete the sign-in. Try again in a moment.",
+            "missing" => "Something was missing from Discord's response. Try again.",
+            null => null,
+            _ => "Sign-in failed. Try again.",
+        };
+
+        if (AuthApi.Session is not null && errorMessage is null)
+        {
+            Nav.NavigateTo(returnUrl);
+        }
+    }
+}
