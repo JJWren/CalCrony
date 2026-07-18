@@ -8,5 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/CalCrony.Api.Tests/CalCrony.Api.Tests.csproj" />
     <Project Path="tests/CalCrony.Bot.Tests/CalCrony.Bot.Tests.csproj" />
+    <Project Path="tests/CalCrony.Web.Tests/CalCrony.Web.Tests.csproj" />
   </Folder>
 </Solution>

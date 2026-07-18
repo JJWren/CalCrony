@@ -1,16 +1,18 @@
 # CalCrony
 
-A self-hosted event & calendar bot for Discord, inspired by [sesh.fyi](https://sesh.fyi/), built in .NET 9.
+A self-hosted event & calendar suite for Discord, inspired by [sesh.fyi](https://sesh.fyi/), built in .NET 9 — a Discord bot **and** a browser app over one API.
 
-**Architecture:** the backend is an API (`CalCrony.Api`); the Discord bot (`CalCrony.Bot`) is a pure client of that API, authenticating with an `X-Api-Key` header. The API owns all domain logic, persistence (PostgreSQL/EF Core), scheduling, ICS generation, and Google OAuth — it knows nothing about Discord.Net and stores Discord snowflakes as opaque IDs. Shared DTOs live in `CalCrony.Contracts`. Scheduled sends (reminders, event pings) flow through an outbox: the API materializes due `Delivery` rows; the bot polls and acks each only after the Discord post succeeds.
+**Architecture:** the backend is an API (`CalCrony.Api`); the Discord bot (`CalCrony.Bot`) is a pure client of that API authenticating with an `X-Api-Key` header, and the web app (`CalCrony.Web`, Blazor WebAssembly) is a second client authenticating with Discord-login JWTs. The API owns all domain logic, persistence (PostgreSQL/EF Core), scheduling, ICS generation, and both OAuth dances (Google calendar-linking and Discord web login) — it knows nothing about Discord.Net and stores Discord snowflakes as opaque IDs. Shared DTOs live in `CalCrony.Contracts`. Scheduled sends (reminders, event pings) and web→Discord embed syncs flow through an outbox: the API materializes due `Delivery` rows; the bot polls and acks each only after the Discord action succeeds.
 
 ```mermaid
 flowchart LR
     discord["Discord"] <-- "slash commands / RSVP buttons" --> bot["CalCrony.Bot<br/>(Discord.Net worker)"]
     bot -- "HTTPS + X-Api-Key" --> api["CalCrony.Api<br/>(ASP.NET Core)"]
+    web["CalCrony.Web<br/>(Blazor WASM + nginx)"] -- "HTTPS + Bearer JWT<br/>(Discord login)" --> api
     api <--> db[("PostgreSQL")]
     calapps["Calendar apps<br/>Google / Apple / Outlook"] -- "ICS feed<br/>(tokenized URL)" --> api
     google["Google<br/>(OAuth consent + freebusy API)"] <-- "browser-facing /oauth routes<br/>live free/busy queries" --> api
+    discordoauth["Discord OAuth<br/>(identify + guilds)"] <-- "browser-facing /auth routes" --> api
 ```
 
 ## Features
@@ -20,6 +22,7 @@ flowchart LR
 - **Reminders & notifications** — one-off `/remind`, up to 5 scheduled pings per event plus an automatic start announcement, crash-safe delivery via the outbox
 - **ICS calendar feed** — per-server tokenized subscribe URL (`/link`), importable into Google/Apple/Outlook calendars
 - **Google Calendar availability** — members link their Google Calendar via OAuth (least-privilege free/busy scope: CalCrony never sees event titles or details, and tokens are encrypted at rest); anyone can then check an on-demand, Teams-Scheduling-Assistant-style free/busy grid for a role or an event's attendees. Read-only — it never blocks creating or RSVPing.
+- **Web app** — sign in with Discord (identify + guilds scopes only) and browse your servers' events in a mobile-first, dark-by-default UI: RSVP from the browser (the Discord embed updates within ~15s), see availability grids, link your calendar, grab the ICS subscribe URL. Read + interact today; event management from the web is the next phase.
 
 ## Commands
 
@@ -41,12 +44,14 @@ flowchart LR
 
 ```
 src/
-  CalCrony.Api/        ASP.NET Core: endpoints, EF Core + migrations, scheduler, ICS, Google OAuth
+  CalCrony.Api/        ASP.NET Core: endpoints, EF Core + migrations, scheduler, ICS, OAuth (Google + Discord)
   CalCrony.Bot/        Discord.Net worker: slash commands, RSVP buttons, delivery poller
+  CalCrony.Web/        Blazor WASM app: landing/docs + Discord-login app, served by nginx
   CalCrony.Contracts/  DTOs shared across the wire
 tests/
   CalCrony.Api.Tests/  Parser unit tests + Testcontainers-Postgres integration tests
   CalCrony.Bot.Tests/  Embed-builder unit tests
+  CalCrony.Web.Tests/  bUnit component tests
 ```
 
 ## Configuration
@@ -61,11 +66,14 @@ All settings can be supplied as environment variables using `Section__Key` form.
 | `Database__AutoMigrate` | `true` | Apply EF migrations + seed bootstrap key at startup |
 | `Auth__BootstrapApiKey` | *(empty)* | Seeded (SHA-256-hashed) **only when the ApiKeys table is empty** |
 | `Scheduler__Enabled` / `Scheduler__SweepSeconds` | `true` / `15` | Notification/start-ping sweep loop |
-| `Api__PublicBaseUrl` | *(empty)* | The API's public HTTPS URL — required for Google OAuth (`redirect_uri` and connect links are built from it) |
+| `Api__PublicBaseUrl` | *(empty)* | The API's public HTTPS URL — required for Google OAuth and Discord login (`redirect_uri`s are built from it) |
 | `Calendar__Google__ClientId` / `ClientSecret` | *(empty)* | Google OAuth Web-client credentials; calendar features return a clear 503 until set |
 | `Calendar__DataProtectionKeyPath` | `./keys` | **Must be persisted storage.** Encryption keys for stored OAuth tokens live here; losing them silently bricks every linked calendar |
+| `Auth__Discord__ClientId` / `ClientSecret` | *(empty)* | Discord application credentials for web login; `/auth/discord/start` returns a clear 503 until set |
+| `Auth__Jwt__SigningKey` | *(empty)* | HS256 key (≥32 chars) for web-session JWTs; rotating it just signs everyone out |
+| `Web__Origin` | *(empty)* | The web app's public origin — drives CORS, login redirects, and returnUrl validation |
 
-Anonymous routes (no API key): `/health`, `/feeds/*` (token in URL), `/oauth/*` (single-use link tokens).
+Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/*` (single-use link tokens), `/auth/*` (login redirects + HttpOnly refresh cookie). Everything else accepts the bot's `X-Api-Key` **or** a web-session Bearer JWT — web callers are scoped to their own guilds/identity, the bot is fully trusted.
 
 ### Bot (`CalCrony.Bot`)
 
@@ -91,12 +99,12 @@ Or the whole stack: `docker compose up` (set `DISCORD_BOT_TOKEN`, `CALCRONY_API_
 
 ## Deploying
 
-Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api` and `ghcr.io/jjwren/calcrony-bot`. A production deployment is the compose file pointed at those images instead of `build:`, with:
+Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api`, `ghcr.io/jjwren/calcrony-bot`, and `ghcr.io/jjwren/calcrony-web` (nginx-served static app; set `API_BASE_URL` to the browser-visible API URL). A production deployment is the compose file pointed at those images instead of `build:`, with:
 
 1. A strong `CALCRONY_API_KEY` set **before first boot** (the bootstrap key only seeds into an empty database).
 2. A named volume behind `Calendar__DataProtectionKeyPath` (see the warning above).
 3. The API fronted by a reverse proxy at a public HTTPS URL, with `Api__PublicBaseUrl` set to it, and `{Api__PublicBaseUrl}/oauth/google/callback` registered as an authorized redirect URI on your Google OAuth client.
-4. A Discord application with the bot token, `bot` + `applications.commands` scopes on the invite, and the Server Members intent enabled.
+4. A Discord application with the bot token, `bot` + `applications.commands` scopes on the invite, and the Server Members intent enabled — plus, for web login, `{Api__PublicBaseUrl}/auth/discord/callback` added to the same application's OAuth2 redirect URIs and its client id/secret in `Auth__Discord__*`.
 
 The running API reports its version at `GET /health`.
 
