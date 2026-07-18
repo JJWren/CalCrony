@@ -17,8 +17,19 @@
     <div class="col-12 col-md-6">
         <div class="card p-3 h-100">
             <div class="fw-bold">Timezone</div>
-            <p class="meta-mono mt-2 mb-1">@(settings?.TimeZone ?? "not set — server timezone is used")</p>
-            <p class="text-body-secondary small mb-0">Set with <code>/settings timezone</code> in Discord (editable here soon).</p>
+            <label class="form-label small mt-2 mb-1" for="us-tz">IANA id (e.g. America/Chicago); blank = server timezone</label>
+            <div class="d-flex gap-2">
+                <input id="us-tz" class="form-control form-control-sm" @bind="timezoneInput" />
+                <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@busy">Save</button>
+            </div>
+            <div class="form-check form-switch mt-3">
+                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" />
+                <label class="form-check-label small" for="us-dm">DM confirmations</label>
+            </div>
+            @if (saveMessage is not null)
+            {
+                <div class="meta-mono mt-2">@saveMessage</div>
+            }
         </div>
     </div>
     <div class="col-12 col-md-6">
@@ -51,6 +62,9 @@
     private CalendarConnectionStatusDto? calendar;
     private string? error;
     private bool busy;
+    private string timezoneInput = "";
+    private bool dmConfirmations = true;
+    private string? saveMessage;
 
     private long UserId => AuthApi.Session?.UserId ?? 0;
 
@@ -60,6 +74,8 @@
     {
         var settingsResult = await Api.GetUserSettingsAsync(UserId);
         settings = settingsResult.Value;
+        timezoneInput = settings?.TimeZone ?? "";
+        dmConfirmations = settings?.DmConfirmations ?? true;
         var calendarResult = await Api.GetCalendarStatusAsync(UserId);
         if (!calendarResult.Success)
         {
@@ -68,6 +84,23 @@
         }
 
         calendar = calendarResult.Value;
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        saveMessage = null;
+        busy = true;
+        var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
+            string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations));
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            saveMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        settings = result.Value;
+        saveMessage = "✓ Saved.";
     }
 
     private async Task ConnectAsync()

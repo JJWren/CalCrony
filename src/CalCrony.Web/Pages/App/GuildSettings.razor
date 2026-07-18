@@ -7,7 +7,10 @@
 
 <p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@GuildId/events">← Back to events</a></p>
 <h1 class="h3">Server settings</h1>
-<p class="text-body-secondary">Read-only for now — change these in Discord with <code>/settings</code>.</p>
+@if (!isManager)
+{
+    <p class="text-body-secondary">Read-only — server managers can edit these here or in Discord with <code>/settings</code>.</p>
+}
 
 @if (error is not null)
 {
@@ -19,7 +22,27 @@ else
         <div class="col-12 col-md-6">
             <div class="card p-3 h-100">
                 <div class="fw-bold">Timezone</div>
-                <p class="meta-mono mb-0 mt-2">@(settings?.TimeZone ?? "…")</p>
+                @if (isManager)
+                {
+                    <label class="form-label small mt-2 mb-1" for="gs-tz">IANA id, e.g. America/Chicago</label>
+                    <div class="d-flex gap-2">
+                        <input id="gs-tz" class="form-control form-control-sm" @bind="timezoneInput" />
+                        <button class="btn btn-outline-primary btn-sm" @onclick="SaveTimezoneAsync" disabled="@busy">Save</button>
+                    </div>
+                    @if (saveMessage is not null)
+                    {
+                        <div class="meta-mono mt-2">@saveMessage</div>
+                    }
+                }
+                else
+                {
+                    <p class="meta-mono mb-0 mt-2">@(settings?.TimeZone ?? "…")</p>
+                }
+                <div class="mt-3 pt-2 border-top">
+                    <div class="fw-bold small">Default events channel</div>
+                    <p class="meta-mono mb-1 mt-1">@(settings?.DefaultChannelId is long ch ? $"#{ch}" : "not set")</p>
+                    <p class="text-body-secondary small mb-0">Set in Discord with <code>/settings default-channel</code> — the web has no channel list. Web-created events and reminders post there.</p>
+                </div>
             </div>
         </div>
         <div class="col-12 col-md-6">
@@ -47,6 +70,10 @@ else
     private string? feedUrl;
     private string? error;
     private string copyLabel = "Copy URL";
+    private bool isManager;
+    private bool busy;
+    private string timezoneInput = "";
+    private string? saveMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -58,12 +85,39 @@ else
         }
 
         settings = settingsResult.Value;
+        timezoneInput = settings?.TimeZone ?? "UTC";
+        isManager = (await Api.GetMyGuildsAsync()).Value?.Guilds
+            .Any(g => g.Id == GuildId && g.CanManage) ?? false;
 
         var feedResult = await Api.GetFeedTokenAsync(GuildId);
         if (feedResult.Success && feedResult.Value is not null)
         {
             feedUrl = Api.FeedUrl(feedResult.Value);
         }
+    }
+
+    private async Task SaveTimezoneAsync()
+    {
+        saveMessage = null;
+        var trimmed = timezoneInput.Trim();
+        if (trimmed.Length == 0)
+        {
+            saveMessage = "❌ Enter an IANA timezone id, e.g. America/Chicago.";
+            return;
+        }
+
+        busy = true;
+        // Read-modify-write: preserve the bot-managed DefaultChannelId.
+        var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(trimmed, settings?.DefaultChannelId));
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            saveMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        settings = result.Value;
+        saveMessage = $"🌍 Saved — {result.Value.TimeZone}.";
     }
 
     private async Task CopyAsync()

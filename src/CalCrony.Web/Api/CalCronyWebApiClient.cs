@@ -51,6 +51,33 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     public Task<ApiResult<Unit>> DisconnectCalendarAsync(long userId, CancellationToken ct = default) =>
         SendAsync<Unit>(http.DeleteAsync($"/calendar/connections/{userId}", ct), ct);
 
+    public Task<ApiResult<EventDto>> CreateEventAsync(long guildId, CreateEventRequest request, CancellationToken ct = default) =>
+        SendAsync<EventDto>(http.PostAsJsonAsync($"/guilds/{guildId}/events", request, ct), ct);
+
+    public Task<ApiResult<EventDto>> UpdateEventAsync(Guid id, UpdateEventRequest request, CancellationToken ct = default) =>
+        SendAsync<EventDto>(http.PatchAsJsonAsync($"/events/{id}", request, ct), ct);
+
+    public Task<ApiResult<Unit>> DeleteEventAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/events/{id}", ct), ct);
+
+    public Task<ApiResult<EventNotificationDto>> CreateNotificationAsync(Guid eventId, CreateEventNotificationRequest request, CancellationToken ct = default) =>
+        SendAsync<EventNotificationDto>(http.PostAsJsonAsync($"/events/{eventId}/notifications", request, ct), ct);
+
+    public Task<ApiResult<Unit>> DeleteNotificationAsync(Guid eventId, Guid notificationId, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/events/{eventId}/notifications/{notificationId}", ct), ct);
+
+    public Task<ApiResult<ReminderDto>> CreateReminderAsync(CreateReminderRequest request, CancellationToken ct = default) =>
+        SendAsync<ReminderDto>(http.PostAsJsonAsync("/reminders", request, ct), ct);
+
+    public Task<ApiResult<GuildSettingsDto>> PutGuildSettingsAsync(long guildId, GuildSettingsDto settings, CancellationToken ct = default) =>
+        SendAsync<GuildSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/settings", settings, ct), ct);
+
+    public Task<ApiResult<UserSettingsDto>> PutUserSettingsAsync(long userId, UserSettingsDto settings, CancellationToken ct = default) =>
+        SendAsync<UserSettingsDto>(http.PutAsJsonAsync($"/users/{userId}/settings", settings, ct), ct);
+
+    public Task<ApiResult<ParseDateTimeResponse>> ParseDateTimeAsync(ParseDateTimeRequest request, CancellationToken ct = default) =>
+        SendAsync<ParseDateTimeResponse>(http.PostAsJsonAsync("/tools/parse-datetime", request, ct), ct);
+
     public string FeedUrl(FeedTokenDto token) => $"{http.BaseAddress!.ToString().TrimEnd('/')}{token.Path}";
 
     public readonly record struct Unit;

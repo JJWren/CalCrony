@@ -56,17 +56,23 @@ public class WebAuthorizationTests(WebAuthFixture fixture) : IClassFixture<WebAu
     [InlineData("PATCH", "/events/{eventId}")]
     [InlineData("DELETE", "/events/{eventId}")]
     [InlineData("POST", "/events/{eventId}/notifications")]
-    public async Task Event_mutations_are_bot_only_in_phase_a(string method, string pathTemplate)
+    public async Task Event_mutations_require_creator_or_manager(string method, string pathTemplate)
     {
+        // Phase B: a plain member who is neither creator nor manager is refused.
+        // (Creator/manager success paths are covered in WebMutationTests.)
         await SeedGuildAsync(GuildId);
-        var ev = await CreateEventAsync(GuildId, $"BotOnly {method} {pathTemplate.GetHashCode()}");
-        var (member, _) = await fixture.LoginAsync(6004, (GuildId, "Mine", true));
+        var ev = await CreateEventAsync(GuildId, $"Guarded {method} {pathTemplate.GetHashCode()}");
+        var (member, _) = await fixture.LoginAsync(6004, (GuildId, "Mine", false));
         var path = pathTemplate.Replace("{eventId}", ev.Id.ToString());
 
         using var request = new HttpRequestMessage(new HttpMethod(method), path);
         if (method is "PATCH" or "POST")
         {
-            request.Content = JsonContent.Create(new { });
+            // Explicit full-shape bodies (STJ would default missing positional-record args
+            // anyway, but explicitness keeps the 403-not-400 intent obvious).
+            request.Content = method == "PATCH"
+                ? JsonContent.Create(new { editorId = 0, title = "Hijacked" })
+                : JsonContent.Create(new { minutesBefore = 30 });
         }
 
         var response = await member.SendAsync(request);
@@ -105,8 +111,11 @@ public class WebAuthorizationTests(WebAuthFixture fixture) : IClassFixture<WebAu
         var other = await member.GetAsync("/users/424242/settings");
         Assert.Equal(HttpStatusCode.Forbidden, other.StatusCode);
 
-        var write = await member.PutAsJsonAsync($"/users/{session.UserId}/settings", new UserSettingsDto("UTC", true));
-        Assert.Equal(HttpStatusCode.Forbidden, write.StatusCode);
+        // Phase B: writing your OWN settings is allowed; another user's is not.
+        var selfWrite = await member.PutAsJsonAsync($"/users/{session.UserId}/settings", new UserSettingsDto("UTC", true));
+        selfWrite.EnsureSuccessStatusCode();
+        var otherWrite = await member.PutAsJsonAsync("/users/424242/settings", new UserSettingsDto("UTC", true));
+        Assert.Equal(HttpStatusCode.Forbidden, otherWrite.StatusCode);
     }
 
     [Fact]

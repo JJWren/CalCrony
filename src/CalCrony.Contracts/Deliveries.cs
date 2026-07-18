@@ -8,6 +8,12 @@ public enum DeliveryType
 
     /// <summary>Re-render an event's posted Discord embed (a web action changed its data).</summary>
     SyncEventMessage = 3,
+
+    /// <summary>Post the embed for a web-created event to the guild's default channel.</summary>
+    PostEventMessage = 4,
+
+    /// <summary>Delete a web-deleted event's posted embed (ids captured before the row died).</summary>
+    DeleteEventMessage = 5,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -20,6 +26,10 @@ public record EventStartPayload(Guid EventId, string Title, long StartsAtUnix, l
 public record EventNotificationPayload(Guid EventId, string Title, long StartsAtUnix, string? Message, string? Mentions);
 
 public record SyncEventMessagePayload(Guid EventId);
+
+public record PostEventMessagePayload(Guid EventId);
+
+public record DeleteEventMessagePayload(long ChannelId, long MessageId);
 
 public record CreateReminderRequest(long GuildId, long UserId, long ChannelId, string WhenText, string Text);
 

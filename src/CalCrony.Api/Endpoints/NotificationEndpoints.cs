@@ -12,8 +12,8 @@ public static class NotificationEndpoints
     public static void MapNotificationEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/events/{id:guid}/notifications", List);
-        app.MapPost("/events/{id:guid}/notifications", Create).RequireAuthorization("BotOnly");
-        app.MapDelete("/events/{id:guid}/notifications/{notificationId:guid}", Delete).RequireAuthorization("BotOnly");
+        app.MapPost("/events/{id:guid}/notifications", Create);
+        app.MapDelete("/events/{id:guid}/notifications/{notificationId:guid}", Delete);
     }
 
     private static async Task<IResult> List(
@@ -38,6 +38,8 @@ public static class NotificationEndpoints
     }
 
     private static async Task<IResult> Create(
+        HttpContext context,
+        GuildAccessService access,
         Guid id,
         CreateEventNotificationRequest request,
         CalCronyDbContext db,
@@ -54,6 +56,11 @@ public static class NotificationEndpoints
         if (ev is null)
         {
             return Results.NotFound();
+        }
+
+        if (await EventEndpoints.GuardEventMutateAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
         }
 
         if (ev.Notifications.Count >= MaxPerEvent)
@@ -77,8 +84,24 @@ public static class NotificationEndpoints
     }
 
     private static async Task<IResult> Delete(
-        Guid id, Guid notificationId, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        Guid notificationId,
+        CalCronyDbContext db,
+        CancellationToken cancellationToken)
     {
+        var ev = await db.Events.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        if (ev is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await EventEndpoints.GuardEventMutateAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
         var deleted = await db.EventNotifications
             .Where(n => n.EventId == id && n.Id == notificationId)
             .ExecuteDeleteAsync(cancellationToken);

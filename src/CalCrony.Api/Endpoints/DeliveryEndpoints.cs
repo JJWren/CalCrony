@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
@@ -14,11 +15,11 @@ public static class DeliveryEndpoints
 
     public static void MapDeliveryEndpoints(this IEndpointRouteBuilder app)
     {
-        // The outbox and reminder creation are bot-facing surfaces (Phase A).
+        // The outbox itself stays bot-only; reminders are open to guild members (Phase B).
         var group = app.MapGroup("").RequireAuthorization("BotOnly");
         group.MapGet("/deliveries/pending", GetPending);
         group.MapPost("/deliveries/{id:guid}/ack", Ack);
-        group.MapPost("/reminders", CreateReminder);
+        app.MapPost("/reminders", CreateReminder);
     }
 
     private static async Task<IResult> GetPending(
@@ -66,15 +67,41 @@ public static class DeliveryEndpoints
     }
 
     private static async Task<IResult> CreateReminder(
+        HttpContext context,
+        GuildAccessService access,
         CreateReminderRequest request,
         CalCronyDbContext db,
         NaturalDateTimeParser parser,
         IClock clock,
         CancellationToken cancellationToken)
     {
-        var guild = await EventEndpoints.GetOrCreateGuildAsync(db, request.GuildId, cancellationToken);
-        var zone = await EventEndpoints.ResolveZoneAsync(db, request.UserId, guild, cancellationToken);
+        if (await EventEndpoints.GuardGuildReadAsync(context, access, request.GuildId, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
 
+        var guild = await EventEndpoints.GetOrCreateGuildAsync(db, request.GuildId, cancellationToken);
+
+        // Web callers: reminder is always for themselves, and it posts in the default channel
+        // (the web has no channel picker by design).
+        var isBot = context.User.IsBot();
+        var userId = isBot ? request.UserId : context.User.WebUserId()!.Value;
+        long channelId;
+        if (isBot)
+        {
+            channelId = request.ChannelId;
+        }
+        else if (guild.DefaultChannelId is long defaultChannel)
+        {
+            channelId = defaultChannel;
+        }
+        else
+        {
+            return Results.BadRequest(new ErrorResponse(
+                "This server has no default events channel yet — a manager must run /settings default-channel in Discord."));
+        }
+
+        var zone = await EventEndpoints.ResolveZoneAsync(db, userId, guild, cancellationToken);
         if (!parser.TryResolve(request.WhenText, zone, out var fireAt, out var error))
         {
             return Results.BadRequest(new ErrorResponse(error!));
@@ -85,8 +112,8 @@ public static class DeliveryEndpoints
         {
             Id = Guid.NewGuid(),
             Type = DeliveryType.Reminder,
-            ChannelId = request.ChannelId,
-            PayloadJson = JsonSerializer.Serialize(new ReminderPayload(request.UserId, request.Text)),
+            ChannelId = channelId,
+            PayloadJson = JsonSerializer.Serialize(new ReminderPayload(userId, request.Text)),
             DueAt = fireAt,
             Status = DeliveryStatus.Pending,
             CreatedAt = clock.GetCurrentInstant(),

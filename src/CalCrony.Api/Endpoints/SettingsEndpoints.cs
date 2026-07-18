@@ -9,9 +9,9 @@ public static class SettingsEndpoints
     public static void MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/guilds/{guildId:long}/settings", GetGuildSettings);
-        app.MapPut("/guilds/{guildId:long}/settings", PutGuildSettings).RequireAuthorization("BotOnly");
+        app.MapPut("/guilds/{guildId:long}/settings", PutGuildSettings);
         app.MapGet("/users/{userId:long}/settings", GetUserSettings);
-        app.MapPut("/users/{userId:long}/settings", PutUserSettings).RequireAuthorization("BotOnly");
+        app.MapPut("/users/{userId:long}/settings", PutUserSettings);
     }
 
     private static async Task<IResult> GetGuildSettings(
@@ -27,8 +27,32 @@ public static class SettingsEndpoints
     }
 
     private static async Task<IResult> PutGuildSettings(
-        long guildId, GuildSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context,
+        GuildAccessService access,
+        long guildId,
+        GuildSettingsDto settings,
+        CalCronyDbContext db,
+        CancellationToken cancellationToken)
     {
+        if (!context.User.IsBot())
+        {
+            var userId = context.User.WebUserId();
+            var tier = userId is null
+                ? GuildAccess.None
+                : await access.CheckAsync(userId.Value, guildId, cancellationToken);
+            if (tier == GuildAccess.Stale)
+            {
+                return GuildAccessService.StaleSnapshot();
+            }
+
+            if (tier != GuildAccess.Manager)
+            {
+                return Results.Json(
+                    new ErrorResponse("Only server managers can change server settings."),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+        }
+
         if (Mapping.FindZone(settings.TimeZone) is null)
         {
             return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
@@ -54,8 +78,13 @@ public static class SettingsEndpoints
     }
 
     private static async Task<IResult> PutUserSettings(
-        long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
     {
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
+        }
+
         if (settings.TimeZone is not null && Mapping.FindZone(settings.TimeZone) is null)
         {
             return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));

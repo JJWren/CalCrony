@@ -12,16 +12,45 @@ public static class EventEndpoints
 {
     public static void MapEventEndpoints(this IEndpointRouteBuilder app)
     {
-        // Phase A: web (JWT) callers may read and RSVP; every other mutation is BotOnly.
-        app.MapPost("/guilds/{guildId:long}/events", CreateEvent).RequireAuthorization("BotOnly");
+        // Phase B: web (JWT) callers get bot-parity mutations — member to create, creator or
+        // ManageGuild to edit/delete. SetMessage stays bot-only (only the bot knows message ids).
+        app.MapPost("/guilds/{guildId:long}/events", CreateEvent);
         app.MapGet("/guilds/{guildId:long}/events", ListEvents);
         app.MapGet("/events/{id:guid}", GetEvent);
-        app.MapPatch("/events/{id:guid}", UpdateEvent).RequireAuthorization("BotOnly");
-        app.MapDelete("/events/{id:guid}", DeleteEvent).RequireAuthorization("BotOnly");
+        app.MapPatch("/events/{id:guid}", UpdateEvent);
+        app.MapDelete("/events/{id:guid}", DeleteEvent);
         app.MapPut("/events/{id:guid}/message", SetMessage).RequireAuthorization("BotOnly");
         app.MapPut("/events/{id:guid}/rsvps/{userId:long}", PutRsvp);
         app.MapDelete("/events/{id:guid}/rsvps/{userId:long}", DeleteRsvp);
-        app.MapPost("/tools/parse-datetime", ParseDateTime).RequireAuthorization("BotOnly");
+        app.MapPost("/tools/parse-datetime", ParseDateTime);
+    }
+
+    /// <summary>Mutation guard for JWT callers: event's guild member AND (creator or manager).
+    /// Bot passes. Non-members get 404 (same anti-probing rule as reads).</summary>
+    internal static async Task<IResult?> GuardEventMutateAsync(
+        HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken)
+    {
+        if (context.User.IsBot())
+        {
+            return null;
+        }
+
+        var userId = context.User.WebUserId();
+        if (userId is null)
+        {
+            return Results.NotFound();
+        }
+
+        return await access.CheckAsync(userId.Value, ev.GuildId, cancellationToken) switch
+        {
+            GuildAccess.Stale => GuildAccessService.StaleSnapshot(),
+            GuildAccess.Manager => null,
+            GuildAccess.Member when ev.CreatorId == userId.Value => null,
+            GuildAccess.Member => Results.Json(
+                new ErrorResponse("Only the event creator or a server manager can change this event."),
+                statusCode: StatusCodes.Status403Forbidden),
+            _ => Results.NotFound(),
+        };
     }
 
     /// <summary>Guild-read guard for web callers: bot passes, members pass, others get 403/stale.</summary>
@@ -106,6 +135,8 @@ public static class EventEndpoints
     }
 
     private static async Task<IResult> CreateEvent(
+        HttpContext context,
+        GuildAccessService access,
         long guildId,
         CreateEventRequest request,
         CalCronyDbContext db,
@@ -113,29 +144,55 @@ public static class EventEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
-        var guild = await GetOrCreateGuildAsync(db, guildId, cancellationToken);
-        var zone = await ResolveZoneAsync(db, request.CreatorId, guild, cancellationToken);
+        if (await GuardGuildReadAsync(context, access, guildId, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
 
+        var guild = await GetOrCreateGuildAsync(db, guildId, cancellationToken);
+
+        // Web callers can't spoof identity or pick channels: creator is always the JWT subject,
+        // and the embed goes to the guild's default channel — creation is blocked without one
+        // (a channel-less event would be invisible in Discord with no RSVP buttons).
+        var isBot = context.User.IsBot();
+        var creatorId = isBot ? request.CreatorId : context.User.WebUserId()!.Value;
+        long channelId;
+        if (isBot)
+        {
+            channelId = request.ChannelId;
+        }
+        else if (guild.DefaultChannelId is long defaultChannel)
+        {
+            channelId = defaultChannel;
+        }
+        else
+        {
+            return Results.BadRequest(new ErrorResponse(
+                "This server has no default events channel yet — a manager must run /settings default-channel in Discord."));
+        }
+
+        var zone = await ResolveZoneAsync(db, creatorId, guild, cancellationToken);
         if (!parser.TryResolve(request.WhenText, zone, out var startsAt, out var error))
         {
             return Results.BadRequest(new ErrorResponse(error!));
         }
 
+        var now = clock.GetCurrentInstant();
         var ev = new Event
         {
             Id = Guid.NewGuid(),
             GuildId = guildId,
-            CreatorId = request.CreatorId,
+            CreatorId = creatorId,
             Title = request.Title,
             Description = request.Description,
             StartsAt = startsAt,
             TimeZone = zone.Id,
             DurationMinutes = request.DurationMinutes,
-            ChannelId = request.ChannelId,
+            ChannelId = channelId,
             Location = request.Location,
             ImageUrl = request.ImageUrl,
             Status = EventStatus.Scheduled,
-            CreatedAt = clock.GetCurrentInstant(),
+            CreatedAt = now,
             Options =
             [
                 new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", SortOrder = 0 },
@@ -143,8 +200,23 @@ public static class EventEndpoints
                 new RsvpOption { Id = Guid.NewGuid(), Emote = "🤔", Label = "Maybe", SortOrder = 2 },
             ],
         };
-
         db.Events.Add(ev);
+
+        if (!isBot)
+        {
+            // The bot posts the embed itself on /create; web creates hand that job to the outbox.
+            db.Deliveries.Add(new Delivery
+            {
+                Id = Guid.NewGuid(),
+                Type = DeliveryType.PostEventMessage,
+                ChannelId = channelId,
+                PayloadJson = JsonSerializer.Serialize(new PostEventMessagePayload(ev.Id)),
+                DueAt = now,
+                Status = DeliveryStatus.Pending,
+                CreatedAt = now,
+            });
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/events/{ev.Id}", ev.ToDto());
     }
@@ -204,16 +276,24 @@ public static class EventEndpoints
     }
 
     private static async Task<IResult> UpdateEvent(
+        HttpContext context,
+        GuildAccessService access,
         Guid id,
         UpdateEventRequest request,
         CalCronyDbContext db,
         NaturalDateTimeParser parser,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
         {
             return Results.NotFound();
+        }
+
+        if (await GuardEventMutateAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
         }
 
         if (request.WhenText is not null)
@@ -234,14 +314,50 @@ public static class EventEndpoints
         ev.ImageUrl = request.ImageUrl ?? ev.ImageUrl;
         ev.Status = request.Status ?? ev.Status;
 
+        await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ev.ToDto());
     }
 
-    private static async Task<IResult> DeleteEvent(Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> DeleteEvent(
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        CalCronyDbContext db,
+        IClock clock,
+        CancellationToken cancellationToken)
     {
-        var deleted = await db.Events.Where(e => e.Id == id).ExecuteDeleteAsync(cancellationToken);
-        return deleted == 0 ? Results.NotFound() : Results.NoContent();
+        var ev = await db.Events.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        if (ev is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await GuardEventMutateAsync(context, access, ev, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        // Web deletes: capture the posted message's ids before the row dies so the bot can
+        // remove the embed. The bot deletes messages itself, so bot callers enqueue nothing.
+        if (!context.User.IsBot() && ev.MessageId is long messageId)
+        {
+            var now = clock.GetCurrentInstant();
+            db.Deliveries.Add(new Delivery
+            {
+                Id = Guid.NewGuid(),
+                Type = DeliveryType.DeleteEventMessage,
+                ChannelId = ev.ChannelId,
+                PayloadJson = JsonSerializer.Serialize(new DeleteEventMessagePayload(ev.ChannelId, messageId)),
+                DueAt = now,
+                Status = DeliveryStatus.Pending,
+                CreatedAt = now,
+            });
+        }
+
+        db.Events.Remove(ev);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> SetMessage(
@@ -363,11 +479,21 @@ public static class EventEndpoints
     }
 
     private static async Task<IResult> ParseDateTime(
+        HttpContext context,
+        GuildAccessService access,
         ParseDateTimeRequest request,
         CalCronyDbContext db,
         NaturalDateTimeParser parser,
         CancellationToken cancellationToken)
     {
+        // JWT callers always parse as themselves, and may only reference guilds they're in.
+        var effectiveUserId = context.User.IsBot() ? request.UserId : context.User.WebUserId();
+        if (!context.User.IsBot() && request.GuildId is long requestedGuild &&
+            await GuardGuildReadAsync(context, access, requestedGuild, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
         DateTimeZone zone = DateTimeZone.Utc;
         if (request.GuildId is long guildId)
         {
@@ -375,7 +501,7 @@ public static class EventEndpoints
             zone = Mapping.FindZone(guild?.TimeZone) ?? zone;
         }
 
-        if (request.UserId is long userId)
+        if (effectiveUserId is long userId)
         {
             var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
             zone = Mapping.FindZone(user?.TimeZone) ?? zone;
