@@ -1,6 +1,11 @@
+@implements IDisposable
 @inject AuthApiClient AuthApi
 @inject NavigationManager Nav
+@inject IJSRuntime Js
 
+@* Internal links deliberately carry NO data-bs-dismiss: Bootstrap's dismiss handler calls
+   preventDefault() on anchors, which kills Blazor navigation. The drawer closes instead via
+   the LocationChanged subscription below. *@
 <nav id="appSidebar" class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" aria-label="Main navigation">
     <div class="sidebar-inner">
         <div class="d-flex align-items-start justify-content-between px-2 pb-3">
@@ -11,10 +16,10 @@
             <button class="btn-close d-lg-none" type="button" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Close menu"></button>
         </div>
 
-        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
             <span class="nav-ic">⌂</span><span class="nav-label">Home</span>
         </NavLink>
-        <NavLink class="nav-link" href="/docs" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+        <NavLink class="nav-link" href="/docs">
             <span class="nav-ic">✎</span><span class="nav-label">User docs</span>
         </NavLink>
         <a class="nav-link" href="https://github.com/JJWren/CalCrony#readme" target="_blank" rel="noopener">
@@ -25,10 +30,10 @@
         </a>
 
         <div class="sidebar-eyebrow nav-label">The app</div>
-        <NavLink class="nav-link" href="/app" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+        <NavLink class="nav-link" href="/app" Match="NavLinkMatch.All">
             <span class="nav-ic">▤</span><span class="nav-label">My servers</span>
         </NavLink>
-        <NavLink class="nav-link" href="/app/settings" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+        <NavLink class="nav-link" href="/app/settings">
             <span class="nav-ic">⚙</span><span class="nav-label">My settings</span>
         </NavLink>
 
@@ -46,7 +51,7 @@
                     <a class="meta-mono px-2 nav-label" href="@AuthApi.BuildLoginUrl("/app")">↻ re-sync servers</a>
                 </Authorized>
                 <NotAuthorized>
-                    <NavLink class="nav-link" href="/login" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar">
+                    <NavLink class="nav-link" href="/login">
                         <span class="nav-ic">→</span><span class="nav-label">Sign in</span>
                     </NavLink>
                 </NotAuthorized>
@@ -63,9 +68,16 @@
 
     [Parameter] public bool RailCollapsed { get; set; }
 
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _ = Js.InvokeVoidAsync("calcronyNav.closeDrawer").AsTask();
+
     private async Task LogoutAsync()
     {
         await AuthApi.LogoutAsync();
         Nav.NavigateTo("/");
     }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

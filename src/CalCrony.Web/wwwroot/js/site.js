@@ -15,6 +15,17 @@ window.calcronyTheme = {
     }
 };
 
+// Closes the mobile nav drawer after a navigation. Called from Blazor on LocationChanged —
+// NOT via data-bs-dismiss on the links, which preventDefault()s anchors and breaks routing.
+window.calcronyNav = {
+    closeDrawer: function () {
+        var el = document.getElementById("appSidebar");
+        if (!el || !window.bootstrap) { return; }
+        var oc = bootstrap.Offcanvas.getInstance(el);
+        if (oc) { oc.hide(); }
+    }
+};
+
 // Copy-to-clipboard helper for the ICS feed URL.
 window.calcronyCopy = function (text) {
     return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
