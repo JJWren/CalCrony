@@ -68,7 +68,18 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             return;
         }
 
-        var optionIds = selections.Select(Guid.Parse).ToList();
+        var optionIds = new List<Guid>();
+        foreach (var selection in selections)
+        {
+            if (!Guid.TryParse(selection, out var optionId))
+            {
+                await FollowupAsync("This poll menu is out of date — try again after the message refreshes.", ephemeral: true);
+                return;
+            }
+
+            optionIds.Add(optionId);
+        }
+
         await SubmitVotesAsync(pollId, (long)Context.User.Id, optionIds);
     }
 

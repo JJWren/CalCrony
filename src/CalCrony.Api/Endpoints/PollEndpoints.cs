@@ -280,10 +280,11 @@ public static class PollEndpoints
         {
             await db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
         {
             // Same-user double-submit interleaving trips the (PollId, UserId, OptionId) unique
-            // index; different users touch disjoint rows and can't conflict.
+            // index; different users touch disjoint rows and can't conflict. Anything else
+            // (FK/connection failures) deliberately propagates as a 500 for diagnosis.
             return Results.Conflict(new ErrorResponse("Your vote changed at the same time — try again."));
         }
 
