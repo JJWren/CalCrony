@@ -81,11 +81,13 @@ builder.Services.AddAuthorization(options =>
             ApiKeyAuthenticationHandler.SchemeName, JwtBearerDefaults.AuthenticationScheme)
         .RequireAuthenticatedUser()
         .Build();
+    // Both policies authenticate against BOTH schemes so the wrong-credential case is an
+    // authenticated-but-forbidden 403 (diagnosable) rather than a 401 challenge.
     options.AddPolicy("BotOnly", p => p
-        .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
+        .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName, JwtBearerDefaults.AuthenticationScheme)
         .RequireClaim(ApiKeyAuthenticationHandler.ClientClaim, ApiKeyAuthenticationHandler.BotClientValue));
     options.AddPolicy("UserOnly", p => p
-        .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+        .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName, JwtBearerDefaults.AuthenticationScheme)
         .RequireAuthenticatedUser()
         .RequireClaim("sub"));
 });
