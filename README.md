@@ -22,6 +22,7 @@ flowchart LR
 - **Reminders & notifications** — one-off `/remind`, up to 5 scheduled pings per event plus an automatic start announcement, crash-safe delivery via the outbox
 - **ICS calendar feed** — per-server tokenized subscribe URL (`/link`), importable into Google/Apple/Outlook calendars
 - **Google Calendar availability** — members link their Google Calendar via OAuth (least-privilege free/busy scope: CalCrony never sees event titles or details, and tokens are encrypted at rest); anyone can then check an on-demand, Teams-Scheduling-Assistant-style free/busy grid for a role or an event's attendees. Read-only — it never blocks creating or RSVPing.
+- **Polls & time polls** — up to 10 options, single- or multi-vote, anonymous mode, voter-added options (➕ opens a modal), natural-language close deadlines with automatic closing, live bar-graph results on the embed — and a closed time poll's winning slot converts into a real event with one click.
 - **Web app** — sign in with Discord (identify + guilds scopes only) and use your servers' events in a mobile-first, dark-by-default UI: create, edit, and delete events (embeds post/update/disappear in Discord automatically), RSVP from the browser, manage notifications, set reminders, edit server & personal settings, see availability grids, link your calendar, grab the ICS subscribe URL. Web-created events post to the server's default channel, set once with `/settings default-channel`.
 
 ## Commands
@@ -33,6 +34,9 @@ flowchart LR
 | `/edit name [fields...]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only |
 | `/remind when about` | One-off reminder in the current channel |
 | `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) |
+| `/poll create question options [single-vote anonymous allow-options closes]` | Create a poll; `options` is comma-separated, `closes` is natural language |
+| `/poll time question slots [anonymous allow-options closes]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
+| `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
 | `/settings view` · `/settings timezone` · `/settings server-timezone` | Personal & server timezone (IANA ids) |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |
