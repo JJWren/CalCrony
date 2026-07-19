@@ -103,6 +103,17 @@ public static class DeliveryEndpoints
             return denied;
         }
 
+        if (string.IsNullOrWhiteSpace(request.Text))
+        {
+            return Results.BadRequest(new ErrorResponse("The reminder text is required."));
+        }
+
+        // The text is embedded in the delivery's bounded payload column — cap it up front.
+        if (Validation.TooLong("reminder text", request.Text, FieldLimits.ReminderText) is { } invalid)
+        {
+            return invalid;
+        }
+
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, request.GuildId, cancellationToken);
 
         // Web callers: reminder is always for themselves, and it posts in the default channel

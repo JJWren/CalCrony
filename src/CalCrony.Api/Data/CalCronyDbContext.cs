@@ -55,11 +55,12 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<Event>(e =>
         {
-            e.Property(ev => ev.Title).HasMaxLength(128);
-            e.Property(ev => ev.Description).HasMaxLength(4096);
+            // Caps come from FieldLimits so endpoint validation and the schema can't drift.
+            e.Property(ev => ev.Title).HasMaxLength(FieldLimits.EventTitle);
+            e.Property(ev => ev.Description).HasMaxLength(FieldLimits.EventDescription);
             e.Property(ev => ev.TimeZone).HasMaxLength(64);
-            e.Property(ev => ev.Location).HasMaxLength(256);
-            e.Property(ev => ev.ImageUrl).HasMaxLength(512);
+            e.Property(ev => ev.Location).HasMaxLength(FieldLimits.EventLocation);
+            e.Property(ev => ev.ImageUrl).HasMaxLength(FieldLimits.EventImageUrl);
             e.HasIndex(ev => new { ev.GuildId, ev.StartsAt });
             e.HasMany(ev => ev.Options).WithOne().HasForeignKey(o => o.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(ev => ev.Rsvps).WithOne().HasForeignKey(r => r.EventId).OnDelete(DeleteBehavior.Cascade);
@@ -76,28 +77,28 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<EventSeries>(e =>
         {
-            e.Property(s => s.Title).HasMaxLength(128);
-            e.Property(s => s.Description).HasMaxLength(4096);
+            e.Property(s => s.Title).HasMaxLength(FieldLimits.EventTitle);
+            e.Property(s => s.Description).HasMaxLength(FieldLimits.EventDescription);
             e.Property(s => s.TimeZone).HasMaxLength(64);
-            e.Property(s => s.Location).HasMaxLength(256);
-            e.Property(s => s.ImageUrl).HasMaxLength(512);
+            e.Property(s => s.Location).HasMaxLength(FieldLimits.EventLocation);
+            e.Property(s => s.ImageUrl).HasMaxLength(FieldLimits.EventImageUrl);
             e.HasIndex(s => s.GuildId);
             e.HasMany(s => s.NotificationSpecs).WithOne().HasForeignKey(n => n.SeriesId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SeriesNotification>(e =>
         {
-            e.Property(n => n.Message).HasMaxLength(1024);
-            e.Property(n => n.Mentions).HasMaxLength(256);
+            e.Property(n => n.Message).HasMaxLength(FieldLimits.NotificationMessage);
+            e.Property(n => n.Mentions).HasMaxLength(FieldLimits.NotificationMentions);
         });
 
         modelBuilder.Entity<EventTemplate>(e =>
         {
             e.Property(t => t.Name).HasMaxLength(64);
-            e.Property(t => t.Title).HasMaxLength(128);
-            e.Property(t => t.Description).HasMaxLength(4096);
-            e.Property(t => t.Location).HasMaxLength(256);
-            e.Property(t => t.ImageUrl).HasMaxLength(512);
+            e.Property(t => t.Title).HasMaxLength(FieldLimits.EventTitle);
+            e.Property(t => t.Description).HasMaxLength(FieldLimits.EventDescription);
+            e.Property(t => t.Location).HasMaxLength(FieldLimits.EventLocation);
+            e.Property(t => t.ImageUrl).HasMaxLength(FieldLimits.EventImageUrl);
             // Uniqueness is enforced case-insensitively by a functional unique index on
             // (GuildId, lower(Name)), created via raw SQL in the AddEventTemplates migration —
             // EF's fluent API can't express expression indexes.
@@ -106,8 +107,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<EventTemplateNotification>(e =>
         {
-            e.Property(n => n.Message).HasMaxLength(1024);
-            e.Property(n => n.Mentions).HasMaxLength(256);
+            e.Property(n => n.Message).HasMaxLength(FieldLimits.NotificationMessage);
+            e.Property(n => n.Mentions).HasMaxLength(FieldLimits.NotificationMentions);
         });
 
         modelBuilder.Entity<RsvpOption>(e =>
@@ -144,8 +145,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<EventNotification>(e =>
         {
-            e.Property(n => n.Message).HasMaxLength(1024);
-            e.Property(n => n.Mentions).HasMaxLength(256);
+            e.Property(n => n.Message).HasMaxLength(FieldLimits.NotificationMessage);
+            e.Property(n => n.Mentions).HasMaxLength(FieldLimits.NotificationMentions);
         });
 
         modelBuilder.Entity<Delivery>(e =>

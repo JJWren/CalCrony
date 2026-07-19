@@ -523,9 +523,14 @@ public static class PollEndpoints
         }
 
         var title = (request.Title ?? poll.Question).Trim();
-        if (title.Length > 128)
+        if (title.Length > FieldLimits.EventTitle)
         {
-            title = title[..128];
+            title = title[..FieldLimits.EventTitle];
+        }
+
+        if (Validation.BadDuration(request.DurationMinutes) is { } invalid)
+        {
+            return invalid;
         }
 
         var converterId = context.User.IsBot() ? request.UserId : context.User.WebUserId()!.Value;
