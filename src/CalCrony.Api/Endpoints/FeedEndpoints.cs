@@ -117,7 +117,7 @@ public static class FeedEndpoints
         var liveBySeries = events
             .Where(IsLiveSeriesOccurrence)
             .ToDictionary(e => e.SeriesId!.Value);
-        foreach (var (seriesId, live) in liveBySeries)
+        foreach (var live in liveBySeries.Values)
         {
             AddSeriesEvent(
                 calendar, live.Series!, live.StartsAt, anchorIsCounted: true,
@@ -131,6 +131,13 @@ public static class FeedEndpoints
             .ToListAsync(cancellationToken);
         foreach (var series in gapSeries.Where(s => !liveBySeries.ContainsKey(s.Id)))
         {
+            // NextOccurrence knows nothing about counts (the materializer enforces those), so a
+            // count-exhausted series awaiting its Ended sweep must not project a phantom instance.
+            if (series.MaxOccurrences is int max && series.OccurrenceCount >= max)
+            {
+                continue;
+            }
+
             var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
             var next = Services.RecurrenceCalculator.NextOccurrence(
                 series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate,
@@ -156,7 +163,10 @@ public static class FeedEndpoints
     private static bool IsLiveSeriesOccurrence(Event ev) =>
         ev is { SeriesId: not null, Series.Ended: false, Status: EventStatus.Scheduled or EventStatus.Started };
 
-    /// <summary>Adds the RRULE-bearing VEVENT representing a running series.</summary>
+    /// <summary>Adds the RRULE-bearing VEVENT representing a running series. DTSTART/DTEND are
+    /// emitted in the series' IANA zone (TZID) — an RRULE projects from DTSTART's wall time, so a
+    /// UTC anchor would make subscribers' occurrences drift an hour across DST transitions while
+    /// RecurrenceCalculator keeps the local wall time stable.</summary>
     /// <param name="calendar">The calendar under construction.</param>
     /// <param name="series">The series row.</param>
     /// <param name="startsAt">The DTSTART instant (live occurrence start, or the computed next slot).</param>
@@ -169,15 +179,35 @@ public static class FeedEndpoints
         Ical.Net.Calendar calendar, EventSeries series, Instant startsAt, bool anchorIsCounted,
         string title, string? description, string? location, int? durationMinutes)
     {
-        var start = startsAt.ToDateTimeUtc();
+        var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
+        CalDateTime dtStart;
+        CalDateTime dtEnd;
+        if (zone == DateTimeZone.Utc)
+        {
+            var startUtc = startsAt.ToDateTimeUtc();
+            dtStart = new CalDateTime(startUtc);
+            dtEnd = new CalDateTime(startUtc.AddMinutes(durationMinutes ?? 60));
+        }
+        else
+        {
+            var startLocal = startsAt.InZone(zone).LocalDateTime;
+            var endLocal = startLocal.PlusMinutes(durationMinutes ?? 60);
+            dtStart = new CalDateTime(startLocal.ToDateTimeUnspecified(), series.TimeZone);
+            dtEnd = new CalDateTime(endLocal.ToDateTimeUnspecified(), series.TimeZone);
+            if (calendar.TimeZones.All(tz => tz.TzId != series.TimeZone))
+            {
+                calendar.AddTimeZone(new VTimeZone(series.TimeZone));
+            }
+        }
+
         var vevent = new CalendarEvent
         {
             Uid = $"{series.Id}@calcrony",
             Summary = title,
             Description = description,
             Location = location,
-            DtStart = new CalDateTime(start),
-            DtEnd = new CalDateTime(start.AddMinutes(durationMinutes ?? 60)),
+            DtStart = dtStart,
+            DtEnd = dtEnd,
             DtStamp = new CalDateTime(series.CreatedAt.ToDateTimeUtc()),
         };
         vevent.RecurrenceRule = Services.IcsRecurrence.BuildPattern(series, anchorIsCounted);

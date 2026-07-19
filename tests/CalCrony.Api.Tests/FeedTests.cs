@@ -124,6 +124,47 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.DoesNotContain($"UID:{stopped.SeriesId}@calcrony", ics);
     }
 
+    [Fact]
+    public async Task Count_exhausted_series_awaiting_its_ended_sweep_does_not_project()
+    {
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Exhausted Series", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week), RepeatCount: 2));
+        var first = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var skip = await Client.PostAsync($"/events/{first.Id}/skip", null);
+        skip.EnsureSuccessStatusCode();
+        var second = (await skip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+
+        // The final occurrence ends, but the sweep hasn't marked the series Ended yet: the gap
+        // path must not resurrect it with a phantom projected instance.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            await db.Events.Where(e => e.Id == second.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.Status, EventStatus.Ended));
+        }
+
+        var ics = await FetchFeedAsync();
+        Assert.DoesNotContain($"UID:{first.SeriesId}@calcrony", ics);
+    }
+
+    [Fact]
+    public async Task Series_vevents_carry_the_series_zone_so_projections_survive_dst()
+    {
+        await Client.PutAsJsonAsync($"/guilds/{GuildId}/settings",
+            new GuildSettingsDto("America/Chicago", ChannelId));
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Zoned Series", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+        create.EnsureSuccessStatusCode();
+
+        var ics = await FetchFeedAsync();
+
+        Assert.Contains("DTSTART;TZID=America/Chicago", ics);
+        Assert.Contains("BEGIN:VTIMEZONE", ics);
+        Assert.Contains("TZID:America/Chicago", ics);
+    }
+
     private async Task<string> FetchFeedAsync()
     {
         var token = await ReadTokenAsync();
