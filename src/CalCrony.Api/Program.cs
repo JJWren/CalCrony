@@ -28,6 +28,7 @@ builder.Services.AddScoped<ApiKeyValidator>();
 builder.Services.AddSingleton<NaturalDateTimeParser>();
 builder.Services.AddScoped<DeliveryScheduler>();
 builder.Services.AddScoped<SeriesMaterializer>();
+builder.Services.AddScoped<RetentionService>();
 
 builder.Services.AddDataProtection()
     .SetApplicationName("CalCrony.Api")
@@ -110,6 +111,13 @@ builder.Services.AddHostedService<StartupMigrationService>();
 if (builder.Configuration.GetValue("Scheduler:Enabled", true))
 {
     builder.Services.AddHostedService<SchedulerBackgroundService>();
+
+    // Retention rides the scheduler toggle (tests disable both together) with its own
+    // operator off-switch.
+    if (builder.Configuration.GetValue("Retention:Enabled", true))
+    {
+        builder.Services.AddHostedService<RetentionBackgroundService>();
+    }
 }
 
 var app = builder.Build();
