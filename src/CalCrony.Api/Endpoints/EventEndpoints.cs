@@ -291,6 +291,16 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse("The title is required."));
         }
 
+        // Friendly 400s instead of Postgres truncation 500s; template values are already capped.
+        if ((Validation.TooLong("title", request.Title, FieldLimits.EventTitle)
+            ?? Validation.TooLong("description", request.Description, FieldLimits.EventDescription)
+            ?? Validation.TooLong("location", request.Location, FieldLimits.EventLocation)
+            ?? Validation.TooLong("image URL", request.ImageUrl, FieldLimits.EventImageUrl)
+            ?? Validation.BadDuration(request.DurationMinutes)) is { } invalid)
+        {
+            return invalid;
+        }
+
         var description = request.Description ?? template?.Description;
         var durationMinutes = request.DurationMinutes ?? template?.DurationMinutes;
         var location = request.Location ?? template?.Location;
@@ -574,6 +584,17 @@ public static class EventEndpoints
         }
 
         var applyToSeries = series is not null && isLive && request.Scope == EditScope.Series;
+
+        // Friendly 400s instead of Postgres truncation 500s. One check covers both the event
+        // write and the applyToSeries template write — they use the same request fields.
+        if ((Validation.TooLong("title", request.Title, FieldLimits.EventTitle)
+            ?? Validation.TooLong("description", request.Description, FieldLimits.EventDescription)
+            ?? Validation.TooLong("location", request.Location, FieldLimits.EventLocation)
+            ?? Validation.TooLong("image URL", request.ImageUrl, FieldLimits.EventImageUrl)
+            ?? Validation.BadDuration(request.DurationMinutes)) is { } invalid)
+        {
+            return invalid;
+        }
 
         if (request.AttendeeRoleId is not null && request.ClearAttendeeRole)
         {

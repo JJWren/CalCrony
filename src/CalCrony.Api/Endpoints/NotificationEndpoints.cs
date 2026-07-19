@@ -63,9 +63,16 @@ public static class NotificationEndpoints
         CalCronyDbContext db,
         CancellationToken cancellationToken)
     {
-        if (request.MinutesBefore < 0)
+        if (request.MinutesBefore is < 0 or > FieldLimits.MaxMinutes)
         {
-            return Results.BadRequest(new ErrorResponse("minutesBefore must be zero or positive."));
+            return Results.BadRequest(new ErrorResponse(
+                $"minutesBefore must be between 0 and {FieldLimits.MaxMinutes} (4 weeks)."));
+        }
+
+        if ((Validation.TooLong("message", request.Message, FieldLimits.NotificationMessage)
+            ?? Validation.TooLong("mentions", request.Mentions, FieldLimits.NotificationMentions)) is { } invalid)
+        {
+            return invalid;
         }
 
         var ev = await db.Events
