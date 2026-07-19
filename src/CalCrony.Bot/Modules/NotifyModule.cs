@@ -10,7 +10,7 @@ public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
 {
     [SlashCommand("notify", "Add a scheduled notification before an event starts")]
     public async Task NotifyAsync(
-        [Summary("event", "Event title (or part of it)")] string eventName,
+        [Summary("event", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string eventName,
         [Summary("minutes-before", "How many minutes before start to ping")] int minutesBefore,
         [Summary("message", "Optional extra message")] string? message = null,
         [Summary("mention", "Role or user to mention")] IMentionable? mention = null,

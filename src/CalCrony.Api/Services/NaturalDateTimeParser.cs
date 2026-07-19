@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.Recognizers.Text;
 using Microsoft.Recognizers.Text.DateTime;
 using NodaTime;
@@ -8,13 +9,43 @@ namespace CalCrony.Api.Services;
 
 /// <summary>
 /// Parses natural-language datetimes ("in 5 hours", "tomorrow 6pm", "6 PM on Wednesday")
-/// using Microsoft.Recognizers.Text, resolved in a caller-supplied IANA time zone.
-/// Always resolves to the nearest future occurrence; past-only results are rejected.
+/// using Microsoft.Recognizers.Text, resolved in a caller-supplied IANA time zone. A trailing
+/// zone abbreviation ("10am CST") overrides the caller zone. Always resolves to the nearest
+/// future occurrence; past-only results are rejected.
 /// </summary>
-public sealed class NaturalDateTimeParser(IClock clock)
+public sealed partial class NaturalDateTimeParser(IClock clock)
 {
     private static readonly LocalDateTimePattern LocalPattern =
         LocalDateTimePattern.CreateWithInvariantCulture("uuuu-MM-dd HH:mm:ss");
+
+    // Recognizers silently ignores zone abbreviations, which would otherwise resolve the text in
+    // the caller's zone — for unconfigured servers that's UTC, turning "10:00 AM CST" into 10:00
+    // UTC (often "in the past"). Abbreviations map to the IANA zone, so a "CST" typed in July
+    // correctly gets daylight-time rules — the wall-clock the user meant, not the strict offset.
+    private static readonly Dictionary<string, string> ZoneAbbreviations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UTC"] = "UTC",
+        ["GMT"] = "UTC",
+        ["EST"] = "America/New_York",
+        ["EDT"] = "America/New_York",
+        ["ET"] = "America/New_York",
+        ["CST"] = "America/Chicago",
+        ["CDT"] = "America/Chicago",
+        ["CT"] = "America/Chicago",
+        ["MST"] = "America/Denver",
+        ["MDT"] = "America/Denver",
+        ["MT"] = "America/Denver",
+        ["PST"] = "America/Los_Angeles",
+        ["PDT"] = "America/Los_Angeles",
+        ["PT"] = "America/Los_Angeles",
+        ["AKST"] = "America/Anchorage",
+        ["AKDT"] = "America/Anchorage",
+        ["HST"] = "Pacific/Honolulu",
+    };
+
+    [GeneratedRegex(@"\b(UTC|GMT|AKST|AKDT|EST|EDT|CST|CDT|MST|MDT|PST|PDT|HST|ET|CT|MT|PT)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ZoneAbbreviationRegex();
 
     private readonly DateTimeModel model =
         new DateTimeRecognizer(Culture.English).GetDateTimeModel();
@@ -25,6 +56,14 @@ public sealed class NaturalDateTimeParser(IClock clock)
     {
         result = default;
         error = null;
+
+        var zoneMatch = ZoneAbbreviationRegex().Match(text);
+        if (zoneMatch.Success
+            && DateTimeZoneProviders.Tzdb.GetZoneOrNull(ZoneAbbreviations[zoneMatch.Value]) is { } explicitZone)
+        {
+            zone = explicitZone;
+            text = ZoneAbbreviationRegex().Replace(text, " ").Trim();
+        }
 
         var now = clock.GetCurrentInstant();
         var localNow = now.InZone(zone).LocalDateTime;
