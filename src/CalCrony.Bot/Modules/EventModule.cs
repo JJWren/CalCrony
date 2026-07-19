@@ -122,7 +122,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
 
     [SlashCommand("delete", "Delete an event you created")]
     public async Task DeleteAsync(
-        [Summary("name", "Event title (or part of it)")] string name)
+        [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
         await DeferAsync(ephemeral: true);
 
@@ -155,7 +155,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
 
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
-        [Summary("name", "Event title (or part of it)")] string name,
+        [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
         [Summary(description: "New title")] string? title = null,
         [Summary("when", "New start time, e.g. \"saturday 7pm\"")] string? when = null,
         [Summary(description: "New description")] string? description = null,

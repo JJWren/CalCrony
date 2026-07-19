@@ -13,14 +13,25 @@ public enum SeriesEndsChoice
     [ChoiceDisplay("after a number of times")] Count,
 }
 
+/// <summary>Like EventModule.RepeatChoice plus a "doesn't repeat" option that stops the series —
+/// so converting a series to a one-off is reachable from the edit surface, not just /series stop.</summary>
+public enum SeriesRepeatChoice
+{
+    [ChoiceDisplay("doesn't repeat (stop the series)")] DoesntRepeat,
+    [ChoiceDisplay("daily")] Daily,
+    [ChoiceDisplay("weekly")] Weekly,
+    [ChoiceDisplay("monthly (same date)")] MonthlySameDate,
+    [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
+}
+
 [RequireContext(ContextType.Guild)]
 [Group("series", "Manage repeating events")]
 public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     [SlashCommand("edit", "Change how a repeating event repeats or ends (can revive an ended series)")]
     public async Task EditAsync(
-        [Summary("name", "Event title (or part of it)")] string name,
-        [Summary("repeat", "New repeat rule")] RepeatChoice? repeat = null,
+        [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
+        [Summary("repeat", "New repeat rule — or \"doesn't repeat\" to stop the series")] SeriesRepeatChoice? repeat = null,
         [Summary("repeat-every", "New interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int? repeatEvery = null,
         [Summary("ends", "How the series ends — or just pass until/count directly")] SeriesEndsChoice? ends = null,
         [Summary("until", "Last date it repeats, e.g. \"Aug 30\" (implies ends: on a date)")] string? until = null,
@@ -45,6 +56,33 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
         if (!CanManage(ev))
         {
             await FollowupAsync("Only the event creator or a server manager can change this event.", ephemeral: true);
+            return;
+        }
+
+        if (repeat == SeriesRepeatChoice.DoesntRepeat)
+        {
+            if (repeatEvery is not null || ends is not null || until is not null || count is not null)
+            {
+                await FollowupAsync("\"doesn't repeat\" stops the series — drop the other repeat options.", ephemeral: true);
+                return;
+            }
+
+            var stop = await api.StopSeriesAsync(seriesId);
+            if (!stop.Success)
+            {
+                await FollowupAsync($"❌ {stop.Error}", ephemeral: true);
+                return;
+            }
+
+            var refreshedStop = await api.GetEventAsync(ev.Id);
+            if (refreshedStop.Success && refreshedStop.Value is not null)
+            {
+                await TryUpdateMessageAsync(refreshedStop.Value);
+            }
+
+            await FollowupAsync(
+                $"🛑 **{ev.Title}** will no longer repeat — the upcoming occurrence still happens. Use `/delete` to remove it too.",
+                ephemeral: true);
             return;
         }
 
@@ -101,10 +139,10 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
 
         var (unit, mode) = repeat switch
         {
-            RepeatChoice.Daily => ((RecurrenceUnit?)RecurrenceUnit.Day, (MonthlyMode?)MonthlyMode.DayOfMonth),
-            RepeatChoice.Weekly => (RecurrenceUnit.Week, MonthlyMode.DayOfMonth),
-            RepeatChoice.MonthlySameDate => (RecurrenceUnit.Month, MonthlyMode.DayOfMonth),
-            RepeatChoice.MonthlyNthWeekday => (RecurrenceUnit.Month, MonthlyMode.NthWeekday),
+            SeriesRepeatChoice.Daily => ((RecurrenceUnit?)RecurrenceUnit.Day, (MonthlyMode?)MonthlyMode.DayOfMonth),
+            SeriesRepeatChoice.Weekly => (RecurrenceUnit.Week, MonthlyMode.DayOfMonth),
+            SeriesRepeatChoice.MonthlySameDate => (RecurrenceUnit.Month, MonthlyMode.DayOfMonth),
+            SeriesRepeatChoice.MonthlyNthWeekday => (RecurrenceUnit.Month, MonthlyMode.NthWeekday),
             _ => (null, null),
         };
         var end = ends switch
@@ -146,7 +184,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
 
     [SlashCommand("skip", "Skip the next occurrence of a repeating event")]
     public async Task SkipAsync(
-        [Summary("name", "Event title (or part of it)")] string name)
+        [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
         await DeferAsync(ephemeral: true);
 
@@ -185,7 +223,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
 
     [SlashCommand("stop", "Stop a repeating event from creating future occurrences")]
     public async Task StopAsync(
-        [Summary("name", "Event title (or part of it)")] string name)
+        [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
         await DeferAsync(ephemeral: true);
 
@@ -229,7 +267,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
 
     [SlashCommand("info", "Show a repeating event's schedule and progress")]
     public async Task InfoAsync(
-        [Summary("name", "Event title (or part of it)")] string name)
+        [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
         await DeferAsync(ephemeral: true);
 

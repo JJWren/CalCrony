@@ -54,7 +54,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     }
 
     [SlashCommand("event", "Check calendar availability for everyone RSVP'd Going to an event")]
-    public async Task EventAsync([Summary("name", "Event title (or part of it)")] string name)
+    public async Task EventAsync([Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
         await DeferAsync(ephemeral: true);
 

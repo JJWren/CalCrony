@@ -68,4 +68,41 @@ public class NaturalDateTimeParserTests
         Assert.False(ok);
         Assert.Contains("past", error);
     }
+
+    [Fact]
+    public void Zone_abbreviation_overrides_caller_zone()
+    {
+        // Joshua's live repro: server tz unset (UTC), user types "…10:00 AM CST" 11 minutes
+        // before 10:00 Central. Without the override this parsed as 10:00 UTC = past.
+        var ok = CreateParser().TryResolve("7/15/2026 10:15 AM CST", DateTimeZone.Utc, out var result, out var error);
+
+        Assert.True(ok, error);
+        // "CST" maps to America/Chicago, which in July observes CDT (UTC-5) — the wall clock the
+        // user meant, not the strict standard-time offset.
+        Assert.Equal(Instant.FromUtc(2026, 7, 15, 15, 15), result);
+    }
+
+    [Theory]
+    [InlineData("6pm ET", 22)]   // America/New_York, EDT = UTC-4
+    [InlineData("6pm PDT", 25)]  // America/Los_Angeles, UTC-7 → next day 01:00
+    [InlineData("6pm UTC", 18)]
+    public void Zone_abbreviations_cover_common_us_zones(string text, int expectedUtcHour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        var expected = expectedUtcHour < 24
+            ? Instant.FromUtc(2026, 7, 15, expectedUtcHour, 0)
+            : Instant.FromUtc(2026, 7, 16, expectedUtcHour - 24, 0);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Text_without_abbreviation_still_uses_caller_zone()
+    {
+        var ok = CreateParser().TryResolve("tomorrow 6pm", DateTimeZone.Utc, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(Instant.FromUtc(2026, 7, 16, 18, 0), result);
+    }
 }

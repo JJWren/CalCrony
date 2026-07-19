@@ -152,6 +152,39 @@ public class SeriesComponentTests : TestContext
     }
 
     [Fact]
+    public void Schedule_editor_doesnt_repeat_stops_the_series()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var ev = SampleEvent(recurrenceSummary: "Repeats weekly on Friday");
+        var now = DateTimeOffset.UtcNow;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/stop") =>
+                JsonSerializer.Serialize(SampleSeries(ev), JsonWeb),
+            var p when p.StartsWith("/series/") =>
+                JsonSerializer.Serialize(SampleSeries(ev) with { Ended = false }, JsonWeb),
+            var p when p.EndsWith("/availability") =>
+                JsonSerializer.Serialize(new AvailabilityResponse(now, now.AddHours(1), []), JsonWeb),
+            var p when p.EndsWith("/notifications") => "[]",
+            "/me/guilds" => JsonSerializer.Serialize(
+                new WebGuildListResponse(now, [new WebGuildDto(ev.GuildId, "G", null, true)]), JsonWeb),
+            _ => JsonSerializer.Serialize(ev, JsonWeb),
+        };
+
+        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        cut.WaitForAssertion(() => Assert.Contains("Edit schedule", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit schedule").Click();
+        cut.WaitForAssertion(() => cut.Find("#se-repeat"));
+
+        cut.Find("#se-repeat").Change("None");
+        // The card's submit (btn-primary), not the manage cluster's outline "Stop repeating".
+        cut.FindAll("button.btn-primary.btn-sm").First(b => b.TextContent.Contains("Stop repeating")).Click();
+
+        Assert.EndsWith($"/series/{ev.SeriesId}/stop", handler.LastPostPath);
+    }
+
+    [Fact]
     public void Detail_ended_series_shows_resume_affordance_for_managers_only()
     {
         var handler = UseApi();
@@ -248,6 +281,8 @@ public class SeriesComponentTests : TestContext
 
         public string? PatchBody { get; private set; }
 
+        public string? LastPostPath { get; private set; }
+
         public string? NextJson { get; set; }
 
         public Func<HttpRequestMessage, string?>? JsonFor { get; set; }
@@ -260,6 +295,11 @@ public class SeriesComponentTests : TestContext
             {
                 PatchRequestPath = request.RequestUri!.AbsolutePath;
                 PatchBody = LastBody;
+            }
+
+            if (request.Method == HttpMethod.Post)
+            {
+                LastPostPath = request.RequestUri!.AbsolutePath;
             }
 
             var json = NextJson ?? JsonFor?.Invoke(request) ?? "{}";

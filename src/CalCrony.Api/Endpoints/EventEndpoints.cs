@@ -321,11 +321,12 @@ public static class EventEndpoints
             .Include(e => e.Series)
             .Where(e => e.GuildId == guildId && e.Status != EventStatus.Cancelled);
 
-        if (!includePast)
-        {
-            var now = clock.GetCurrentInstant();
-            query = query.Where(e => e.StartsAt >= now);
-        }
+        // includePast means the last 30 days (the ICS feed's window), not all history — otherwise
+        // ancient events crowd upcoming ones out of the ascending 25-cap, which broke the bot's
+        // name autocomplete and left /series edit unable to see recent occurrences.
+        var now = clock.GetCurrentInstant();
+        var startFloor = includePast ? now.Minus(Duration.FromDays(30)) : now;
+        query = query.Where(e => e.StartsAt >= startFloor);
 
         if (channelId is not null)
         {
