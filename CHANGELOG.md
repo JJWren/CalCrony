@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/JJWren/CalCrony/compare/v0.13.0...v0.14.0) (2026-07-19)
+
+
+### Features
+
+* add event threads ([#41](https://github.com/JJWren/CalCrony/issues/41)) ([3dd8914](https://github.com/JJWren/CalCrony/commit/3dd8914ddce9532937c816113ff1dece1affd3d5))
+
 ## [0.13.0](https://github.com/JJWren/CalCrony/compare/v0.12.0...v0.13.0) (2026-07-19)
 
 
