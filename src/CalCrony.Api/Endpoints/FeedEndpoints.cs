@@ -59,7 +59,10 @@ public static class FeedEndpoints
         return Results.Ok(new FeedTokenDto(existing.Token, $"/feeds/{existing.Token}.ics"));
     }
 
-    /// <summary>Serves the iCalendar document: the last 30 days plus upcoming, excluding cancelled occurrences.</summary>
+    /// <summary>Serves the iCalendar document: the last 30 days plus upcoming, excluding cancelled
+    /// occurrences. History is concrete; the future is projected — each non-ended series emits one
+    /// RRULE-bearing VEVENT (stable series UID) anchored on its live occurrence, which is skipped
+    /// in the concrete loop so nothing doubles.</summary>
     /// <param name="token">The token value.</param>
     /// <param name="db">The database context.</param>
     /// <param name="clock">The time source.</param>
@@ -75,8 +78,10 @@ public static class FeedEndpoints
         }
 
         // Include a month of history so recently finished events don't vanish from subscribers.
-        var horizon = clock.GetCurrentInstant().Minus(NodaTime.Duration.FromDays(30));
+        var now = clock.GetCurrentInstant();
+        var horizon = now.Minus(NodaTime.Duration.FromDays(30));
         var events = await db.Events
+            .Include(e => e.Series)
             .Where(e => e.GuildId == feedToken.GuildId
                         && e.Status != EventStatus.Cancelled
                         && e.StartsAt >= horizon)
@@ -89,6 +94,12 @@ public static class FeedEndpoints
 
         foreach (var ev in events)
         {
+            if (IsLiveSeriesOccurrence(ev))
+            {
+                // Represented by its series' RRULE VEVENT below — emitting both would double it.
+                continue;
+            }
+
             var start = ev.StartsAt.ToDateTimeUtc();
             calendar.Events.Add(new CalendarEvent
             {
@@ -102,7 +113,104 @@ public static class FeedEndpoints
             });
         }
 
+        // One RRULE VEVENT per running series, anchored on its live occurrence.
+        var liveBySeries = events
+            .Where(IsLiveSeriesOccurrence)
+            .ToDictionary(e => e.SeriesId!.Value);
+        foreach (var live in liveBySeries.Values)
+        {
+            AddSeriesEvent(
+                calendar, live.Series!, live.StartsAt, anchorIsCounted: true,
+                live.Title, live.Description, live.Location, live.DurationMinutes);
+        }
+
+        // A series can briefly lack a live occurrence (between an end/skip and the sweep's next
+        // spawn) — project it from the computed next slot so it never vanishes from the feed.
+        var gapSeries = await db.EventSeries
+            .Where(s => s.GuildId == feedToken.GuildId && !s.Ended)
+            .ToListAsync(cancellationToken);
+        foreach (var series in gapSeries.Where(s => !liveBySeries.ContainsKey(s.Id)))
+        {
+            // NextOccurrence knows nothing about counts (the materializer enforces those), so a
+            // count-exhausted series awaiting its Ended sweep must not project a phantom instance.
+            if (series.MaxOccurrences is int max && series.OccurrenceCount >= max)
+            {
+                continue;
+            }
+
+            var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
+            var next = Services.RecurrenceCalculator.NextOccurrence(
+                series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate,
+                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, now);
+            if (next is null)
+            {
+                continue; // end condition about to retire the series
+            }
+
+            AddSeriesEvent(
+                calendar, series, next.Value.Instant, anchorIsCounted: false,
+                series.Title, series.Description, series.Location, series.DurationMinutes);
+        }
+
         var text = new CalendarSerializer().SerializeToString(calendar);
         return Results.Text(text, "text/calendar; charset=utf-8");
+    }
+
+    /// <summary>Whether the event is the live occurrence of a running series (the one the series'
+    /// RRULE VEVENT anchors on).</summary>
+    /// <param name="ev">The event (Series navigation loaded).</param>
+    /// <returns>True for live occurrences of non-ended series.</returns>
+    private static bool IsLiveSeriesOccurrence(Event ev) =>
+        ev is { SeriesId: not null, Series.Ended: false, Status: EventStatus.Scheduled or EventStatus.Started };
+
+    /// <summary>Adds the RRULE-bearing VEVENT representing a running series. DTSTART/DTEND are
+    /// emitted in the series' IANA zone (TZID) — an RRULE projects from DTSTART's wall time, so a
+    /// UTC anchor would make subscribers' occurrences drift an hour across DST transitions while
+    /// RecurrenceCalculator keeps the local wall time stable.</summary>
+    /// <param name="calendar">The calendar under construction.</param>
+    /// <param name="series">The series row.</param>
+    /// <param name="startsAt">The DTSTART instant (live occurrence start, or the computed next slot).</param>
+    /// <param name="anchorIsCounted">Whether DTSTART is an already-counted occurrence (shifts COUNT math).</param>
+    /// <param name="title">The event title.</param>
+    /// <param name="description">Optional description text.</param>
+    /// <param name="location">Optional location text.</param>
+    /// <param name="durationMinutes">Duration in minutes.</param>
+    private static void AddSeriesEvent(
+        Ical.Net.Calendar calendar, EventSeries series, Instant startsAt, bool anchorIsCounted,
+        string title, string? description, string? location, int? durationMinutes)
+    {
+        var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
+        CalDateTime dtStart;
+        CalDateTime dtEnd;
+        if (zone == DateTimeZone.Utc)
+        {
+            var startUtc = startsAt.ToDateTimeUtc();
+            dtStart = new CalDateTime(startUtc);
+            dtEnd = new CalDateTime(startUtc.AddMinutes(durationMinutes ?? 60));
+        }
+        else
+        {
+            var startLocal = startsAt.InZone(zone).LocalDateTime;
+            var endLocal = startLocal.PlusMinutes(durationMinutes ?? 60);
+            dtStart = new CalDateTime(startLocal.ToDateTimeUnspecified(), series.TimeZone);
+            dtEnd = new CalDateTime(endLocal.ToDateTimeUnspecified(), series.TimeZone);
+            if (calendar.TimeZones.All(tz => tz.TzId != series.TimeZone))
+            {
+                calendar.AddTimeZone(new VTimeZone(series.TimeZone));
+            }
+        }
+
+        var vevent = new CalendarEvent
+        {
+            Uid = $"{series.Id}@calcrony",
+            Summary = title,
+            Description = description,
+            Location = location,
+            DtStart = dtStart,
+            DtEnd = dtEnd,
+            DtStamp = new CalDateTime(series.CreatedAt.ToDateTimeUtc()),
+        };
+        vevent.RecurrenceRule = Services.IcsRecurrence.BuildPattern(series, anchorIsCounted);
+        calendar.Events.Add(vevent);
     }
 }
