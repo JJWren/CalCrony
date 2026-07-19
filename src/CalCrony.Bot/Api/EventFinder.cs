@@ -15,7 +15,15 @@ public static class EventFinder
         if (Guid.TryParse(name, out var id))
         {
             var byId = await api.GetEventAsync(id);
-            return byId.Success && byId.Value is not null && byId.Value.GuildId == guildId
+            if (!byId.Success)
+            {
+                // Only genuine not-found reads as "gone" — API outages surface as themselves.
+                return byId.Error?.Contains("404") == true
+                    ? (null, "That event no longer exists.")
+                    : (null, $"❌ {byId.Error}");
+            }
+
+            return byId.Value is not null && byId.Value.GuildId == guildId
                 ? (byId.Value, null)
                 : (null, "That event no longer exists.");
         }

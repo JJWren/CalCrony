@@ -53,7 +53,7 @@ public class EventNameAutocompleteHandler : AutocompleteHandler
             var local = TimeZoneInfo.ConvertTime(ev.StartsAtUtc, TimeZoneInfo.FindSystemTimeZoneById(ev.TimeZone));
             when = local.ToString("ddd MMM d, h:mm tt");
         }
-        catch (TimeZoneNotFoundException)
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
         {
             when = ev.StartsAtUtc.ToString("ddd MMM d, h:mm tt 'UTC'");
         }

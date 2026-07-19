@@ -57,12 +57,15 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         result = default;
         error = null;
 
-        var zoneMatch = ZoneAbbreviationRegex().Match(text);
+        var zoneRegex = ZoneAbbreviationRegex();
+        var zoneMatch = zoneRegex.Match(text);
         if (zoneMatch.Success
             && DateTimeZoneProviders.Tzdb.GetZoneOrNull(ZoneAbbreviations[zoneMatch.Value]) is { } explicitZone)
         {
             zone = explicitZone;
-            text = ZoneAbbreviationRegex().Replace(text, " ").Trim();
+            // Strip only the token that selected the zone — any further abbreviations in the text
+            // ("6pm ET / 3pm PT") stay put for Recognizers rather than being silently removed.
+            text = zoneRegex.Replace(text, " ", 1).Trim();
         }
 
         var now = clock.GetCurrentInstant();
