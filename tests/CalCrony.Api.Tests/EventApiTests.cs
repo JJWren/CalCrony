@@ -13,6 +13,19 @@ public class EventApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     private HttpClient Client => fixture.Client;
 
     [Fact]
+    public async Task Timezone_list_returns_canonical_zones_with_offsets()
+    {
+        var zones = (await Client.GetFromJsonAsync<List<TimeZoneOptionDto>>("/tools/timezones"))!;
+
+        var chicago = Assert.Single(zones, z => z.Id == "America/Chicago");
+        Assert.Matches(@"^America/Chicago — UTC-0[56]:00$", chicago.Label); // CDT or CST
+        Assert.Contains(zones, z => z.Id == "UTC");
+        Assert.DoesNotContain(zones, z => z.Id.StartsWith("Etc/"));
+        Assert.DoesNotContain(zones, z => z.Id == "US/Central"); // alias, not canonical
+        Assert.True(zones.Count > 300);
+    }
+
+    [Fact]
     public async Task Create_get_list_delete_roundtrip()
     {
         var created = await CreateEventAsync("Raid Night", "in 3 hours");

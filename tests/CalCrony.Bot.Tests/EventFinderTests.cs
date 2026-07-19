@@ -75,6 +75,26 @@ public class EventFinderTests
         Assert.Equal(25, EventNameAutocompleteHandler.BuildSuggestions(events, "", now).Count);
     }
 
+    [Fact]
+    public void Timezone_suggestions_show_common_zones_for_empty_input_and_filter_typed_text()
+    {
+        var options = new List<TimeZoneOptionDto>
+        {
+            new("America/Chicago", "America/Chicago — UTC-05:00"),
+            new("America/North_Dakota/Center", "America/North_Dakota/Center — UTC-05:00"),
+            new("Asia/Tokyo", "Asia/Tokyo — UTC+09:00"),
+            new("UTC", "UTC — UTC±00:00"),
+        };
+
+        var empty = TimeZoneAutocompleteHandler.BuildSuggestions(options, "");
+        Assert.Equal(["UTC", "America/Chicago", "Asia/Tokyo"], empty.Select(s => (string)s.Value));
+
+        var typed = TimeZoneAutocompleteHandler.BuildSuggestions(options, "chi");
+        Assert.Single(typed);
+        Assert.Equal("America/Chicago", (string)typed[0].Value);
+        Assert.Equal("America/Chicago — UTC-05:00", typed[0].Name);
+    }
+
     private static EventDto Sample(string title, DateTimeOffset? startsAt = null) => new(
         Guid.NewGuid(), 1, 2, title, null, startsAt ?? DateTimeOffset.UtcNow.AddHours(3), "UTC", 60,
         3, null, null, null, EventStatus.Scheduled, [], []);

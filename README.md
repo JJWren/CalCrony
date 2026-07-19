@@ -29,7 +29,7 @@ flowchart LR
 ## Commands
 
 > **First steps after inviting the bot** (server admins, once per server):
-> `/settings server-timezone` with an IANA id like `America/Chicago` — natural-language times parse in this zone, and until it's set the server runs on UTC, so local wall-clock times can land hours off or be rejected as past. Then `/settings default-channel` pointing at your events channel — web-created events, polls, and reminders post there, and web creation is blocked until it's set.
+> `/settings server-timezone` — pick your zone from the command's suggestions (start typing a city, e.g. `America/Chicago`); natural-language times parse in this zone, and until it's set the server runs on UTC, so local wall-clock times can land hours off or be rejected as past. Then `/settings default-channel` pointing at your events channel — web-created events, polls, and reminders post there, and web creation is blocked until it's set.
 
 | Command | What it does |
 |---|---|

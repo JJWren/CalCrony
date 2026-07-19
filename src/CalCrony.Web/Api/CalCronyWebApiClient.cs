@@ -91,6 +91,9 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     public Task<ApiResult<ParseDateTimeResponse>> ParseDateTimeAsync(ParseDateTimeRequest request, CancellationToken ct = default) =>
         SendAsync<ParseDateTimeResponse>(http.PostAsJsonAsync("/tools/parse-datetime", request, ct), ct);
 
+    public Task<ApiResult<List<TimeZoneOptionDto>>> ListTimeZonesAsync(CancellationToken ct = default) =>
+        SendAsync<List<TimeZoneOptionDto>>(http.GetAsync("/tools/timezones", ct), ct);
+
     public Task<ApiResult<List<PollDto>>> ListPollsAsync(long guildId, PollStatus? status = null, CancellationToken ct = default)
     {
         var query = "?limit=25" + (status is null ? "" : $"&status={status}");

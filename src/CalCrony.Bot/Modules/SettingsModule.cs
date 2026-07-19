@@ -29,8 +29,9 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             ephemeral: true);
     }
 
-    [SlashCommand("timezone", "Set your personal timezone (IANA id, e.g. America/Chicago)")]
-    public async Task SetTimezoneAsync([Summary("timezone", "IANA timezone id")] string timezone)
+    [SlashCommand("timezone", "Set your personal timezone")]
+    public async Task SetTimezoneAsync(
+        [Summary("timezone", "Pick your timezone from the list (or type an IANA id)"), Autocomplete(typeof(TimeZoneAutocompleteHandler))] string timezone)
     {
         await DeferAsync(ephemeral: true);
 
@@ -47,7 +48,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
     [SlashCommand("server-timezone", "Set the server's default timezone (managers only)")]
     [RequireUserPermission(GuildPermission.ManageGuild)]
-    public async Task SetServerTimezoneAsync([Summary("timezone", "IANA timezone id")] string timezone)
+    public async Task SetServerTimezoneAsync(
+        [Summary("timezone", "Pick the server's timezone from the list (or type an IANA id)"), Autocomplete(typeof(TimeZoneAutocompleteHandler))] string timezone)
     {
         await DeferAsync(ephemeral: true);
 

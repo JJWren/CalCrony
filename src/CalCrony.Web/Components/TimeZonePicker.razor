@@ -1,0 +1,39 @@
+@* Timezone input backed by a datalist of all canonical IANA zones with current UTC offsets —
+   type-ahead picking instead of memorizing ids. Free text still works (server validates). *@
+@inject CalCronyWebApiClient Api
+
+<input id="@Id" class="form-control form-control-sm" list="@($"{Id}-options")"
+       placeholder="America/Chicago" value="@Value"
+       @onchange="e => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)" />
+<datalist id="@($"{Id}-options")">
+    @foreach (var option in options)
+    {
+        <option value="@option.Id" label="@option.Label"></option>
+    }
+</datalist>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = default!;
+
+    [Parameter] public string Value { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    private static IReadOnlyList<TimeZoneOptionDto>? cached;
+    private static DateTimeOffset cachedUntil;
+
+    private IReadOnlyList<TimeZoneOptionDto> options = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Shared across pages, but labels carry the CURRENT UTC offset — refresh every 12h so
+        // a long-lived tab doesn't show pre-DST offsets for months.
+        if (cached is null || DateTimeOffset.UtcNow >= cachedUntil)
+        {
+            cached = (await Api.ListTimeZonesAsync()).Value;
+            cachedUntil = DateTimeOffset.UtcNow.AddHours(12);
+        }
+
+        options = cached ?? [];
+    }
+}

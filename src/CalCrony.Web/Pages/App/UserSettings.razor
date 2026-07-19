@@ -17,9 +17,9 @@
     <div class="col-12 col-md-6">
         <div class="card p-3 h-100">
             <div class="fw-bold">Timezone</div>
-            <label class="form-label small mt-2 mb-1" for="us-tz">IANA id (e.g. America/Chicago); blank = server timezone</label>
+            <label class="form-label small mt-2 mb-1" for="us-tz">Pick your timezone; blank = server timezone</label>
             <div class="d-flex gap-2">
-                <input id="us-tz" class="form-control form-control-sm" @bind="timezoneInput" />
+                <TimeZonePicker Id="us-tz" @bind-Value="timezoneInput" />
                 <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@busy">Save</button>
             </div>
             <div class="form-check form-switch mt-3">
