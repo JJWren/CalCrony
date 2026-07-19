@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/JJWren/CalCrony/compare/v0.8.1...v0.9.0) (2026-07-19)
+
+
+### Features
+
+* timezone pickers for settings ([#27](https://github.com/JJWren/CalCrony/issues/27)) ([c4e86cd](https://github.com/JJWren/CalCrony/commit/c4e86cd6e55af34e984488063d34225477574c23))
+
 ## [0.8.1](https://github.com/JJWren/CalCrony/compare/v0.8.0...v0.8.1) (2026-07-19)
 
 
