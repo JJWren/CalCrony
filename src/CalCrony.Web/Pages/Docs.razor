@@ -16,11 +16,12 @@
 </p>
 <ol class="text-body-secondary" style="max-width:66ch">
     <li class="mb-2">
-        <code>/settings server-timezone</code> with an IANA id like <code>America/Chicago</code>.
-        Natural-language times ("tomorrow 6pm") are parsed in this zone; until it's set, the
-        server runs on <b>UTC</b>, so local wall-clock times can land hours off or be rejected
-        as "in the past". (Members can also set a personal <code>/settings timezone</code>,
-        which wins over the server's for their own inputs.)
+        <code>/settings server-timezone</code> — pick your zone from the command's suggestions
+        (start typing a city, e.g. <code>America/Chicago</code>). Natural-language times
+        ("tomorrow 6pm") are parsed in this zone; until it's set, the server runs on <b>UTC</b>,
+        so local wall-clock times can land hours off or be rejected as "in the past". (Members
+        can also set a personal <code>/settings timezone</code>, which wins over the server's
+        for their own inputs.)
     </li>
     <li class="mb-2">
         <code>/settings default-channel</code> pointing at your events channel. Events, polls,

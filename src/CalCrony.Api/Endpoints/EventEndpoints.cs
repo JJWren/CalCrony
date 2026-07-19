@@ -23,6 +23,32 @@ public static class EventEndpoints
         app.MapPut("/events/{id:guid}/rsvps/{userId:long}", PutRsvp);
         app.MapDelete("/events/{id:guid}/rsvps/{userId:long}", DeleteRsvp);
         app.MapPost("/tools/parse-datetime", ParseDateTime);
+        app.MapGet("/tools/timezones", ListTimeZones);
+    }
+
+    /// <summary>Canonical IANA zones (city zones + UTC) with their current UTC offset, for
+    /// timezone pickers — nobody should have to type an IANA id from memory.</summary>
+    private static IResult ListTimeZones(IClock clock)
+    {
+        var now = clock.GetCurrentInstant();
+        var source = NodaTime.TimeZones.TzdbDateTimeZoneSource.Default;
+        // "UTC" itself is an alias of Etc/UTC in the canonical map, so it's prepended explicitly.
+        var options = source.CanonicalIdMap
+            .Where(pair => pair.Key == pair.Value) // canonical only — no aliases
+            .Select(pair => pair.Key)
+            .Where(id => id.Contains('/') && !id.StartsWith("Etc/", StringComparison.Ordinal))
+            .Prepend("UTC")
+            .Select(id =>
+            {
+                var minutes = DateTimeZoneProviders.Tzdb[id].GetUtcOffset(now).Seconds / 60;
+                var formatted = minutes == 0
+                    ? "UTC±00:00"
+                    : $"UTC{(minutes < 0 ? "-" : "+")}{Math.Abs(minutes) / 60:00}:{Math.Abs(minutes) % 60:00}";
+                return new TimeZoneOptionDto(id, $"{id} — {formatted}");
+            })
+            .OrderBy(o => o.Id, StringComparer.Ordinal)
+            .ToList();
+        return Results.Ok(options);
     }
 
     /// <summary>Mutation guard for JWT callers: event's guild member AND (creator or manager).

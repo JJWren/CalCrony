@@ -80,4 +80,8 @@ public record ParseDateTimeRequest(string Text, long? UserId = null, long? Guild
 
 public record ParseDateTimeResponse(DateTimeOffset Utc, long Unix, string TimeZone);
 
+/// <summary>A selectable timezone: canonical IANA id + display label with the current UTC offset,
+/// e.g. "America/Chicago — UTC-05:00".</summary>
+public record TimeZoneOptionDto(string Id, string Label);
+
 public record ErrorResponse(string Error);

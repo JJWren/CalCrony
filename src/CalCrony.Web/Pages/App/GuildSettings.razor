@@ -24,9 +24,9 @@ else
                 <div class="fw-bold">Timezone</div>
                 @if (isManager)
                 {
-                    <label class="form-label small mt-2 mb-1" for="gs-tz">IANA id, e.g. America/Chicago</label>
+                    <label class="form-label small mt-2 mb-1" for="gs-tz">Pick the server's timezone</label>
                     <div class="d-flex gap-2">
-                        <input id="gs-tz" class="form-control form-control-sm" @bind="timezoneInput" />
+                        <TimeZonePicker Id="gs-tz" @bind-Value="timezoneInput" />
                         <button class="btn btn-outline-primary btn-sm" @onclick="SaveTimezoneAsync" disabled="@busy">Save</button>
                     </div>
                     @if (saveMessage is not null)
