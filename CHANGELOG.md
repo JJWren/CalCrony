@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/JJWren/CalCrony/compare/v0.6.0...v0.7.0) (2026-07-19)
+
+
+### Features
+
+* recurring events web experience ([#21](https://github.com/JJWren/CalCrony/issues/21)) ([42a2ee3](https://github.com/JJWren/CalCrony/commit/42a2ee33890c0c27db93febf38ab4c0808781ef2))
+* recurring events with rolling occurrences (api+bot) ([#19](https://github.com/JJWren/CalCrony/issues/19)) ([4b550a6](https://github.com/JJWren/CalCrony/commit/4b550a6b6e8ab105877e0f55099343e1ca650308))
+
 ## [0.6.0](https://github.com/JJWren/CalCrony/compare/v0.5.0...v0.6.0) (2026-07-18)
 
 
