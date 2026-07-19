@@ -14,6 +14,9 @@ using NodaTime.Serialization.SystemTextJson;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Fail fast on misconfiguration that would otherwise surface as runtime 500s.
+CalCrony.Api.StartupConfigValidation.Validate(builder.Configuration);
+
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
 
@@ -136,6 +139,13 @@ var version = typeof(Program).Assembly
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
     .InformationalVersion ?? "unknown";
 app.MapGet("/health", () => Results.Ok(new { status = "ok", version })).AllowAnonymous();
+// Readiness: liveness plus a cheap DB probe — compose healthchecks target this so dependents
+// wait for an API that can actually serve them.
+app.MapGet("/health/ready", async (CalCronyDbContext db, CancellationToken ct) =>
+    await db.Database.CanConnectAsync(ct)
+        ? Results.Ok(new { status = "ok", version })
+        : Results.Json(new { status = "unavailable", version }, statusCode: StatusCodes.Status503ServiceUnavailable))
+    .AllowAnonymous();
 app.MapEventEndpoints();
 app.MapSeriesEndpoints();
 app.MapPollEndpoints();
