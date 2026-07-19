@@ -10,9 +10,13 @@ using NodaTime;
 namespace CalCrony.Api.Auth;
 
 /// <summary>A freshly signed access token and its expiry.</summary>
+/// <param name="Value">The signed JWT string.</param>
+/// <param name="ExpiresAt">When the token expires.</param>
 public sealed record IssuedAccessToken(string Value, Instant ExpiresAt);
 
 /// <summary>A freshly minted refresh token; Raw goes into the HttpOnly cookie, only its hash is stored.</summary>
+/// <param name="Raw">The raw token value.</param>
+/// <param name="ExpiresAt">When the token expires.</param>
 public sealed record IssuedRefreshToken(string Raw, Instant ExpiresAt);
 
 /// <summary>
@@ -20,6 +24,9 @@ public sealed record IssuedRefreshToken(string Raw, Instant ExpiresAt);
 /// tokens (SHA-256-hashed at rest, claimed atomically so concurrent refreshes can't both win).
 /// Only the signing key is configuration; lifetimes and issuer/audience are fixed policy.
 /// </summary>
+/// <param name="db">The database context.</param>
+/// <param name="configuration">The application configuration.</param>
+/// <param name="clock">The time source.</param>
 public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configuration, IClock clock)
 {
     public const int AccessTokenMinutes = 30;
@@ -32,6 +39,10 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
     public const string AvatarClaim = "avatar";
 
     /// <summary>Issues a short-lived HS256 access token carrying the Discord id and display claims.</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="username">The display name to embed in the token.</param>
+    /// <param name="avatarHash">The Discord avatar hash, when set.</param>
+    /// <returns>The signed token and its expiry.</returns>
     public IssuedAccessToken IssueAccessToken(long userId, string username, string? avatarHash)
     {
         var expiresAt = clock.GetCurrentInstant() + Duration.FromMinutes(AccessTokenMinutes);
@@ -58,6 +69,9 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
     }
 
     /// <summary>Mints and stores a refresh token (hash only), pruning the user's expired rows.</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The raw refresh token (for the cookie) and its expiry.</returns>
     public async Task<IssuedRefreshToken> IssueRefreshTokenAsync(long userId, CancellationToken cancellationToken)
     {
         var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
@@ -80,6 +94,9 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
 
     /// <summary>Claims the token in a single UPDATE so rotate-on-use holds under concurrency:
     /// of two simultaneous refreshes only one can flip RevokedAt from null.</summary>
+    /// <param name="rawToken">The raw refresh token from the cookie.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The consumed row, or null when the token is invalid, expired, or already used.</returns>
     public async Task<WebRefreshToken?> ConsumeRefreshTokenAsync(string rawToken, CancellationToken cancellationToken)
     {
         var hash = Hash(rawToken);
@@ -95,6 +112,9 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
     }
 
     /// <summary>The symmetric signing key from configuration — shared by issue and validation paths.</summary>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The symmetric key.</returns>
+    /// <exception cref="InvalidOperationException">When Auth:Jwt:SigningKey is missing or too short.</exception>
     public static SymmetricSecurityKey SigningKey(IConfiguration configuration)
     {
         var key = configuration["Auth:Jwt:SigningKey"];
@@ -108,6 +128,8 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
     }
 
     /// <summary>SHA-256 hex digest — refresh tokens are stored hashed, like API keys.</summary>
+    /// <param name="raw">The raw token value.</param>
+    /// <returns>The lowercase hex digest.</returns>
     private static string Hash(string raw) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 }

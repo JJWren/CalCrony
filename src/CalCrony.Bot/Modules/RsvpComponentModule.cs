@@ -7,9 +7,12 @@ using Discord.WebSocket;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>Handles event RSVP buttons.</summary>
+/// <param name="api">The CalCrony API client.</param>
 public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Sets or clears the clicker's RSVP and re-renders the embed.</summary>
+    /// <param name="eventIdRaw">The event id from the component custom id.</param>
+    /// <param name="optionIdRaw">The option id from the component custom id.</param>
     [ComponentInteraction("rsvp:*:*")]
     public async Task RsvpAsync(string eventIdRaw, string optionIdRaw)
     {

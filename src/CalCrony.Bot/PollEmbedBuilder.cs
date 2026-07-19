@@ -20,6 +20,8 @@ public static class PollEmbedBuilder
         ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
     /// <summary>Builds the poll embed: header chips, per-option bars/counts, and voter mentions within budget.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <returns>The built embed.</returns>
     public static Embed Build(PollDto poll)
     {
         var description = new StringBuilder();
@@ -46,6 +48,8 @@ public static class PollEmbedBuilder
     }
 
     /// <summary>Builds vote components from the DTO — a voter-added 6th option automatically swaps buttons for the select.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <returns>The vote/add/convert components for the poll state.</returns>
     public static MessageComponent BuildComponents(PollDto poll)
     {
         var builder = new ComponentBuilder();
@@ -104,6 +108,8 @@ public static class PollEmbedBuilder
     }
 
     /// <summary>Header line: open state with deadline and flag chips, or closed state with winner/converted markers.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <returns>The header line.</returns>
     private static string Header(PollDto poll)
     {
         if (poll.Status == PollStatus.Closed)
@@ -130,6 +136,9 @@ public static class PollEmbedBuilder
     }
 
     /// <summary>Option list with proportional bars; withNames adds capped voter mentions.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <param name="withNames">When true, voter mentions render under each option.</param>
+    /// <returns>The option list text.</returns>
     private static string RenderOptions(PollDto poll, bool withNames)
     {
         var body = new StringBuilder();
@@ -163,12 +172,17 @@ public static class PollEmbedBuilder
 
     /// <summary>Same rule as the API's winner helper: most votes; ties → earliest slot for
     /// time polls, first (lowest sort) otherwise. Options arrive pre-ordered from the DTO.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <returns>The winning option id, or null while open or empty.</returns>
     private static Guid? ComputeWinnerId(PollDto poll) =>
         poll.Options.Count == 0
             ? null
             : poll.Options.OrderByDescending(o => o.VoteCount).First().Id;
 
     /// <summary>Hard-truncates text to the given length.</summary>
+    /// <param name="text">The text to shorten.</param>
+    /// <param name="max">The maximum allowed length.</param>
+    /// <returns>The possibly shortened text.</returns>
     private static string Truncate(string text, int max) =>
         text.Length <= max ? text : text[..(max - 1)] + "…";
 }

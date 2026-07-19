@@ -8,6 +8,8 @@ namespace CalCrony.Api.Endpoints;
 public static class Mapping
 {
     /// <summary>Projects an event with ordered options/RSVPs; the recurrence summary requires the Series navigation loaded.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>The projected DTO.</returns>
     public static EventDto ToDto(this Event ev) => new(
         ev.Id,
         ev.GuildId,
@@ -29,6 +31,9 @@ public static class Mapping
         ev.Series is { Ended: false } series ? Services.RecurrenceCalculator.Describe(series) : null);
 
     /// <summary>Projects a series' schedule, template, progress, and notification specs.</summary>
+    /// <param name="series">The series row (with notification specs loaded).</param>
+    /// <param name="liveEventId">The live occurrence's event id, when one exists.</param>
+    /// <returns>The projected DTO.</returns>
     public static SeriesDto ToDto(this EventSeries series, Guid? liveEventId) => new(
         series.Id,
         series.GuildId,
@@ -55,12 +60,18 @@ public static class Mapping
             .Select(n => new SeriesNotificationDto(n.Id, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId))]);
 
     /// <summary>Resolves an IANA id to a zone, null when unknown.</summary>
+    /// <param name="id">The IANA zone id.</param>
+    /// <returns>The zone, or null when the id is unknown.</returns>
     public static DateTimeZone? FindZone(string? id) =>
         id is null ? null : DateTimeZoneProviders.Tzdb.GetZoneOrNull(id);
 
     /// <summary>Anonymity shaping: on anonymous polls, non-bot viewers get only their OWN vote
     /// rows (so the UI can highlight their picks) while per-option VoteCounts stay complete.
     /// The bot receives everything and hides names in its embed builder.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <param name="viewerUserId">The web caller's Discord id, when a JWT caller.</param>
+    /// <param name="viewerIsBot">True when the bot is the caller (sees all votes).</param>
+    /// <returns>The projected DTO.</returns>
     public static PollDto ToDto(this Poll poll, long? viewerUserId, bool viewerIsBot)
     {
         var orderedOptions = poll.IsTimePoll

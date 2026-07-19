@@ -45,6 +45,9 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     }
 
     /// <summary>Consent-page URL requesting offline access so a refresh token is issued.</summary>
+    /// <param name="redirectUri">The OAuth redirect URI registered with the provider.</param>
+    /// <param name="state">The CSRF state value.</param>
+    /// <returns>The consent-page URL.</returns>
     public string BuildAuthorizationUrl(string redirectUri, string state)
     {
         var url = flow.CreateAuthorizationCodeRequest(redirectUri);
@@ -55,6 +58,11 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     }
 
     /// <summary>Exchanges the authorization code for access + refresh tokens.</summary>
+    /// <param name="code">The authorization code from the provider callback.</param>
+    /// <param name="redirectUri">The OAuth redirect URI registered with the provider.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The issued token pair.</returns>
+    /// <exception cref="InvalidOperationException">When Google issues no refresh token (consent was not re-prompted).</exception>
     public async Task<CalendarTokenResult> ExchangeCodeAsync(string code, string redirectUri, CancellationToken cancellationToken)
     {
         var response = await flow.ExchangeCodeForTokenAsync(
@@ -70,6 +78,9 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     }
 
     /// <summary>Refreshes the access token; invalid_grant maps to ReconnectRequired (expected in Testing mode every 7 days).</summary>
+    /// <param name="refreshToken">The provider refresh token.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The refresh outcome.</returns>
     public async Task<CalendarTokenRefreshResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
     {
         try
@@ -93,6 +104,11 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     }
 
     /// <summary>Queries the primary calendar's busy intervals over the window.</summary>
+    /// <param name="accessToken">The provider access token.</param>
+    /// <param name="start">Window start (UTC).</param>
+    /// <param name="end">Window end (UTC).</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The free/busy outcome.</returns>
     public async Task<CalendarFreeBusyResult> GetFreeBusyAsync(
         string accessToken, Instant start, Instant end, CancellationToken cancellationToken)
     {
@@ -139,6 +155,8 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     }
 
     /// <summary>Best-effort token revocation on disconnect.</summary>
+    /// <param name="token">The token value.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
     public async Task RevokeAsync(string token, CancellationToken cancellationToken)
     {
         try
@@ -157,33 +175,45 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     }
 
     /// <summary>Absolute expiry instant from a token response's relative lifetime.</summary>
+    /// <param name="response">The provider token response.</param>
+    /// <returns>The absolute expiry instant.</returns>
     private static Instant ToExpiresAt(TokenResponse response) =>
         Instant.FromDateTimeUtc(DateTime.SpecifyKind(response.IssuedUtc, DateTimeKind.Utc))
             + Duration.FromSeconds(response.ExpiresInSeconds ?? 3600);
 
     /// <summary>freeBusy request body shape.</summary>
+    /// <param name="TimeMin">Window start (RFC3339).</param>
+    /// <param name="TimeMax">Window end (RFC3339).</param>
+    /// <param name="Items">The requested calendars.</param>
     private sealed record FreeBusyRequestBody(
         [property: JsonPropertyName("timeMin")] string TimeMin,
         [property: JsonPropertyName("timeMax")] string TimeMax,
         [property: JsonPropertyName("items")] IReadOnlyList<FreeBusyRequestItem> Items);
 
     /// <summary>freeBusy request calendar item.</summary>
+    /// <param name="Id">The calendar id.</param>
     private sealed record FreeBusyRequestItem([property: JsonPropertyName("id")] string Id);
 
     /// <summary>freeBusy response body shape.</summary>
+    /// <param name="Calendars">Per-calendar results.</param>
     private sealed record FreeBusyResponseBody(
         [property: JsonPropertyName("calendars")] Dictionary<string, FreeBusyCalendar>? Calendars);
 
     /// <summary>Per-calendar busy list in a freeBusy response.</summary>
+    /// <param name="Busy">The busy intervals.</param>
+    /// <param name="Errors">Per-calendar errors.</param>
     private sealed record FreeBusyCalendar(
         [property: JsonPropertyName("busy")] List<FreeBusyInterval>? Busy,
         [property: JsonPropertyName("errors")] List<FreeBusyError>? Errors);
 
     /// <summary>One busy interval in a freeBusy response.</summary>
+    /// <param name="Start">Window start (UTC).</param>
+    /// <param name="End">Window end (UTC).</param>
     private sealed record FreeBusyInterval(
         [property: JsonPropertyName("start")] string Start,
         [property: JsonPropertyName("end")] string End);
 
     /// <summary>Per-calendar error in a freeBusy response.</summary>
+    /// <param name="Reason">The provider error reason.</param>
     private sealed record FreeBusyError([property: JsonPropertyName("reason")] string? Reason);
 }

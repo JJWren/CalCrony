@@ -7,9 +7,11 @@ public sealed class InMemoryTokenStore : ITokenStore
     private string? accessToken;
 
     /// <summary>Returns the current access token, if any.</summary>
+    /// <returns>The stored token, or null.</returns>
     public Task<string?> GetAccessTokenAsync() => Task.FromResult(accessToken);
 
     /// <summary>Stores a freshly issued access token.</summary>
+    /// <param name="token">The token value.</param>
     public Task SetAccessTokenAsync(string token)
     {
         accessToken = token;

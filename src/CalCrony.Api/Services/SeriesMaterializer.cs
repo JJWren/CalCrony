@@ -10,10 +10,14 @@ namespace CalCrony.Api.Services;
 /// Used by the scheduler sweep (when a live slot frees) and the skip endpoint. The partial unique
 /// index IX_Events_SeriesId_Live backstops concurrent spawns — the losing SaveChanges rolls back
 /// whole and converges on the next sweep tick.</summary>
+/// <param name="db">The database context.</param>
 public sealed class SeriesMaterializer(CalCronyDbContext db)
 {
     /// <summary>Adds the next occurrence + its PostEventMessage delivery. Requires
     /// series.NotificationSpecs loaded. Returns null when an end condition ends the series.</summary>
+    /// <param name="series">The series row (with notification specs loaded).</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>The new occurrence, or null when the series ended instead.</returns>
     public Event? MaterializeNext(EventSeries series, Instant now)
     {
         if (series.Ended)

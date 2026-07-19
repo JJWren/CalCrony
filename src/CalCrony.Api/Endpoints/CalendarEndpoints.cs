@@ -17,6 +17,7 @@ public static class CalendarEndpoints
     private const int MaxUsersPerQuery = 50;
 
     /// <summary>Maps calendar connection and availability routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapCalendarEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/calendar/connections/{userId:long}/link-token", CreateLinkToken);
@@ -29,12 +30,22 @@ public static class CalendarEndpoints
     }
 
     /// <summary>Web callers may only manage their own calendar connection.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static IResult? GuardSelf(HttpContext context, long userId) =>
         !context.User.IsBot() && context.User.WebUserId() != userId
             ? GuildAccessService.SelfOnly()
             : null;
 
     /// <summary>Mints a single-use link token and the provider consent URL for a user (self-only for web callers).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> CreateLinkToken(
         HttpContext context,
         long userId,
@@ -77,6 +88,11 @@ public static class CalendarEndpoints
     }
 
     /// <summary>Reports whether the user has a linked calendar and when it last refreshed.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetStatus(
         HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -92,6 +108,14 @@ public static class CalendarEndpoints
     }
 
     /// <summary>Revokes and deletes the user's calendar connection (best-effort provider-side revoke).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="provider">The calendar provider.</param>
+    /// <param name="protector">The scoped data protector.</param>
+    /// <param name="logger">The host logger.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Disconnect(
         HttpContext context,
         long userId,
@@ -128,6 +152,10 @@ public static class CalendarEndpoints
     }
 
     /// <summary>Runs a live free/busy check for the requested users and window (BotOnly — prevents member probing).</summary>
+    /// <param name="request">The request body.</param>
+    /// <param name="availability">The availability service.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> CheckAvailability(
         AvailabilityRequest request,
         CalendarAvailabilityService availability,
@@ -154,6 +182,13 @@ public static class CalendarEndpoints
 
     /// <summary>Web-safe availability: the user set is the event's "Going" RSVPs and the window
     /// is the event's own — nothing caller-controlled to probe with.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The entity id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="availability">The availability service.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetEventAvailability(
         HttpContext context,
         GuildAccessService access,

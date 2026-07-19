@@ -40,11 +40,18 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
     // Labels carry the CURRENT UTC offset, so the cache must refresh across DST transitions —
     // 12h keeps labels accurate without per-keystroke API calls.
     /// <summary>Cached zone list plus its refresh deadline.</summary>
+    /// <param name="Options">The cached zone options.</param>
+    /// <param name="Expires">When the cached list must be refetched.</param>
     private sealed record CacheEntry(IReadOnlyList<TimeZoneOptionDto> Options, DateTimeOffset Expires);
 
     private static volatile CacheEntry? cache;
 
     /// <summary>Serves timezone suggestions from the TTL cache, fetching the list from the API when stale.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="autocompleteInteraction">The in-flight autocomplete interaction.</param>
+    /// <param name="parameter">The parameter being completed.</param>
+    /// <param name="services">The request service provider.</param>
+    /// <returns>The suggestion set for Discord to display.</returns>
     public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
         IInteractionContext context,
         IAutocompleteInteraction autocompleteInteraction,
@@ -72,6 +79,9 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
     }
 
     /// <summary>Pure suggestion shaping, public for direct testing.</summary>
+    /// <param name="options">The zone options to filter.</param>
+    /// <param name="input">The user's current (possibly partial) input.</param>
+    /// <returns>Up to 25 labeled, id-valued suggestions.</returns>
     public static List<AutocompleteResult> BuildSuggestions(
         IReadOnlyList<TimeZoneOptionDto> options, string input)
     {

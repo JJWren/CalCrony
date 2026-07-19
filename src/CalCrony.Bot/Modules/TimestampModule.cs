@@ -5,9 +5,11 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/timestamp — natural language to Discord timestamp codes.</summary>
+/// <param name="api">The CalCrony API client.</param>
 public class TimestampModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Replies with the &lt;t:...&gt; variants for the parsed instant.</summary>
+    /// <param name="when">Natural-language start time.</param>
     [SlashCommand("timestamp", "Turn a natural-language time into Discord timestamp codes")]
     public async Task TimestampAsync(
         [Summary("when", "e.g. \"friday 8pm\" or \"in 3 hours\"")] string when)

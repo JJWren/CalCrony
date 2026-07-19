@@ -6,6 +6,7 @@ namespace CalCrony.Bot.Modules;
 // Deliberately no [RequireContext(ContextType.Guild)] — connecting a personal calendar is
 // per-user and guild-independent, so this should work from a DM with the bot too.
 /// <summary>/calendar — link, inspect, or unlink an external calendar (DM-capable).</summary>
+/// <param name="api">The CalCrony API client.</param>
 [Group("calendar", "Connect and manage your external calendar")]
 public class CalendarModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {

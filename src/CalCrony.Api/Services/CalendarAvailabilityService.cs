@@ -11,6 +11,11 @@ namespace CalCrony.Api.Services;
 /// passes (before and after the concurrent section) since EF Core's DbContext is not safe for
 /// concurrent use from multiple tasks.
 /// </summary>
+/// <param name="db">The database context.</param>
+/// <param name="provider">The calendar provider.</param>
+/// <param name="protector">The scoped data protector.</param>
+/// <param name="clock">The time source.</param>
+/// <param name="logger">The host logger.</param>
 public sealed class CalendarAvailabilityService(
     CalCronyDbContext db,
     ICalendarProvider provider,
@@ -22,6 +27,11 @@ public sealed class CalendarAvailabilityService(
     private static readonly Duration RefreshSkew = Duration.FromMinutes(2);
 
     /// <summary>Checks free/busy for each user concurrently, refreshing expired provider tokens along the way.</summary>
+    /// <param name="userIds">The Discord user ids to check.</param>
+    /// <param name="start">Window start (UTC).</param>
+    /// <param name="end">Window end (UTC).</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>One availability row per requested user.</returns>
     public async Task<IReadOnlyList<UserAvailabilityDto>> CheckAsync(
         IReadOnlyList<long> userIds, Instant start, Instant end, CancellationToken cancellationToken)
     {
@@ -61,6 +71,12 @@ public sealed class CalendarAvailabilityService(
     }
 
     /// <summary>One user's pipeline: load connection, refresh if needed, query free/busy, classify the outcome.</summary>
+    /// <param name="connection">The stored calendar connection.</param>
+    /// <param name="start">Window start (UTC).</param>
+    /// <param name="end">Window end (UTC).</param>
+    /// <param name="now">The current instant.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The pipeline outcome, including tokens to persist.</returns>
     private async Task<PipelineResult> CheckOneAsync(
         CalendarConnection connection, Instant start, Instant end, Instant now, CancellationToken cancellationToken)
     {
@@ -104,6 +120,11 @@ public sealed class CalendarAvailabilityService(
     }
 
     /// <summary>Intermediate per-user outcome, including any refreshed tokens to persist.</summary>
+    /// <param name="UserId">The Discord user id.</param>
+    /// <param name="Status">The resolved availability status.</param>
+    /// <param name="BusyBlocks">The busy intervals.</param>
+    /// <param name="RefreshedAccessToken">The refreshed access token to persist, when rotation happened.</param>
+    /// <param name="RefreshedExpiresAt">The refreshed token expiry, when rotation happened.</param>
     private sealed record PipelineResult(
         long UserId,
         CalendarAvailabilityStatus Status,

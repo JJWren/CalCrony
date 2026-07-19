@@ -15,6 +15,7 @@ namespace CalCrony.Api.Endpoints;
 public static class OAuthEndpoints
 {
     /// <summary>Maps the anonymous browser-facing calendar OAuth routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapOAuthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/oauth/google/start", Start).AllowAnonymous();
@@ -22,6 +23,13 @@ public static class OAuthEndpoints
     }
 
     /// <summary>Redirects the browser to the provider consent page; the link token doubles as OAuth state.</summary>
+    /// <param name="token">The token value.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="provider">The calendar provider.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Start(
         string token,
         CalCronyDbContext db,
@@ -41,6 +49,17 @@ public static class OAuthEndpoints
     }
 
     /// <summary>Provider redirects here: validates state, exchanges the code, stores encrypted tokens, and renders a result page.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="provider">The calendar provider.</param>
+    /// <param name="protector">The scoped data protector.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="logger">The host logger.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="code">The authorization code from the provider callback.</param>
+    /// <param name="state">The CSRF state value.</param>
+    /// <param name="error">The user-facing error text.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Callback(
         CalCronyDbContext db,
         ICalendarProvider provider,
@@ -111,26 +130,38 @@ public static class OAuthEndpoints
     }
 
     /// <summary>A link token is usable when unconsumed and unexpired.</summary>
+    /// <param name="token">The token value.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>True when the token is unconsumed and unexpired.</returns>
     private static bool IsUsable(CalendarLinkToken? token, Instant now) =>
         token is not null && token.ConsumedAt is null && token.ExpiresAt > now;
 
     /// <summary>The OAuth redirect URI this API registered with the provider.</summary>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The absolute callback URL.</returns>
     private static string RedirectUri(IConfiguration configuration) =>
         $"{(configuration["Api:PublicBaseUrl"] ?? "").TrimEnd('/')}/oauth/google/callback";
 
     /// <summary>Success page shown in the browser after linking.</summary>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static IResult SuccessPage() => RenderPage(
         "Calendar connected",
         "✅ Your Google Calendar is connected. You can close this tab and go back to Discord.",
         statusCode: 200);
 
     /// <summary>Failure page with an HTML-encoded reason (never reflects raw provider input).</summary>
+    /// <param name="message">The page body text.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static IResult FailurePage(string message) => RenderPage(
         "Calendar connection failed",
         $"❌ {message}",
         statusCode: 400);
 
     /// <summary>Renders the minimal inline-styled HTML result page.</summary>
+    /// <param name="title">The page heading.</param>
+    /// <param name="message">The page body text.</param>
+    /// <param name="statusCode">The HTTP status to return.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static IResult RenderPage(string title, string message, int statusCode)
     {
         // Both values can carry attacker-influenced query-string content (e.g. Google's `error`

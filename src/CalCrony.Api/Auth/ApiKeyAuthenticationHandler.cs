@@ -10,6 +10,10 @@ namespace CalCrony.Api.Auth;
 /// NoResult so the Bearer scheme can try; present-but-invalid fails outright. A successful
 /// principal carries the <c>client=bot</c> claim, which the BotOnly policy requires.
 /// </summary>
+/// <param name="options">The scheme options monitor.</param>
+/// <param name="logger">The host logger.</param>
+/// <param name="encoder">The URL encoder (required by the base handler).</param>
+/// <param name="validator">The API key validator.</param>
 public sealed class ApiKeyAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
@@ -23,6 +27,7 @@ public sealed class ApiKeyAuthenticationHandler(
     public const string BotClientValue = "bot";
 
     /// <summary>Validates the X-Api-Key header; absent header yields NoResult so the JWT scheme can try instead.</summary>
+    /// <returns>Success with the bot principal, NoResult without the header, or failure on a bad key.</returns>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var rawKey = Request.Headers[HeaderName].ToString();
@@ -41,6 +46,7 @@ public sealed class ApiKeyAuthenticationHandler(
     }
 
     /// <summary>Writes the 401 challenge unless another scheme's challenge already started the response.</summary>
+    /// <param name="properties">The authentication properties for the challenge.</param>
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
     {
         // With a multi-scheme policy both schemes get challenged; only the first writes.

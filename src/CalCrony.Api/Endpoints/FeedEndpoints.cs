@@ -14,6 +14,7 @@ namespace CalCrony.Api.Endpoints;
 public static class FeedEndpoints
 {
     /// <summary>Maps feed-token and feed routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapFeedEndpoints(this IEndpointRouteBuilder app)
     {
         // Authenticated (bot, or a web member of the guild): mints/returns the guild's feed token.
@@ -24,6 +25,13 @@ public static class FeedEndpoints
     }
 
     /// <summary>Returns the guild's feed token, minting one on first use.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetOrCreateToken(
         HttpContext context, GuildAccessService access, long guildId, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
@@ -52,6 +60,11 @@ public static class FeedEndpoints
     }
 
     /// <summary>Serves the iCalendar document: the last 30 days plus upcoming, excluding cancelled occurrences.</summary>
+    /// <param name="token">The token value.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetFeed(
         string token, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {

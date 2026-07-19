@@ -12,6 +12,12 @@ public static class RecurrenceCalculator
     /// <summary>First schedule date strictly after <paramref name="after"/> — except when
     /// <paramref name="after"/> precedes the anchor, where the anchor (the first slot of the
     /// schedule) is returned as-is.</summary>
+    /// <param name="unit">The recurrence unit.</param>
+    /// <param name="interval">Every N units (1-12).</param>
+    /// <param name="mode">The monthly mode (ignored for day/week units).</param>
+    /// <param name="anchor">The schedule anchor date (first occurrence).</param>
+    /// <param name="after">The exclusive lower bound for the returned date.</param>
+    /// <returns>The next schedule date.</returns>
     public static LocalDate NextDate(
         RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalDate after)
     {
@@ -91,6 +97,8 @@ public static class RecurrenceCalculator
     }
 
     /// <summary>Human-readable rule, e.g. "Repeats every 2 weeks on Friday · 3 of 10".</summary>
+    /// <param name="series">The series row (with notification specs loaded).</param>
+    /// <returns>The human-readable rule text.</returns>
     public static string Describe(EventSeries series)
     {
         var every = series.Interval == 1 ? null : $"every {series.Interval} ";
@@ -114,6 +122,10 @@ public static class RecurrenceCalculator
     }
 
     /// <summary>The month-mode slot for anchor + monthsAhead: same day-of-month (clamped) or nth weekday (5th falls back to last).</summary>
+    /// <param name="anchor">The schedule anchor date (first occurrence).</param>
+    /// <param name="mode">The monthly mode (ignored for day/week units).</param>
+    /// <param name="monthsAhead">How many months past the anchor to compute.</param>
+    /// <returns>The candidate date in the target month.</returns>
     private static LocalDate MonthCandidate(LocalDate anchor, MonthlyMode mode, int monthsAhead)
     {
         if (mode == MonthlyMode.DayOfMonth)
@@ -134,6 +146,8 @@ public static class RecurrenceCalculator
     }
 
     /// <summary>Ordinal label for the anchor's weekday position; a 5th weekday reads as "last".</summary>
+    /// <param name="anchor">The schedule anchor date (first occurrence).</param>
+    /// <returns>The ordinal label ("3rd", "last").</returns>
     private static string NthLabel(LocalDate anchor) => ((anchor.Day + 6) / 7) switch
     {
         1 => "1st",

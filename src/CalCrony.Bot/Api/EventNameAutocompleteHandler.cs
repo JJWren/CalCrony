@@ -13,6 +13,11 @@ namespace CalCrony.Bot.Api;
 public class EventNameAutocompleteHandler : AutocompleteHandler
 {
     /// <summary>Builds the suggestion list from the guild's recent and upcoming events as the user types.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="autocompleteInteraction">The in-flight autocomplete interaction.</param>
+    /// <param name="parameter">The parameter being completed.</param>
+    /// <param name="services">The request service provider.</param>
+    /// <returns>The suggestion set for Discord to display.</returns>
     public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
         IInteractionContext context,
         IAutocompleteInteraction autocompleteInteraction,
@@ -34,6 +39,10 @@ public class EventNameAutocompleteHandler : AutocompleteHandler
 
     /// <summary>Pure suggestion shaping, public for direct testing: filter by fragment, upcoming
     /// first (soonest at the top) then past (most recent first, marked), capped at Discord's 25.</summary>
+    /// <param name="events">The candidate events.</param>
+    /// <param name="input">The user's current (possibly partial) input.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>Up to 25 labeled, id-valued suggestions.</returns>
     public static List<AutocompleteResult> BuildSuggestions(
         IReadOnlyList<EventDto> events, string input, DateTimeOffset now)
     {
@@ -47,6 +56,9 @@ public class EventNameAutocompleteHandler : AutocompleteHandler
     }
 
     /// <summary>Suggestion label: title plus start time in the event's zone, marked when past, capped at 100 chars.</summary>
+    /// <param name="ev">The event.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>The display label, capped at 100 chars.</returns>
     private static string Label(EventDto ev, DateTimeOffset now)
     {
         string when;

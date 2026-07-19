@@ -48,6 +48,7 @@ Versions follow [SemVer](https://semver.org/) and are **computed from commit mes
 3. The `publish-images` job re-runs tests on the tagged commit, then pushes Docker images to GHCR:
    - `ghcr.io/jjwren/calcrony-api:{version}` and `:latest`
    - `ghcr.io/jjwren/calcrony-bot:{version}` and `:latest`
+   - `ghcr.io/jjwren/calcrony-web:{version}` and `:latest` (nginx-served Blazor app; `API_BASE_URL` is injected at container start)
 4. Deploying a release = `docker login ghcr.io` then point compose at the versioned images and `docker compose pull && docker compose up -d`. The running API reports its version at `GET /health`.
 
 Don't hand-create `v*` tags; let release-please own them. To force a specific version (rarely), put `Release-As: X.Y.Z` in a commit body on `master`.

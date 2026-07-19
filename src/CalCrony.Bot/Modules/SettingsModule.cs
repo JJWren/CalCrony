@@ -6,6 +6,7 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/settings — view and change server and personal preferences.</summary>
+/// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("settings", "View and change CalCrony settings")]
 public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
@@ -32,6 +33,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
     }
 
     /// <summary>Sets the caller's personal timezone (autocomplete-picked or typed).</summary>
+    /// <param name="timezone">IANA timezone id (picked from autocomplete or typed).</param>
     [SlashCommand("timezone", "Set your personal timezone")]
     public async Task SetTimezoneAsync(
         [Summary("timezone", "Pick your timezone from the list (or type an IANA id)"), Autocomplete(typeof(TimeZoneAutocompleteHandler))] string timezone)
@@ -50,6 +52,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
     }
 
     /// <summary>Sets the server's timezone (managers only).</summary>
+    /// <param name="timezone">IANA timezone id (picked from autocomplete or typed).</param>
     [SlashCommand("server-timezone", "Set the server's default timezone (managers only)")]
     [RequireUserPermission(GuildPermission.ManageGuild)]
     public async Task SetServerTimezoneAsync(
@@ -69,6 +72,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
     }
 
     /// <summary>Sets the default channel web-created embeds post to (managers only).</summary>
+    /// <param name="channel">Target text channel (defaults to the current one).</param>
     [SlashCommand("default-channel", "Set the channel for web-created events and reminders (managers only)")]
     [RequireUserPermission(GuildPermission.ManageGuild)]
     public async Task SetDefaultChannelAsync(

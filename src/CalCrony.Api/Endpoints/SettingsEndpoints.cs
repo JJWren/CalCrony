@@ -8,6 +8,7 @@ namespace CalCrony.Api.Endpoints;
 public static class SettingsEndpoints
 {
     /// <summary>Maps settings routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/guilds/{guildId:long}/settings", GetGuildSettings);
@@ -17,6 +18,12 @@ public static class SettingsEndpoints
     }
 
     /// <summary>Reads a guild's timezone and default channel.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetGuildSettings(
         HttpContext context, GuildAccessService access, long guildId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -30,6 +37,13 @@ public static class SettingsEndpoints
     }
 
     /// <summary>Updates guild settings (managers only for web callers); validates the timezone id.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="settings">The settings to store.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutGuildSettings(
         HttpContext context,
         GuildAccessService access,
@@ -70,6 +84,11 @@ public static class SettingsEndpoints
     }
 
     /// <summary>Reads a user's personal settings (self-only for web callers).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetUserSettings(
         HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -83,6 +102,12 @@ public static class SettingsEndpoints
     }
 
     /// <summary>Updates a user's personal settings (self-only for web callers); validates the timezone id.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="settings">The settings to store.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutUserSettings(
         HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
     {
