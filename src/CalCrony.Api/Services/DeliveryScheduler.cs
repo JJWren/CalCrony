@@ -67,13 +67,16 @@ public sealed class DeliveryScheduler(
             db.Deliveries.Add(NewDelivery(
                 DeliveryType.EventStart,
                 ev.ChannelId,
-                new EventStartPayload(ev.Id, ev.Title, ev.StartsAt.ToUnixTimeSeconds(), ev.MessageId),
+                new EventStartPayload(
+                    ev.Id, ev.Title, ev.StartsAt.ToUnixTimeSeconds(), ev.MessageId,
+                    ev.GuildId, ev.NativeEventId),
                 ev.StartsAt,
                 now));
             enqueued++;
         }
 
-        // Started → Ended once the duration (default 60 min) has elapsed.
+        // Started → Ended once the duration (default 60 min) has elapsed; mirrored native events
+        // get a completion delivery (once per event, guarded by the status transition).
         var endedCutoffCandidates = await db.Events
             .Where(e => e.Status == EventStatus.Started)
             .ToListAsync(cancellationToken);
@@ -83,6 +86,16 @@ public sealed class DeliveryScheduler(
             if (ev.StartsAt.Plus(length) <= now)
             {
                 ev.Status = EventStatus.Ended;
+                if (ev.NativeEventId is long nativeId)
+                {
+                    db.Deliveries.Add(NewDelivery(
+                        DeliveryType.CompleteNativeEvent,
+                        ev.ChannelId,
+                        new CompleteNativeEventPayload(ev.Id, ev.GuildId, nativeId),
+                        now,
+                        now));
+                    enqueued++;
+                }
             }
         }
 

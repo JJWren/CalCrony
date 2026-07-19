@@ -23,6 +23,7 @@ public static class EventEndpoints
         app.MapPatch("/events/{id:guid}", UpdateEvent);
         app.MapDelete("/events/{id:guid}", DeleteEvent);
         app.MapPut("/events/{id:guid}/message", SetMessage).RequireAuthorization("BotOnly");
+        app.MapPut("/events/{id:guid}/native-event", SetNativeEvent).RequireAuthorization("BotOnly");
         app.MapPut("/events/{id:guid}/rsvps/{userId:long}", PutRsvp);
         app.MapDelete("/events/{id:guid}/rsvps/{userId:long}", DeleteRsvp);
         app.MapPost("/tools/parse-datetime", ParseDateTime);
@@ -564,9 +565,10 @@ public static class EventEndpoints
             series.Ended = true;
         }
 
-        // Web deletes: capture the posted message's ids before the row dies so the bot can
-        // remove the embed. The bot deletes messages itself, so bot callers enqueue nothing.
-        if (!context.User.IsBot() && ev.MessageId is long messageId)
+        // Web deletes: capture the posted message's and mirrored native event's ids before the
+        // row dies so the bot can remove both. The bot handles both itself, so bot callers
+        // enqueue nothing.
+        if (!context.User.IsBot() && (ev.MessageId is not null || ev.NativeEventId is not null))
         {
             var now = clock.GetCurrentInstant();
             db.Deliveries.Add(new Delivery
@@ -574,7 +576,8 @@ public static class EventEndpoints
                 Id = Guid.NewGuid(),
                 Type = DeliveryType.DeleteEventMessage,
                 ChannelId = ev.ChannelId,
-                PayloadJson = JsonSerializer.Serialize(new DeleteEventMessagePayload(ev.ChannelId, messageId)),
+                PayloadJson = JsonSerializer.Serialize(
+                    new DeleteEventMessagePayload(ev.ChannelId, ev.MessageId, ev.GuildId, ev.NativeEventId)),
                 DueAt = now,
                 Status = DeliveryStatus.Pending,
                 CreatedAt = now,
@@ -603,6 +606,26 @@ public static class EventEndpoints
 
         ev.ChannelId = request.ChannelId;
         ev.MessageId = request.MessageId;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ev.ToDto());
+    }
+
+    /// <summary>Records (or clears) the Discord scheduled event mirroring this event (BotOnly).</summary>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> SetNativeEvent(
+        Guid id, SetNativeEventRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        var ev = await LoadEventAsync(db, id, cancellationToken);
+        if (ev is null)
+        {
+            return Results.NotFound();
+        }
+
+        ev.NativeEventId = request.NativeEventId;
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ev.ToDto());
     }

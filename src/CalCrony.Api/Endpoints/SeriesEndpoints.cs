@@ -280,16 +280,17 @@ public static class SeriesEndpoints
         var now = clock.GetCurrentInstant();
         ev.Status = EventStatus.Cancelled;
 
-        // Always via the outbox, both caller types — one code path for embed removal, matching
-        // the materializer's always-outbox post of the replacement.
-        if (ev.MessageId is long messageId)
+        // Always via the outbox, both caller types — one code path for embed and native-event
+        // removal, matching the materializer's always-outbox post of the replacement.
+        if (ev.MessageId is not null || ev.NativeEventId is not null)
         {
             db.Deliveries.Add(new Delivery
             {
                 Id = Guid.NewGuid(),
                 Type = DeliveryType.DeleteEventMessage,
                 ChannelId = ev.ChannelId,
-                PayloadJson = JsonSerializer.Serialize(new DeleteEventMessagePayload(ev.ChannelId, messageId)),
+                PayloadJson = JsonSerializer.Serialize(
+                    new DeleteEventMessagePayload(ev.ChannelId, ev.MessageId, ev.GuildId, ev.NativeEventId)),
                 DueAt = now,
                 Status = DeliveryStatus.Pending,
                 CreatedAt = now,

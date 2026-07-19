@@ -9,6 +9,10 @@ public class Guild
     public long Id { get; set; }
     public string TimeZone { get; set; } = "UTC";
     public long? DefaultChannelId { get; set; }
+
+    /// <summary>Opt-in: mirror events into Discord's native scheduled events. Gates creation only —
+    /// events that already have a native twin keep syncing regardless.</summary>
+    public bool MirrorNativeEvents { get; set; }
 }
 
 /// <summary>A Discord user's per-person preferences plus display fields captured at web login.</summary>
@@ -41,6 +45,10 @@ public class Event
     public int? DurationMinutes { get; set; }
     public long ChannelId { get; set; }
     public long? MessageId { get; set; }
+
+    /// <summary>Discord Guild Scheduled Event id when mirrored; null when never mirrored.</summary>
+    public long? NativeEventId { get; set; }
+
     public string? Location { get; set; }
     public string? ImageUrl { get; set; }
     public EventStatus Status { get; set; }

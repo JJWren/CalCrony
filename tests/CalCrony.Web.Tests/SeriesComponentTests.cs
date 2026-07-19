@@ -221,6 +221,37 @@ public class SeriesComponentTests : TestContext
     }
 
     [Fact]
+    public void Guild_settings_mirror_toggle_saves_flag_and_preserves_others()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var now = DateTimeOffset.UtcNow;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/settings") =>
+                JsonSerializer.Serialize(new GuildSettingsDto("America/Chicago", 4242), JsonWeb),
+            "/me/guilds" => JsonSerializer.Serialize(
+                new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true)]), JsonWeb),
+            var p when p.EndsWith("/feed-token") =>
+                JsonSerializer.Serialize(new FeedTokenDto("tok", "/feeds/tok.ics"), JsonWeb),
+            "/tools/timezones" => "[]", // the TimeZonePicker on this page fetches the zone list
+            _ => "{}",
+        };
+
+        var cut = RenderComponent<CalCrony.Web.Pages.App.GuildSettings>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Manage Events", cut.Markup));
+
+        cut.Find("#gs-native").Change(true);
+        // The mirror card's Save carries mt-1; the timezone card's Save does not.
+        cut.FindAll("button.mt-1").Single(b => b.TextContent.Trim() == "Save").Click();
+
+        var body = JsonSerializer.Deserialize<GuildSettingsDto>(handler.PutBody!, JsonWeb)!;
+        Assert.True(body.MirrorNativeEvents);
+        Assert.Equal("America/Chicago", body.TimeZone); // RMW preserved
+        Assert.Equal(4242, body.DefaultChannelId);
+    }
+
+    [Fact]
     public void Event_card_shows_repeat_badge_only_for_series()
     {
         UseApi();
@@ -283,6 +314,8 @@ public class SeriesComponentTests : TestContext
 
         public string? LastPostPath { get; private set; }
 
+        public string? PutBody { get; private set; }
+
         public string? NextJson { get; set; }
 
         public Func<HttpRequestMessage, string?>? JsonFor { get; set; }
@@ -300,6 +333,11 @@ public class SeriesComponentTests : TestContext
             if (request.Method == HttpMethod.Post)
             {
                 LastPostPath = request.RequestUri!.AbsolutePath;
+            }
+
+            if (request.Method == HttpMethod.Put)
+            {
+                PutBody = LastBody;
             }
 
             var json = NextJson ?? JsonFor?.Invoke(request) ?? "{}";

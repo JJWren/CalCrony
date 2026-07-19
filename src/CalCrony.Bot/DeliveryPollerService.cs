@@ -14,11 +14,13 @@ namespace CalCrony.Bot;
 /// <param name="api">The CalCrony API client.</param>
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The host logger.</param>
+/// <param name="mirror">The native scheduled-event mirror.</param>
 public sealed class DeliveryPollerService(
     DiscordSocketClient client,
     CalCronyApiClient api,
     IConfiguration configuration,
-    ILogger<DeliveryPollerService> logger) : BackgroundService
+    ILogger<DeliveryPollerService> logger,
+    NativeEventMirror mirror) : BackgroundService
 {
     /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
@@ -115,6 +117,20 @@ public sealed class DeliveryPollerService(
             return;
         }
 
+        if (delivery.Type == DeliveryType.EventStart)
+        {
+            await EventStartAsync(delivery);
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.CompleteNativeEvent)
+        {
+            var payload = JsonSerializer.Deserialize<CompleteNativeEventPayload>(delivery.PayloadJson)!;
+            // Best-effort by design (the helper never throws), so this always acks.
+            await mirror.TryCompleteAsync(payload.GuildId, payload.NativeEventId);
+            return;
+        }
+
         if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
         {
             throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
@@ -124,7 +140,6 @@ public sealed class DeliveryPollerService(
         {
             DeliveryType.Reminder => FormatReminder(delivery.PayloadJson),
             DeliveryType.EventNotification => FormatNotification(delivery.PayloadJson),
-            DeliveryType.EventStart => FormatEventStart(delivery.PayloadJson),
             _ => throw new InvalidOperationException($"Unknown delivery type {delivery.Type}."),
         };
 
@@ -172,16 +187,26 @@ public sealed class DeliveryPollerService(
 
             throw new InvalidOperationException($"Failed to record posted message id: {recorded.Error}");
         }
+
+        // After the embed bookkeeping is safe: mirror to a native scheduled event (best-effort —
+        // a native failure never blocks the delivery; a later sync retries the upsert lazily).
+        await mirror.TryUpsertAsync(recorded.Value!);
     }
 
-    /// <summary>A web-deleted event's embed should disappear; the ids were captured before the
-    /// row died. Best-effort — anything already gone counts as done.</summary>
+    /// <summary>A web-deleted event's embed and native twin should disappear; the ids were
+    /// captured before the row died. Best-effort — anything already gone counts as done.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task DeleteEventMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<DeleteEventMessagePayload>(delivery.PayloadJson)!;
-        if (await client.GetChannelAsync((ulong)payload.ChannelId) is not IMessageChannel channel ||
-            await channel.GetMessageAsync((ulong)payload.MessageId) is not IMessage message)
+        if (payload.GuildId is long guildId)
+        {
+            await mirror.TryDeleteAsync(guildId, payload.NativeEventId);
+        }
+
+        if (payload.MessageId is not long messageId ||
+            await client.GetChannelAsync((ulong)payload.ChannelId) is not IMessageChannel channel ||
+            await channel.GetMessageAsync((ulong)messageId) is not IMessage message)
         {
             return;
         }
@@ -196,7 +221,14 @@ public sealed class DeliveryPollerService(
     {
         var payload = JsonSerializer.Deserialize<SyncEventMessagePayload>(delivery.PayloadJson)!;
         var result = await api.GetEventAsync(payload.EventId);
-        if (!result.Success || result.Value is null || result.Value.MessageId is not long messageId)
+        if (!result.Success || result.Value is null)
+        {
+            return;
+        }
+
+        // Keep the native twin accurate even when the embed was hand-deleted.
+        await mirror.TryUpsertAsync(result.Value);
+        if (result.Value.MessageId is not long messageId)
         {
             return;
         }
@@ -311,6 +343,28 @@ public sealed class DeliveryPollerService(
         var mentions = string.IsNullOrWhiteSpace(payload.Mentions) ? "" : $"{payload.Mentions} ";
         var extra = string.IsNullOrWhiteSpace(payload.Message) ? "" : $"\n{payload.Message}";
         return $"🔔 {mentions}**{payload.Title}** starts <t:{payload.StartsAtUnix}:R> (<t:{payload.StartsAtUnix}:F>){extra}";
+    }
+
+
+    /// <summary>Posts the event-start announcement, then flips the mirrored native event to
+    /// active (best-effort; the ping is the ack-gated action).</summary>
+    /// <param name="delivery">The outbox row to post.</param>
+    /// <exception cref="InvalidOperationException">When the channel is missing — caught by
+    /// DrainAsync, which leaves the delivery pending for retry.</exception>
+    private async Task EventStartAsync(DeliveryDto delivery)
+    {
+        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
+        {
+            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
+        }
+
+        await channel.SendMessageAsync(FormatEventStart(delivery.PayloadJson));
+
+        var payload = JsonSerializer.Deserialize<EventStartPayload>(delivery.PayloadJson)!;
+        if (payload is { GuildId: long guildId, NativeEventId: long nativeId })
+        {
+            await mirror.TryStartAsync(guildId, nativeId);
+        }
     }
 
     /// <summary>Message text for an event-start announcement.</summary>
