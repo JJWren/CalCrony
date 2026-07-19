@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/JJWren/CalCrony/compare/v0.11.0...v0.12.0) (2026-07-19)
+
+
+### Features
+
+* add event templates ([#37](https://github.com/JJWren/CalCrony/issues/37)) ([6c8e3a3](https://github.com/JJWren/CalCrony/commit/6c8e3a31a9f0b919623eccf7d07cdfa8121ac016))
+
 ## [0.11.0](https://github.com/JJWren/CalCrony/compare/v0.10.0...v0.11.0) (2026-07-19)
 
 
