@@ -357,31 +357,33 @@ else
         showScheduleEditor = true;
         scheduleError = null;
         scheduleNote = null;
-        if (series is null)
-        {
-            var result = await Api.GetSeriesAsync(ev!.SeriesId!.Value);
-            if (!result.Success || result.Value is null)
-            {
-                scheduleError = result.Error;
-                series = null;
-                return;
-            }
+        scheduleUntilPreview = null;
+        scheduleUntilError = null;
 
-            series = result.Value;
-            scheduleKind = (series.Unit, series.MonthlyMode) switch
-            {
-                (RecurrenceUnit.Day, _) => ScheduleKind.Daily,
-                (RecurrenceUnit.Week, _) => ScheduleKind.Weekly,
-                (_, MonthlyMode.NthWeekday) => ScheduleKind.MonthlyNthWeekday,
-                _ => ScheduleKind.MonthlySameDate,
-            };
-            scheduleInterval = series.Interval;
-            scheduleEndMode = series.UntilDate is not null ? ScheduleEndMode.Until
-                : series.MaxOccurrences is not null ? ScheduleEndMode.Count
-                : ScheduleEndMode.Never;
-            scheduleUntil = series.UntilDate ?? "";
-            scheduleCount = series.MaxOccurrences;
+        // Refetch and re-prefill on every open: a cancelled edit's typed-but-unsaved values must
+        // not survive a reopen, and the server state may have moved meanwhile.
+        series = null;
+        var result = await Api.GetSeriesAsync(ev!.SeriesId!.Value);
+        if (!result.Success || result.Value is null)
+        {
+            scheduleError = result.Error;
+            return;
         }
+
+        series = result.Value;
+        scheduleKind = (series.Unit, series.MonthlyMode) switch
+        {
+            (RecurrenceUnit.Day, _) => ScheduleKind.Daily,
+            (RecurrenceUnit.Week, _) => ScheduleKind.Weekly,
+            (_, MonthlyMode.NthWeekday) => ScheduleKind.MonthlyNthWeekday,
+            _ => ScheduleKind.MonthlySameDate,
+        };
+        scheduleInterval = series.Interval;
+        scheduleEndMode = series.UntilDate is not null ? ScheduleEndMode.Until
+            : series.MaxOccurrences is not null ? ScheduleEndMode.Count
+            : ScheduleEndMode.Never;
+        scheduleUntil = series.UntilDate ?? "";
+        scheduleCount = series.MaxOccurrences;
     }
 
     private async Task PreviewScheduleUntilAsync()
@@ -393,7 +395,10 @@ else
             return;
         }
 
-        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(scheduleUntil, null, ev!.GuildId));
+        // Preview in the SERIES zone — the PATCH endpoint parses there, and the viewer's own
+        // zone could disagree (e.g. relative text near midnight).
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(
+            scheduleUntil, null, ev!.GuildId, series?.TimeZone));
         if (result.Success && result.Value is not null)
         {
             scheduleUntilPreview = result.Value.Utc;
@@ -458,6 +463,13 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        // Navigating between event pages reuses this component instance — another series'
+        // cached schedule (or an open editor) must not carry over.
+        series = null;
+        showScheduleEditor = false;
+        scheduleNote = null;
+        scheduleError = null;
+
         var result = await Api.GetEventAsync(EventId);
         if (!result.Success || result.Value is null)
         {

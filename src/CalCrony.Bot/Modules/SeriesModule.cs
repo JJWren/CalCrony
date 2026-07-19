@@ -54,6 +54,25 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
             return;
         }
 
+        // Contradictory combinations get an immediate, specific message instead of an API 400.
+        if (ends == SeriesEndsChoice.Never && (until is not null || count is not null))
+        {
+            await FollowupAsync("`ends: never` can't be combined with `until` or `count`.", ephemeral: true);
+            return;
+        }
+
+        if (ends == SeriesEndsChoice.Until && count is not null)
+        {
+            await FollowupAsync("`ends: on a date` takes `until`, not `count`.", ephemeral: true);
+            return;
+        }
+
+        if (ends == SeriesEndsChoice.Count && until is not null)
+        {
+            await FollowupAsync("`ends: after a number of times` takes `count`, not `until`.", ephemeral: true);
+            return;
+        }
+
         if (ends == SeriesEndsChoice.Until && until is null)
         {
             await FollowupAsync("Pass `until` with the date the series should stop repeating.", ephemeral: true);

@@ -615,16 +615,32 @@ public static class EventEndpoints
         }
 
         DateTimeZone zone = DateTimeZone.Utc;
-        if (request.GuildId is long guildId)
+        if (request.TimeZone is not null)
         {
-            var guild = await db.Guilds.FindAsync([guildId], cancellationToken);
-            zone = Mapping.FindZone(guild?.TimeZone) ?? zone;
-        }
+            // Explicit zone wins outright — previews for series edits must match the zone the
+            // server will actually parse in (the series' stored zone), not the viewer's.
+            var explicitZone = Mapping.FindZone(request.TimeZone);
+            if (explicitZone is null)
+            {
+                return Results.BadRequest(new ErrorResponse(
+                    $"Unknown time zone \"{request.TimeZone}\". Use an IANA id like America/Chicago."));
+            }
 
-        if (effectiveUserId is long userId)
+            zone = explicitZone;
+        }
+        else
         {
-            var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
-            zone = Mapping.FindZone(user?.TimeZone) ?? zone;
+            if (request.GuildId is long guildId)
+            {
+                var guild = await db.Guilds.FindAsync([guildId], cancellationToken);
+                zone = Mapping.FindZone(guild?.TimeZone) ?? zone;
+            }
+
+            if (effectiveUserId is long userId)
+            {
+                var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
+                zone = Mapping.FindZone(user?.TimeZone) ?? zone;
+            }
         }
 
         if (!parser.TryResolve(request.Text, zone, out var instant, out var error))

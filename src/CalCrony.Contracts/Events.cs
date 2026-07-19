@@ -74,7 +74,9 @@ public record GuildSettingsDto(string TimeZone, long? DefaultChannelId);
 
 public record UserSettingsDto(string? TimeZone, bool DmConfirmations);
 
-public record ParseDateTimeRequest(string Text, long? UserId = null, long? GuildId = null);
+/// <summary>TimeZone (IANA id), when set, overrides the user/guild zone resolution — used where
+/// the caller must preview in a specific zone, e.g. a series' stored zone for schedule edits.</summary>
+public record ParseDateTimeRequest(string Text, long? UserId = null, long? GuildId = null, string? TimeZone = null);
 
 public record ParseDateTimeResponse(DateTimeOffset Utc, long Unix, string TimeZone);
 
