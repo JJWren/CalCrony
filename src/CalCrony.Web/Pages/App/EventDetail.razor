@@ -41,6 +41,7 @@ else
                 <a class="btn btn-outline-primary btn-sm" href="/app/events/@ev.Id/edit">Edit</a>
                 @if (IsLiveSeries)
                 {
+                    <button class="btn btn-outline-primary btn-sm" @onclick="ToggleScheduleEditorAsync">Edit schedule</button>
                     @if (!confirmingSkip)
                     {
                         <button class="btn btn-outline-primary btn-sm" @onclick="() => confirmingSkip = true">Skip occurrence</button>
@@ -74,6 +75,107 @@ else
             </div>
         }
     </div>
+
+    @if (IsEndedSeries)
+    {
+        <div class="card p-3 mt-3" style="max-width:560px">
+            <div>🔁 This event was part of a repeating series that has ended.</div>
+            @if (CanManage && !showScheduleEditor)
+            {
+                <div class="mt-2">
+                    <button class="btn btn-outline-primary btn-sm" @onclick="ToggleScheduleEditorAsync">Edit schedule &amp; resume</button>
+                </div>
+            }
+        </div>
+    }
+
+    @if (showScheduleEditor)
+    {
+        <div class="card p-3 mt-3" style="max-width:560px">
+            <h2 class="h6 mb-2">@(IsEndedSeries ? "Edit schedule & resume" : "Edit schedule")</h2>
+            @if (series is null)
+            {
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            }
+            else
+            {
+                <div class="mb-2">
+                    <label class="form-label small mb-1" for="se-repeat">Repeats</label>
+                    <select id="se-repeat" class="form-select form-select-sm" @bind="scheduleKind">
+                        <option value="@ScheduleKind.Daily">Daily</option>
+                        <option value="@ScheduleKind.Weekly">Weekly</option>
+                        <option value="@ScheduleKind.MonthlySameDate">Monthly (same date)</option>
+                        <option value="@ScheduleKind.MonthlyNthWeekday">Monthly (nth weekday, e.g. 3rd Friday)</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1" for="se-interval">Every</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input id="se-interval" class="form-control form-control-sm" type="number" min="1" max="12" style="width:6rem" @bind="scheduleInterval" />
+                        <span class="text-body-secondary small">@ScheduleUnitLabel</span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1 d-block">Ends</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="se-ends" id="se-ends-never"
+                               checked="@(scheduleEndMode == ScheduleEndMode.Never)" @onchange="() => scheduleEndMode = ScheduleEndMode.Never" />
+                        <label class="form-check-label small" for="se-ends-never">Never</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="se-ends" id="se-ends-until"
+                               checked="@(scheduleEndMode == ScheduleEndMode.Until)" @onchange="() => scheduleEndMode = ScheduleEndMode.Until" />
+                        <label class="form-check-label small" for="se-ends-until">On a date</label>
+                    </div>
+                    @if (scheduleEndMode == ScheduleEndMode.Until)
+                    {
+                        <div class="ms-4 mb-1">
+                            <input id="se-until" class="form-control form-control-sm" placeholder="Aug 30 · in 2 months" aria-label="Series until"
+                                   @bind="scheduleUntil" @bind:after="PreviewScheduleUntilAsync" />
+                            @if (scheduleUntilPreview is not null)
+                            {
+                                <div class="form-text text-primary mb-0">→ last on <LocalTime Utc="scheduleUntilPreview.Value" Format="D" /></div>
+                            }
+                            else if (scheduleUntilError is not null)
+                            {
+                                <div class="form-text text-danger mb-0">@scheduleUntilError</div>
+                            }
+                        </div>
+                    }
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="se-ends" id="se-ends-count"
+                               checked="@(scheduleEndMode == ScheduleEndMode.Count)" @onchange="() => scheduleEndMode = ScheduleEndMode.Count" />
+                        <label class="form-check-label small" for="se-ends-count">After a number of times</label>
+                    </div>
+                    @if (scheduleEndMode == ScheduleEndMode.Count)
+                    {
+                        <div class="ms-4">
+                            <input id="se-count" class="form-control form-control-sm" type="number"
+                                   min="@Math.Max(2, series.OccurrenceCount + 1)" max="500" style="width:8rem"
+                                   aria-label="Series count" @bind="scheduleCount" />
+                            <div class="form-text mb-0">has run @series.OccurrenceCount time@(series.OccurrenceCount == 1 ? "" : "s") so far</div>
+                        </div>
+                    }
+                </div>
+
+                @if (scheduleError is not null)
+                {
+                    <div class="alert alert-danger py-1 mb-2 small">@scheduleError</div>
+                }
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" @onclick="SaveScheduleAsync" disabled="@busy">
+                        @(IsEndedSeries ? "Save and resume" : "Save schedule")
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => showScheduleEditor = false" disabled="@busy">Cancel</button>
+                </div>
+            }
+        </div>
+    }
+    @if (scheduleNote is not null)
+    {
+        <p class="meta-mono mt-2">@scheduleNote</p>
+    }
 
     @if (!string.IsNullOrWhiteSpace(ev.Description))
     {
@@ -216,8 +318,158 @@ else
     private bool IsLiveSeries =>
         ev is { SeriesId: not null, RecurrenceSummary: not null, Status: EventStatus.Scheduled or EventStatus.Started };
 
+    /// <summary>Summary is null iff the series ended, and past occurrences keep SeriesId — so the
+    /// revive affordance is derivable from the EventDto alone. Past-occurrence pages are the only
+    /// reachable pages of a fully-ended series, which is why the card lives here.</summary>
+    private bool IsEndedSeries => ev is { SeriesId: not null, RecurrenceSummary: null };
+
+    private enum ScheduleKind { Daily, Weekly, MonthlySameDate, MonthlyNthWeekday }
+
+    private enum ScheduleEndMode { Never, Until, Count }
+
+    private bool showScheduleEditor;
+    private SeriesDto? series;
+    private ScheduleKind scheduleKind;
+    private int scheduleInterval = 1;
+    private ScheduleEndMode scheduleEndMode;
+    private string scheduleUntil = "";
+    private DateTimeOffset? scheduleUntilPreview;
+    private string? scheduleUntilError;
+    private int? scheduleCount;
+    private string? scheduleError;
+    private string? scheduleNote;
+
+    private string ScheduleUnitLabel => scheduleKind switch
+    {
+        ScheduleKind.Daily => scheduleInterval == 1 ? "day" : "days",
+        ScheduleKind.Weekly => scheduleInterval == 1 ? "week" : "weeks",
+        _ => scheduleInterval == 1 ? "month" : "months",
+    };
+
+    private async Task ToggleScheduleEditorAsync()
+    {
+        if (showScheduleEditor)
+        {
+            showScheduleEditor = false;
+            return;
+        }
+
+        showScheduleEditor = true;
+        scheduleError = null;
+        scheduleNote = null;
+        scheduleUntilPreview = null;
+        scheduleUntilError = null;
+
+        // Refetch and re-prefill on every open: a cancelled edit's typed-but-unsaved values must
+        // not survive a reopen, and the server state may have moved meanwhile.
+        series = null;
+        var result = await Api.GetSeriesAsync(ev!.SeriesId!.Value);
+        if (!result.Success || result.Value is null)
+        {
+            scheduleError = result.Error;
+            return;
+        }
+
+        series = result.Value;
+        scheduleKind = (series.Unit, series.MonthlyMode) switch
+        {
+            (RecurrenceUnit.Day, _) => ScheduleKind.Daily,
+            (RecurrenceUnit.Week, _) => ScheduleKind.Weekly,
+            (_, MonthlyMode.NthWeekday) => ScheduleKind.MonthlyNthWeekday,
+            _ => ScheduleKind.MonthlySameDate,
+        };
+        scheduleInterval = series.Interval;
+        scheduleEndMode = series.UntilDate is not null ? ScheduleEndMode.Until
+            : series.MaxOccurrences is not null ? ScheduleEndMode.Count
+            : ScheduleEndMode.Never;
+        scheduleUntil = series.UntilDate ?? "";
+        scheduleCount = series.MaxOccurrences;
+    }
+
+    private async Task PreviewScheduleUntilAsync()
+    {
+        scheduleUntilPreview = null;
+        scheduleUntilError = null;
+        if (string.IsNullOrWhiteSpace(scheduleUntil))
+        {
+            return;
+        }
+
+        // Preview in the SERIES zone — the PATCH endpoint parses there, and the viewer's own
+        // zone could disagree (e.g. relative text near midnight).
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(
+            scheduleUntil, null, ev!.GuildId, series?.TimeZone));
+        if (result.Success && result.Value is not null)
+        {
+            scheduleUntilPreview = result.Value.Utc;
+        }
+        else
+        {
+            scheduleUntilError = result.Error;
+        }
+    }
+
+    private async Task SaveScheduleAsync()
+    {
+        scheduleError = null;
+        if (scheduleEndMode == ScheduleEndMode.Until && string.IsNullOrWhiteSpace(scheduleUntil))
+        {
+            scheduleError = "Enter the date the series should stop repeating.";
+            return;
+        }
+
+        if (scheduleEndMode == ScheduleEndMode.Count && scheduleCount is null)
+        {
+            scheduleError = "Enter how many times the series should run in total.";
+            return;
+        }
+
+        var wasEnded = IsEndedSeries;
+        var (unit, mode) = scheduleKind switch
+        {
+            ScheduleKind.Daily => (RecurrenceUnit.Day, MonthlyMode.DayOfMonth),
+            ScheduleKind.Weekly => (RecurrenceUnit.Week, MonthlyMode.DayOfMonth),
+            ScheduleKind.MonthlySameDate => (RecurrenceUnit.Month, MonthlyMode.DayOfMonth),
+            _ => (RecurrenceUnit.Month, MonthlyMode.NthWeekday),
+        };
+
+        busy = true;
+        // Always explicit values — the web form never sends Keep.
+        var result = await Api.UpdateSeriesAsync(ev!.SeriesId!.Value, new UpdateSeriesRequest(
+            unit, scheduleInterval, mode,
+            scheduleEndMode switch
+            {
+                ScheduleEndMode.Until => SeriesEndChoice.Until,
+                ScheduleEndMode.Count => SeriesEndChoice.Count,
+                _ => SeriesEndChoice.Never,
+            },
+            scheduleEndMode == ScheduleEndMode.Until ? scheduleUntil : null,
+            scheduleEndMode == ScheduleEndMode.Count ? scheduleCount : null));
+        busy = false;
+
+        if (!result.Success || result.Value is null)
+        {
+            scheduleError = result.Error;
+            return;
+        }
+
+        series = result.Value;
+        showScheduleEditor = false;
+        ev = (await Api.GetEventAsync(EventId)).Value ?? ev;
+        scheduleNote = wasEnded && series.LiveEventId is null
+            ? "Series resumed — the next occurrence will be scheduled within ~15 seconds."
+            : "Schedule updated — the Discord embed refreshes within ~15 seconds.";
+    }
+
     protected override async Task OnParametersSetAsync()
     {
+        // Navigating between event pages reuses this component instance — another series'
+        // cached schedule (or an open editor) must not carry over.
+        series = null;
+        showScheduleEditor = false;
+        scheduleNote = null;
+        scheduleError = null;
+
         var result = await Api.GetEventAsync(EventId);
         if (!result.Success || result.Value is null)
         {

@@ -14,9 +14,12 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<EventDto>> CreateEventAsync(long guildId, CreateEventRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PostAsJsonAsync($"/guilds/{guildId}/events", request, ct), ct);
 
-    public Task<ApiResult<List<EventDto>>> ListEventsAsync(long guildId, long? channelId = null, int limit = 10, CancellationToken ct = default)
+    public Task<ApiResult<List<EventDto>>> ListEventsAsync(
+        long guildId, long? channelId = null, int limit = 10, bool includePast = false, CancellationToken ct = default)
     {
-        var query = $"?limit={limit}" + (channelId is null ? "" : $"&channelId={channelId}");
+        var query = $"?limit={limit}"
+            + (channelId is null ? "" : $"&channelId={channelId}")
+            + (includePast ? "&includePast=true" : "");
         return SendAsync<List<EventDto>>(http.GetAsync($"/guilds/{guildId}/events{query}", ct), ct);
     }
 
@@ -40,6 +43,9 @@ public sealed class CalCronyApiClient(HttpClient http)
 
     public Task<ApiResult<SeriesDto>> StopSeriesAsync(Guid seriesId, CancellationToken ct = default) =>
         SendAsync<SeriesDto>(http.PostAsync($"/series/{seriesId}/stop", null, ct), ct);
+
+    public Task<ApiResult<SeriesDto>> UpdateSeriesAsync(Guid seriesId, UpdateSeriesRequest request, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(http.PatchAsJsonAsync($"/series/{seriesId}", request, ct), ct);
 
     public Task<ApiResult<EventDto>> PutRsvpAsync(Guid eventId, long userId, RsvpRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PutAsJsonAsync($"/events/{eventId}/rsvps/{userId}", request, ct), ct);
