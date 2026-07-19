@@ -29,7 +29,7 @@ public enum SeriesRepeatChoice
 /// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("series", "Manage repeating events")]
-public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
+public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Edits a series' rule or end condition; can revive an ended series or stop it via "doesn't repeat".</summary>
     /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
@@ -180,6 +180,8 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
             if (refreshed.Success && refreshed.Value is not null)
             {
                 await TryUpdateMessageAsync(refreshed.Value);
+                // A whole-series time change moves the mirrored native event's start too.
+                await mirror.TryUpsertAsync(refreshed.Value);
             }
         }
 

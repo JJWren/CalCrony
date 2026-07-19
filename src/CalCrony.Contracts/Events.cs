@@ -108,7 +108,8 @@ public record EventDto(
     IReadOnlyList<RsvpOptionDto> Options,
     IReadOnlyList<RsvpDto> Rsvps,
     Guid? SeriesId = null,
-    string? RecurrenceSummary = null)
+    string? RecurrenceSummary = null,
+    long? NativeEventId = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
@@ -119,14 +120,22 @@ public record EventDto(
 /// <param name="MessageId">The Discord message id.</param>
 public record SetEventMessageRequest(long ChannelId, long MessageId);
 
+/// <summary>Records the Discord Guild Scheduled Event mirroring an event (bot-only). Null clears
+/// a stale id after the native event was deleted Discord-side.</summary>
+/// <param name="NativeEventId">The Discord scheduled-event id, or null to clear.</param>
+public record SetNativeEventRequest(long? NativeEventId);
+
 /// <summary>Sets or replaces the calling user's RSVP to the given option.</summary>
 /// <param name="OptionId">The RSVP/poll option id.</param>
 public record RsvpRequest(Guid OptionId);
 
-/// <summary>A guild's timezone and the default channel web-created embeds post to.</summary>
+/// <summary>A guild's timezone, the default channel web-created embeds post to, and whether
+/// events mirror into Discord's native scheduled events.</summary>
 /// <param name="TimeZone">The IANA timezone id.</param>
 /// <param name="DefaultChannelId">The channel web-created embeds post to, when set.</param>
-public record GuildSettingsDto(string TimeZone, long? DefaultChannelId);
+/// <param name="MirrorNativeEvents">When true, new events mirror into the server's Events tab
+/// (requires the bot to hold Manage Events).</param>
+public record GuildSettingsDto(string TimeZone, long? DefaultChannelId, bool MirrorNativeEvents = false);
 
 /// <summary>A user's personal timezone (null = use the server's) and DM-confirmation preference.</summary>
 /// <param name="TimeZone">The IANA timezone id.</param>

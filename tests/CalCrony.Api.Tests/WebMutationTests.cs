@@ -100,7 +100,8 @@ public class WebMutationTests(WebAuthFixture fixture) : IClassFixture<WebAuthFix
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
         Assert.False(await db.Events.AnyAsync(e => e.Id == ev.Id));
-        var payload = System.Text.Json.JsonSerializer.Serialize(new DeleteEventMessagePayload(DefaultChannelId, 777000));
+        var payload = System.Text.Json.JsonSerializer.Serialize(
+            new DeleteEventMessagePayload(DefaultChannelId, 777000, guildId, null));
         Assert.True(await db.Deliveries.AnyAsync(d =>
             d.Type == DeliveryType.DeleteEventMessage && d.PayloadJson == payload));
     }

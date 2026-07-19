@@ -24,6 +24,8 @@ builder.Services.AddHttpClient<CalCronyApiClient>((sp, http) =>
     http.DefaultRequestHeaders.Add("X-Api-Key", config["Api:ApiKey"] ?? "");
 });
 
+builder.Services.AddSingleton<NativeEventMirror>();
+
 builder.Services.AddHostedService<DiscordBotService>();
 builder.Services.AddHostedService<DeliveryPollerService>();
 

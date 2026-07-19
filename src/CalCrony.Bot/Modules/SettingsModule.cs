@@ -28,7 +28,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         await FollowupAsync(
             $"**Server timezone:** {guild.Value!.TimeZone}\n" +
             $"**Your timezone:** {user.Value!.TimeZone ?? "(not set — server timezone is used)"}\n" +
-            $"**Your DM confirmations:** {(user.Value.DmConfirmations ? "on" : "off")}",
+            $"**Your DM confirmations:** {(user.Value.DmConfirmations ? "on" : "off")}\n" +
+            $"**Native Discord events:** {(guild.Value.MirrorNativeEvents ? "on" : "off")}",
             ephemeral: true);
     }
 
@@ -63,7 +64,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         var current = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(timezone, current.Value?.DefaultChannelId));
+            new GuildSettingsDto(timezone, current.Value?.DefaultChannelId, current.Value?.MirrorNativeEvents ?? false));
         await FollowupAsync(
             result.Success
                 ? $"🌍 Server timezone is now **{result.Value!.TimeZone}**."
@@ -90,10 +91,49 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(current.Value.TimeZone, (long)channel.Id));
+            new GuildSettingsDto(current.Value.TimeZone, (long)channel.Id, current.Value.MirrorNativeEvents));
         await FollowupAsync(
             result.Success
                 ? $"📌 Web-created events and reminders will post in {channel.Mention}."
+                : $"❌ {result.Error}",
+            ephemeral: true);
+    }
+
+    /// <summary>Turns native scheduled-event mirroring on or off (managers only). Enabling
+    /// prechecks that the bot actually holds Manage Events so there are no silent failures.</summary>
+    /// <param name="enabled">Whether new events should mirror into the server's Events tab.</param>
+    [SlashCommand("native-events", "Mirror events into the server's Events tab (managers only)")]
+    [RequireUserPermission(GuildPermission.ManageGuild)]
+    public async Task SetNativeEventsAsync(
+        [Summary("enabled", "Turn mirroring on or off")] bool enabled)
+    {
+        await DeferAsync(ephemeral: true);
+
+        if (enabled && !Context.Guild.CurrentUser.GuildPermissions.ManageEvents)
+        {
+            await FollowupAsync(
+                "I don't have the **Manage Events** permission here. Re-invite me with the updated " +
+                "invite link, or grant Manage Events to my role, then try again.",
+                ephemeral: true);
+            return;
+        }
+
+        var current = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
+        if (!current.Success || current.Value is null)
+        {
+            // Proceeding blind would overwrite the server timezone with the UTC fallback.
+            await FollowupAsync($"❌ Couldn't load current settings: {current.Error}", ephemeral: true);
+            return;
+        }
+
+        var result = await api.PutGuildSettingsAsync(
+            (long)Context.Guild.Id,
+            new GuildSettingsDto(current.Value.TimeZone, current.Value.DefaultChannelId, enabled));
+        await FollowupAsync(
+            result.Success
+                ? enabled
+                    ? "📅 Native Discord events are **on** — new events will appear in the server's Events tab (existing ones mirror when next edited)."
+                    : "📅 Native Discord events are **off** — existing mirrored events stay until they finish; new ones won't be created."
                 : $"❌ {result.Error}",
             ephemeral: true);
     }

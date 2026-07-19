@@ -67,6 +67,14 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<EventDto>> SetMessageAsync(Guid id, SetEventMessageRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PutAsJsonAsync($"/events/{id}/message", request, ct), ct);
 
+    /// <summary>Records (or clears with null) the Discord scheduled event mirroring an event.</summary>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<EventDto>> SetNativeEventAsync(Guid id, SetNativeEventRequest request, CancellationToken ct = default) =>
+        SendAsync<EventDto>(http.PutAsJsonAsync($"/events/{id}/native-event", request, ct), ct);
+
     /// <summary>Skips the live occurrence and immediately materializes the next.</summary>
     /// <param name="eventId">The event id.</param>
     /// <param name="ct">Cancels the request.</param>

@@ -24,6 +24,10 @@ public enum DeliveryType
 
     /// <summary>Delete a web-deleted poll's posted embed (ids captured before the row died).</summary>
     DeletePollMessage = 8,
+
+    /// <summary>Transition an event's mirrored Discord scheduled event to completed after the
+    /// event ends (deletes it instead when it never went active).</summary>
+    CompleteNativeEvent = 9,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -39,12 +43,17 @@ public record DeliveryDto(Guid Id, DeliveryType Type, long ChannelId, string Pay
 /// <param name="Text">The reminder text.</param>
 public record ReminderPayload(long UserId, string Text);
 
-/// <summary>Payload for the automatic event-start announcement.</summary>
+/// <summary>Payload for the automatic event-start announcement. Guild/native ids are captured at
+/// enqueue so the handler can also flip the mirrored scheduled event to active without a refetch.</summary>
 /// <param name="EventId">The event id.</param>
 /// <param name="Title">The event title.</param>
 /// <param name="StartsAtUnix">Start time in Unix seconds.</param>
 /// <param name="MessageId">The Discord message id.</param>
-public record EventStartPayload(Guid EventId, string Title, long StartsAtUnix, long? MessageId);
+/// <param name="GuildId">The Discord guild id, when mirrored.</param>
+/// <param name="NativeEventId">The mirrored scheduled-event id, when mirrored.</param>
+public record EventStartPayload(
+    Guid EventId, string Title, long StartsAtUnix, long? MessageId,
+    long? GuildId = null, long? NativeEventId = null);
 
 /// <summary>Payload for a scheduled pre-event notification ping.</summary>
 /// <param name="EventId">The event id.</param>
@@ -62,10 +71,21 @@ public record SyncEventMessagePayload(Guid EventId);
 /// <param name="EventId">The event id.</param>
 public record PostEventMessagePayload(Guid EventId);
 
-/// <summary>Payload asking the bot to delete an event's embed (ids captured before the row died).</summary>
+/// <summary>Payload asking the bot to delete an event's embed and/or its mirrored scheduled event
+/// (ids captured before the row died). MessageId is null when no embed was ever posted.</summary>
 /// <param name="ChannelId">The Discord channel id.</param>
-/// <param name="MessageId">The Discord message id.</param>
-public record DeleteEventMessagePayload(long ChannelId, long MessageId);
+/// <param name="MessageId">The Discord message id, when an embed exists.</param>
+/// <param name="GuildId">The Discord guild id, when mirrored.</param>
+/// <param name="NativeEventId">The mirrored scheduled-event id, when mirrored.</param>
+public record DeleteEventMessagePayload(
+    long ChannelId, long? MessageId, long? GuildId = null, long? NativeEventId = null);
+
+/// <summary>Payload transitioning an event's mirrored scheduled event to completed. Self-contained
+/// so the handler works even if the event row is later deleted.</summary>
+/// <param name="EventId">The event id.</param>
+/// <param name="GuildId">The Discord guild id.</param>
+/// <param name="NativeEventId">The mirrored scheduled-event id.</param>
+public record CompleteNativeEventPayload(Guid EventId, long GuildId, long NativeEventId);
 
 /// <summary>Payload asking the bot to re-render a poll's posted embed.</summary>
 /// <param name="PollId">The poll id.</param>

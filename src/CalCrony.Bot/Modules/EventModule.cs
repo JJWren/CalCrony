@@ -24,7 +24,7 @@ public enum EditScopeChoice
 /// <summary>Core event slash commands: create, list, edit, delete.</summary>
 /// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
-public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
+public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Creates an event (optionally recurring), posts its embed, and records the message ids.</summary>
     /// <param name="title">The event title.</param>
@@ -93,7 +93,11 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         var message = await targetChannel.SendMessageAsync(
             embed: EventEmbedBuilder.Build(ev),
             components: EventEmbedBuilder.BuildComponents(ev));
-        await api.SetMessageAsync(ev.Id, new SetEventMessageRequest((long)targetChannel.Id, (long)message.Id));
+        var recorded = await api.SetMessageAsync(ev.Id, new SetEventMessageRequest((long)targetChannel.Id, (long)message.Id));
+        if (recorded.Success && recorded.Value is not null)
+        {
+            await mirror.TryUpsertAsync(recorded.Value);
+        }
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
         await FollowupAsync(
@@ -168,6 +172,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         }
 
         await TryDeleteMessageAsync(ev);
+        await mirror.TryDeleteAsync(ev.GuildId, ev.NativeEventId);
         var seriesNote = ev.RecurrenceSummary is null
             ? ""
             : " This was a repeating event, so the series has been stopped.";
@@ -241,6 +246,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         }
 
         await TryUpdateMessageAsync(result.Value);
+        await mirror.TryUpsertAsync(result.Value);
         await FollowupAsync($"✏️ Updated **{result.Value.Title}**.", ephemeral: true);
     }
 

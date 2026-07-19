@@ -47,6 +47,32 @@ else
         </div>
         <div class="col-12 col-md-6">
             <div class="card p-3 h-100">
+                <div class="fw-bold">Discord native events</div>
+                @if (isManager)
+                {
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="gs-native" @bind="mirrorInput" />
+                        <label class="form-check-label small" for="gs-native">Mirror events into the server's Events tab</label>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm align-self-start mt-1" @onclick="SaveMirrorAsync" disabled="@busy">Save</button>
+                    @if (mirrorMessage is not null)
+                    {
+                        <div class="meta-mono mt-2">@mirrorMessage</div>
+                    }
+                }
+                else
+                {
+                    <p class="meta-mono mb-0 mt-2">@(settings?.MirrorNativeEvents == true ? "on" : "off")</p>
+                }
+                <p class="text-body-secondary small mb-0 mt-2">
+                    The bot needs the <b>Manage Events</b> permission. Servers that invited it before this
+                    feature must re-invite with the updated link or grant Manage Events to the bot's role.
+                    Existing events mirror when next edited.
+                </p>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="card p-3 h-100">
                 <div class="fw-bold">Calendar feed</div>
                 <p class="text-body-secondary small mt-1 mb-2">Subscribe from Google, Apple, or Outlook — anyone with this URL can read this server's events.</p>
                 @if (feedUrl is null)
@@ -74,6 +100,8 @@ else
     private bool busy;
     private string timezoneInput = "";
     private string? saveMessage;
+    private bool mirrorInput;
+    private string? mirrorMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -86,6 +114,7 @@ else
 
         settings = settingsResult.Value;
         timezoneInput = settings?.TimeZone ?? "UTC";
+        mirrorInput = settings?.MirrorNativeEvents ?? false;
         isManager = (await Api.GetMyGuildsAsync()).Value?.Guilds
             .Any(g => g.Id == GuildId && g.CanManage) ?? false;
 
@@ -107,8 +136,9 @@ else
         }
 
         busy = true;
-        // Read-modify-write: preserve the bot-managed DefaultChannelId.
-        var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(trimmed, settings?.DefaultChannelId));
+        // Read-modify-write: preserve the bot-managed DefaultChannelId and the mirror flag.
+        var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
+            trimmed, settings?.DefaultChannelId, settings?.MirrorNativeEvents ?? false));
         busy = false;
         if (!result.Success || result.Value is null)
         {
@@ -118,6 +148,26 @@ else
 
         settings = result.Value;
         saveMessage = $"🌍 Saved — {result.Value.TimeZone}.";
+    }
+
+    private async Task SaveMirrorAsync()
+    {
+        mirrorMessage = null;
+        busy = true;
+        // Read-modify-write: preserve the timezone and the bot-managed DefaultChannelId.
+        var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
+            settings?.TimeZone ?? "UTC", settings?.DefaultChannelId, mirrorInput));
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            mirrorMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        settings = result.Value;
+        mirrorMessage = result.Value.MirrorNativeEvents
+            ? "📅 On — new events will appear in the server's Events tab."
+            : "📅 Off — existing mirrored events stay until they finish.";
     }
 
     private async Task CopyAsync()

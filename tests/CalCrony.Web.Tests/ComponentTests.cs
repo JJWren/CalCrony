@@ -17,7 +17,7 @@ public class ComponentTests : TestContext
 
         // String regression on the locked invite URL — permissions/scopes must not drift.
         Assert.Contains(
-            "https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=84992&integration_type=0&scope=bot+applications.commands",
+            "https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=8590019584&integration_type=0&scope=bot+applications.commands",
             cut.Markup);
     }
 

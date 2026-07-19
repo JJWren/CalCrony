@@ -33,7 +33,8 @@ public static class SettingsEndpoints
         }
 
         var guild = await db.Guilds.FindAsync([guildId], cancellationToken);
-        return Results.Ok(new GuildSettingsDto(guild?.TimeZone ?? "UTC", guild?.DefaultChannelId));
+        return Results.Ok(new GuildSettingsDto(
+            guild?.TimeZone ?? "UTC", guild?.DefaultChannelId, guild?.MirrorNativeEvents ?? false));
     }
 
     /// <summary>Updates guild settings (managers only for web callers); validates the timezone id.</summary>
@@ -79,8 +80,9 @@ public static class SettingsEndpoints
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
         guild.TimeZone = settings.TimeZone;
         guild.DefaultChannelId = settings.DefaultChannelId;
+        guild.MirrorNativeEvents = settings.MirrorNativeEvents;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new GuildSettingsDto(guild.TimeZone, guild.DefaultChannelId));
+        return Results.Ok(new GuildSettingsDto(guild.TimeZone, guild.DefaultChannelId, guild.MirrorNativeEvents));
     }
 
     /// <summary>Reads a user's personal settings (self-only for web callers).</summary>
