@@ -400,9 +400,6 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GuildId", "Name")
-                        .IsUnique();
-
                     b.ToTable("EventTemplates");
                 });
 

@@ -98,7 +98,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(t => t.Description).HasMaxLength(4096);
             e.Property(t => t.Location).HasMaxLength(256);
             e.Property(t => t.ImageUrl).HasMaxLength(512);
-            e.HasIndex(t => new { t.GuildId, t.Name }).IsUnique();
+            // Uniqueness is enforced case-insensitively by a functional unique index on
+            // (GuildId, lower(Name)), created via raw SQL in the AddEventTemplates migration —
+            // EF's fluent API can't express expression indexes.
             e.HasMany(t => t.Notifications).WithOne().HasForeignKey(n => n.TemplateId).OnDelete(DeleteBehavior.Cascade);
         });
 

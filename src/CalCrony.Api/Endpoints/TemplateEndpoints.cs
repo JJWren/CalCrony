@@ -8,8 +8,8 @@ namespace CalCrony.Api.Endpoints;
 
 /// <summary>Event templates: reusable event shapes saved from existing events. Any member saves
 /// and uses; deleting requires the creator or a manager. Names are unique per guild — the API
-/// rejects case-insensitive duplicates (the index catches exact-case races; differently-cased
-/// simultaneous saves can both land, accepted at this scale).</summary>
+/// rejects case-insensitive duplicates, backed by a functional unique index on
+/// (GuildId, lower(Name)) so races lose regardless of casing.</summary>
 public static class TemplateEndpoints
 {
     private const int MaxPerGuild = 25;
@@ -71,7 +71,7 @@ public static class TemplateEndpoints
             return Results.Conflict(new ErrorResponse($"A server can have at most {MaxPerGuild} templates."));
         }
 
-        var lowered = name.ToLower();
+        var lowered = name.ToLowerInvariant();
         if (await db.EventTemplates.AnyAsync(
                 t => t.GuildId == guildId && t.Name.ToLower() == lowered, cancellationToken))
         {

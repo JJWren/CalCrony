@@ -24,12 +24,11 @@ else
         {
             <div class="mb-3">
                 <label class="form-label" for="ev-template">Start from template</label>
-                <select id="ev-template" class="form-select" value="@(selectedTemplateId?.ToString() ?? "")"
-                        @onchange="OnTemplateChanged">
-                    <option value="">(none)</option>
+                <select id="ev-template" class="form-select" @onchange="OnTemplateChanged">
+                    <option value="" selected="@(selectedTemplateId is null)">(none)</option>
                     @foreach (var t in templates)
                     {
-                        <option value="@t.Id">@t.Name</option>
+                        <option value="@t.Id" selected="@(t.Id == selectedTemplateId)">@t.Name</option>
                     }
                 </select>
                 @if (SelectedTemplate is { Notifications.Count: > 0 } selected)
@@ -211,6 +210,7 @@ else
     private bool askingScope;
     private List<EventTemplateDto> templates = [];
     private Guid? selectedTemplateId;
+    private long? templatesLoadedForGuild;
 
     private EventTemplateDto? SelectedTemplate =>
         templates.FirstOrDefault(t => t.Id == selectedTemplateId);
@@ -256,10 +256,15 @@ else
     protected override async Task OnParametersSetAsync()
     {
         backGuildId = GuildId;
-        if (!IsEdit)
+        if (!IsEdit && templatesLoadedForGuild != GuildId)
         {
+            // Once per guild: a reused component instance must not keep another guild's
+            // templates or a stale selection, and re-running would clobber user edits.
+            templatesLoadedForGuild = GuildId;
+            selectedTemplateId = null;
+            var loaded = await Api.ListTemplatesAsync(GuildId);
             // Failure just hides the picker — templates are a convenience, not a requirement.
-            templates = (await Api.ListTemplatesAsync(GuildId)).Value ?? [];
+            templates = loaded.Success ? loaded.Value ?? [] : [];
             if (TemplateId is { } preselected && templates.Any(t => t.Id == preselected))
             {
                 selectedTemplateId = preselected;

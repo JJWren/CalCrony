@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    [Migration("20260719194729_AddEventTemplates")]
+    [Migration("20260719200000_AddEventTemplates")]
     partial class AddEventTemplates
     {
         /// <inheritdoc />
@@ -402,9 +402,6 @@ namespace CalCrony.Api.Data.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("GuildId", "Name")
-                        .IsUnique();
 
                     b.ToTable("EventTemplates");
                 });

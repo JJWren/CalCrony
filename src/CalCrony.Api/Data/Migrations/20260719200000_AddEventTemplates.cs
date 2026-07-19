@@ -62,11 +62,10 @@ namespace CalCrony.Api.Data.Migrations
                 table: "EventTemplateNotifications",
                 column: "TemplateId");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_EventTemplates_GuildId_Name",
-                table: "EventTemplates",
-                columns: new[] { "GuildId", "Name" },
-                unique: true);
+            // Case-insensitive per-guild name uniqueness. EF's fluent API can't express an
+            // expression index, so it lives here as raw SQL (mirrored in the DbContext comment).
+            migrationBuilder.Sql(
+                """CREATE UNIQUE INDEX "IX_EventTemplates_GuildId_NameLower" ON "EventTemplates" ("GuildId", lower("Name"));""");
         }
 
         /// <inheritdoc />

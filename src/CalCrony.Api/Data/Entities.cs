@@ -128,7 +128,7 @@ public class SeriesNotification
 
 /// <summary>A reusable event shape saved from an existing event: content + notification specs +
 /// an optional repeat rule. Fully denormalized — the source event can be deleted freely. Names
-/// are unique per guild (the API rejects case-insensitive duplicates; the index is exact-case).</summary>
+/// are unique per guild case-insensitively (functional unique index on GuildId + lower(Name)).</summary>
 public class EventTemplate
 {
     public Guid Id { get; set; }
