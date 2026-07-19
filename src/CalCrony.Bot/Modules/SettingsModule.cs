@@ -62,9 +62,16 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         await DeferAsync(ephemeral: true);
 
         var current = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
+        if (!current.Success || current.Value is null)
+        {
+            // Proceeding blind would wipe the default channel and the native-events flag.
+            await FollowupAsync($"❌ Couldn't load current settings: {current.Error}", ephemeral: true);
+            return;
+        }
+
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(timezone, current.Value?.DefaultChannelId, current.Value?.MirrorNativeEvents ?? false));
+            new GuildSettingsDto(timezone, current.Value.DefaultChannelId, current.Value.MirrorNativeEvents));
         await FollowupAsync(
             result.Success
                 ? $"🌍 Server timezone is now **{result.Value!.TimeZone}**."
