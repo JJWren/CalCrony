@@ -37,6 +37,10 @@ else
                 {
                     <span title="RSVPing Going grants this server role within ~15 seconds">🏷️ Going grants role #@ev.AttendeeRoleId</span>
                 }
+                @if (ev.ThreadId is not null)
+                {
+                    <span title="RSVPing Going adds you to the thread; it archives when the event ends">🧵 Discussion thread open in Discord</span>
+                }
             </div>
         </div>
         @if (CanManage)

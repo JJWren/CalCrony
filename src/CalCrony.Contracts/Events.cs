@@ -31,6 +31,9 @@ public enum EventStatus
 /// a template rule applies when no explicit rule is sent). Conflicts with Recurrence.</param>
 /// <param name="AttendeeRoleId">Existing Discord role granted to "Going" RSVPs and revoked when
 /// the event ends. Bot callers only — the web can't enumerate roles, so it is ignored there.</param>
+/// <param name="WantsThread">Opens a discussion thread on the posted embed message; "Going"
+/// RSVPers are auto-added and the thread archives when the event ends. Honored for both
+/// caller types (unlike AttendeeRoleId — no Discord data is needed to say yes).</param>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -45,7 +48,8 @@ public record CreateEventRequest(
     int? RepeatCount = null,
     Guid? TemplateId = null,
     bool NoRecurrence = false,
-    long? AttendeeRoleId = null);
+    long? AttendeeRoleId = null,
+    bool WantsThread = false);
 
 /// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
 /// the live occurrence of a non-ended series and ignored otherwise.</summary>
@@ -108,6 +112,8 @@ public record RsvpDto(long UserId, Guid OptionId);
 /// <param name="RecurrenceSummary">Human-readable repeat rule; null for one-offs and ended series.</param>
 /// <param name="NativeEventId">The mirrored Discord scheduled-event id, when mirrored.</param>
 /// <param name="AttendeeRoleId">The Discord role granted to "Going" RSVPs, when set.</param>
+/// <param name="WantsThread">Whether a discussion thread should open on the posted embed.</param>
+/// <param name="ThreadId">The Discord thread-channel id once the thread exists.</param>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -127,7 +133,9 @@ public record EventDto(
     Guid? SeriesId = null,
     string? RecurrenceSummary = null,
     long? NativeEventId = null,
-    long? AttendeeRoleId = null)
+    long? AttendeeRoleId = null,
+    bool WantsThread = false,
+    long? ThreadId = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
@@ -142,6 +150,11 @@ public record SetEventMessageRequest(long ChannelId, long MessageId);
 /// a stale id after the native event was deleted Discord-side.</summary>
 /// <param name="NativeEventId">The Discord scheduled-event id, or null to clear.</param>
 public record SetNativeEventRequest(long? NativeEventId);
+
+/// <summary>Records the event's discussion-thread channel (bot-only). Null clears a stale id
+/// after the thread was deleted Discord-side.</summary>
+/// <param name="ThreadId">The Discord thread-channel id, or null to clear.</param>
+public record SetThreadRequest(long? ThreadId);
 
 /// <summary>Sets or replaces the calling user's RSVP to the given option.</summary>
 /// <param name="OptionId">The RSVP/poll option id.</param>

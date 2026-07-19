@@ -43,7 +43,7 @@
             <tr><th class="meta-mono text-uppercase">Command</th><th class="meta-mono text-uppercase">What it does</th></tr>
         </thead>
         <tbody>
-            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language ("tomorrow 6pm"); <code>repeat</code> options make it recurring; <code>attendee-role</code> grants a role to "Going" RSVPs until the event ends</td></tr>
+            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language ("tomorrow 6pm"); <code>repeat</code> options make it recurring; <code>attendee-role</code> grants a role to "Going" RSVPs until the event ends; <code>thread</code> opens a discussion thread on the event message</td></tr>
             <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> can change or clear the attendee role</td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
@@ -67,6 +67,7 @@
     <li><b>Run polls</b> from the Polls tab: create, vote, add options, close, and convert a time poll's winner into an event — all synced to the Discord embed.</li>
     <li><b>Templates</b>: save any event's setup from its page, browse them on the Templates tab, and start new events prefilled from one.</li>
     <li><b>Attendee roles</b>: events created with one (via <code>/create attendee-role:</code>) grant it to "Going" RSVPs within ~15 seconds and remove it when the event ends. The event page shows the role; picking one happens in Discord.</li>
+    <li><b>Event threads</b>: check "Create a discussion thread" when creating an event and a thread opens on its Discord message — "Going" RSVPers are added automatically, and it archives when the event ends.</li>
     <li><b>Repeating events</b>: pick a schedule when creating (daily/weekly/monthly, by date or nth weekday); when one occurrence ends the next posts automatically. Skip or stop from the event page; edits ask whether they apply to one occurrence or the whole series.</li>
 </ul>
 
