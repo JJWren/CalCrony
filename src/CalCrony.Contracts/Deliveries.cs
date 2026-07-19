@@ -53,8 +53,11 @@ public record ReminderDto(Guid Id, long ChannelId, string Text, DateTimeOffset F
     public long FireAtUnix => FireAtUtc.ToUnixTimeSeconds();
 }
 
+/// <summary>Scope is required when the event is the live occurrence of a non-ended series:
+/// Series also records the notification on the series template so future occurrences get it.</summary>
 public record CreateEventNotificationRequest(
-    int MinutesBefore, string? Message = null, string? Mentions = null, long? ChannelId = null);
+    int MinutesBefore, string? Message = null, string? Mentions = null, long? ChannelId = null,
+    EditScope? Scope = null);
 
 public record EventNotificationDto(
     Guid Id, Guid EventId, int MinutesBefore, string? Message, string? Mentions, long? ChannelId);

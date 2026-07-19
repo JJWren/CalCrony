@@ -22,6 +22,7 @@ flowchart LR
 - **Reminders & notifications** — one-off `/remind`, up to 5 scheduled pings per event plus an automatic start announcement, crash-safe delivery via the outbox
 - **ICS calendar feed** — per-server tokenized subscribe URL (`/link`), importable into Google/Apple/Outlook calendars
 - **Google Calendar availability** — members link their Google Calendar via OAuth (least-privilege free/busy scope: CalCrony never sees event titles or details, and tokens are encrypted at rest); anyone can then check an on-demand, Teams-Scheduling-Assistant-style free/busy grid for a role or an event's attendees. Read-only — it never blocks creating or RSVPing.
+- **Recurring events** — every-N days/weeks/months schedules (monthly by date or by nth weekday, e.g. "3rd Friday"), anchored on the first occurrence with timezone-aware math (8pm stays 8pm across DST); rolling next occurrence sesh-style — when one ends or is skipped, the next posts automatically; end by date or count; edits ask "this occurrence or the whole series?"
 - **Polls & time polls** — up to 10 options, single- or multi-vote, anonymous mode, voter-added options (➕ opens a modal), natural-language close deadlines with automatic closing, live bar-graph results on the embed — and a closed time poll's winning slot converts into a real event with one click.
 - **Web app** — sign in with Discord (identify + guilds scopes only) and use your servers' events in a mobile-first, dark-by-default UI: create, edit, and delete events (embeds post/update/disappear in Discord automatically), RSVP from the browser, manage notifications, set reminders, edit server & personal settings, see availability grids, link your calendar, grab the ICS subscribe URL. Polls work here too: create standard or time polls with live parse previews, vote, add options, close, and convert a time poll's winner into an event. Web-created events and polls post to the server's default channel, set once with `/settings default-channel`.
 
@@ -29,9 +30,10 @@ flowchart LR
 
 | Command | What it does |
 |---|---|
-| `/create title when [description duration channel location image]` | Create an event; `when` is natural language |
+| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring |
 | `/list [channel] [limit]` | Upcoming events |
-| `/edit name [fields...]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only |
+| `/edit name [fields...] [scope]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only; repeating events need `scope` (this occurrence / whole series) |
+| `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
 | `/remind when about` | One-off reminder in the current channel |
 | `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) |
 | `/poll create question options [single-vote anonymous allow-options closes]` | Create a poll; `options` is comma-separated, `closes` is natural language |

@@ -52,6 +52,7 @@ public static class NotificationEndpoints
 
         var ev = await db.Events
             .Include(e => e.Notifications)
+            .Include(e => e.Series!).ThenInclude(s => s.NotificationSpecs)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev is null)
         {
@@ -68,6 +69,35 @@ public static class NotificationEndpoints
             return Results.Conflict(new ErrorResponse($"An event can have at most {MaxPerEvent} notifications."));
         }
 
+        // Ask-per-edit, same rule as event PATCHes: a live occurrence of an active series must
+        // say whether the notification is one-off or belongs on the series template.
+        var series = SeriesForScopedEdit(ev);
+        if (series is not null && request.Scope is null)
+        {
+            return Results.BadRequest(new ErrorResponse(
+                "This event repeats — specify whether to change this occurrence or the whole series."));
+        }
+
+        SeriesNotification? spec = null;
+        if (series is not null && request.Scope == EditScope.Series)
+        {
+            if (series.NotificationSpecs.Count >= MaxPerEvent)
+            {
+                return Results.Conflict(new ErrorResponse($"A series can have at most {MaxPerEvent} notifications."));
+            }
+
+            spec = new SeriesNotification
+            {
+                Id = Guid.NewGuid(),
+                SeriesId = series.Id,
+                MinutesBefore = request.MinutesBefore,
+                Message = request.Message,
+                Mentions = request.Mentions,
+                ChannelId = request.ChannelId,
+            };
+            db.SeriesNotifications.Add(spec);
+        }
+
         var notification = new EventNotification
         {
             Id = Guid.NewGuid(),
@@ -76,6 +106,7 @@ public static class NotificationEndpoints
             Message = request.Message,
             Mentions = request.Mentions,
             ChannelId = request.ChannelId,
+            SeriesNotificationId = spec?.Id,
         };
         db.EventNotifications.Add(notification);
         await db.SaveChangesAsync(cancellationToken);
@@ -89,9 +120,10 @@ public static class NotificationEndpoints
         Guid id,
         Guid notificationId,
         CalCronyDbContext db,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        EditScope? scope = null)
     {
-        var ev = await db.Events.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        var ev = await db.Events.Include(e => e.Series).FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev is null)
         {
             return Results.NotFound();
@@ -102,11 +134,39 @@ public static class NotificationEndpoints
             return denied;
         }
 
-        var deleted = await db.EventNotifications
-            .Where(n => n.EventId == id && n.Id == notificationId)
-            .ExecuteDeleteAsync(cancellationToken);
-        return deleted == 0 ? Results.NotFound() : Results.NoContent();
+        if (SeriesForScopedEdit(ev) is not null && scope is null)
+        {
+            return Results.BadRequest(new ErrorResponse(
+                "This event repeats — specify whether to change this occurrence or the whole series."));
+        }
+
+        var notification = await db.EventNotifications
+            .FirstOrDefaultAsync(n => n.EventId == id && n.Id == notificationId, cancellationToken);
+        if (notification is null)
+        {
+            return Results.NotFound();
+        }
+
+        db.EventNotifications.Remove(notification);
+
+        // Series scope also retires the linked template spec so future occurrences drop it.
+        // Diverged rows (null lineage) only have the event row to remove — the template is untouched.
+        if (scope == EditScope.Series && notification.SeriesNotificationId is { } specId)
+        {
+            await db.SeriesNotifications.Where(s => s.Id == specId).ExecuteDeleteAsync(cancellationToken);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
+
+    /// <summary>The series that scoped-edit rules apply to: the event must be its live occurrence
+    /// and the series must still be running.</summary>
+    private static EventSeries? SeriesForScopedEdit(Event ev) =>
+        ev.Series is { Ended: false } series
+        && ev.Status is EventStatus.Scheduled or EventStatus.Started
+            ? series
+            : null;
 
     private static EventNotificationDto ToDto(EventNotification n) =>
         new(n.Id, n.EventId, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId);

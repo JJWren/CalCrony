@@ -12,6 +12,11 @@ public static class EventEmbedBuilder
     {
         var description = new StringBuilder();
         description.AppendLine($"🗓️ <t:{ev.StartsAtUnix}:F> (<t:{ev.StartsAtUnix}:R>)");
+        if (!string.IsNullOrWhiteSpace(ev.RecurrenceSummary))
+        {
+            description.AppendLine($"🔁 {ev.RecurrenceSummary}");
+        }
+
         if (ev.DurationMinutes is int minutes)
         {
             description.AppendLine($"⏱️ {FormatDuration(minutes)}");

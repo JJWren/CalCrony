@@ -27,6 +27,7 @@ builder.Services.AddSingleton<IClock>(NodaTime.SystemClock.Instance);
 builder.Services.AddScoped<ApiKeyValidator>();
 builder.Services.AddSingleton<NaturalDateTimeParser>();
 builder.Services.AddScoped<DeliveryScheduler>();
+builder.Services.AddScoped<SeriesMaterializer>();
 
 builder.Services.AddDataProtection()
     .SetApplicationName("CalCrony.Api")
@@ -128,6 +129,7 @@ var version = typeof(Program).Assembly
     .InformationalVersion ?? "unknown";
 app.MapGet("/health", () => Results.Ok(new { status = "ok", version })).AllowAnonymous();
 app.MapEventEndpoints();
+app.MapSeriesEndpoints();
 app.MapPollEndpoints();
 app.MapSettingsEndpoints();
 app.MapNotificationEndpoints();

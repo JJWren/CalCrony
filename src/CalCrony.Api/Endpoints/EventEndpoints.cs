@@ -27,8 +27,15 @@ public static class EventEndpoints
 
     /// <summary>Mutation guard for JWT callers: event's guild member AND (creator or manager).
     /// Bot passes. Non-members get 404 (same anti-probing rule as reads).</summary>
-    internal static async Task<IResult?> GuardEventMutateAsync(
-        HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken)
+    internal static Task<IResult?> GuardEventMutateAsync(
+        HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken) =>
+        GuardMutateAsync(context, access, ev.GuildId, ev.CreatorId,
+            "Only the event creator or a server manager can change this event.", cancellationToken);
+
+    /// <summary>Shared creator-or-manager mutate guard (events + series).</summary>
+    internal static async Task<IResult?> GuardMutateAsync(
+        HttpContext context, GuildAccessService access, long guildId, long creatorId,
+        string forbiddenMessage, CancellationToken cancellationToken)
     {
         if (context.User.IsBot())
         {
@@ -41,13 +48,13 @@ public static class EventEndpoints
             return Results.NotFound();
         }
 
-        return await access.CheckAsync(userId.Value, ev.GuildId, cancellationToken) switch
+        return await access.CheckAsync(userId.Value, guildId, cancellationToken) switch
         {
             GuildAccess.Stale => GuildAccessService.StaleSnapshot(),
             GuildAccess.Manager => null,
-            GuildAccess.Member when ev.CreatorId == userId.Value => null,
+            GuildAccess.Member when creatorId == userId.Value => null,
             GuildAccess.Member => Results.Json(
-                new ErrorResponse("Only the event creator or a server manager can change this event."),
+                new ErrorResponse(forbiddenMessage),
                 statusCode: StatusCodes.Status403Forbidden),
             _ => Results.NotFound(),
         };
@@ -185,7 +192,72 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse(error!));
         }
 
+        if (request.Recurrence is null && (request.RepeatUntilText is not null || request.RepeatCount is not null))
+        {
+            return Results.BadRequest(new ErrorResponse("Set a repeat rule to use the repeat end options."));
+        }
+
         var now = clock.GetCurrentInstant();
+        EventSeries? series = null;
+        if (request.Recurrence is { } rule)
+        {
+            if (rule.Interval is < 1 or > 12)
+            {
+                return Results.BadRequest(new ErrorResponse("Repeat interval must be between 1 and 12."));
+            }
+
+            if (request.RepeatUntilText is not null && request.RepeatCount is not null)
+            {
+                return Results.BadRequest(new ErrorResponse("Choose either an end date or a number of times, not both."));
+            }
+
+            if (request.RepeatCount is < 2 or > 500)
+            {
+                return Results.BadRequest(new ErrorResponse("Repeat count must be between 2 and 500."));
+            }
+
+            var firstLocal = startsAt.InZone(zone).LocalDateTime;
+            LocalDate? untilDate = null;
+            if (request.RepeatUntilText is not null)
+            {
+                if (!parser.TryResolve(request.RepeatUntilText, zone, out var untilInstant, out var untilError))
+                {
+                    return Results.BadRequest(new ErrorResponse(untilError!));
+                }
+
+                untilDate = untilInstant.InZone(zone).Date;
+                if (untilDate < firstLocal.Date)
+                {
+                    return Results.BadRequest(new ErrorResponse("The repeat end date is before the first occurrence."));
+                }
+            }
+
+            series = new EventSeries
+            {
+                Id = Guid.NewGuid(),
+                GuildId = guildId,
+                CreatorId = creatorId,
+                Unit = rule.Unit,
+                Interval = rule.Interval,
+                MonthlyMode = rule.MonthlyMode,
+                AnchorDate = firstLocal.Date,
+                StartTime = firstLocal.TimeOfDay,
+                TimeZone = zone.Id,
+                UntilDate = untilDate,
+                MaxOccurrences = request.RepeatCount,
+                CurrentOccurrenceDate = firstLocal.Date,
+                OccurrenceCount = 1,
+                Title = request.Title,
+                Description = request.Description,
+                DurationMinutes = request.DurationMinutes,
+                ChannelId = channelId,
+                Location = request.Location,
+                ImageUrl = request.ImageUrl,
+                CreatedAt = now,
+            };
+            db.EventSeries.Add(series);
+        }
+
         var ev = new Event
         {
             Id = Guid.NewGuid(),
@@ -200,6 +272,8 @@ public static class EventEndpoints
             Location = request.Location,
             ImageUrl = request.ImageUrl,
             Status = EventStatus.Scheduled,
+            SeriesId = series?.Id,
+            Series = series,
             CreatedAt = now,
             Options = DefaultRsvpOptions(),
         };
@@ -244,6 +318,7 @@ public static class EventEndpoints
         var query = db.Events
             .Include(e => e.Options)
             .Include(e => e.Rsvps)
+            .Include(e => e.Series)
             .Where(e => e.GuildId == guildId && e.Status != EventStatus.Cancelled);
 
         if (!includePast)
@@ -299,15 +374,41 @@ public static class EventEndpoints
             return denied;
         }
 
+        // Ask-per-edit: a live occurrence of an active series must say whether the change is
+        // one-off (diverges; the next spawn reverts to the template) or series-wide.
+        var series = ev.Series is { Ended: false } ? ev.Series : null;
+        var isLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
+        if (series is not null && isLive && request.Scope is null)
+        {
+            return Results.BadRequest(new ErrorResponse(
+                "This event repeats — specify whether to change this occurrence or the whole series."));
+        }
+
+        if (series is not null && request.Scope == EditScope.Series && !isLive)
+        {
+            return Results.Conflict(new ErrorResponse("Only the upcoming occurrence can edit the whole series."));
+        }
+
+        var applyToSeries = series is not null && isLive && request.Scope == EditScope.Series;
+
         if (request.WhenText is not null)
         {
-            var zone = Mapping.FindZone(ev.TimeZone) ?? DateTimeZone.Utc;
+            // Series-scope time changes parse in the series zone and re-anchor the schedule;
+            // occurrence-scope ones parse in the event zone and leave the schedule untouched.
+            var zone = Mapping.FindZone(applyToSeries ? series!.TimeZone : ev.TimeZone) ?? DateTimeZone.Utc;
             if (!parser.TryResolve(request.WhenText, zone, out var startsAt, out var error))
             {
                 return Results.BadRequest(new ErrorResponse(error!));
             }
 
             ev.StartsAt = startsAt;
+            if (applyToSeries)
+            {
+                var local = startsAt.InZone(zone).LocalDateTime;
+                series!.AnchorDate = local.Date;
+                series.StartTime = local.TimeOfDay;
+                series.CurrentOccurrenceDate = local.Date;
+            }
         }
 
         ev.Title = request.Title ?? ev.Title;
@@ -315,7 +416,16 @@ public static class EventEndpoints
         ev.DurationMinutes = request.DurationMinutes ?? ev.DurationMinutes;
         ev.Location = request.Location ?? ev.Location;
         ev.ImageUrl = request.ImageUrl ?? ev.ImageUrl;
-        ev.Status = request.Status ?? ev.Status;
+        ev.Status = request.Status ?? ev.Status; // occurrence state — never a template field
+
+        if (applyToSeries)
+        {
+            series!.Title = request.Title ?? series.Title;
+            series.Description = request.Description ?? series.Description;
+            series.DurationMinutes = request.DurationMinutes ?? series.DurationMinutes;
+            series.Location = request.Location ?? series.Location;
+            series.ImageUrl = request.ImageUrl ?? series.ImageUrl;
+        }
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
@@ -330,7 +440,7 @@ public static class EventEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
-        var ev = await db.Events.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        var ev = await db.Events.Include(e => e.Series).FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev is null)
         {
             return Results.NotFound();
@@ -339,6 +449,13 @@ public static class EventEndpoints
         if (await GuardEventMutateAsync(context, access, ev, cancellationToken) is { } denied)
         {
             return denied;
+        }
+
+        // Deleting the live occurrence of a series means "make it gone" — stop the series too
+        // (skip is the explicit just-this-one verb). Past occurrences delete as plain history.
+        if (ev.Series is { Ended: false } series && ev.Status is EventStatus.Scheduled or EventStatus.Started)
+        {
+            series.Ended = true;
         }
 
         // Web deletes: capture the posted message's ids before the row dies so the bot can
@@ -523,6 +640,7 @@ public static class EventEndpoints
         db.Events
             .Include(e => e.Options)
             .Include(e => e.Rsvps)
+            .Include(e => e.Series)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
     internal static async Task<Guild> GetOrCreateGuildAsync(
