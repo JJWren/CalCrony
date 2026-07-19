@@ -8,6 +8,7 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Calendar linking and availability endpoints (linking is per-user; availability checks are BotOnly).</summary>
 public static class CalendarEndpoints
 {
     private const int LinkTokenExpiryMinutes = 10;
@@ -15,6 +16,7 @@ public static class CalendarEndpoints
     /// <summary>Google's own hard per-request calendar-item limit on the freeBusy API.</summary>
     private const int MaxUsersPerQuery = 50;
 
+    /// <summary>Maps calendar connection and availability routes.</summary>
     public static void MapCalendarEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/calendar/connections/{userId:long}/link-token", CreateLinkToken);
@@ -32,6 +34,7 @@ public static class CalendarEndpoints
             ? GuildAccessService.SelfOnly()
             : null;
 
+    /// <summary>Mints a single-use link token and the provider consent URL for a user (self-only for web callers).</summary>
     private static async Task<IResult> CreateLinkToken(
         HttpContext context,
         long userId,
@@ -73,6 +76,7 @@ public static class CalendarEndpoints
         return Results.Ok(new CalendarLinkTokenDto(token.Token, $"{baseUrl}/oauth/google/start?token={token.Token}"));
     }
 
+    /// <summary>Reports whether the user has a linked calendar and when it last refreshed.</summary>
     private static async Task<IResult> GetStatus(
         HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -87,6 +91,7 @@ public static class CalendarEndpoints
             : new CalendarConnectionStatusDto(true, connection.Provider, connection.ConnectedAt.ToDateTimeOffset()));
     }
 
+    /// <summary>Revokes and deletes the user's calendar connection (best-effort provider-side revoke).</summary>
     private static async Task<IResult> Disconnect(
         HttpContext context,
         long userId,
@@ -122,6 +127,7 @@ public static class CalendarEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Runs a live free/busy check for the requested users and window (BotOnly — prevents member probing).</summary>
     private static async Task<IResult> CheckAvailability(
         AvailabilityRequest request,
         CalendarAvailabilityService availability,

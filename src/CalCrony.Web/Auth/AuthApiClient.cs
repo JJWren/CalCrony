@@ -11,6 +11,7 @@ public sealed class AuthApiClient(
 {
     public WebSessionResponse? Session { get; private set; }
 
+    /// <summary>URL that begins the Discord OAuth login dance, returning to returnUrl afterward.</summary>
     public string BuildLoginUrl(string returnUrl = "/app") =>
         $"{http.BaseAddress!.ToString().TrimEnd('/')}/auth/discord/start?returnUrl={Uri.EscapeDataString(returnUrl)}";
 
@@ -46,6 +47,7 @@ public sealed class AuthApiClient(
         }
     }
 
+    /// <summary>Revokes the refresh cookie server-side and clears local auth state.</summary>
     public async Task LogoutAsync()
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");

@@ -5,10 +5,12 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+/// <summary>/poll — create standard and time polls, close them, and convert time-poll winners.</summary>
 [RequireContext(ContextType.Guild)]
 [Group("poll", "Create and manage polls")]
 public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
+    /// <summary>Creates a standard poll from comma-separated options.</summary>
     [SlashCommand("create", "Create a poll")]
     public async Task CreateAsync(
         [Summary(description: "The question to ask")] string question,
@@ -21,6 +23,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
         await CreateCoreAsync(question, options, isTimePoll: false, singleVote, anonymous, allowOptions, closes);
     }
 
+    /// <summary>Creates a time poll whose options are natural-language slots (always multi-vote).</summary>
     [SlashCommand("time", "Create a time poll — vote for the best time")]
     public async Task TimeAsync(
         [Summary(description: "What are you scheduling?")] string question,
@@ -32,6 +35,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
         await CreateCoreAsync(question, slots, isTimePoll: true, singleVote: false, anonymous, allowOptions, closes);
     }
 
+    /// <summary>Closes an open poll by name (creator or manager) and re-renders its embed.</summary>
     [SlashCommand("close", "Close a poll and show the result")]
     public async Task CloseAsync([Summary("name", "Poll question (or part of it)")] string name)
     {
@@ -65,6 +69,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
             ephemeral: true);
     }
 
+    /// <summary>Converts a closed time poll's winner into an event (creator or manager).</summary>
     [SlashCommand("convert", "Turn a closed time poll's winning time into an event")]
     public async Task ConvertAsync(
         [Summary("name", "Poll question (or part of it)")] string name,
@@ -111,6 +116,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
             ephemeral: true);
     }
 
+    /// <summary>Shared create flow: API call, embed post, message-id recording, ephemeral confirm.</summary>
     private async Task CreateCoreAsync(
         string question, string optionsCsv, bool isTimePoll, bool singleVote, bool anonymous, bool allowOptions, string? closes)
     {
@@ -145,10 +151,12 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
             ephemeral: true);
     }
 
+    /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
     private bool CanManage(PollDto poll) =>
         (long)Context.User.Id == poll.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 
+    /// <summary>Re-renders the posted poll embed in place; tolerates a manually deleted message.</summary>
     private async Task TryUpdateMessageAsync(PollDto poll)
     {
         if (poll.MessageId is not long messageId)

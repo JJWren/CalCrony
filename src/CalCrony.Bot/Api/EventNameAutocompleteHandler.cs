@@ -12,6 +12,7 @@ namespace CalCrony.Bot.Api;
 /// name matching, so nothing breaks without a selection.</summary>
 public class EventNameAutocompleteHandler : AutocompleteHandler
 {
+    /// <summary>Builds the suggestion list from the guild's recent and upcoming events as the user types.</summary>
     public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
         IInteractionContext context,
         IAutocompleteInteraction autocompleteInteraction,
@@ -45,6 +46,7 @@ public class EventNameAutocompleteHandler : AutocompleteHandler
         return [.. ordered.Take(25).Select(e => new AutocompleteResult(Label(e, now), e.Id.ToString()))];
     }
 
+    /// <summary>Suggestion label: title plus start time in the event's zone, marked when past, capped at 100 chars.</summary>
     private static string Label(EventDto ev, DateTimeOffset now)
     {
         string when;

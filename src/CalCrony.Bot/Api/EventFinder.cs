@@ -2,6 +2,8 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Bot.Api;
 
+/// <summary>Resolves user-typed event references (autocomplete ids or title fragments) to a
+/// single event, with friendly ambiguity messages.</summary>
 public static class EventFinder
 {
     /// <summary>Finds exactly one event. Accepts an event id (what the autocomplete picker

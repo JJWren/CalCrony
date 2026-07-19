@@ -5,10 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Scheduled pre-event notification endpoints (max 5 per event; scoped edits on series occurrences).</summary>
 public static class NotificationEndpoints
 {
     private const int MaxPerEvent = 5;
 
+    /// <summary>Maps notification routes.</summary>
     public static void MapNotificationEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/events/{id:guid}/notifications", List);
@@ -16,6 +18,7 @@ public static class NotificationEndpoints
         app.MapDelete("/events/{id:guid}/notifications/{notificationId:guid}", Delete);
     }
 
+    /// <summary>Lists an event's notifications, soonest-relative first.</summary>
     private static async Task<IResult> List(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -37,6 +40,7 @@ public static class NotificationEndpoints
         return Results.Ok(notifications.Select(ToDto));
     }
 
+    /// <summary>Adds a notification; on a live series occurrence a Scope is required and Series also writes the template spec.</summary>
     private static async Task<IResult> Create(
         HttpContext context,
         GuildAccessService access,
@@ -114,6 +118,7 @@ public static class NotificationEndpoints
         return Results.Created($"/events/{ev.Id}/notifications/{notification.Id}", ToDto(notification));
     }
 
+    /// <summary>Removes a notification; Series scope also retires the linked template spec.</summary>
     private static async Task<IResult> Delete(
         HttpContext context,
         GuildAccessService access,
@@ -168,6 +173,7 @@ public static class NotificationEndpoints
             ? series
             : null;
 
+    /// <summary>Projects a notification row to its DTO.</summary>
     private static EventNotificationDto ToDto(EventNotification n) =>
         new(n.Id, n.EventId, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId);
 }

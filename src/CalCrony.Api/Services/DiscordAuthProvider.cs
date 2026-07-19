@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace CalCrony.Api.Services;
 
+/// <summary>Real Discord OAuth client: consent URL, code exchange, and identity/guild reads.</summary>
 public sealed class DiscordAuthProvider(HttpClient http, IConfiguration configuration, ILogger<DiscordAuthProvider> logger)
     : IDiscordAuthProvider
 {
@@ -11,6 +12,7 @@ public sealed class DiscordAuthProvider(HttpClient http, IConfiguration configur
     /// <summary>Discord permission bit for Manage Server.</summary>
     private const ulong ManageGuildBit = 0x20;
 
+    /// <summary>Consent-page URL with the identify+guilds scopes and CSRF state.</summary>
     public string BuildAuthorizationUrl(string redirectUri, string state)
     {
         var clientId = configuration["Auth:Discord:ClientId"];
@@ -22,6 +24,7 @@ public sealed class DiscordAuthProvider(HttpClient http, IConfiguration configur
                $"&state={Uri.EscapeDataString(state)}&prompt=none";
     }
 
+    /// <summary>Exchanges the authorization code for a user access token (never persisted).</summary>
     public async Task<string> ExchangeCodeAsync(string code, string redirectUri, CancellationToken cancellationToken)
     {
         using var content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -46,6 +49,7 @@ public sealed class DiscordAuthProvider(HttpClient http, IConfiguration configur
             ?? throw new InvalidOperationException("Discord token exchange returned no access_token.");
     }
 
+    /// <summary>Reads the authorizing user's id and display fields.</summary>
     public async Task<DiscordUserInfo> GetCurrentUserAsync(string accessToken, CancellationToken cancellationToken)
     {
         var user = await GetAsync<UserBody>("/users/@me", accessToken, cancellationToken);
@@ -53,6 +57,7 @@ public sealed class DiscordAuthProvider(HttpClient http, IConfiguration configur
             long.Parse(user.Id), user.Username, user.GlobalName, user.Avatar);
     }
 
+    /// <summary>Reads the user's guilds with a computed can-manage flag (ManageGuild bit or ownership).</summary>
     public async Task<IReadOnlyList<DiscordGuildInfo>> GetGuildsAsync(string accessToken, CancellationToken cancellationToken)
     {
         var guilds = await GetAsync<List<GuildBody>>("/users/@me/guilds", accessToken, cancellationToken);
@@ -75,14 +80,17 @@ public sealed class DiscordAuthProvider(HttpClient http, IConfiguration configur
             ?? throw new InvalidOperationException($"Discord returned an empty body for {path}.");
     }
 
+    /// <summary>Discord token response shape.</summary>
     private sealed record TokenResponseBody([property: JsonPropertyName("access_token")] string? AccessToken);
 
+    /// <summary>Discord /users/@me response shape.</summary>
     private sealed record UserBody(
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("username")] string Username,
         [property: JsonPropertyName("global_name")] string? GlobalName,
         [property: JsonPropertyName("avatar")] string? Avatar);
 
+    /// <summary>Discord guild list item shape.</summary>
     private sealed record GuildBody(
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("name")] string Name,

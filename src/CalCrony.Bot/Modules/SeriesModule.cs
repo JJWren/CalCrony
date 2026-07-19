@@ -6,6 +6,7 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+/// <summary>End-condition choices for /series edit.</summary>
 public enum SeriesEndsChoice
 {
     [ChoiceDisplay("never")] Never,
@@ -24,10 +25,12 @@ public enum SeriesRepeatChoice
     [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
 }
 
+/// <summary>/series — manage repeating events: edit the rule, skip, stop, and inspect.</summary>
 [RequireContext(ContextType.Guild)]
 [Group("series", "Manage repeating events")]
 public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
+    /// <summary>Edits a series' rule or end condition; can revive an ended series or stop it via "doesn't repeat".</summary>
     [SlashCommand("edit", "Change how a repeating event repeats or ends (can revive an ended series)")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -182,6 +185,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
         await FollowupAsync($"🔁 **{updated.Title}** — {updated.Summary}.{resumedNote}", ephemeral: true);
     }
 
+    /// <summary>Cancels the next occurrence and immediately schedules the following one.</summary>
     [SlashCommand("skip", "Skip the next occurrence of a repeating event")]
     public async Task SkipAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -221,6 +225,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
         await FollowupAsync(reply, ephemeral: true);
     }
 
+    /// <summary>Stops the series; the upcoming occurrence still happens.</summary>
     [SlashCommand("stop", "Stop a repeating event from creating future occurrences")]
     public async Task StopAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -265,6 +270,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
             ephemeral: true);
     }
 
+    /// <summary>Shows the series' schedule, progress, and next (or final) occurrence.</summary>
     [SlashCommand("info", "Show a repeating event's schedule and progress")]
     public async Task InfoAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -329,10 +335,12 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
         await FollowupAsync(embed: embed, ephemeral: true);
     }
 
+    /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
     private bool CanManage(EventDto ev) =>
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 
+    /// <summary>Re-renders the posted embed in place; tolerates a manually deleted message.</summary>
     private async Task TryUpdateMessageAsync(EventDto ev)
     {
         if (ev.MessageId is not long messageId)

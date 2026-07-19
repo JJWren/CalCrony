@@ -2,12 +2,14 @@ using NodaTime;
 
 namespace CalCrony.Api.Services;
 
+/// <summary>Drives DeliveryScheduler.SweepAsync on a fixed timer (default 15s); each tick is isolated so one failure never kills the loop.</summary>
 public sealed class SchedulerBackgroundService(
     IServiceProvider services,
     IClock clock,
     IConfiguration configuration,
     ILogger<SchedulerBackgroundService> logger) : BackgroundService
 {
+    /// <summary>Ticks the sweep until shutdown, logging and continuing on per-tick failures.</summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromSeconds(configuration.GetValue("Scheduler:SweepSeconds", 15));

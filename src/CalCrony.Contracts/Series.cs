@@ -1,5 +1,6 @@
 namespace CalCrony.Contracts;
 
+/// <summary>Units a recurrence rule can step in.</summary>
 public enum RecurrenceUnit
 {
     Day = 0,
@@ -23,11 +24,13 @@ public enum EditScope
     Series = 1,
 }
 
+/// <summary>A repeat rule: every Interval units, anchored on the first occurrence; MonthlyMode applies when Unit is Month.</summary>
 public record RecurrenceRuleDto(
     RecurrenceUnit Unit,
     int Interval = 1,
     MonthlyMode MonthlyMode = MonthlyMode.DayOfMonth);
 
+/// <summary>A series-template notification spec, cloned onto each materialized occurrence.</summary>
 public record SeriesNotificationDto(
     Guid Id, int MinutesBefore, string? Message, string? Mentions, long? ChannelId);
 

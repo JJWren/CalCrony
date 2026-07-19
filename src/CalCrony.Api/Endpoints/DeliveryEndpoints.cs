@@ -8,11 +8,13 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Outbox endpoints the bot polls, plus reminder creation.</summary>
 public static class DeliveryEndpoints
 {
     /// <summary>Rows fetched this many times without an ack are abandoned as Failed.</summary>
     private const int MaxAttempts = 10;
 
+    /// <summary>Maps delivery polling/ack and reminder routes.</summary>
     public static void MapDeliveryEndpoints(this IEndpointRouteBuilder app)
     {
         // The outbox itself stays bot-only; reminders are open to guild members (Phase B).
@@ -22,6 +24,7 @@ public static class DeliveryEndpoints
         app.MapPost("/reminders", CreateReminder);
     }
 
+    /// <summary>Returns pending, due deliveries for the bot to post (oldest first).</summary>
     private static async Task<IResult> GetPending(
         CalCronyDbContext db,
         IClock clock,
@@ -53,6 +56,7 @@ public static class DeliveryEndpoints
             .Select(d => new DeliveryDto(d.Id, d.Type, d.ChannelId, d.PayloadJson, d.DueAt.ToDateTimeOffset())));
     }
 
+    /// <summary>Marks a delivery sent; the bot acks only after the Discord post succeeds.</summary>
     private static async Task<IResult> Ack(Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
         var delivery = await db.Deliveries.FindAsync([id], cancellationToken);
@@ -66,6 +70,7 @@ public static class DeliveryEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Creates a future-dated reminder delivery from natural-language text (web callers are self-forced to the default channel).</summary>
     private static async Task<IResult> CreateReminder(
         HttpContext context,
         GuildAccessService access,

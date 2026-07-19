@@ -5,6 +5,7 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+/// <summary>Repeat-rule choices for /create, mapped to a RecurrenceRuleDto.</summary>
 public enum RepeatChoice
 {
     [ChoiceDisplay("daily")] Daily,
@@ -13,15 +14,18 @@ public enum RepeatChoice
     [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
 }
 
+/// <summary>Ask-per-edit scope choices for /edit on repeating events.</summary>
 public enum EditScopeChoice
 {
     [ChoiceDisplay("this occurrence")] Occurrence,
     [ChoiceDisplay("whole series")] Series,
 }
 
+/// <summary>Core event slash commands: create, list, edit, delete.</summary>
 [RequireContext(ContextType.Guild)]
 public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
+    /// <summary>Creates an event (optionally recurring), posts its embed, and records the message ids.</summary>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -85,6 +89,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
             ephemeral: true);
     }
 
+    /// <summary>Lists upcoming events as an ephemeral embed.</summary>
     [SlashCommand("list", "List upcoming events")]
     public async Task ListAsync(
         [Summary(description: "Only events posted in this channel")] ITextChannel? channel = null,
@@ -120,6 +125,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         await FollowupAsync(embed: embed, ephemeral: true);
     }
 
+    /// <summary>Deletes an event by name/picker (creator or manager); a live series occurrence stops its series.</summary>
     [SlashCommand("delete", "Delete an event you created")]
     public async Task DeleteAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -153,6 +159,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         await FollowupAsync($"🗑️ Deleted **{ev.Title}**.{seriesNote}", ephemeral: true);
     }
 
+    /// <summary>Edits an event by name/picker; repeating events require a scope.</summary>
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -214,6 +221,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         await FollowupAsync($"✏️ Updated **{result.Value.Title}**.", ephemeral: true);
     }
 
+    /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
     private bool CanManage(EventDto ev) =>
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
@@ -221,6 +229,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
     private Task<(EventDto? Event, string? Problem)> FindSingleEventAsync(string name) =>
         EventFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);
 
+    /// <summary>Re-renders the posted embed in place; tolerates a manually deleted message.</summary>
     private async Task TryUpdateMessageAsync(EventDto ev)
     {
         if (ev.MessageId is not long messageId)
@@ -246,6 +255,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         }
     }
 
+    /// <summary>Deletes the posted embed; tolerates it already being gone.</summary>
     private async Task TryDeleteMessageAsync(EventDto ev)
     {
         if (ev.MessageId is not long messageId)

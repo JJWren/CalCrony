@@ -16,6 +16,7 @@ public sealed class DeliveryPollerService(
     IConfiguration configuration,
     ILogger<DeliveryPollerService> logger) : BackgroundService
 {
+    /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromSeconds(configuration.GetValue("Api:PollSeconds", 15));
@@ -43,6 +44,7 @@ public sealed class DeliveryPollerService(
         }
     }
 
+    /// <summary>Drains the current pending batch, isolating per-delivery failures.</summary>
     private async Task DrainAsync(CancellationToken ct)
     {
         var pending = await api.GetPendingDeliveriesAsync(ct: ct);
@@ -66,6 +68,7 @@ public sealed class DeliveryPollerService(
         }
     }
 
+    /// <summary>Dispatches one delivery to its per-type handler.</summary>
     private async Task PostAsync(DeliveryDto delivery)
     {
         if (delivery.Type == DeliveryType.SyncEventMessage)
@@ -276,12 +279,14 @@ public sealed class DeliveryPollerService(
         await message.DeleteAsync();
     }
 
+    /// <summary>Message text for a reminder delivery.</summary>
     private static string FormatReminder(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<ReminderPayload>(payloadJson)!;
         return $"⏰ <@{payload.UserId}> Reminder: {payload.Text}";
     }
 
+    /// <summary>Message text for a pre-event notification delivery.</summary>
     private static string FormatNotification(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<EventNotificationPayload>(payloadJson)!;
@@ -290,6 +295,7 @@ public sealed class DeliveryPollerService(
         return $"🔔 {mentions}**{payload.Title}** starts <t:{payload.StartsAtUnix}:R> (<t:{payload.StartsAtUnix}:F>){extra}";
     }
 
+    /// <summary>Message text for an event-start announcement.</summary>
     private static string FormatEventStart(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<EventStartPayload>(payloadJson)!;

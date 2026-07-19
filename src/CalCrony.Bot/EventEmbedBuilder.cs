@@ -4,10 +4,12 @@ using Discord;
 
 namespace CalCrony.Bot;
 
+/// <summary>Renders events as Discord embeds with RSVP buttons.</summary>
 public static class EventEmbedBuilder
 {
     private static readonly Color EventColor = new(0x57, 0xB9, 0xE2);
 
+    /// <summary>Builds the event embed: time, recurrence, duration, location, description, and per-option RSVP fields.</summary>
     public static Embed Build(EventDto ev)
     {
         var description = new StringBuilder();
@@ -56,6 +58,7 @@ public static class EventEmbedBuilder
         return builder.Build();
     }
 
+    /// <summary>One RSVP button per option.</summary>
     public static MessageComponent BuildComponents(EventDto ev)
     {
         var row = new ActionRowBuilder();
@@ -71,6 +74,7 @@ public static class EventEmbedBuilder
         return new ComponentBuilder().AddRow(row).Build();
     }
 
+    /// <summary>Human-readable duration ("90 min", "2 hr").</summary>
     private static string FormatDuration(int minutes) =>
         minutes switch
         {

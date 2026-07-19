@@ -113,6 +113,7 @@ public static class RecurrenceCalculator
         return $"Repeats {body}{suffix}";
     }
 
+    /// <summary>The month-mode slot for anchor + monthsAhead: same day-of-month (clamped) or nth weekday (5th falls back to last).</summary>
     private static LocalDate MonthCandidate(LocalDate anchor, MonthlyMode mode, int monthsAhead)
     {
         if (mode == MonthlyMode.DayOfMonth)
@@ -132,6 +133,7 @@ public static class RecurrenceCalculator
         return candidate.Month == month.Month ? candidate : candidate.PlusWeeks(-1);
     }
 
+    /// <summary>Ordinal label for the anchor's weekday position; a 5th weekday reads as "last".</summary>
     private static string NthLabel(LocalDate anchor) => ((anchor.Day + 6) / 7) switch
     {
         1 => "1st",

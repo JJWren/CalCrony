@@ -3,10 +3,12 @@ using Discord;
 
 namespace CalCrony.Bot;
 
+/// <summary>Renders free/busy results as a Discord embed.</summary>
 public static class AvailabilityEmbedBuilder
 {
     private static readonly Color AvailabilityColor = new(0x57, 0xB9, 0xE2);
 
+    /// <summary>Builds the availability embed: window header plus one status line per member.</summary>
     public static Embed Build(string subject, DateTimeOffset startUtc, DateTimeOffset endUtc, IReadOnlyList<UserAvailabilityDto> results)
     {
         var startUnix = startUtc.ToUnixTimeSeconds();
@@ -20,6 +22,7 @@ public static class AvailabilityEmbedBuilder
             .Build();
     }
 
+    /// <summary>One member's line: status emoji, mention, and busy blocks when applicable.</summary>
     private static string FormatLine(UserAvailabilityDto result) => result.Status switch
     {
         CalendarAvailabilityStatus.Free => $"✅ <@{result.UserId}> — free",
@@ -29,6 +32,7 @@ public static class AvailabilityEmbedBuilder
         _ => $"⚪ <@{result.UserId}> — not connected",
     };
 
+    /// <summary>Compact busy-block list as Discord timestamps.</summary>
     private static string FormatBusyBlocks(IReadOnlyList<BusyBlockDto> blocks) =>
         string.Join(", ", blocks.Select(b => $"<t:{b.StartUnix}:t>–<t:{b.EndUnix}:t>"));
 }

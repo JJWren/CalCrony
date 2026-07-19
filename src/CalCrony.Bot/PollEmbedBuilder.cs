@@ -4,6 +4,7 @@ using Discord;
 
 namespace CalCrony.Bot;
 
+/// <summary>Renders polls as Discord embeds with vote components (buttons up to 5 options, a select for 6-10).</summary>
 public static class PollEmbedBuilder
 {
     private static readonly Color PollColor = new(0x57, 0xB9, 0xE2);
@@ -18,6 +19,7 @@ public static class PollEmbedBuilder
     private static readonly string[] DigitEmojis =
         ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
+    /// <summary>Builds the poll embed: header chips, per-option bars/counts, and voter mentions within budget.</summary>
     public static Embed Build(PollDto poll)
     {
         var description = new StringBuilder();
@@ -43,6 +45,7 @@ public static class PollEmbedBuilder
         return builder.Build();
     }
 
+    /// <summary>Builds vote components from the DTO — a voter-added 6th option automatically swaps buttons for the select.</summary>
     public static MessageComponent BuildComponents(PollDto poll)
     {
         var builder = new ComponentBuilder();
@@ -100,6 +103,7 @@ public static class PollEmbedBuilder
         return builder.Build();
     }
 
+    /// <summary>Header line: open state with deadline and flag chips, or closed state with winner/converted markers.</summary>
     private static string Header(PollDto poll)
     {
         if (poll.Status == PollStatus.Closed)
@@ -125,6 +129,7 @@ public static class PollEmbedBuilder
         return $"{string.Join(" · ", chips)}{closes}";
     }
 
+    /// <summary>Option list with proportional bars; withNames adds capped voter mentions.</summary>
     private static string RenderOptions(PollDto poll, bool withNames)
     {
         var body = new StringBuilder();
@@ -163,6 +168,7 @@ public static class PollEmbedBuilder
             ? null
             : poll.Options.OrderByDescending(o => o.VoteCount).First().Id;
 
+    /// <summary>Hard-truncates text to the given length.</summary>
     private static string Truncate(string text, int max) =>
         text.Length <= max ? text : text[..(max - 1)] + "…";
 }

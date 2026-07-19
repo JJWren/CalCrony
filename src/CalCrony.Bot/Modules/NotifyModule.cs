@@ -5,9 +5,11 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+/// <summary>/notify — scheduled pings before an event starts.</summary>
 [RequireContext(ContextType.Guild)]
 public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
+    /// <summary>Adds a pre-event notification to an event found by name/picker.</summary>
     [SlashCommand("notify", "Add a scheduled notification before an event starts")]
     public async Task NotifyAsync(
         [Summary("event", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string eventName,

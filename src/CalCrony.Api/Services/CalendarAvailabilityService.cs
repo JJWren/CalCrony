@@ -21,6 +21,7 @@ public sealed class CalendarAvailabilityService(
     /// <summary>Refresh slightly before the recorded expiry to avoid a race against the call that follows.</summary>
     private static readonly Duration RefreshSkew = Duration.FromMinutes(2);
 
+    /// <summary>Checks free/busy for each user concurrently, refreshing expired provider tokens along the way.</summary>
     public async Task<IReadOnlyList<UserAvailabilityDto>> CheckAsync(
         IReadOnlyList<long> userIds, Instant start, Instant end, CancellationToken cancellationToken)
     {
@@ -59,6 +60,7 @@ public sealed class CalendarAvailabilityService(
             .ToList();
     }
 
+    /// <summary>One user's pipeline: load connection, refresh if needed, query free/busy, classify the outcome.</summary>
     private async Task<PipelineResult> CheckOneAsync(
         CalendarConnection connection, Instant start, Instant end, Instant now, CancellationToken cancellationToken)
     {
@@ -101,6 +103,7 @@ public sealed class CalendarAvailabilityService(
         return new PipelineResult(connection.UserId, status, busyDtos, refreshedAccessToken, refreshedExpiresAt);
     }
 
+    /// <summary>Intermediate per-user outcome, including any refreshed tokens to persist.</summary>
     private sealed record PipelineResult(
         long UserId,
         CalendarAvailabilityStatus Status,

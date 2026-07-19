@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 namespace CalCrony.Web.Auth;
 
+/// <summary>Derives the Blazor authentication state from the stored JWT (expiry-checked client-side; the API stays authoritative).</summary>
 public sealed class JwtAuthenticationStateProvider(ITokenStore tokenStore) : AuthenticationStateProvider
 {
     private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
 
+    /// <summary>Builds the current authentication state from the stored token, anonymous when absent or expired.</summary>
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var token = await tokenStore.GetAccessTokenAsync();
@@ -38,6 +40,7 @@ public sealed class JwtAuthenticationStateProvider(ITokenStore tokenStore) : Aut
         return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType: "jwt")));
     }
 
+    /// <summary>Signals Blazor that the auth state changed (login, refresh, logout).</summary>
     public void NotifyAuthenticationChanged() =>
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
 }

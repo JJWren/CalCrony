@@ -4,8 +4,10 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Entity-to-DTO projections shared across endpoint groups.</summary>
 public static class Mapping
 {
+    /// <summary>Projects an event with ordered options/RSVPs; the recurrence summary requires the Series navigation loaded.</summary>
     public static EventDto ToDto(this Event ev) => new(
         ev.Id,
         ev.GuildId,
@@ -26,6 +28,7 @@ public static class Mapping
         // Summary requires the Series nav loaded; ended series read as one-offs (no 🔁).
         ev.Series is { Ended: false } series ? Services.RecurrenceCalculator.Describe(series) : null);
 
+    /// <summary>Projects a series' schedule, template, progress, and notification specs.</summary>
     public static SeriesDto ToDto(this EventSeries series, Guid? liveEventId) => new(
         series.Id,
         series.GuildId,
@@ -51,6 +54,7 @@ public static class Mapping
         [.. series.NotificationSpecs.OrderByDescending(n => n.MinutesBefore)
             .Select(n => new SeriesNotificationDto(n.Id, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId))]);
 
+    /// <summary>Resolves an IANA id to a zone, null when unknown.</summary>
     public static DateTimeZone? FindZone(string? id) =>
         id is null ? null : DateTimeZoneProviders.Tzdb.GetZoneOrNull(id);
 

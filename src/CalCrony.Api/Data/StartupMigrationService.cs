@@ -15,6 +15,7 @@ public sealed class StartupMigrationService(
     IClock clock,
     ILogger<StartupMigrationService> logger) : IHostedService
 {
+    /// <summary>Applies pending EF migrations at boot when Database:AutoMigrate is on.</summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (!configuration.GetValue("Database:AutoMigrate", true))
@@ -41,5 +42,6 @@ public sealed class StartupMigrationService(
         }
     }
 
+    /// <summary>Nothing to stop; migration runs once at startup.</summary>
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

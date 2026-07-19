@@ -2,6 +2,7 @@ using NodaTime;
 
 namespace CalCrony.Api.Data;
 
+/// <summary>A bot credential; only the SHA-256 hash of the key is stored.</summary>
 public class ApiKey
 {
     public Guid Id { get; set; }

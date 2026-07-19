@@ -18,6 +18,8 @@ public interface IDiscordAuthProvider
     Task<IReadOnlyList<DiscordGuildInfo>> GetGuildsAsync(string accessToken, CancellationToken cancellationToken);
 }
 
+/// <summary>The authorizing Discord user's identity and display fields.</summary>
 public sealed record DiscordUserInfo(long Id, string Username, string? GlobalName, string? AvatarHash);
 
+/// <summary>One of the user's guilds with the computed can-manage flag.</summary>
 public sealed record DiscordGuildInfo(long Id, string Name, string? IconHash, bool CanManage);

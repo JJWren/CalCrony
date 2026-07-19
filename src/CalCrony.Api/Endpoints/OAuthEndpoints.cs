@@ -14,12 +14,14 @@ namespace CalCrony.Api.Endpoints;
 /// </summary>
 public static class OAuthEndpoints
 {
+    /// <summary>Maps the anonymous browser-facing calendar OAuth routes.</summary>
     public static void MapOAuthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/oauth/google/start", Start).AllowAnonymous();
         app.MapGet("/oauth/google/callback", Callback).AllowAnonymous();
     }
 
+    /// <summary>Redirects the browser to the provider consent page; the link token doubles as OAuth state.</summary>
     private static async Task<IResult> Start(
         string token,
         CalCronyDbContext db,
@@ -38,6 +40,7 @@ public static class OAuthEndpoints
         return Results.Redirect(authorizationUrl);
     }
 
+    /// <summary>Provider redirects here: validates state, exchanges the code, stores encrypted tokens, and renders a result page.</summary>
     private static async Task<IResult> Callback(
         CalCronyDbContext db,
         ICalendarProvider provider,
@@ -107,22 +110,27 @@ public static class OAuthEndpoints
         return SuccessPage();
     }
 
+    /// <summary>A link token is usable when unconsumed and unexpired.</summary>
     private static bool IsUsable(CalendarLinkToken? token, Instant now) =>
         token is not null && token.ConsumedAt is null && token.ExpiresAt > now;
 
+    /// <summary>The OAuth redirect URI this API registered with the provider.</summary>
     private static string RedirectUri(IConfiguration configuration) =>
         $"{(configuration["Api:PublicBaseUrl"] ?? "").TrimEnd('/')}/oauth/google/callback";
 
+    /// <summary>Success page shown in the browser after linking.</summary>
     private static IResult SuccessPage() => RenderPage(
         "Calendar connected",
         "✅ Your Google Calendar is connected. You can close this tab and go back to Discord.",
         statusCode: 200);
 
+    /// <summary>Failure page with an HTML-encoded reason (never reflects raw provider input).</summary>
     private static IResult FailurePage(string message) => RenderPage(
         "Calendar connection failed",
         $"❌ {message}",
         statusCode: 400);
 
+    /// <summary>Renders the minimal inline-styled HTML result page.</summary>
     private static IResult RenderPage(string title, string message, int statusCode)
     {
         // Both values can carry attacker-influenced query-string content (e.g. Google's `error`

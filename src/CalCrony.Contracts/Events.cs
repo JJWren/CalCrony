@@ -1,7 +1,8 @@
 namespace CalCrony.Contracts;
 
-// Scheduled/Started numeric values are pinned by the partial unique index
-// IX_Events_SeriesId_Live ("Status" IN (0, 1)) — renumbering breaks the live-occurrence guard.
+/// <summary>Event lifecycle. The Scheduled/Started numeric values are pinned by the partial
+/// unique index IX_Events_SeriesId_Live ("Status" IN (0, 1)) — renumbering breaks the
+/// live-occurrence guard.</summary>
 public enum EventStatus
 {
     Scheduled = 0,
@@ -39,10 +40,13 @@ public record UpdateEventRequest(
     EventStatus? Status = null,
     EditScope? Scope = null);
 
+/// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 public record RsvpOptionDto(Guid Id, string Emote, string Label, int SortOrder, int? Capacity);
 
+/// <summary>A user's RSVP: which option they picked.</summary>
 public record RsvpDto(long UserId, Guid OptionId);
 
+/// <summary>An event with its RSVP options and current RSVPs. RecurrenceSummary is the human-readable repeat rule, null for one-offs and ended series.</summary>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -66,22 +70,28 @@ public record EventDto(
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
 }
 
+/// <summary>Records where the bot posted an event's embed (bot-only; only the bot knows message ids).</summary>
 public record SetEventMessageRequest(long ChannelId, long MessageId);
 
+/// <summary>Sets or replaces the calling user's RSVP to the given option.</summary>
 public record RsvpRequest(Guid OptionId);
 
+/// <summary>A guild's timezone and the default channel web-created embeds post to.</summary>
 public record GuildSettingsDto(string TimeZone, long? DefaultChannelId);
 
+/// <summary>A user's personal timezone (null = use the server's) and DM-confirmation preference.</summary>
 public record UserSettingsDto(string? TimeZone, bool DmConfirmations);
 
 /// <summary>TimeZone (IANA id), when set, overrides the user/guild zone resolution — used where
 /// the caller must preview in a specific zone, e.g. a series' stored zone for schedule edits.</summary>
 public record ParseDateTimeRequest(string Text, long? UserId = null, long? GuildId = null, string? TimeZone = null);
 
+/// <summary>A parsed datetime: the UTC instant, its Unix seconds, and the zone it was resolved in.</summary>
 public record ParseDateTimeResponse(DateTimeOffset Utc, long Unix, string TimeZone);
 
 /// <summary>A selectable timezone: canonical IANA id + display label with the current UTC offset,
 /// e.g. "America/Chicago — UTC-05:00".</summary>
 public record TimeZoneOptionDto(string Id, string Label);
 
+/// <summary>Uniform error body every non-2xx JSON response carries.</summary>
 public record ErrorResponse(string Error);

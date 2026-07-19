@@ -16,6 +16,7 @@ public sealed class GuildAccessService(CalCronyDbContext db, IClock clock)
     /// keeps access. Re-syncing is a near-instant prompt=none login bounce.</summary>
     public static readonly Duration MaxSnapshotAge = Duration.FromDays(7);
 
+    /// <summary>Resolves a web user's standing in a guild from their membership snapshot (bot-present guilds only).</summary>
     public async Task<GuildAccess> CheckAsync(long userId, long guildId, CancellationToken cancellationToken)
     {
         var membership = await db.UserGuildMemberships
@@ -38,18 +39,22 @@ public sealed class GuildAccessService(CalCronyDbContext db, IClock clock)
         return membership.CanManage ? GuildAccess.Manager : GuildAccess.Member;
     }
 
+    /// <summary>403 for callers outside the guild.</summary>
     public static IResult Forbidden() =>
         Results.Json(new ErrorResponse("You don't have access to this server."), statusCode: StatusCodes.Status403Forbidden);
 
+    /// <summary>403 telling the caller their guild snapshot is stale — re-login refreshes it.</summary>
     public static IResult StaleSnapshot() =>
         Results.Json(
             new ErrorResponse("Your server list is out of date — sign in again to re-sync your servers."),
             statusCode: StatusCodes.Status403Forbidden);
 
+    /// <summary>403 for acting on another user's data where only self-service is allowed.</summary>
     public static IResult SelfOnly() =>
         Results.Json(new ErrorResponse("You can only do that for your own account."), statusCode: StatusCodes.Status403Forbidden);
 }
 
+/// <summary>A web caller's standing in a guild, from None through Manager; Stale means the snapshot aged out.</summary>
 public enum GuildAccess
 {
     None = 0,

@@ -15,6 +15,7 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
     // attempt instead of racing the API's rotate-on-use refresh token.
     private static readonly SemaphoreSlim RefreshLock = new(1, 1);
 
+    /// <summary>Attaches the bearer token to outgoing API calls and transparently refreshes-and-retries once on a 401.</summary>
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var accessToken = await tokenStore.GetAccessTokenAsync();
@@ -53,6 +54,7 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
         return await base.SendAsync(retry, cancellationToken);
     }
 
+    /// <summary>Exchanges the HttpOnly refresh cookie for a new access token, deduplicating concurrent refreshes.</summary>
     private async Task<string?> RefreshAccessTokenAsync(Uri refreshUri, string? failedToken, CancellationToken cancellationToken)
     {
         await RefreshLock.WaitAsync(cancellationToken);
@@ -94,6 +96,7 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
         }
     }
 
+    /// <summary>Clones a request (headers + buffered content) so it can be resent after a refresh.</summary>
     private static async Task<HttpRequestMessage> CloneRequestAsync(HttpRequestMessage original)
     {
         var clone = new HttpRequestMessage(original.Method, original.RequestUri)
