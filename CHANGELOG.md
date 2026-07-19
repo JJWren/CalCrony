@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/JJWren/CalCrony/compare/v0.7.0...v0.8.0) (2026-07-19)
+
+
+### Features
+
+* series rule editing (api+bot+web) ([#22](https://github.com/JJWren/CalCrony/issues/22)) ([633ce56](https://github.com/JJWren/CalCrony/commit/633ce566ce0a7a23fcf5c9e9aac6c23a71915f3f))
+
 ## [0.7.0](https://github.com/JJWren/CalCrony/compare/v0.6.0...v0.7.0) (2026-07-19)
 
 
