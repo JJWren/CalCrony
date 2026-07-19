@@ -10,7 +10,7 @@ using NodaTime;
 namespace CalCrony.Api.Auth;
 
 /// <summary>A freshly signed access token and its expiry.</summary>
-/// <param name="Value">One recognizer resolution value.</param>
+/// <param name="Value">The signed JWT string.</param>
 /// <param name="ExpiresAt">When the token expires.</param>
 public sealed record IssuedAccessToken(string Value, Instant ExpiresAt);
 

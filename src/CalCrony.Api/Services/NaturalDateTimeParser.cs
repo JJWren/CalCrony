@@ -60,7 +60,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// as bindable primitives, which breaks DI injection.</summary>
     /// <param name="text">The text to parse.</param>
     /// <param name="zone">The IANA zone to resolve in.</param>
-    /// <param name="result">The per-user availability result.</param>
+    /// <param name="result">The resolved future instant, when successful.</param>
     /// <param name="error">The user-facing error text.</param>
     /// <returns>True when text resolved to a future instant.</returns>
     public bool TryResolve(string text, DateTimeZone zone, out Instant result, out string? error)

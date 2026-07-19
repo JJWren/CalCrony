@@ -41,7 +41,7 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
     // 12h keeps labels accurate without per-keystroke API calls.
     /// <summary>Cached zone list plus its refresh deadline.</summary>
     /// <param name="Options">The cached zone options.</param>
-    /// <param name="Expires">Cookie expiry, when persisting.</param>
+    /// <param name="Expires">When the cached list must be refetched.</param>
     private sealed record CacheEntry(IReadOnlyList<TimeZoneOptionDto> Options, DateTimeOffset Expires);
 
     private static volatile CacheEntry? cache;

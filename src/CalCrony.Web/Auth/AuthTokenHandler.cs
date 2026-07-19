@@ -18,7 +18,7 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
     private static readonly SemaphoreSlim RefreshLock = new(1, 1);
 
     /// <summary>Attaches the bearer token to outgoing API calls and transparently refreshes-and-retries once on a 401.</summary>
-    /// <param name="request">The request body.</param>
+    /// <param name="request">The outgoing API request.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The (possibly retried) API response.</returns>
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
