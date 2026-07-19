@@ -122,13 +122,22 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
         var series = result.Value;
         var lines = new StringBuilder();
         lines.AppendLine($"🔁 {series.Summary}");
+
+        // A stopped series can still have its final occurrence scheduled — keep showing when it
+        // happens rather than just "ended".
+        if (series.LiveEventId is Guid liveId)
+        {
+            var live = liveId == ev.Id ? ev : (await api.GetEventAsync(liveId)).Value;
+            if (live is not null)
+            {
+                var label = series.Ended ? "Final occurrence" : "Next";
+                lines.AppendLine($"{label}: <t:{live.StartsAtUnix}:F> (<t:{live.StartsAtUnix}:R>)");
+            }
+        }
+
         if (series.Ended)
         {
-            lines.AppendLine("Series ended.");
-        }
-        else if (series.LiveEventId is not null)
-        {
-            lines.AppendLine($"Next: <t:{ev.StartsAtUnix}:F> (<t:{ev.StartsAtUnix}:R>)");
+            lines.AppendLine("Series ended — no new occurrences will be scheduled.");
         }
 
         lines.AppendLine($"Occurrences so far: {series.OccurrenceCount}{(series.MaxOccurrences is int max ? $" of {max}" : "")}");

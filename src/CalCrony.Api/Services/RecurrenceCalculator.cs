@@ -9,7 +9,9 @@ namespace CalCrony.Api.Services;
 /// clamps to Feb 28 yet returns to Mar 31 without drifting.</summary>
 public static class RecurrenceCalculator
 {
-    /// <summary>First schedule date strictly after <paramref name="after"/>.</summary>
+    /// <summary>First schedule date strictly after <paramref name="after"/> — except when
+    /// <paramref name="after"/> precedes the anchor, where the anchor (the first slot of the
+    /// schedule) is returned as-is.</summary>
     public static LocalDate NextDate(
         RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalDate after)
     {
@@ -58,6 +60,16 @@ public static class RecurrenceCalculator
         DateTimeZone zone, LocalDate currentOccurrenceDate, LocalDate? untilDate, Instant now)
     {
         var cursor = currentOccurrenceDate;
+
+        // Fast-forward a stale cursor (long downtime) so the loop below runs at most a few
+        // times instead of one iteration per missed slot. The slot grid is anchored, so jumping
+        // the cursor can't shift it; yesterday-in-zone keeps today's not-yet-due slot reachable.
+        var yesterday = now.InZone(zone).Date.PlusDays(-1);
+        if (cursor < yesterday)
+        {
+            cursor = yesterday;
+        }
+
         while (true)
         {
             var next = NextDate(unit, interval, mode, anchor, cursor);
