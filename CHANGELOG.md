@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/JJWren/CalCrony/compare/v0.10.0...v0.11.0) (2026-07-19)
+
+
+### Features
+
+* emit recurrence rules in the ICS feed ([#33](https://github.com/JJWren/CalCrony/issues/33)) ([b08bafd](https://github.com/JJWren/CalCrony/commit/b08bafda584583c48d206272612625f372cdb36b))
+
 ## [0.10.0](https://github.com/JJWren/CalCrony/compare/v0.9.0...v0.10.0) (2026-07-19)
 
 
