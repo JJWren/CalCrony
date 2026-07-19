@@ -291,12 +291,13 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse("The title is required."));
         }
 
-        // Friendly 400s instead of Postgres truncation 500s; template values are already capped.
+        // Friendly 400s instead of Postgres truncation 500s; template TEXT values are already
+        // capped at save time (the duration is range-checked below on the effective value,
+        // because templates saved from pre-validation events could carry an out-of-range one).
         if ((Validation.TooLong("title", request.Title, FieldLimits.EventTitle)
             ?? Validation.TooLong("description", request.Description, FieldLimits.EventDescription)
             ?? Validation.TooLong("location", request.Location, FieldLimits.EventLocation)
-            ?? Validation.TooLong("image URL", request.ImageUrl, FieldLimits.EventImageUrl)
-            ?? Validation.BadDuration(request.DurationMinutes)) is { } invalid)
+            ?? Validation.TooLong("image URL", request.ImageUrl, FieldLimits.EventImageUrl)) is { } invalid)
         {
             return invalid;
         }
@@ -305,6 +306,12 @@ public static class EventEndpoints
         var durationMinutes = request.DurationMinutes ?? template?.DurationMinutes;
         var location = request.Location ?? template?.Location;
         var imageUrl = request.ImageUrl ?? template?.ImageUrl;
+
+        // Range-check the EFFECTIVE duration so a template gap-fill can't smuggle one in.
+        if (Validation.BadDuration(durationMinutes) is { } invalidDuration)
+        {
+            return invalidDuration;
+        }
         // Role selection is bot-only (the web can't enumerate Discord roles); templates never carry one.
         var attendeeRoleId = isBot ? request.AttendeeRoleId : null;
         // Threads are a plain yes/no, so WantsThread is honored for BOTH caller types — the bot
