@@ -8,8 +8,10 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Series read, rule editing, stop, and occurrence skip for recurring events.</summary>
 public static class SeriesEndpoints
 {
+    /// <summary>Maps series routes.</summary>
     public static void MapSeriesEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/series/{id:guid}", GetSeries);
@@ -20,6 +22,7 @@ public static class SeriesEndpoints
 
     private const string ManageMessage = "Only the series creator or a server manager can change this series.";
 
+    /// <summary>Fetches a series with its live occurrence id (non-members get 404).</summary>
     private static async Task<IResult> GetSeries(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -167,6 +170,7 @@ public static class SeriesEndpoints
         return Results.Ok(series.ToDto(liveEventId));
     }
 
+    /// <summary>Stops the series from spawning future occurrences; idempotent, and the scheduled occurrence survives as the final one.</summary>
     private static async Task<IResult> StopSeries(
         HttpContext context,
         GuildAccessService access,
@@ -209,6 +213,7 @@ public static class SeriesEndpoints
         return Results.Ok(series.ToDto(liveEventId));
     }
 
+    /// <summary>Cancels the live occurrence, removes its embed via the outbox, and materializes the next occurrence in the same save.</summary>
     private static async Task<IResult> SkipOccurrence(
         HttpContext context,
         GuildAccessService access,
@@ -301,11 +306,13 @@ public static class SeriesEndpoints
         };
     }
 
+    /// <summary>Loads a series with its notification specs.</summary>
     private static Task<EventSeries?> LoadSeriesAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
         db.EventSeries
             .Include(s => s.NotificationSpecs)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
+    /// <summary>The series' live (Scheduled/Started) occurrence id, if one exists.</summary>
     private static async Task<Guid?> LiveEventIdAsync(CalCronyDbContext db, Guid seriesId, CancellationToken cancellationToken)
     {
         var live = await db.Events

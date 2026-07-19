@@ -5,12 +5,14 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+/// <summary>/availability — free/busy grids for a role's members or an event's Going list.</summary>
 [RequireContext(ContextType.Guild)]
 [Group("availability", "Check group calendar availability")]
 public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     private const int MaxUsersPerQuery = 50;
 
+    /// <summary>Free/busy for everyone holding a role over an ad-hoc window.</summary>
     [SlashCommand("role", "Check calendar availability for everyone with a role")]
     public async Task RoleAsync(
         [Summary("role", "The role to check")] IRole role,
@@ -53,6 +55,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         await RunAndReplyAsync(role.Mention, memberIds, start, end);
     }
 
+    /// <summary>Free/busy for an event's Going members over the event's own window.</summary>
     [SlashCommand("event", "Check calendar availability for everyone RSVP'd Going to an event")]
     public async Task EventAsync([Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
@@ -89,6 +92,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         await RunAndReplyAsync($"**{ev.Title}**", userIds, start, end);
     }
 
+    /// <summary>Runs the availability check and replies with the grid embed.</summary>
     private async Task RunAndReplyAsync(string subject, List<long> userIds, DateTimeOffset start, DateTimeOffset end)
     {
         var availability = await api.CheckAvailabilityAsync(new AvailabilityRequest(userIds, start, end));

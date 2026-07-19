@@ -8,11 +8,13 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Poll CRUD, voting, options, close, and time-poll conversion, with event-parity guards.</summary>
 public static class PollEndpoints
 {
     private const int MinOptions = 2;
     private const int MaxOptions = 10;
 
+    /// <summary>Maps poll routes.</summary>
     public static void MapPollEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/guilds/{guildId:long}/polls", CreatePoll);
@@ -26,6 +28,7 @@ public static class PollEndpoints
         app.MapDelete("/polls/{id:guid}", DeletePoll);
     }
 
+    /// <summary>Creates a poll; time polls parse every option as a slot in the creator's zone (failures name the option).</summary>
     private static async Task<IResult> CreatePoll(
         HttpContext context,
         GuildAccessService access,
@@ -155,6 +158,7 @@ public static class PollEndpoints
         return Results.Created($"/polls/{poll.Id}", ToDto(poll, context));
     }
 
+    /// <summary>Lists a guild's polls, newest first, optionally filtered by status.</summary>
     private static async Task<IResult> ListPolls(
         HttpContext context,
         GuildAccessService access,
@@ -183,6 +187,7 @@ public static class PollEndpoints
         return Results.Ok(polls.Select(p => ToDto(p, context)));
     }
 
+    /// <summary>Fetches one poll with caller-aware anonymity shaping (non-members get 404).</summary>
     private static async Task<IResult> GetPoll(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -200,6 +205,7 @@ public static class PollEndpoints
         return Results.Ok(ToDto(poll, context));
     }
 
+    /// <summary>Records where the bot posted the poll's embed (BotOnly).</summary>
     private static async Task<IResult> SetMessage(
         Guid id, SetPollMessageRequest request, HttpContext context, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -215,6 +221,7 @@ public static class PollEndpoints
         return Results.Ok(ToDto(poll, context));
     }
 
+    /// <summary>Atomically replaces a user's vote set (self-only for web callers); a same-user race trips the unique index and returns 409.</summary>
     private static async Task<IResult> PutVotes(
         HttpContext context,
         GuildAccessService access,
@@ -292,6 +299,7 @@ public static class PollEndpoints
         return Results.Ok(ToDto(fresh!, context));
     }
 
+    /// <summary>Adds an option to an open poll (any member when AllowUserOptions, else creator/manager); time polls parse the text as a slot.</summary>
     private static async Task<IResult> AddOption(
         HttpContext context,
         GuildAccessService access,
@@ -371,6 +379,7 @@ public static class PollEndpoints
         return Results.Created($"/polls/{poll.Id}", ToDto(fresh!, context));
     }
 
+    /// <summary>Closes a poll; idempotent — closing a closed poll returns it unchanged.</summary>
     private static async Task<IResult> ClosePoll(
         HttpContext context,
         GuildAccessService access,
@@ -401,6 +410,7 @@ public static class PollEndpoints
         return Results.Ok(ToDto(poll, context));
     }
 
+    /// <summary>Converts a closed time poll's winning slot into an event posted to the poll's channel; ConvertedEventId makes it idempotent.</summary>
     private static async Task<IResult> ConvertPoll(
         HttpContext context,
         GuildAccessService access,
@@ -484,6 +494,7 @@ public static class PollEndpoints
         return Results.Created($"/events/{ev.Id}", ev.ToDto());
     }
 
+    /// <summary>Deletes a poll; web callers capture the embed ids into a delete delivery first.</summary>
     private static async Task<IResult> DeletePoll(
         HttpContext context,
         GuildAccessService access,
@@ -530,6 +541,7 @@ public static class PollEndpoints
             .First();
     }
 
+    /// <summary>Read guard: bot passes, members pass, others get 404 so poll ids cannot be probed.</summary>
     internal static async Task<IResult?> GuardPollReadAsync(
         HttpContext context, GuildAccessService access, Poll poll, CancellationToken cancellationToken)
     {
@@ -552,6 +564,7 @@ public static class PollEndpoints
         };
     }
 
+    /// <summary>Mutate guard: creator or manager; non-members get 404.</summary>
     internal static async Task<IResult?> GuardPollMutateAsync(
         HttpContext context, GuildAccessService access, Poll poll, CancellationToken cancellationToken)
     {
@@ -578,6 +591,7 @@ public static class PollEndpoints
         };
     }
 
+    /// <summary>Enqueues a poll-embed re-render for web-side changes, coalescing with an identical pending sync.</summary>
     private static async Task EnqueuePollSyncAsync(
         HttpContext context, CalCronyDbContext db, Poll poll, IClock clock, CancellationToken cancellationToken)
     {
@@ -601,6 +615,7 @@ public static class PollEndpoints
             DeliveryType.SyncPollMessage, poll.ChannelId, payloadJson, clock.GetCurrentInstant()));
     }
 
+    /// <summary>Builds a pending outbox row.</summary>
     private static Delivery NewDelivery(DeliveryType type, long channelId, string payloadJson, Instant now) => new()
     {
         Id = Guid.NewGuid(),
@@ -612,12 +627,14 @@ public static class PollEndpoints
         CreatedAt = now,
     };
 
+    /// <summary>Loads a poll with options and votes.</summary>
     private static Task<Poll?> LoadPollAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
         db.Polls
             .Include(p => p.Options)
             .Include(p => p.Votes)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
+    /// <summary>Projects the poll with anonymity shaping for the current caller.</summary>
     private static PollDto ToDto(Poll poll, HttpContext context) =>
         poll.ToDto(context.User.WebUserId(), context.User.IsBot());
 }

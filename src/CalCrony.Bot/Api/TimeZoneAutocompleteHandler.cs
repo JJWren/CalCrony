@@ -39,10 +39,12 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
 
     // Labels carry the CURRENT UTC offset, so the cache must refresh across DST transitions —
     // 12h keeps labels accurate without per-keystroke API calls.
+    /// <summary>Cached zone list plus its refresh deadline.</summary>
     private sealed record CacheEntry(IReadOnlyList<TimeZoneOptionDto> Options, DateTimeOffset Expires);
 
     private static volatile CacheEntry? cache;
 
+    /// <summary>Serves timezone suggestions from the TTL cache, fetching the list from the API when stale.</summary>
     public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
         IInteractionContext context,
         IAutocompleteInteraction autocompleteInteraction,

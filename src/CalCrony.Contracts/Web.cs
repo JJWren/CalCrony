@@ -8,6 +8,8 @@ public record WebSessionResponse(
     string Username,
     string? AvatarHash);
 
+/// <summary>A guild the signed-in web user shares with the bot; CanManage mirrors Discord ManageGuild.</summary>
 public record WebGuildDto(long Id, string Name, string? IconHash, bool CanManage);
 
+/// <summary>The user's bot-shared guilds from their latest membership snapshot.</summary>
 public record WebGuildListResponse(DateTimeOffset SnapshotAtUtc, IReadOnlyList<WebGuildDto> Guilds);

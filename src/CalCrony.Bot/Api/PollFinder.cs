@@ -2,6 +2,8 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Bot.Api;
 
+/// <summary>Resolves user-typed poll references (question fragments) to a single poll, with
+/// friendly ambiguity messages.</summary>
 public static class PollFinder
 {
     /// <summary>Finds exactly one poll whose question contains <paramref name="name"/>

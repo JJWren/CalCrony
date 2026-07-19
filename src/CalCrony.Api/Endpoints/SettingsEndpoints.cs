@@ -4,8 +4,10 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Guild and per-user settings endpoints.</summary>
 public static class SettingsEndpoints
 {
+    /// <summary>Maps settings routes.</summary>
     public static void MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/guilds/{guildId:long}/settings", GetGuildSettings);
@@ -14,6 +16,7 @@ public static class SettingsEndpoints
         app.MapPut("/users/{userId:long}/settings", PutUserSettings);
     }
 
+    /// <summary>Reads a guild's timezone and default channel.</summary>
     private static async Task<IResult> GetGuildSettings(
         HttpContext context, GuildAccessService access, long guildId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -26,6 +29,7 @@ public static class SettingsEndpoints
         return Results.Ok(new GuildSettingsDto(guild?.TimeZone ?? "UTC", guild?.DefaultChannelId));
     }
 
+    /// <summary>Updates guild settings (managers only for web callers); validates the timezone id.</summary>
     private static async Task<IResult> PutGuildSettings(
         HttpContext context,
         GuildAccessService access,
@@ -65,6 +69,7 @@ public static class SettingsEndpoints
         return Results.Ok(new GuildSettingsDto(guild.TimeZone, guild.DefaultChannelId));
     }
 
+    /// <summary>Reads a user's personal settings (self-only for web callers).</summary>
     private static async Task<IResult> GetUserSettings(
         HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -77,6 +82,7 @@ public static class SettingsEndpoints
         return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true));
     }
 
+    /// <summary>Updates a user's personal settings (self-only for web callers); validates the timezone id.</summary>
     private static async Task<IResult> PutUserSettings(
         HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
     {

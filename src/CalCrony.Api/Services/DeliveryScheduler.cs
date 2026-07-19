@@ -16,6 +16,7 @@ public sealed class DeliveryScheduler(
 {
     private const int DefaultEventLengthMinutes = 60;
 
+    /// <summary>Runs one sweep: matures notifications, transitions event statuses, materializes freed series slots, and auto-closes due polls.</summary>
     public async Task<int> SweepAsync(Instant now, CancellationToken cancellationToken)
     {
         var enqueued = 0;

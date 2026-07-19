@@ -22,6 +22,7 @@ public sealed class ApiKeyAuthenticationHandler(
     public const string ClientClaim = "client";
     public const string BotClientValue = "bot";
 
+    /// <summary>Validates the X-Api-Key header; absent header yields NoResult so the JWT scheme can try instead.</summary>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var rawKey = Request.Headers[HeaderName].ToString();
@@ -39,6 +40,7 @@ public sealed class ApiKeyAuthenticationHandler(
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName));
     }
 
+    /// <summary>Writes the 401 challenge unless another scheme's challenge already started the response.</summary>
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
     {
         // With a multi-scheme policy both schemes get challenged; only the first writes.

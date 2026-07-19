@@ -17,6 +17,7 @@ public static class AuthEndpoints
     private const int LoginStateExpiryMinutes = 10;
     public const string RefreshCookieName = "calcrony_refresh";
 
+    /// <summary>Discord OAuth web login: start/callback plus refresh-cookie rotation and logout.</summary>
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/auth").AllowAnonymous();
@@ -26,6 +27,7 @@ public static class AuthEndpoints
         group.MapPost("/logout", Logout);
     }
 
+    /// <summary>Begins the Discord OAuth dance: mints CSRF state and redirects to Discord consent.</summary>
     private static async Task<IResult> Start(
         CalCronyDbContext db,
         IDiscordAuthProvider discord,
@@ -64,6 +66,7 @@ public static class AuthEndpoints
         return Results.Redirect(discord.BuildAuthorizationUrl(RedirectUri(configuration), state.Token));
     }
 
+    /// <summary>Discord redirects here: validates state, exchanges the code, snapshots guild memberships, issues tokens, and bounces to the web app.</summary>
     private static async Task<IResult> Callback(
         HttpContext context,
         CalCronyDbContext db,
@@ -139,6 +142,7 @@ public static class AuthEndpoints
         return Results.Redirect($"{webOrigin}{loginState.ReturnUrl ?? "/app"}");
     }
 
+    /// <summary>Rotates the refresh cookie and issues a fresh access token; reuse of a consumed token revokes the session.</summary>
     private static async Task<IResult> Refresh(
         HttpContext context,
         CalCronyDbContext db,
@@ -170,6 +174,7 @@ public static class AuthEndpoints
             access.Value, access.ExpiresAt.ToDateTimeOffset(), consumed.UserId, username, profile?.AvatarHash));
     }
 
+    /// <summary>Revokes the presented refresh token and clears its cookie.</summary>
     private static async Task<IResult> Logout(
         HttpContext context,
         WebTokenService tokens,
@@ -185,19 +190,23 @@ public static class AuthEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>The OAuth redirect URI this API registered with Discord.</summary>
     private static string RedirectUri(IConfiguration configuration) =>
         $"{(configuration["Api:PublicBaseUrl"] ?? "").TrimEnd('/')}/auth/discord/callback";
 
+    /// <summary>Sets the HttpOnly refresh cookie (Path=/auth; SameSite=None only over HTTPS).</summary>
     private static void AppendRefreshCookie(HttpContext context, IssuedRefreshToken refresh)
     {
         context.Response.Cookies.Append(RefreshCookieName, refresh.Raw, BuildCookieOptions(context, refresh.ExpiresAt.ToDateTimeOffset()));
     }
 
+    /// <summary>Expires the refresh cookie.</summary>
     private static void ClearRefreshCookie(HttpContext context)
     {
         context.Response.Cookies.Delete(RefreshCookieName, BuildCookieOptions(context, null));
     }
 
+    /// <summary>Cookie flags shared by append and clear so they always match.</summary>
     private static CookieOptions BuildCookieOptions(HttpContext context, DateTimeOffset? expires)
     {
         var isHttps = context.Request.IsHttps;

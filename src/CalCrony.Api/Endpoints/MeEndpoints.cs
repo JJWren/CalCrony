@@ -9,11 +9,13 @@ namespace CalCrony.Api.Endpoints;
 /// silent-refresh-on-401 handler (which skips /auth/*) applies to them.</summary>
 public static class MeEndpoints
 {
+    /// <summary>Maps the signed-in user's own-data routes.</summary>
     public static void MapMeEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/me/guilds", GetGuilds).RequireAuthorization("UserOnly");
     }
 
+    /// <summary>Lists the caller's guilds intersected with bot-present guilds, from their login snapshot.</summary>
     private static async Task<IResult> GetGuilds(
         HttpContext context, CalCronyDbContext db, CancellationToken cancellationToken)
     {

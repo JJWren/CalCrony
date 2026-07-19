@@ -8,8 +8,10 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>Event CRUD, RSVPs, datetime tooling, and the shared guild/event guards other endpoint groups reuse.</summary>
 public static class EventEndpoints
 {
+    /// <summary>Maps event, RSVP, and datetime-tool routes.</summary>
     public static void MapEventEndpoints(this IEndpointRouteBuilder app)
     {
         // Phase B: web (JWT) callers get bot-parity mutations — member to create, creator or
@@ -175,6 +177,7 @@ public static class EventEndpoints
         });
     }
 
+    /// <summary>Creates an event (and its series when a recurrence rule is supplied); web callers get identity and channel forced server-side.</summary>
     private static async Task<IResult> CreateEvent(
         HttpContext context,
         GuildAccessService access,
@@ -324,6 +327,7 @@ public static class EventEndpoints
         return Results.Created($"/events/{ev.Id}", ev.ToDto());
     }
 
+    /// <summary>Lists a guild's events ascending; includePast widens the window to the last 30 days.</summary>
     private static async Task<IResult> ListEvents(
         HttpContext context,
         GuildAccessService access,
@@ -363,6 +367,7 @@ public static class EventEndpoints
         return Results.Ok(events.Select(e => e.ToDto()));
     }
 
+    /// <summary>Fetches one event (non-members get 404, not 403 — ids must not be probeable).</summary>
     private static async Task<IResult> GetEvent(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -380,6 +385,7 @@ public static class EventEndpoints
         return Results.Ok(ev.ToDto());
     }
 
+    /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs template + re-anchor).</summary>
     private static async Task<IResult> UpdateEvent(
         HttpContext context,
         GuildAccessService access,
@@ -459,6 +465,7 @@ public static class EventEndpoints
         return Results.Ok(ev.ToDto());
     }
 
+    /// <summary>Deletes an event; deleting a live series occurrence stops its series (skip is the just-this-one verb).</summary>
     private static async Task<IResult> DeleteEvent(
         HttpContext context,
         GuildAccessService access,
@@ -507,6 +514,7 @@ public static class EventEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Records where the bot posted the event's embed (BotOnly).</summary>
     private static async Task<IResult> SetMessage(
         Guid id, SetEventMessageRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -522,6 +530,7 @@ public static class EventEndpoints
         return Results.Ok(ev.ToDto());
     }
 
+    /// <summary>Sets a user's RSVP (self-only for web callers) and syncs the embed for web-side changes.</summary>
     private static async Task<IResult> PutRsvp(
         HttpContext context,
         GuildAccessService access,
@@ -588,6 +597,7 @@ public static class EventEndpoints
         return Results.Ok(ev.ToDto());
     }
 
+    /// <summary>Clears a user's RSVP (self-only for web callers).</summary>
     private static async Task<IResult> DeleteRsvp(
         HttpContext context,
         GuildAccessService access,
@@ -625,6 +635,7 @@ public static class EventEndpoints
         return Results.Ok(ev.ToDto());
     }
 
+    /// <summary>Parses natural-language datetime text: explicit TimeZone override, else user zone, else guild zone, else UTC.</summary>
     private static async Task<IResult> ParseDateTime(
         HttpContext context,
         GuildAccessService access,
@@ -679,6 +690,7 @@ public static class EventEndpoints
         return Results.Ok(new ParseDateTimeResponse(utc, utc.ToUnixTimeSeconds(), zone.Id));
     }
 
+    /// <summary>Loads an event with options, RSVPs, and series for DTO mapping.</summary>
     private static Task<Event?> LoadEventAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
         db.Events
             .Include(e => e.Options)
@@ -686,6 +698,7 @@ public static class EventEndpoints
             .Include(e => e.Series)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
+    /// <summary>Fetches or lazily creates the guild row (guilds appear on first use).</summary>
     internal static async Task<Guild> GetOrCreateGuildAsync(
         CalCronyDbContext db, long guildId, CancellationToken cancellationToken)
     {
@@ -699,6 +712,7 @@ public static class EventEndpoints
         return guild;
     }
 
+    /// <summary>The zone events parse in: user's personal zone, else the guild's, else UTC.</summary>
     internal static async Task<DateTimeZone> ResolveZoneAsync(
         CalCronyDbContext db, long userId, Guild guild, CancellationToken cancellationToken)
     {

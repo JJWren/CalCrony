@@ -1,5 +1,6 @@
 namespace CalCrony.Contracts;
 
+/// <summary>Poll lifecycle: open for voting or closed (manually, by deadline, or before conversion).</summary>
 public enum PollStatus
 {
     Open = 0,
@@ -20,12 +21,14 @@ public record CreatePollRequest(
     bool AllowUserOptions = false,
     string? ClosesText = null);
 
+/// <summary>One poll choice; SlotAtUtc is set for time polls, AddedByUserId for voter-added options.</summary>
 public record PollOptionDto(
     Guid Id, string Text, DateTimeOffset? SlotAtUtc, long? AddedByUserId, int SortOrder, int VoteCount)
 {
     public long? SlotAtUnix => SlotAtUtc?.ToUnixTimeSeconds();
 }
 
+/// <summary>One user's vote for one option (multi-vote polls have several rows per user).</summary>
 public record PollVoteDto(long UserId, Guid OptionId);
 
 /// <summary>For anonymous polls, web callers receive only their own rows in Votes (counts stay
@@ -57,8 +60,11 @@ public record PollDto(
 /// <summary>Atomic set-replacement of one user's votes; empty clears them.</summary>
 public record PutPollVotesRequest(IReadOnlyList<Guid> OptionIds);
 
+/// <summary>Voter-added option; Text is a natural-language datetime for time polls.</summary>
 public record AddPollOptionRequest(long UserId, string Text);
 
+/// <summary>Converts a closed time poll's winning slot into an event (title defaults to the question, truncated).</summary>
 public record ConvertPollRequest(long UserId, string? Title = null, int? DurationMinutes = null);
 
+/// <summary>Records where the bot posted a poll's embed (bot-only).</summary>
 public record SetPollMessageRequest(long ChannelId, long MessageId);

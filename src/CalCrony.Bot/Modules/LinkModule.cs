@@ -4,9 +4,11 @@ using Microsoft.Extensions.Configuration;
 
 namespace CalCrony.Bot.Modules;
 
+/// <summary>/link — the server's ICS subscribe URL.</summary>
 [RequireContext(ContextType.Guild)]
 public class LinkModule(CalCronyApiClient api, IConfiguration configuration) : InteractionModuleBase<SocketInteractionContext>
 {
+    /// <summary>Replies with the tokenized feed URL, minting the token on first use.</summary>
     [SlashCommand("link", "Get this server's calendar feed URL (importable into Google/Apple/Outlook)")]
     public async Task LinkAsync()
     {

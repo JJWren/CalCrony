@@ -3,8 +3,10 @@ using System.Text.Json;
 
 namespace CalCrony.Web.Auth;
 
+/// <summary>Minimal JWT payload reader for display claims — no signature validation (the API validates).</summary>
 public static class JwtParser
 {
+    /// <summary>Decodes the payload segment into claims.</summary>
     public static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
         var parts = jwt.Split('.');
@@ -44,6 +46,7 @@ public static class JwtParser
         }
     }
 
+    /// <summary>Base64url-decodes a JWT segment, restoring stripped padding.</summary>
     private static byte[] ParseBase64WithoutPadding(string base64)
     {
         var padded = base64.Replace('-', '+').Replace('_', '/');

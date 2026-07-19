@@ -11,6 +11,7 @@ public class Guild
     public long? DefaultChannelId { get; set; }
 }
 
+/// <summary>A Discord user's per-person preferences plus display fields captured at web login.</summary>
 public class UserProfile
 {
     public long Id { get; set; }
@@ -24,6 +25,7 @@ public class UserProfile
     public string? AvatarHash { get; set; }
 }
 
+/// <summary>A scheduled happening in a guild: one row per occurrence, linked to a series when recurring.</summary>
 public class Event
 {
     public Guid Id { get; set; }
@@ -116,6 +118,7 @@ public class SeriesNotification
     public long? ChannelId { get; set; }
 }
 
+/// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 public class RsvpOption
 {
     public Guid Id { get; set; }
@@ -126,6 +129,7 @@ public class RsvpOption
     public int? Capacity { get; set; }
 }
 
+/// <summary>A user's RSVP to one event (unique per user per event).</summary>
 public class Rsvp
 {
     public Guid Id { get; set; }
@@ -135,6 +139,7 @@ public class Rsvp
     public Instant CreatedAt { get; set; }
 }
 
+/// <summary>A poll: standard (free-text options) or time poll (options are candidate slots).</summary>
 public class Poll
 {
     public Guid Id { get; set; }
@@ -162,6 +167,7 @@ public class Poll
     public List<PollVote> Votes { get; set; } = [];
 }
 
+/// <summary>One poll choice; SlotAt set for time polls, AddedByUserId for voter-added options.</summary>
 public class PollOption
 {
     public Guid Id { get; set; }
@@ -208,6 +214,7 @@ public class EventNotification
     public Guid? SeriesNotificationId { get; set; }
 }
 
+/// <summary>Outbox row lifecycle: pending until the bot acks, failed after repeated attempts.</summary>
 public enum DeliveryStatus
 {
     Pending = 0,

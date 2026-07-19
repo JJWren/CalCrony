@@ -26,8 +26,10 @@ public interface ICalendarProvider
     Task RevokeAsync(string token, CancellationToken cancellationToken);
 }
 
+/// <summary>Tokens returned by a successful code exchange.</summary>
 public sealed record CalendarTokenResult(string AccessToken, string RefreshToken, Instant ExpiresAt);
 
+/// <summary>How a token refresh ended: usable tokens, the user must relink, or a transient error.</summary>
 public enum CalendarTokenRefreshOutcome
 {
     Success,
@@ -35,31 +37,39 @@ public enum CalendarTokenRefreshOutcome
     Error,
 }
 
+/// <summary>Refresh outcome with new tokens on success or a reason otherwise.</summary>
 public sealed record CalendarTokenRefreshResult(
     CalendarTokenRefreshOutcome Outcome, string? AccessToken, Instant ExpiresAt, string? ErrorMessage)
 {
+    /// <summary>Successful refresh carrying the new access token.</summary>
     public static CalendarTokenRefreshResult Success(string accessToken, Instant expiresAt) =>
         new(CalendarTokenRefreshOutcome.Success, accessToken, expiresAt, null);
 
+    /// <summary>The stored grant is dead — the user must relink their calendar.</summary>
     public static CalendarTokenRefreshResult ReconnectRequired(string message) =>
         new(CalendarTokenRefreshOutcome.ReconnectRequired, null, default, message);
 
+    /// <summary>Transient refresh failure; the stored connection stays.</summary>
     public static CalendarTokenRefreshResult Error(string message) =>
         new(CalendarTokenRefreshOutcome.Error, null, default, message);
 }
 
+/// <summary>How a free/busy query ended.</summary>
 public enum CalendarFreeBusyOutcome
 {
     Success,
     Error,
 }
 
+/// <summary>Free/busy outcome: busy intervals on success, a reason otherwise.</summary>
 public sealed record CalendarFreeBusyResult(
     CalendarFreeBusyOutcome Outcome, IReadOnlyList<(Instant Start, Instant End)> BusyBlocks, string? ErrorMessage)
 {
+    /// <summary>Successful query with the busy intervals.</summary>
     public static CalendarFreeBusyResult Success(IReadOnlyList<(Instant Start, Instant End)> busyBlocks) =>
         new(CalendarFreeBusyOutcome.Success, busyBlocks, null);
 
+    /// <summary>Failed query with the provider's reason.</summary>
     public static CalendarFreeBusyResult Error(string message) =>
         new(CalendarFreeBusyOutcome.Error, [], message);
 }

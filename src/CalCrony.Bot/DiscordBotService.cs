@@ -4,6 +4,7 @@ using Discord.WebSocket;
 
 namespace CalCrony.Bot;
 
+/// <summary>Hosts the Discord client: login, slash-command registration, and interaction dispatch.</summary>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
@@ -11,6 +12,7 @@ public sealed class DiscordBotService(
     IConfiguration configuration,
     ILogger<DiscordBotService> logger) : IHostedService
 {
+    /// <summary>Wires events, loads interaction modules, and logs the bot in.</summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         client.Log += OnLogAsync;
@@ -31,12 +33,14 @@ public sealed class DiscordBotService(
         await client.StartAsync();
     }
 
+    /// <summary>Logs the bot out and disconnects.</summary>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await client.StopAsync();
         await client.LogoutAsync();
     }
 
+    /// <summary>Registers slash commands (to the test guild when configured, else globally).</summary>
     private async Task OnReadyAsync()
     {
         // Guild-scoped registration is instant; global registration can take up to an hour.
@@ -53,6 +57,7 @@ public sealed class DiscordBotService(
         }
     }
 
+    /// <summary>Routes every interaction (commands, components, modals, autocomplete) through the interaction service.</summary>
     private async Task OnInteractionAsync(SocketInteraction interaction)
     {
         var context = new SocketInteractionContext(client, interaction);
@@ -63,6 +68,7 @@ public sealed class DiscordBotService(
         }
     }
 
+    /// <summary>Bridges Discord.Net logs into the host logger.</summary>
     private Task OnLogAsync(LogMessage message)
     {
         logger.Log(message.Severity switch

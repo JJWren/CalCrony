@@ -9,8 +9,10 @@ using NodaTime;
 
 namespace CalCrony.Api.Auth;
 
+/// <summary>A freshly signed access token and its expiry.</summary>
 public sealed record IssuedAccessToken(string Value, Instant ExpiresAt);
 
+/// <summary>A freshly minted refresh token; Raw goes into the HttpOnly cookie, only its hash is stored.</summary>
 public sealed record IssuedRefreshToken(string Raw, Instant ExpiresAt);
 
 /// <summary>
@@ -29,6 +31,7 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
     public const string NameClaim = "name";
     public const string AvatarClaim = "avatar";
 
+    /// <summary>Issues a short-lived HS256 access token carrying the Discord id and display claims.</summary>
     public IssuedAccessToken IssueAccessToken(long userId, string username, string? avatarHash)
     {
         var expiresAt = clock.GetCurrentInstant() + Duration.FromMinutes(AccessTokenMinutes);
@@ -54,6 +57,7 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
         return new IssuedAccessToken(new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 
+    /// <summary>Mints and stores a refresh token (hash only), pruning the user's expired rows.</summary>
     public async Task<IssuedRefreshToken> IssueRefreshTokenAsync(long userId, CancellationToken cancellationToken)
     {
         var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
@@ -90,6 +94,7 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
             : await db.WebRefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
     }
 
+    /// <summary>The symmetric signing key from configuration — shared by issue and validation paths.</summary>
     public static SymmetricSecurityKey SigningKey(IConfiguration configuration)
     {
         var key = configuration["Auth:Jwt:SigningKey"];
@@ -102,6 +107,7 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
         return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
     }
 
+    /// <summary>SHA-256 hex digest — refresh tokens are stored hashed, like API keys.</summary>
     private static string Hash(string raw) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 }

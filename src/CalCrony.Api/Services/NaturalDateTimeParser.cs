@@ -43,6 +43,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         ["HST"] = "Pacific/Honolulu",
     };
 
+    /// <summary>Matches supported zone-abbreviation tokens on word boundaries.</summary>
     [GeneratedRegex(@"\b(UTC|GMT|AKST|AKDT|EST|EDT|CST|CDT|MST|MDT|PST|PDT|HST|ET|CT|MT|PT)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex ZoneAbbreviationRegex();
@@ -52,6 +53,10 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
 
     // Named TryResolve (not TryParse) deliberately: ASP.NET minimal APIs treat any type
     // with a TryParse method as a bindable route/query primitive, which breaks DI injection.
+    /// <summary>Resolves text to the nearest future instant in the given zone (or the zone a
+    /// contained abbreviation selects). False with a user-facing error on unparseable or
+    /// past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse types
+    /// as bindable primitives, which breaks DI injection.</summary>
     public bool TryResolve(string text, DateTimeZone zone, out Instant result, out string? error)
     {
         result = default;
@@ -108,6 +113,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         return true;
     }
 
+    /// <summary>Turns one recognizer resolution into candidate instants (range starts, 9:00 for bare dates, today+tomorrow for bare times).</summary>
     private static IEnumerable<Instant> ResolveValue(
         Dictionary<string, string> value, DateTimeZone zone, LocalDate today)
     {

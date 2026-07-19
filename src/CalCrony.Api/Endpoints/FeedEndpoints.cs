@@ -10,8 +10,10 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
+/// <summary>ICS calendar feed: per-guild tokenized subscribe URLs (the token is the credential — the feed route is anonymous).</summary>
 public static class FeedEndpoints
 {
+    /// <summary>Maps feed-token and feed routes.</summary>
     public static void MapFeedEndpoints(this IEndpointRouteBuilder app)
     {
         // Authenticated (bot, or a web member of the guild): mints/returns the guild's feed token.
@@ -21,6 +23,7 @@ public static class FeedEndpoints
         app.MapGet("/feeds/{token}.ics", GetFeed).AllowAnonymous();
     }
 
+    /// <summary>Returns the guild's feed token, minting one on first use.</summary>
     private static async Task<IResult> GetOrCreateToken(
         HttpContext context, GuildAccessService access, long guildId, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
@@ -48,6 +51,7 @@ public static class FeedEndpoints
         return Results.Ok(new FeedTokenDto(existing.Token, $"/feeds/{existing.Token}.ics"));
     }
 
+    /// <summary>Serves the iCalendar document: the last 30 days plus upcoming, excluding cancelled occurrences.</summary>
     private static async Task<IResult> GetFeed(
         string token, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
