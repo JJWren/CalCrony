@@ -6,10 +6,125 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+public enum SeriesEndsChoice
+{
+    [ChoiceDisplay("never")] Never,
+    [ChoiceDisplay("on a date")] Until,
+    [ChoiceDisplay("after a number of times")] Count,
+}
+
 [RequireContext(ContextType.Guild)]
 [Group("series", "Manage repeating events")]
 public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
+    [SlashCommand("edit", "Change how a repeating event repeats or ends (can revive an ended series)")]
+    public async Task EditAsync(
+        [Summary("name", "Event title (or part of it)")] string name,
+        [Summary("repeat", "New repeat rule")] RepeatChoice? repeat = null,
+        [Summary("repeat-every", "New interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int? repeatEvery = null,
+        [Summary("ends", "How the series ends — or just pass until/count directly")] SeriesEndsChoice? ends = null,
+        [Summary("until", "Last date it repeats, e.g. \"Aug 30\" (implies ends: on a date)")] string? until = null,
+        [Summary("count", "Total occurrences including past ones (2-500)"), MinValue(2), MaxValue(500)] int? count = null)
+    {
+        await DeferAsync(ephemeral: true);
+
+        // includePast so a fully-ended series (all occurrences in the past) is still reachable.
+        var (ev, problem) = await EventFinder.FindSingleAsync(api, (long)Context.Guild.Id, name, includePast: true);
+        if (ev is null)
+        {
+            await FollowupAsync(problem!, ephemeral: true);
+            return;
+        }
+
+        if (ev.SeriesId is not Guid seriesId)
+        {
+            await FollowupAsync($"**{ev.Title}** doesn't repeat.", ephemeral: true);
+            return;
+        }
+
+        if (!CanManage(ev))
+        {
+            await FollowupAsync("Only the event creator or a server manager can change this event.", ephemeral: true);
+            return;
+        }
+
+        if (until is not null && count is not null)
+        {
+            await FollowupAsync("Choose either an end date or a number of times, not both.", ephemeral: true);
+            return;
+        }
+
+        if (ends == SeriesEndsChoice.Until && until is null)
+        {
+            await FollowupAsync("Pass `until` with the date the series should stop repeating.", ephemeral: true);
+            return;
+        }
+
+        if (ends == SeriesEndsChoice.Count && count is null)
+        {
+            await FollowupAsync("Pass `count` with how many times the series should run in total.", ephemeral: true);
+            return;
+        }
+
+        var seriesResult = await api.GetSeriesAsync(seriesId);
+        if (!seriesResult.Success || seriesResult.Value is null)
+        {
+            await FollowupAsync($"❌ {seriesResult.Error}", ephemeral: true);
+            return;
+        }
+
+        var wasEnded = seriesResult.Value.Ended;
+        if (repeat is null && repeatEvery is null && ends is null && until is null && count is null && !wasEnded)
+        {
+            await FollowupAsync("Nothing to change — pass at least one option.", ephemeral: true);
+            return;
+        }
+
+        var (unit, mode) = repeat switch
+        {
+            RepeatChoice.Daily => ((RecurrenceUnit?)RecurrenceUnit.Day, (MonthlyMode?)MonthlyMode.DayOfMonth),
+            RepeatChoice.Weekly => (RecurrenceUnit.Week, MonthlyMode.DayOfMonth),
+            RepeatChoice.MonthlySameDate => (RecurrenceUnit.Month, MonthlyMode.DayOfMonth),
+            RepeatChoice.MonthlyNthWeekday => (RecurrenceUnit.Month, MonthlyMode.NthWeekday),
+            _ => (null, null),
+        };
+        var end = ends switch
+        {
+            SeriesEndsChoice.Never => SeriesEndChoice.Never,
+            SeriesEndsChoice.Until => SeriesEndChoice.Until,
+            SeriesEndsChoice.Count => SeriesEndChoice.Count,
+            _ when until is not null => SeriesEndChoice.Until,
+            _ when count is not null => SeriesEndChoice.Count,
+            _ => SeriesEndChoice.Keep,
+        };
+
+        var result = await api.UpdateSeriesAsync(seriesId, new UpdateSeriesRequest(
+            unit, repeatEvery, mode, end, until, count));
+        if (!result.Success || result.Value is null)
+        {
+            await FollowupAsync($"❌ {result.Error}", ephemeral: true);
+            return;
+        }
+
+        var updated = result.Value;
+        if (updated.LiveEventId is Guid liveId)
+        {
+            var refreshed = await api.GetEventAsync(liveId);
+            if (refreshed.Success && refreshed.Value is not null)
+            {
+                await TryUpdateMessageAsync(refreshed.Value);
+            }
+        }
+
+        var resumedNote = (wasEnded, updated.LiveEventId) switch
+        {
+            (false, _) => "",
+            (true, not null) => " Series resumed — the scheduled occurrence continues it.",
+            (true, null) => " Series resumed — the next occurrence posts within ~15 seconds.",
+        };
+        await FollowupAsync($"🔁 **{updated.Title}** — {updated.Summary}.{resumedNote}", ephemeral: true);
+    }
+
     [SlashCommand("skip", "Skip the next occurrence of a repeating event")]
     public async Task SkipAsync(
         [Summary("name", "Event title (or part of it)")] string name)

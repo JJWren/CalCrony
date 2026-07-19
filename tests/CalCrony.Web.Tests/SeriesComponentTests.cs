@@ -111,6 +111,83 @@ public class SeriesComponentTests : TestContext
     }
 
     [Fact]
+    public void Detail_edit_schedule_prefills_and_sends_explicit_update()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var ev = SampleEvent(recurrenceSummary: "Repeats weekly on Friday");
+        var now = DateTimeOffset.UtcNow;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.StartsWith("/series/") =>
+                JsonSerializer.Serialize(SampleSeries(ev) with { Ended = false, MaxOccurrences = 8, OccurrenceCount = 3 }, JsonWeb),
+            var p when p.EndsWith("/availability") =>
+                JsonSerializer.Serialize(new AvailabilityResponse(now, now.AddHours(1), []), JsonWeb),
+            var p when p.EndsWith("/notifications") => "[]",
+            "/me/guilds" => JsonSerializer.Serialize(
+                new WebGuildListResponse(now, [new WebGuildDto(ev.GuildId, "G", null, true)]), JsonWeb),
+            _ => JsonSerializer.Serialize(ev, JsonWeb),
+        };
+
+        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        cut.WaitForAssertion(() => Assert.Contains("Edit schedule", cut.Markup));
+
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit schedule").Click();
+        cut.WaitForAssertion(() => cut.Find("#se-repeat"));
+
+        // Prefill: weekly, count mode with the stored count.
+        Assert.Equal("Weekly", cut.Find("#se-repeat").GetAttribute("value"));
+        Assert.True(cut.Find("#se-ends-count").HasAttribute("checked"));
+        Assert.Equal("8", cut.Find("#se-count").GetAttribute("value"));
+
+        cut.Find("#se-repeat").Change("MonthlyNthWeekday");
+        cut.Find("#se-ends-never").Change(true);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Save schedule")).Click();
+
+        Assert.Equal($"/series/{ev.SeriesId}", handler.PatchRequestPath);
+        var body = JsonSerializer.Deserialize<UpdateSeriesRequest>(handler.PatchBody!, JsonWeb)!;
+        Assert.Equal(RecurrenceUnit.Month, body.Unit);
+        Assert.Equal(MonthlyMode.NthWeekday, body.MonthlyMode);
+        Assert.Equal(SeriesEndChoice.Never, body.End);
+    }
+
+    [Fact]
+    public void Detail_ended_series_shows_resume_affordance_for_managers_only()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        // Ended series: SeriesId present, summary null; creator id 2 ≠ viewer, so access
+        // depends on the guild CanManage flag.
+        var ev = SampleEvent() with { SeriesId = Guid.NewGuid() };
+        var now = DateTimeOffset.UtcNow;
+        string Router(HttpRequestMessage req, bool canManage) => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/availability") =>
+                JsonSerializer.Serialize(new AvailabilityResponse(now, now.AddHours(1), []), JsonWeb),
+            var p when p.EndsWith("/notifications") => "[]",
+            "/me/guilds" => JsonSerializer.Serialize(
+                new WebGuildListResponse(now, [new WebGuildDto(ev.GuildId, "G", null, canManage)]), JsonWeb),
+            _ => JsonSerializer.Serialize(ev, JsonWeb),
+        };
+
+        handler.JsonFor = req => Router(req, canManage: true);
+        var manager = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        manager.WaitForAssertion(() =>
+        {
+            Assert.Contains("repeating series that has ended", manager.Markup);
+            Assert.Contains("Edit schedule &amp; resume", manager.Markup);
+        });
+
+        handler.JsonFor = req => Router(req, canManage: false);
+        var member = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        member.WaitForAssertion(() =>
+        {
+            Assert.Contains("repeating series that has ended", member.Markup);
+            Assert.DoesNotContain("resume", member.Markup);
+        });
+    }
+
+    [Fact]
     public void Event_card_shows_repeat_badge_only_for_series()
     {
         UseApi();
@@ -158,12 +235,18 @@ public class SeriesComponentTests : TestContext
         null, null, 2, true, null, null, 60, ev.ChannelId, null, null,
         "Repeats weekly on Friday", []);
 
-    /// <summary>Records the last request; answers with NextJson (one-shot per set) or JsonFor.</summary>
+    /// <summary>Records the last request; answers with NextJson (one-shot per set) or JsonFor.
+    /// PATCH requests are additionally captured separately so tests can assert them even when a
+    /// follow-up GET overwrites LastRequest.</summary>
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public HttpRequestMessage? LastRequest { get; private set; }
 
         public string? LastBody { get; private set; }
+
+        public string? PatchRequestPath { get; private set; }
+
+        public string? PatchBody { get; private set; }
 
         public string? NextJson { get; set; }
 
@@ -173,6 +256,12 @@ public class SeriesComponentTests : TestContext
         {
             LastRequest = request;
             LastBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
+            if (request.Method == HttpMethod.Patch)
+            {
+                PatchRequestPath = request.RequestUri!.AbsolutePath;
+                PatchBody = LastBody;
+            }
+
             var json = NextJson ?? JsonFor?.Invoke(request) ?? "{}";
             NextJson = null; // actually one-shot, so an unexpected extra request can't reuse it
             return new HttpResponseMessage(HttpStatusCode.OK)

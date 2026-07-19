@@ -61,3 +61,25 @@ public record SeriesDto(
 /// <summary>Result of skipping a series' live occurrence. NextEvent is null when the skip
 /// exhausted the series' end condition.</summary>
 public record SkipOccurrenceResponse(EventDto? NextEvent, SeriesDto Series);
+
+/// <summary>End-condition intent for a series edit. Keep leaves the current end condition
+/// untouched; the others replace it (Never clears both UntilDate and MaxOccurrences).</summary>
+public enum SeriesEndChoice
+{
+    Keep = 0,
+    Never = 1,
+    Until = 2,
+    Count = 3,
+}
+
+/// <summary>Schedule-rule edit for a series: null rule fields keep current values (note a Month
+/// unit without MonthlyMode keeps the stored mode). A successful update always leaves the series
+/// active — reviving an ended one — with at least one future occurrence; edits that would leave
+/// none are rejected. Never moves the live occurrence's start time.</summary>
+public record UpdateSeriesRequest(
+    RecurrenceUnit? Unit = null,
+    int? Interval = null,
+    MonthlyMode? MonthlyMode = null,
+    SeriesEndChoice End = SeriesEndChoice.Keep,
+    string? RepeatUntilText = null,
+    int? RepeatCount = null);
