@@ -39,6 +39,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
     /// <param name="repeatEvery">Repeat interval (every N units).</param>
     /// <param name="repeatUntil">Natural-language last repeat date.</param>
     /// <param name="repeatCount">Total occurrences including the first.</param>
+    /// <param name="template">Template name/fragment or picker id to start from.</param>
+    /// <param name="attendeeRole">Existing role granted to "Going" RSVPs, revoked at event end.</param>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -52,7 +54,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         [Summary("repeat-every", "Repeat interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
         [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
         [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
-        [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null)
+        [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null,
+        [Summary("attendee-role", "Existing role given to \"Going\" RSVPs (removed when the event ends)")] IRole? attendeeRole = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -60,6 +63,12 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         if (targetChannel is null)
         {
             await FollowupAsync("Events can only be created in text channels.", ephemeral: true);
+            return;
+        }
+
+        if (attendeeRole is not null && ValidateAttendeeRole(attendeeRole) is { } roleProblem)
+        {
+            await FollowupAsync(roleProblem, ephemeral: true);
             return;
         }
 
@@ -101,7 +110,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
                 (long)Context.User.Id, title, when, (long)targetChannel.Id,
                 description, duration, location, image,
                 recurrence, repeatUntil, repeatCount,
-                resolvedTemplate?.Id, NoRecurrence: repeat == RepeatChoice.None));
+                resolvedTemplate?.Id, NoRecurrence: repeat == RepeatChoice.None,
+                AttendeeRoleId: (long?)attendeeRole?.Id));
 
         if (!result.Success || result.Value is null)
         {
@@ -120,8 +130,9 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         }
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
+        var roleNote = ev.AttendeeRoleId is null ? "" : $" · 🏷️ Going grants <@&{ev.AttendeeRoleId}>";
         await FollowupAsync(
-            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}",
+            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}",
             ephemeral: true);
     }
 
@@ -208,6 +219,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
     /// <param name="location">Optional location text.</param>
     /// <param name="image">Optional image URL for the embed.</param>
     /// <param name="scope">Whether the change applies to this occurrence or the whole series.</param>
+    /// <param name="attendeeRole">Replacement attendee role; existing grants are re-synced.</param>
+    /// <param name="clearAttendeeRole">Removes the attendee role (existing grants are revoked).</param>
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -217,13 +230,22 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         [Summary("duration", "New duration in minutes")] int? duration = null,
         [Summary(description: "New location")] string? location = null,
         [Summary("image", "New image URL")] string? image = null,
-        [Summary("scope", "Repeating events: apply to this occurrence only or the whole series")] EditScopeChoice? scope = null)
+        [Summary("scope", "Repeating events: apply to this occurrence only or the whole series")] EditScopeChoice? scope = null,
+        [Summary("attendee-role", "New role given to \"Going\" RSVPs (existing grants move over)")] IRole? attendeeRole = null,
+        [Summary("clear-attendee-role", "Remove the attendee role (grants are removed too)")] bool clearAttendeeRole = false)
     {
         await DeferAsync(ephemeral: true);
 
-        if (title is null && when is null && description is null && duration is null && location is null && image is null)
+        if (title is null && when is null && description is null && duration is null && location is null
+            && image is null && attendeeRole is null && !clearAttendeeRole)
         {
             await FollowupAsync("Nothing to change — pass at least one field.", ephemeral: true);
+            return;
+        }
+
+        if (attendeeRole is not null && ValidateAttendeeRole(attendeeRole) is { } roleProblem)
+        {
+            await FollowupAsync(roleProblem, ephemeral: true);
             return;
         }
 
@@ -258,7 +280,9 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
                 EditScopeChoice.Occurrence => EditScope.Occurrence,
                 EditScopeChoice.Series => EditScope.Series,
                 _ => null,
-            }));
+            },
+            AttendeeRoleId: (long?)attendeeRole?.Id,
+            ClearAttendeeRole: clearAttendeeRole));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);
@@ -276,6 +300,18 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
     private bool CanManage(EventDto ev) =>
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
+
+    /// <summary>Friendly pre-check that the bot can actually assign the picked role — grants are
+    /// best-effort later, so a bad pick would otherwise fail silently.</summary>
+    /// <param name="role">The picked role.</param>
+    /// <returns>Null when assignable, else the refusal message.</returns>
+    private string? ValidateAttendeeRole(IRole role) => AttendeeRoleSpec.Validate(
+        role.Name,
+        Context.Guild.CurrentUser.GuildPermissions.ManageRoles,
+        Context.Guild.CurrentUser.Hierarchy,
+        role.Position,
+        role.Id == Context.Guild.Id,
+        role.IsManaged);
 
     private Task<(EventDto? Event, string? Problem)> FindSingleEventAsync(string name) =>
         EventFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);

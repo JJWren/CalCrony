@@ -29,7 +29,8 @@ public static class Mapping
         ev.SeriesId,
         // Summary requires the Series nav loaded; ended series read as one-offs (no 🔁).
         ev.Series is { Ended: false } series ? Services.RecurrenceCalculator.Describe(series) : null,
-        ev.NativeEventId);
+        ev.NativeEventId,
+        ev.AttendeeRoleId);
 
     /// <summary>Projects a series' schedule, template, progress, and notification specs.</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>

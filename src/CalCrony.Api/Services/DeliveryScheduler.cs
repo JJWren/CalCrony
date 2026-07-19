@@ -76,9 +76,12 @@ public sealed class DeliveryScheduler(
         }
 
         // Started → Ended once the duration (default 60 min) has elapsed; mirrored native events
-        // get a completion delivery (once per event, guarded by the status transition).
+        // get a completion delivery and attendee roles are revoked from every Going RSVP
+        // (each once per event, guarded by the status transition).
         var endedCutoffCandidates = await db.Events
             .Where(e => e.Status == EventStatus.Started)
+            .Include(e => e.Options)
+            .Include(e => e.Rsvps)
             .ToListAsync(cancellationToken);
         foreach (var ev in endedCutoffCandidates)
         {
@@ -95,6 +98,11 @@ public sealed class DeliveryScheduler(
                         now,
                         now));
                     enqueued++;
+                }
+
+                if (ev.AttendeeRoleId is long roleId)
+                {
+                    enqueued += AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
                 }
             }
         }

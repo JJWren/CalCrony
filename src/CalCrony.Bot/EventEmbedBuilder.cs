@@ -31,6 +31,11 @@ public static class EventEmbedBuilder
             description.AppendLine($"📍 {ev.Location}");
         }
 
+        if (ev.AttendeeRoleId is long roleId)
+        {
+            description.AppendLine($"🏷️ Going grants <@&{roleId}>");
+        }
+
         if (!string.IsNullOrWhiteSpace(ev.Description))
         {
             description.AppendLine().AppendLine(ev.Description);

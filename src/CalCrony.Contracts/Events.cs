@@ -29,6 +29,8 @@ public enum EventStatus
 /// gaps, and its notification specs are always copied onto the created event.</param>
 /// <param name="NoRecurrence">Explicitly suppresses a template's repeat rule (unset does not —
 /// a template rule applies when no explicit rule is sent). Conflicts with Recurrence.</param>
+/// <param name="AttendeeRoleId">Existing Discord role granted to "Going" RSVPs and revoked when
+/// the event ends. Bot callers only — the web can't enumerate roles, so it is ignored there.</param>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -42,7 +44,8 @@ public record CreateEventRequest(
     string? RepeatUntilText = null,
     int? RepeatCount = null,
     Guid? TemplateId = null,
-    bool NoRecurrence = false);
+    bool NoRecurrence = false,
+    long? AttendeeRoleId = null);
 
 /// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
 /// the live occurrence of a non-ended series and ignored otherwise.</summary>
@@ -55,6 +58,10 @@ public record CreateEventRequest(
 /// <param name="ImageUrl">Optional image URL.</param>
 /// <param name="Status">The lifecycle status.</param>
 /// <param name="Scope">Whether the change applies to this occurrence or the whole series.</param>
+/// <param name="AttendeeRoleId">Replaces the attendee role (bot callers only; existing grants are
+/// re-synced to the new role). Null leaves it unchanged — clear with ClearAttendeeRole.</param>
+/// <param name="ClearAttendeeRole">Removes the attendee role (existing grants are revoked).
+/// Conflicts with AttendeeRoleId.</param>
 public record UpdateEventRequest(
     long EditorId,
     string? Title = null,
@@ -64,7 +71,9 @@ public record UpdateEventRequest(
     string? Location = null,
     string? ImageUrl = null,
     EventStatus? Status = null,
-    EditScope? Scope = null);
+    EditScope? Scope = null,
+    long? AttendeeRoleId = null,
+    bool ClearAttendeeRole = false);
 
 /// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 /// <param name="Id">The unique id.</param>
@@ -97,6 +106,8 @@ public record RsvpDto(long UserId, Guid OptionId);
 /// <param name="Rsvps">The RSVP rows.</param>
 /// <param name="SeriesId">The series id.</param>
 /// <param name="RecurrenceSummary">Human-readable repeat rule; null for one-offs and ended series.</param>
+/// <param name="NativeEventId">The mirrored Discord scheduled-event id, when mirrored.</param>
+/// <param name="AttendeeRoleId">The Discord role granted to "Going" RSVPs, when set.</param>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -115,7 +126,8 @@ public record EventDto(
     IReadOnlyList<RsvpDto> Rsvps,
     Guid? SeriesId = null,
     string? RecurrenceSummary = null,
-    long? NativeEventId = null)
+    long? NativeEventId = null,
+    long? AttendeeRoleId = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();

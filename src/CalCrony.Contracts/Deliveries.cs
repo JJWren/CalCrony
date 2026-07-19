@@ -28,6 +28,13 @@ public enum DeliveryType
     /// <summary>Transition an event's mirrored Discord scheduled event to completed after the
     /// event ends (deletes it instead when it never went active).</summary>
     CompleteNativeEvent = 9,
+
+    /// <summary>Give a user the event's attendee role after they RSVP "Going".</summary>
+    GrantAttendeeRole = 10,
+
+    /// <summary>Remove the event's attendee role from a user (RSVP switched away, un-RSVPed,
+    /// or the event ended / was deleted / cancelled / re-roled).</summary>
+    RevokeAttendeeRole = 11,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -86,6 +93,15 @@ public record DeleteEventMessagePayload(
 /// <param name="GuildId">The Discord guild id.</param>
 /// <param name="NativeEventId">The mirrored scheduled-event id.</param>
 public record CompleteNativeEventPayload(Guid EventId, long GuildId, long NativeEventId);
+
+/// <summary>Payload granting or revoking an event attendee role. Self-contained so revokes survive
+/// event deletion, and shared by Grant/RevokeAttendeeRole so identical targets serialize
+/// identically — enqueue-time coalescing compares raw PayloadJson.</summary>
+/// <param name="EventId">The event id.</param>
+/// <param name="GuildId">The Discord guild id.</param>
+/// <param name="RoleId">The Discord role id.</param>
+/// <param name="UserId">The Discord user id.</param>
+public record AttendeeRolePayload(Guid EventId, long GuildId, long RoleId, long UserId);
 
 /// <summary>Payload asking the bot to re-render a poll's posted embed.</summary>
 /// <param name="PollId">The poll id.</param>
