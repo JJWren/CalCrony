@@ -6,11 +6,18 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/poll — create standard and time polls, close them, and convert time-poll winners.</summary>
+/// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("poll", "Create and manage polls")]
 public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Creates a standard poll from comma-separated options.</summary>
+    /// <param name="question">The poll question.</param>
+    /// <param name="options">Comma-separated option texts.</param>
+    /// <param name="singleVote">When true, each voter gets exactly one choice.</param>
+    /// <param name="anonymous">When true, embeds show counts without voter names.</param>
+    /// <param name="allowOptions">When true, voters may add options.</param>
+    /// <param name="closes">Optional natural-language close deadline.</param>
     [SlashCommand("create", "Create a poll")]
     public async Task CreateAsync(
         [Summary(description: "The question to ask")] string question,
@@ -24,6 +31,11 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     }
 
     /// <summary>Creates a time poll whose options are natural-language slots (always multi-vote).</summary>
+    /// <param name="question">The poll question.</param>
+    /// <param name="slots">Comma-separated natural-language time slots.</param>
+    /// <param name="anonymous">When true, embeds show counts without voter names.</param>
+    /// <param name="allowOptions">When true, voters may add options.</param>
+    /// <param name="closes">Optional natural-language close deadline.</param>
     [SlashCommand("time", "Create a time poll — vote for the best time")]
     public async Task TimeAsync(
         [Summary(description: "What are you scheduling?")] string question,
@@ -36,6 +48,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     }
 
     /// <summary>Closes an open poll by name (creator or manager) and re-renders its embed.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     [SlashCommand("close", "Close a poll and show the result")]
     public async Task CloseAsync([Summary("name", "Poll question (or part of it)")] string name)
     {
@@ -70,6 +83,9 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     }
 
     /// <summary>Converts a closed time poll's winner into an event (creator or manager).</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
+    /// <param name="title">The event title.</param>
+    /// <param name="duration">Duration in minutes.</param>
     [SlashCommand("convert", "Turn a closed time poll's winning time into an event")]
     public async Task ConvertAsync(
         [Summary("name", "Poll question (or part of it)")] string name,
@@ -117,6 +133,13 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     }
 
     /// <summary>Shared create flow: API call, embed post, message-id recording, ephemeral confirm.</summary>
+    /// <param name="question">The poll question.</param>
+    /// <param name="optionsCsv">Comma-separated option texts.</param>
+    /// <param name="isTimePoll">True when options are candidate time slots.</param>
+    /// <param name="singleVote">When true, each voter gets exactly one choice.</param>
+    /// <param name="anonymous">When true, embeds show counts without voter names.</param>
+    /// <param name="allowOptions">When true, voters may add options.</param>
+    /// <param name="closes">Optional natural-language close deadline.</param>
     private async Task CreateCoreAsync(
         string question, string optionsCsv, bool isTimePoll, bool singleVote, bool anonymous, bool allowOptions, string? closes)
     {
@@ -152,11 +175,14 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     }
 
     /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <returns>True for the creator or a ManageGuild holder.</returns>
     private bool CanManage(PollDto poll) =>
         (long)Context.User.Id == poll.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 
     /// <summary>Re-renders the posted poll embed in place; tolerates a manually deleted message.</summary>
+    /// <param name="poll">The poll.</param>
     private async Task TryUpdateMessageAsync(PollDto poll)
     {
         if (poll.MessageId is not long messageId)

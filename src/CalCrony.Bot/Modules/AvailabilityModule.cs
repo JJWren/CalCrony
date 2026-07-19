@@ -6,6 +6,7 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/availability — free/busy grids for a role's members or an event's Going list.</summary>
+/// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("availability", "Check group calendar availability")]
 public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
@@ -13,6 +14,9 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     private const int MaxUsersPerQuery = 50;
 
     /// <summary>Free/busy for everyone holding a role over an ad-hoc window.</summary>
+    /// <param name="role">The Discord role whose members are checked.</param>
+    /// <param name="when">Natural-language start time.</param>
+    /// <param name="duration">Duration in minutes.</param>
     [SlashCommand("role", "Check calendar availability for everyone with a role")]
     public async Task RoleAsync(
         [Summary("role", "The role to check")] IRole role,
@@ -56,6 +60,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     }
 
     /// <summary>Free/busy for an event's Going members over the event's own window.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     [SlashCommand("event", "Check calendar availability for everyone RSVP'd Going to an event")]
     public async Task EventAsync([Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
@@ -93,6 +98,10 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     }
 
     /// <summary>Runs the availability check and replies with the grid embed.</summary>
+    /// <param name="subject">Display name for the checked group.</param>
+    /// <param name="userIds">The Discord user ids to check.</param>
+    /// <param name="start">Window start (UTC).</param>
+    /// <param name="end">Window end (UTC).</param>
     private async Task RunAndReplyAsync(string subject, List<long> userIds, DateTimeOffset start, DateTimeOffset end)
     {
         var availability = await api.CheckAvailabilityAsync(new AvailabilityRequest(userIds, start, end));

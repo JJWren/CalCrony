@@ -17,9 +17,12 @@ public class AddPollOptionModal : IModal
 }
 
 /// <summary>Handles poll message components: vote buttons, the vote select, the add-option modal, and convert.</summary>
+/// <param name="api">The CalCrony API client.</param>
 public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Vote button: toggles the clicked option in the user's set (single-vote replaces/clears).</summary>
+    /// <param name="pollIdRaw">The poll id from the component custom id.</param>
+    /// <param name="optionIdRaw">The option id from the component custom id.</param>
     [ComponentInteraction("pollvote:*:*")]
     public async Task VoteButtonAsync(string pollIdRaw, string optionIdRaw)
     {
@@ -61,6 +64,8 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     }
 
     /// <summary>Vote select: submits the selection verbatim as the user's full vote set.</summary>
+    /// <param name="pollIdRaw">The poll id from the component custom id.</param>
+    /// <param name="selections">The submitted select-menu values.</param>
     [ComponentInteraction("pollselect:*")]
     public async Task VoteSelectAsync(string pollIdRaw, string[] selections)
     {
@@ -89,6 +94,7 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
 
     // No DeferAsync here: a modal must be the interaction's INITIAL response.
     /// <summary>➕ button: opens the add-option modal — must be the initial response, so no DeferAsync first.</summary>
+    /// <param name="pollIdRaw">The poll id from the component custom id.</param>
     [ComponentInteraction("polladd:*")]
     public async Task AddOptionButtonAsync(string pollIdRaw)
     {
@@ -96,6 +102,8 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     }
 
     /// <summary>Modal submit: adds the option via the API and re-renders the embed.</summary>
+    /// <param name="pollIdRaw">The poll id from the component custom id.</param>
+    /// <param name="modal">The submitted modal payload.</param>
     [ModalInteraction("polladdmodal:*")]
     public async Task AddOptionModalAsync(string pollIdRaw, AddPollOptionModal modal)
     {
@@ -119,6 +127,7 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     }
 
     /// <summary>Convert button: turns the closed time poll's winner into an event (creator or manager).</summary>
+    /// <param name="pollIdRaw">The poll id from the component custom id.</param>
     [ComponentInteraction("pollconvert:*")]
     public async Task ConvertButtonAsync(string pollIdRaw)
     {
@@ -164,6 +173,9 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     }
 
     /// <summary>Submits the vote set, re-renders the embed, and confirms ephemerally.</summary>
+    /// <param name="pollId">The poll id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="optionIds">The full vote set to store.</param>
     private async Task SubmitVotesAsync(Guid pollId, long userId, IReadOnlyList<Guid> optionIds)
     {
         var result = await api.PutPollVotesAsync(pollId, userId, new PutPollVotesRequest(optionIds));
@@ -189,6 +201,7 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     }
 
     /// <summary>Re-renders the poll message from the interaction's message or the recorded channel/message ids.</summary>
+    /// <param name="poll">The poll.</param>
     private async Task UpdatePollMessageAsync(PollDto poll)
     {
         // Component interactions carry their message; modal interactions may not — fall back

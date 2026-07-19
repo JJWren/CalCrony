@@ -11,6 +11,7 @@ public static class NotificationEndpoints
     private const int MaxPerEvent = 5;
 
     /// <summary>Maps notification routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapNotificationEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/events/{id:guid}/notifications", List);
@@ -19,6 +20,12 @@ public static class NotificationEndpoints
     }
 
     /// <summary>Lists an event's notifications, soonest-relative first.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> List(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -41,6 +48,13 @@ public static class NotificationEndpoints
     }
 
     /// <summary>Adds a notification; on a live series occurrence a Scope is required and Series also writes the template spec.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Create(
         HttpContext context,
         GuildAccessService access,
@@ -119,6 +133,14 @@ public static class NotificationEndpoints
     }
 
     /// <summary>Removes a notification; Series scope also retires the linked template spec.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="notificationId">The notification id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="scope">Whether the change applies to this occurrence or the whole series.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Delete(
         HttpContext context,
         GuildAccessService access,
@@ -167,6 +189,8 @@ public static class NotificationEndpoints
 
     /// <summary>The series that scoped-edit rules apply to: the event must be its live occurrence
     /// and the series must still be running.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>The governing series, or null when scoped-edit rules don't apply.</returns>
     private static EventSeries? SeriesForScopedEdit(Event ev) =>
         ev.Series is { Ended: false } series
         && ev.Status is EventStatus.Scheduled or EventStatus.Started
@@ -174,6 +198,8 @@ public static class NotificationEndpoints
             : null;
 
     /// <summary>Projects a notification row to its DTO.</summary>
+    /// <param name="n">The notification row.</param>
+    /// <returns>The projected DTO.</returns>
     private static EventNotificationDto ToDto(EventNotification n) =>
         new(n.Id, n.EventId, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId);
 }

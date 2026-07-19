@@ -14,8 +14,13 @@ public sealed class CalendarTokenProtector
     }
 
     /// <summary>Encrypts a provider token for storage.</summary>
+    /// <param name="plaintext">The value to encrypt.</param>
+    /// <returns>The encrypted value.</returns>
     public string Protect(string plaintext) => protector.Protect(plaintext);
 
     /// <summary>Decrypts a stored provider token.</summary>
+    /// <param name="ciphertext">The encrypted value.</param>
+    /// <returns>The decrypted value.</returns>
+    /// <exception cref="System.Security.Cryptography.CryptographicException">When the ciphertext was not produced by this key ring (e.g. the dpkeys volume was lost).</exception>
     public string Unprotect(string ciphertext) => protector.Unprotect(ciphertext);
 }

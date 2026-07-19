@@ -18,6 +18,7 @@ public static class AuthEndpoints
     public const string RefreshCookieName = "calcrony_refresh";
 
     /// <summary>Discord OAuth web login: start/callback plus refresh-cookie rotation and logout.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/auth").AllowAnonymous();
@@ -28,6 +29,13 @@ public static class AuthEndpoints
     }
 
     /// <summary>Begins the Discord OAuth dance: mints CSRF state and redirects to Discord consent.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="discord">The Discord OAuth provider.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="returnUrl">Where to land in the web app after login.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Start(
         CalCronyDbContext db,
         IDiscordAuthProvider discord,
@@ -67,6 +75,18 @@ public static class AuthEndpoints
     }
 
     /// <summary>Discord redirects here: validates state, exchanges the code, snapshots guild memberships, issues tokens, and bounces to the web app.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="discord">The Discord OAuth provider.</param>
+    /// <param name="tokens">The web token service.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="logger">The host logger.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="code">The authorization code from the provider callback.</param>
+    /// <param name="state">The CSRF state value.</param>
+    /// <param name="error">The user-facing error text.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Callback(
         HttpContext context,
         CalCronyDbContext db,
@@ -143,6 +163,11 @@ public static class AuthEndpoints
     }
 
     /// <summary>Rotates the refresh cookie and issues a fresh access token; reuse of a consumed token revokes the session.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="tokens">The web token service.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Refresh(
         HttpContext context,
         CalCronyDbContext db,
@@ -175,6 +200,10 @@ public static class AuthEndpoints
     }
 
     /// <summary>Revokes the presented refresh token and clears its cookie.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="tokens">The web token service.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Logout(
         HttpContext context,
         WebTokenService tokens,
@@ -191,22 +220,30 @@ public static class AuthEndpoints
     }
 
     /// <summary>The OAuth redirect URI this API registered with Discord.</summary>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The absolute callback URL.</returns>
     private static string RedirectUri(IConfiguration configuration) =>
         $"{(configuration["Api:PublicBaseUrl"] ?? "").TrimEnd('/')}/auth/discord/callback";
 
     /// <summary>Sets the HttpOnly refresh cookie (Path=/auth; SameSite=None only over HTTPS).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="refresh">The freshly minted refresh token.</param>
     private static void AppendRefreshCookie(HttpContext context, IssuedRefreshToken refresh)
     {
         context.Response.Cookies.Append(RefreshCookieName, refresh.Raw, BuildCookieOptions(context, refresh.ExpiresAt.ToDateTimeOffset()));
     }
 
     /// <summary>Expires the refresh cookie.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     private static void ClearRefreshCookie(HttpContext context)
     {
         context.Response.Cookies.Delete(RefreshCookieName, BuildCookieOptions(context, null));
     }
 
     /// <summary>Cookie flags shared by append and clear so they always match.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="expires">Cookie expiry, when persisting.</param>
+    /// <returns>The matching cookie options.</returns>
     private static CookieOptions BuildCookieOptions(HttpContext context, DateTimeOffset? expires)
     {
         var isHttps = context.Request.IsHttps;

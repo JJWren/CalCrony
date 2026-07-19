@@ -13,6 +13,7 @@ namespace CalCrony.Api.Services;
 /// zone abbreviation ("10am CST") overrides the caller zone. Always resolves to the nearest
 /// future occurrence; past-only results are rejected.
 /// </summary>
+/// <param name="clock">The time source.</param>
 public sealed partial class NaturalDateTimeParser(IClock clock)
 {
     private static readonly LocalDateTimePattern LocalPattern =
@@ -57,6 +58,11 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// contained abbreviation selects). False with a user-facing error on unparseable or
     /// past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse types
     /// as bindable primitives, which breaks DI injection.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <param name="zone">The IANA zone to resolve in.</param>
+    /// <param name="result">The per-user availability result.</param>
+    /// <param name="error">The user-facing error text.</param>
+    /// <returns>True when text resolved to a future instant.</returns>
     public bool TryResolve(string text, DateTimeZone zone, out Instant result, out string? error)
     {
         result = default;
@@ -114,6 +120,10 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     }
 
     /// <summary>Turns one recognizer resolution into candidate instants (range starts, 9:00 for bare dates, today+tomorrow for bare times).</summary>
+    /// <param name="value">One recognizer resolution value.</param>
+    /// <param name="zone">The IANA zone to resolve in.</param>
+    /// <param name="today">Today's local date in the target zone.</param>
+    /// <returns>Candidate instants for the resolution.</returns>
     private static IEnumerable<Instant> ResolveValue(
         Dictionary<string, string> value, DateTimeZone zone, LocalDate today)
     {

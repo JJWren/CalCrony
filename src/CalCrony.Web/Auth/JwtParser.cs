@@ -7,6 +7,9 @@ namespace CalCrony.Web.Auth;
 public static class JwtParser
 {
     /// <summary>Decodes the payload segment into claims.</summary>
+    /// <param name="jwt">The encoded JWT.</param>
+    /// <returns>The payload claims.</returns>
+    /// <exception cref="FormatException">When a segment is not valid base64url.</exception>
     public static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
         var parts = jwt.Split('.');
@@ -47,6 +50,9 @@ public static class JwtParser
     }
 
     /// <summary>Base64url-decodes a JWT segment, restoring stripped padding.</summary>
+    /// <param name="base64">The base64url-encoded segment.</param>
+    /// <returns>The decoded bytes.</returns>
+    /// <exception cref="FormatException">When the input is not valid base64url.</exception>
     private static byte[] ParseBase64WithoutPadding(string base64)
     {
         var padded = base64.Replace('-', '+').Replace('_', '/');

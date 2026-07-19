@@ -12,6 +12,7 @@ namespace CalCrony.Api.Endpoints;
 public static class SeriesEndpoints
 {
     /// <summary>Maps series routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapSeriesEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/series/{id:guid}", GetSeries);
@@ -23,6 +24,12 @@ public static class SeriesEndpoints
     private const string ManageMessage = "Only the series creator or a server manager can change this series.";
 
     /// <summary>Fetches a series with its live occurrence id (non-members get 404).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The series id (event id for skip).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetSeries(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -44,6 +51,15 @@ public static class SeriesEndpoints
     /// success always leaves the series running with a computable future occurrence, which makes
     /// reviving an ended series (incl. via an empty PATCH) the same code path as any other edit.
     /// Never touches Event rows — the live occurrence's start time can't move here.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The series id (event id for skip).</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> UpdateSeries(
         HttpContext context,
         GuildAccessService access,
@@ -171,6 +187,13 @@ public static class SeriesEndpoints
     }
 
     /// <summary>Stops the series from spawning future occurrences; idempotent, and the scheduled occurrence survives as the final one.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The series id (event id for skip).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> StopSeries(
         HttpContext context,
         GuildAccessService access,
@@ -214,6 +237,14 @@ public static class SeriesEndpoints
     }
 
     /// <summary>Cancels the live occurrence, removes its embed via the outbox, and materializes the next occurrence in the same save.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The series id (event id for skip).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="materializer">The series occurrence materializer.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> SkipOccurrence(
         HttpContext context,
         GuildAccessService access,
@@ -284,6 +315,11 @@ public static class SeriesEndpoints
 
     /// <summary>Series-read guard: non-members get 404 so series ids can't be probed (mirrors
     /// GuardEventReadAsync).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="series">The series row (with notification specs loaded).</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult?> GuardSeriesReadAsync(
         HttpContext context, GuildAccessService access, EventSeries series, CancellationToken cancellationToken)
     {
@@ -307,12 +343,20 @@ public static class SeriesEndpoints
     }
 
     /// <summary>Loads a series with its notification specs.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="id">The series id (event id for skip).</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The series with notification specs, or null.</returns>
     private static Task<EventSeries?> LoadSeriesAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
         db.EventSeries
             .Include(s => s.NotificationSpecs)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
     /// <summary>The series' live (Scheduled/Started) occurrence id, if one exists.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="seriesId">The series id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The live occurrence id, or null when the slot is free.</returns>
     private static async Task<Guid?> LiveEventIdAsync(CalCronyDbContext db, Guid seriesId, CancellationToken cancellationToken)
     {
         var live = await db.Events

@@ -26,11 +26,18 @@ public enum SeriesRepeatChoice
 }
 
 /// <summary>/series — manage repeating events: edit the rule, skip, stop, and inspect.</summary>
+/// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("series", "Manage repeating events")]
 public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Edits a series' rule or end condition; can revive an ended series or stop it via "doesn't repeat".</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
+    /// <param name="repeat">Repeat-rule choice; null keeps/omits recurrence.</param>
+    /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    /// <param name="ends">End-condition choice.</param>
+    /// <param name="until">Natural-language last repeat date.</param>
+    /// <param name="count">Total occurrences including past ones.</param>
     [SlashCommand("edit", "Change how a repeating event repeats or ends (can revive an ended series)")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -186,6 +193,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
     }
 
     /// <summary>Cancels the next occurrence and immediately schedules the following one.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     [SlashCommand("skip", "Skip the next occurrence of a repeating event")]
     public async Task SkipAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -226,6 +234,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
     }
 
     /// <summary>Stops the series; the upcoming occurrence still happens.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     [SlashCommand("stop", "Stop a repeating event from creating future occurrences")]
     public async Task StopAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -271,6 +280,7 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
     }
 
     /// <summary>Shows the series' schedule, progress, and next (or final) occurrence.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     [SlashCommand("info", "Show a repeating event's schedule and progress")]
     public async Task InfoAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -336,11 +346,14 @@ public class SeriesModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
     }
 
     /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>True for the creator or a ManageGuild holder.</returns>
     private bool CanManage(EventDto ev) =>
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 
     /// <summary>Re-renders the posted embed in place; tolerates a manually deleted message.</summary>
+    /// <param name="ev">The event.</param>
     private async Task TryUpdateMessageAsync(EventDto ev)
     {
         if (ev.MessageId is not long messageId)

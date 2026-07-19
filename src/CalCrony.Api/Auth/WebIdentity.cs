@@ -7,10 +7,14 @@ namespace CalCrony.Api.Auth;
 public static class WebIdentity
 {
     /// <summary>True for the bot: full-trust ApiKey callers carry the client=bot claim.</summary>
+    /// <param name="principal">The authenticated principal.</param>
+    /// <returns>True for full-trust ApiKey (bot) callers.</returns>
     public static bool IsBot(this ClaimsPrincipal principal) =>
         principal.HasClaim(ApiKeyAuthenticationHandler.ClientClaim, ApiKeyAuthenticationHandler.BotClientValue);
 
     /// <summary>The Discord user id of a JWT web caller; null for the bot or anonymous.</summary>
+    /// <param name="principal">The authenticated principal.</param>
+    /// <returns>The Discord id from the JWT subject, or null for the bot.</returns>
     public static long? WebUserId(this ClaimsPrincipal principal)
     {
         var sub = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);

@@ -8,6 +8,8 @@ namespace CalCrony.Web.Auth;
 
 /// <summary>Attaches the bearer token to API calls and performs one serialized silent
 /// refresh + retry on 401. Ported from FairShare.Web.</summary>
+/// <param name="tokenStore">The in-memory access-token store.</param>
+/// <param name="authStateProvider">The auth-state notifier.</param>
 public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationStateProvider authStateProvider)
     : DelegatingHandler
 {
@@ -16,6 +18,9 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
     private static readonly SemaphoreSlim RefreshLock = new(1, 1);
 
     /// <summary>Attaches the bearer token to outgoing API calls and transparently refreshes-and-retries once on a 401.</summary>
+    /// <param name="request">The request body.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The (possibly retried) API response.</returns>
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var accessToken = await tokenStore.GetAccessTokenAsync();
@@ -55,6 +60,10 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
     }
 
     /// <summary>Exchanges the HttpOnly refresh cookie for a new access token, deduplicating concurrent refreshes.</summary>
+    /// <param name="refreshUri">The absolute refresh endpoint.</param>
+    /// <param name="failedToken">The token that just got a 401, to avoid re-sending it.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The new access token, or null when the session is gone.</returns>
     private async Task<string?> RefreshAccessTokenAsync(Uri refreshUri, string? failedToken, CancellationToken cancellationToken)
     {
         await RefreshLock.WaitAsync(cancellationToken);
@@ -97,6 +106,8 @@ public sealed class AuthTokenHandler(ITokenStore tokenStore, JwtAuthenticationSt
     }
 
     /// <summary>Clones a request (headers + buffered content) so it can be resent after a refresh.</summary>
+    /// <param name="original">The request to clone.</param>
+    /// <returns>The resendable clone.</returns>
     private static async Task<HttpRequestMessage> CloneRequestAsync(HttpRequestMessage original)
     {
         var clone = new HttpRequestMessage(original.Method, original.RequestUri)

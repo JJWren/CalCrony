@@ -27,6 +27,9 @@ public interface ICalendarProvider
 }
 
 /// <summary>Tokens returned by a successful code exchange.</summary>
+/// <param name="AccessToken">The provider access token.</param>
+/// <param name="RefreshToken">The provider refresh token.</param>
+/// <param name="ExpiresAt">When the token expires.</param>
 public sealed record CalendarTokenResult(string AccessToken, string RefreshToken, Instant ExpiresAt);
 
 /// <summary>How a token refresh ended: usable tokens, the user must relink, or a transient error.</summary>
@@ -38,18 +41,29 @@ public enum CalendarTokenRefreshOutcome
 }
 
 /// <summary>Refresh outcome with new tokens on success or a reason otherwise.</summary>
+/// <param name="Outcome">How the operation ended.</param>
+/// <param name="AccessToken">The provider access token.</param>
+/// <param name="ExpiresAt">When the token expires.</param>
+/// <param name="ErrorMessage">The failure reason, when unsuccessful.</param>
 public sealed record CalendarTokenRefreshResult(
     CalendarTokenRefreshOutcome Outcome, string? AccessToken, Instant ExpiresAt, string? ErrorMessage)
 {
     /// <summary>Successful refresh carrying the new access token.</summary>
+    /// <param name="accessToken">The provider access token.</param>
+    /// <param name="expiresAt">When the token expires.</param>
+    /// <returns>The success-shaped result.</returns>
     public static CalendarTokenRefreshResult Success(string accessToken, Instant expiresAt) =>
         new(CalendarTokenRefreshOutcome.Success, accessToken, expiresAt, null);
 
     /// <summary>The stored grant is dead — the user must relink their calendar.</summary>
+    /// <param name="message">The failure reason.</param>
+    /// <returns>The reconnect-required result.</returns>
     public static CalendarTokenRefreshResult ReconnectRequired(string message) =>
         new(CalendarTokenRefreshOutcome.ReconnectRequired, null, default, message);
 
     /// <summary>Transient refresh failure; the stored connection stays.</summary>
+    /// <param name="message">The failure reason.</param>
+    /// <returns>The error-shaped result.</returns>
     public static CalendarTokenRefreshResult Error(string message) =>
         new(CalendarTokenRefreshOutcome.Error, null, default, message);
 }
@@ -62,14 +76,21 @@ public enum CalendarFreeBusyOutcome
 }
 
 /// <summary>Free/busy outcome: busy intervals on success, a reason otherwise.</summary>
+/// <param name="Outcome">How the operation ended.</param>
+/// <param name="BusyBlocks">The busy intervals.</param>
+/// <param name="ErrorMessage">The failure reason, when unsuccessful.</param>
 public sealed record CalendarFreeBusyResult(
     CalendarFreeBusyOutcome Outcome, IReadOnlyList<(Instant Start, Instant End)> BusyBlocks, string? ErrorMessage)
 {
     /// <summary>Successful query with the busy intervals.</summary>
+    /// <param name="busyBlocks">The busy intervals.</param>
+    /// <returns>The success-shaped result.</returns>
     public static CalendarFreeBusyResult Success(IReadOnlyList<(Instant Start, Instant End)> busyBlocks) =>
         new(CalendarFreeBusyOutcome.Success, busyBlocks, null);
 
     /// <summary>Failed query with the provider's reason.</summary>
+    /// <param name="message">The failure reason.</param>
+    /// <returns>The error-shaped result.</returns>
     public static CalendarFreeBusyResult Error(string message) =>
         new(CalendarFreeBusyOutcome.Error, [], message);
 }

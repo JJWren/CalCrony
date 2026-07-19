@@ -6,12 +6,17 @@ namespace CalCrony.Web.Auth;
 
 /// <summary>Session bootstrap/teardown. Login itself is a top-level navigation to the API's
 /// /auth/discord/start (no XHR involved); this client covers refresh-on-boot and logout.</summary>
+/// <param name="http">The configured HTTP client.</param>
+/// <param name="tokenStore">The in-memory access-token store.</param>
+/// <param name="authStateProvider">The auth-state notifier.</param>
 public sealed class AuthApiClient(
     HttpClient http, ITokenStore tokenStore, JwtAuthenticationStateProvider authStateProvider)
 {
     public WebSessionResponse? Session { get; private set; }
 
     /// <summary>URL that begins the Discord OAuth login dance, returning to returnUrl afterward.</summary>
+    /// <param name="returnUrl">Where to land in the web app after login.</param>
+    /// <returns>The absolute login-start URL.</returns>
     public string BuildLoginUrl(string returnUrl = "/app") =>
         $"{http.BaseAddress!.ToString().TrimEnd('/')}/auth/discord/start?returnUrl={Uri.EscapeDataString(returnUrl)}";
 

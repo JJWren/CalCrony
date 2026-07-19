@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/link — the server's ICS subscribe URL.</summary>
+/// <param name="api">The CalCrony API client.</param>
+/// <param name="configuration">The application configuration.</param>
 [RequireContext(ContextType.Guild)]
 public class LinkModule(CalCronyApiClient api, IConfiguration configuration) : InteractionModuleBase<SocketInteractionContext>
 {

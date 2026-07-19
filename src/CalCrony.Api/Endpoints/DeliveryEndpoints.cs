@@ -15,6 +15,7 @@ public static class DeliveryEndpoints
     private const int MaxAttempts = 10;
 
     /// <summary>Maps delivery polling/ack and reminder routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapDeliveryEndpoints(this IEndpointRouteBuilder app)
     {
         // The outbox itself stays bot-only; reminders are open to guild members (Phase B).
@@ -25,6 +26,11 @@ public static class DeliveryEndpoints
     }
 
     /// <summary>Returns pending, due deliveries for the bot to post (oldest first).</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="limit">Maximum number of rows to return.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetPending(
         CalCronyDbContext db,
         IClock clock,
@@ -57,6 +63,10 @@ public static class DeliveryEndpoints
     }
 
     /// <summary>Marks a delivery sent; the bot acks only after the Discord post succeeds.</summary>
+    /// <param name="id">The delivery id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Ack(Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
         var delivery = await db.Deliveries.FindAsync([id], cancellationToken);
@@ -71,6 +81,14 @@ public static class DeliveryEndpoints
     }
 
     /// <summary>Creates a future-dated reminder delivery from natural-language text (web callers are self-forced to the default channel).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> CreateReminder(
         HttpContext context,
         GuildAccessService access,

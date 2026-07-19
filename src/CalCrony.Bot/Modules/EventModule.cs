@@ -22,10 +22,22 @@ public enum EditScopeChoice
 }
 
 /// <summary>Core event slash commands: create, list, edit, delete.</summary>
+/// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Creates an event (optionally recurring), posts its embed, and records the message ids.</summary>
+    /// <param name="title">The event title.</param>
+    /// <param name="when">Natural-language start time.</param>
+    /// <param name="description">Optional description text.</param>
+    /// <param name="duration">Duration in minutes.</param>
+    /// <param name="channel">Target text channel (defaults to the current one).</param>
+    /// <param name="location">Optional location text.</param>
+    /// <param name="image">Optional image URL for the embed.</param>
+    /// <param name="repeat">Repeat-rule choice; null keeps/omits recurrence.</param>
+    /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    /// <param name="repeatUntil">Natural-language last repeat date.</param>
+    /// <param name="repeatCount">Total occurrences including the first.</param>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -90,6 +102,8 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
     }
 
     /// <summary>Lists upcoming events as an ephemeral embed.</summary>
+    /// <param name="channel">Target text channel (defaults to the current one).</param>
+    /// <param name="limit">Maximum number of rows to return.</param>
     [SlashCommand("list", "List upcoming events")]
     public async Task ListAsync(
         [Summary(description: "Only events posted in this channel")] ITextChannel? channel = null,
@@ -126,6 +140,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
     }
 
     /// <summary>Deletes an event by name/picker (creator or manager); a live series occurrence stops its series.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     [SlashCommand("delete", "Delete an event you created")]
     public async Task DeleteAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
@@ -160,6 +175,14 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
     }
 
     /// <summary>Edits an event by name/picker; repeating events require a scope.</summary>
+    /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
+    /// <param name="title">The event title.</param>
+    /// <param name="when">Natural-language start time.</param>
+    /// <param name="description">Optional description text.</param>
+    /// <param name="duration">Duration in minutes.</param>
+    /// <param name="location">Optional location text.</param>
+    /// <param name="image">Optional image URL for the embed.</param>
+    /// <param name="scope">Whether the change applies to this occurrence or the whole series.</param>
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -222,6 +245,8 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
     }
 
     /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>True for the creator or a ManageGuild holder.</returns>
     private bool CanManage(EventDto ev) =>
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
@@ -230,6 +255,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         EventFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);
 
     /// <summary>Re-renders the posted embed in place; tolerates a manually deleted message.</summary>
+    /// <param name="ev">The event.</param>
     private async Task TryUpdateMessageAsync(EventDto ev)
     {
         if (ev.MessageId is not long messageId)
@@ -256,6 +282,7 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
     }
 
     /// <summary>Deletes the posted embed; tolerates it already being gone.</summary>
+    /// <param name="ev">The event.</param>
     private async Task TryDeleteMessageAsync(EventDto ev)
     {
         if (ev.MessageId is not long messageId)

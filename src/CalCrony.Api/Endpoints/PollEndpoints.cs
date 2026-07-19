@@ -15,6 +15,7 @@ public static class PollEndpoints
     private const int MaxOptions = 10;
 
     /// <summary>Maps poll routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapPollEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/guilds/{guildId:long}/polls", CreatePoll);
@@ -29,6 +30,15 @@ public static class PollEndpoints
     }
 
     /// <summary>Creates a poll; time polls parse every option as a slot in the creator's zone (failures name the option).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> CreatePoll(
         HttpContext context,
         GuildAccessService access,
@@ -159,6 +169,14 @@ public static class PollEndpoints
     }
 
     /// <summary>Lists a guild's polls, newest first, optionally filtered by status.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="status">Optional status filter.</param>
+    /// <param name="limit">Maximum number of rows to return.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> ListPolls(
         HttpContext context,
         GuildAccessService access,
@@ -188,6 +206,12 @@ public static class PollEndpoints
     }
 
     /// <summary>Fetches one poll with caller-aware anonymity shaping (non-members get 404).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetPoll(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -206,6 +230,12 @@ public static class PollEndpoints
     }
 
     /// <summary>Records where the bot posted the poll's embed (BotOnly).</summary>
+    /// <param name="id">The poll id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> SetMessage(
         Guid id, SetPollMessageRequest request, HttpContext context, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -222,6 +252,15 @@ public static class PollEndpoints
     }
 
     /// <summary>Atomically replaces a user's vote set (self-only for web callers); a same-user race trips the unique index and returns 409.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutVotes(
         HttpContext context,
         GuildAccessService access,
@@ -300,6 +339,15 @@ public static class PollEndpoints
     }
 
     /// <summary>Adds an option to an open poll (any member when AllowUserOptions, else creator/manager); time polls parse the text as a slot.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> AddOption(
         HttpContext context,
         GuildAccessService access,
@@ -380,6 +428,13 @@ public static class PollEndpoints
     }
 
     /// <summary>Closes a poll; idempotent — closing a closed poll returns it unchanged.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> ClosePoll(
         HttpContext context,
         GuildAccessService access,
@@ -411,6 +466,14 @@ public static class PollEndpoints
     }
 
     /// <summary>Converts a closed time poll's winning slot into an event posted to the poll's channel; ConvertedEventId makes it idempotent.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> ConvertPoll(
         HttpContext context,
         GuildAccessService access,
@@ -495,6 +558,13 @@ public static class PollEndpoints
     }
 
     /// <summary>Deletes a poll; web callers capture the embed ids into a delete delivery first.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> DeletePoll(
         HttpContext context,
         GuildAccessService access,
@@ -528,6 +598,8 @@ public static class PollEndpoints
 
     /// <summary>Most votes; ties break earliest SlotAt for time polls, lowest SortOrder otherwise.
     /// The embed builder recomputes the same rule from VoteCounts, so the two never drift.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <returns>The winning option, or null when the poll has no options.</returns>
     internal static PollOption? Winner(Poll poll)
     {
         if (poll.Options.Count == 0)
@@ -542,6 +614,11 @@ public static class PollEndpoints
     }
 
     /// <summary>Read guard: bot passes, members pass, others get 404 so poll ids cannot be probed.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="poll">The poll.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static async Task<IResult?> GuardPollReadAsync(
         HttpContext context, GuildAccessService access, Poll poll, CancellationToken cancellationToken)
     {
@@ -565,6 +642,11 @@ public static class PollEndpoints
     }
 
     /// <summary>Mutate guard: creator or manager; non-members get 404.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="poll">The poll.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static async Task<IResult?> GuardPollMutateAsync(
         HttpContext context, GuildAccessService access, Poll poll, CancellationToken cancellationToken)
     {
@@ -592,6 +674,11 @@ public static class PollEndpoints
     }
 
     /// <summary>Enqueues a poll-embed re-render for web-side changes, coalescing with an identical pending sync.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="poll">The poll.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
     private static async Task EnqueuePollSyncAsync(
         HttpContext context, CalCronyDbContext db, Poll poll, IClock clock, CancellationToken cancellationToken)
     {
@@ -616,6 +703,11 @@ public static class PollEndpoints
     }
 
     /// <summary>Builds a pending outbox row.</summary>
+    /// <param name="type">The delivery type.</param>
+    /// <param name="channelId">The Discord channel id.</param>
+    /// <param name="payloadJson">The serialized delivery payload.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>The pending outbox row (not yet added to the context).</returns>
     private static Delivery NewDelivery(DeliveryType type, long channelId, string payloadJson, Instant now) => new()
     {
         Id = Guid.NewGuid(),
@@ -628,6 +720,10 @@ public static class PollEndpoints
     };
 
     /// <summary>Loads a poll with options and votes.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The poll with options and votes, or null.</returns>
     private static Task<Poll?> LoadPollAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
         db.Polls
             .Include(p => p.Options)
@@ -635,6 +731,9 @@ public static class PollEndpoints
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
     /// <summary>Projects the poll with anonymity shaping for the current caller.</summary>
+    /// <param name="poll">The poll.</param>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <returns>The caller-shaped poll DTO.</returns>
     private static PollDto ToDto(Poll poll, HttpContext context) =>
         poll.ToDto(context.User.WebUserId(), context.User.IsBot());
 }

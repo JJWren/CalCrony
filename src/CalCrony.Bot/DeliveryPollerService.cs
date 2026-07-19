@@ -10,6 +10,10 @@ namespace CalCrony.Bot;
 /// Polls the API outbox for due deliveries (reminders, event notifications, start pings),
 /// posts them to Discord, and acks each row only after the post succeeds.
 /// </summary>
+/// <param name="client">The Discord socket client.</param>
+/// <param name="api">The CalCrony API client.</param>
+/// <param name="configuration">The application configuration.</param>
+/// <param name="logger">The host logger.</param>
 public sealed class DeliveryPollerService(
     DiscordSocketClient client,
     CalCronyApiClient api,
@@ -17,6 +21,7 @@ public sealed class DeliveryPollerService(
     ILogger<DeliveryPollerService> logger) : BackgroundService
 {
     /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
+    /// <param name="stoppingToken">Signals host shutdown.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromSeconds(configuration.GetValue("Api:PollSeconds", 15));
@@ -45,6 +50,7 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>Drains the current pending batch, isolating per-delivery failures.</summary>
+    /// <param name="ct">Cancels the request.</param>
     private async Task DrainAsync(CancellationToken ct)
     {
         var pending = await api.GetPendingDeliveriesAsync(ct: ct);
@@ -69,6 +75,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>Dispatches one delivery to its per-type handler.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
+    /// <exception cref="InvalidOperationException">When the channel is missing, the type is unknown, or a message id fails to record — caught by DrainAsync, which leaves the delivery pending for retry.</exception>
     private async Task PostAsync(DeliveryDto delivery)
     {
         if (delivery.Type == DeliveryType.SyncEventMessage)
@@ -126,6 +134,7 @@ public sealed class DeliveryPollerService(
     /// <summary>A web-created event needs its Discord embed posted (mirrors what /create does):
     /// post to the delivery's channel, then record the message id with the API. Event already
     /// gone or already posted ⇒ done.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
     private async Task PostEventMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<PostEventMessagePayload>(delivery.PayloadJson)!;
@@ -167,6 +176,7 @@ public sealed class DeliveryPollerService(
 
     /// <summary>A web-deleted event's embed should disappear; the ids were captured before the
     /// row died. Best-effort — anything already gone counts as done.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
     private async Task DeleteEventMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<DeleteEventMessagePayload>(delivery.PayloadJson)!;
@@ -181,6 +191,7 @@ public sealed class DeliveryPollerService(
 
     /// <summary>A web action changed event data shown on the posted Discord embed — re-render it.
     /// Anything already gone (event deleted, message removed, channel missing) counts as done.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
     private async Task SyncEventMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<SyncEventMessagePayload>(delivery.PayloadJson)!;
@@ -206,6 +217,7 @@ public sealed class DeliveryPollerService(
 
     /// <summary>A web/scheduler action changed poll data shown on the posted embed — re-render.
     /// Anything already gone counts as done.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
     private async Task SyncPollMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<SyncPollMessagePayload>(delivery.PayloadJson)!;
@@ -231,6 +243,7 @@ public sealed class DeliveryPollerService(
 
     /// <summary>A web-created poll needs its embed posted; mirrors PostEventMessageAsync,
     /// including the compensating delete when recording the message id fails.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
     private async Task PostPollMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<PostPollMessagePayload>(delivery.PayloadJson)!;
@@ -267,6 +280,7 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>A web-deleted poll's embed should disappear; ids were captured pre-delete.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
     private async Task DeletePollMessageAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<DeletePollMessagePayload>(delivery.PayloadJson)!;
@@ -280,6 +294,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>Message text for a reminder delivery.</summary>
+    /// <param name="payloadJson">The serialized delivery payload.</param>
+    /// <returns>The message text.</returns>
     private static string FormatReminder(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<ReminderPayload>(payloadJson)!;
@@ -287,6 +303,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>Message text for a pre-event notification delivery.</summary>
+    /// <param name="payloadJson">The serialized delivery payload.</param>
+    /// <returns>The message text.</returns>
     private static string FormatNotification(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<EventNotificationPayload>(payloadJson)!;
@@ -296,6 +314,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>Message text for an event-start announcement.</summary>
+    /// <param name="payloadJson">The serialized delivery payload.</param>
+    /// <returns>The message text.</returns>
     private static string FormatEventStart(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<EventStartPayload>(payloadJson)!;

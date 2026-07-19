@@ -9,6 +9,10 @@ namespace CalCrony.Api.Data;
 /// configuration (<c>Auth:BootstrapApiKey</c>) when no keys exist yet.
 /// Disabled entirely when <c>Database:AutoMigrate</c> is false (e.g. in tests).
 /// </summary>
+/// <param name="services">The request service provider.</param>
+/// <param name="configuration">The application configuration.</param>
+/// <param name="clock">The time source.</param>
+/// <param name="logger">The host logger.</param>
 public sealed class StartupMigrationService(
     IServiceProvider services,
     IConfiguration configuration,
@@ -16,6 +20,7 @@ public sealed class StartupMigrationService(
     ILogger<StartupMigrationService> logger) : IHostedService
 {
     /// <summary>Applies pending EF migrations at boot when Database:AutoMigrate is on.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (!configuration.GetValue("Database:AutoMigrate", true))
@@ -43,5 +48,6 @@ public sealed class StartupMigrationService(
     }
 
     /// <summary>Nothing to stop; migration runs once at startup.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

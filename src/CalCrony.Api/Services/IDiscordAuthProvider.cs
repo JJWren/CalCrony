@@ -19,7 +19,15 @@ public interface IDiscordAuthProvider
 }
 
 /// <summary>The authorizing Discord user's identity and display fields.</summary>
+/// <param name="Id">The Discord snowflake id.</param>
+/// <param name="Username">The display name to embed in the token.</param>
+/// <param name="GlobalName">The Discord global display name, when set.</param>
+/// <param name="AvatarHash">The Discord avatar hash, when set.</param>
 public sealed record DiscordUserInfo(long Id, string Username, string? GlobalName, string? AvatarHash);
 
 /// <summary>One of the user's guilds with the computed can-manage flag.</summary>
+/// <param name="Id">The Discord snowflake id.</param>
+/// <param name="Name">Event title (or fragment), or an autocomplete-picked event id.</param>
+/// <param name="IconHash">The Discord icon hash, when set.</param>
+/// <param name="CanManage">Whether the user holds ManageGuild (or owns the guild).</param>
 public sealed record DiscordGuildInfo(long Id, string Name, string? IconHash, bool CanManage);

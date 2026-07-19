@@ -10,6 +10,8 @@ public static class EventEmbedBuilder
     private static readonly Color EventColor = new(0x57, 0xB9, 0xE2);
 
     /// <summary>Builds the event embed: time, recurrence, duration, location, description, and per-option RSVP fields.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>The built embed.</returns>
     public static Embed Build(EventDto ev)
     {
         var description = new StringBuilder();
@@ -59,6 +61,8 @@ public static class EventEmbedBuilder
     }
 
     /// <summary>One RSVP button per option.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>The RSVP button row.</returns>
     public static MessageComponent BuildComponents(EventDto ev)
     {
         var row = new ActionRowBuilder();
@@ -75,6 +79,8 @@ public static class EventEmbedBuilder
     }
 
     /// <summary>Human-readable duration ("90 min", "2 hr").</summary>
+    /// <param name="minutes">The duration in minutes.</param>
+    /// <returns>The human-readable duration.</returns>
     private static string FormatDuration(int minutes) =>
         minutes switch
         {

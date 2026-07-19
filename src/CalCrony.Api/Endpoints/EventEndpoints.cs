@@ -12,6 +12,7 @@ namespace CalCrony.Api.Endpoints;
 public static class EventEndpoints
 {
     /// <summary>Maps event, RSVP, and datetime-tool routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapEventEndpoints(this IEndpointRouteBuilder app)
     {
         // Phase B: web (JWT) callers get bot-parity mutations — member to create, creator or
@@ -30,6 +31,8 @@ public static class EventEndpoints
 
     /// <summary>Canonical IANA zones (city zones + UTC) with their current UTC offset, for
     /// timezone pickers — nobody should have to type an IANA id from memory.</summary>
+    /// <param name="clock">The time source.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static IResult ListTimeZones(IClock clock)
     {
         var now = clock.GetCurrentInstant();
@@ -55,12 +58,24 @@ public static class EventEndpoints
 
     /// <summary>Mutation guard for JWT callers: event's guild member AND (creator or manager).
     /// Bot passes. Non-members get 404 (same anti-probing rule as reads).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static Task<IResult?> GuardEventMutateAsync(
         HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken) =>
         GuardMutateAsync(context, access, ev.GuildId, ev.CreatorId,
             "Only the event creator or a server manager can change this event.", cancellationToken);
 
     /// <summary>Shared creator-or-manager mutate guard (events + series).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="creatorId">The creating user's Discord id.</param>
+    /// <param name="forbiddenMessage">The 403 body when a plain member is not the creator.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static async Task<IResult?> GuardMutateAsync(
         HttpContext context, GuildAccessService access, long guildId, long creatorId,
         string forbiddenMessage, CancellationToken cancellationToken)
@@ -89,6 +104,7 @@ public static class EventEndpoints
     }
 
     /// <summary>The standard RSVP option set every event starts with (also used by poll conversion).</summary>
+    /// <returns>Fresh Going/Not going/Maybe option rows.</returns>
     internal static List<RsvpOption> DefaultRsvpOptions() =>
     [
         new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", SortOrder = 0 },
@@ -97,6 +113,11 @@ public static class EventEndpoints
     ];
 
     /// <summary>Guild-read guard for web callers: bot passes, members pass, others get 403/stale.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static async Task<IResult?> GuardGuildReadAsync(
         HttpContext context, GuildAccessService access, long guildId, CancellationToken cancellationToken)
     {
@@ -121,6 +142,11 @@ public static class EventEndpoints
 
     /// <summary>Event-read guard: like GuardGuildReadAsync but non-members get 404 so event ids
     /// can't be probed for existence.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static async Task<IResult?> GuardEventReadAsync(
         HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken)
     {
@@ -145,6 +171,11 @@ public static class EventEndpoints
 
     /// <summary>Enqueue a Discord-embed re-render for web-initiated changes. Bot callers skip
     /// this (the bot edits the message itself); coalesces with an identical pending sync.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
     internal static async Task EnqueueEmbedSyncAsync(
         HttpContext context, CalCronyDbContext db, Event ev, IClock clock, CancellationToken cancellationToken)
     {
@@ -178,6 +209,15 @@ public static class EventEndpoints
     }
 
     /// <summary>Creates an event (and its series when a recurrence rule is supplied); web callers get identity and channel forced server-side.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> CreateEvent(
         HttpContext context,
         GuildAccessService access,
@@ -328,6 +368,16 @@ public static class EventEndpoints
     }
 
     /// <summary>Lists a guild's events ascending; includePast widens the window to the last 30 days.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="channelId">The Discord channel id.</param>
+    /// <param name="limit">Maximum number of rows to return.</param>
+    /// <param name="includePast">When true, widens the window to the last 30 days.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> ListEvents(
         HttpContext context,
         GuildAccessService access,
@@ -368,6 +418,12 @@ public static class EventEndpoints
     }
 
     /// <summary>Fetches one event (non-members get 404, not 403 — ids must not be probeable).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetEvent(
         HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -386,6 +442,15 @@ public static class EventEndpoints
     }
 
     /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs template + re-anchor).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> UpdateEvent(
         HttpContext context,
         GuildAccessService access,
@@ -466,6 +531,13 @@ public static class EventEndpoints
     }
 
     /// <summary>Deletes an event; deleting a live series occurrence stops its series (skip is the just-this-one verb).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> DeleteEvent(
         HttpContext context,
         GuildAccessService access,
@@ -515,6 +587,11 @@ public static class EventEndpoints
     }
 
     /// <summary>Records where the bot posted the event's embed (BotOnly).</summary>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> SetMessage(
         Guid id, SetEventMessageRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
     {
@@ -531,6 +608,15 @@ public static class EventEndpoints
     }
 
     /// <summary>Sets a user's RSVP (self-only for web callers) and syncs the embed for web-side changes.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutRsvp(
         HttpContext context,
         GuildAccessService access,
@@ -598,6 +684,14 @@ public static class EventEndpoints
     }
 
     /// <summary>Clears a user's RSVP (self-only for web callers).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> DeleteRsvp(
         HttpContext context,
         GuildAccessService access,
@@ -636,6 +730,13 @@ public static class EventEndpoints
     }
 
     /// <summary>Parses natural-language datetime text: explicit TimeZone override, else user zone, else guild zone, else UTC.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> ParseDateTime(
         HttpContext context,
         GuildAccessService access,
@@ -691,6 +792,10 @@ public static class EventEndpoints
     }
 
     /// <summary>Loads an event with options, RSVPs, and series for DTO mapping.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The event with options, RSVPs, and series, or null.</returns>
     private static Task<Event?> LoadEventAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
         db.Events
             .Include(e => e.Options)
@@ -699,6 +804,10 @@ public static class EventEndpoints
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
     /// <summary>Fetches or lazily creates the guild row (guilds appear on first use).</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The tracked guild row.</returns>
     internal static async Task<Guild> GetOrCreateGuildAsync(
         CalCronyDbContext db, long guildId, CancellationToken cancellationToken)
     {
@@ -713,6 +822,11 @@ public static class EventEndpoints
     }
 
     /// <summary>The zone events parse in: user's personal zone, else the guild's, else UTC.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="guild">The guild row.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The effective zone for parsing.</returns>
     internal static async Task<DateTimeZone> ResolveZoneAsync(
         CalCronyDbContext db, long userId, Guild guild, CancellationToken cancellationToken)
     {

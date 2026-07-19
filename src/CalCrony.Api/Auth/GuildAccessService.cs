@@ -10,6 +10,8 @@ namespace CalCrony.Api.Auth;
 /// UserGuildMembership snapshot intersected with guilds CalCrony actually knows
 /// (the bot-present set). Bot callers bypass these checks entirely at the call sites.
 /// </summary>
+/// <param name="db">The database context.</param>
+/// <param name="clock">The time source.</param>
 public sealed class GuildAccessService(CalCronyDbContext db, IClock clock)
 {
     /// <summary>Snapshots older than this are refused — bounds how long a removed member
@@ -17,6 +19,10 @@ public sealed class GuildAccessService(CalCronyDbContext db, IClock clock)
     public static readonly Duration MaxSnapshotAge = Duration.FromDays(7);
 
     /// <summary>Resolves a web user's standing in a guild from their membership snapshot (bot-present guilds only).</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The caller's standing in the guild.</returns>
     public async Task<GuildAccess> CheckAsync(long userId, long guildId, CancellationToken cancellationToken)
     {
         var membership = await db.UserGuildMemberships
@@ -40,16 +46,19 @@ public sealed class GuildAccessService(CalCronyDbContext db, IClock clock)
     }
 
     /// <summary>403 for callers outside the guild.</summary>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     public static IResult Forbidden() =>
         Results.Json(new ErrorResponse("You don't have access to this server."), statusCode: StatusCodes.Status403Forbidden);
 
     /// <summary>403 telling the caller their guild snapshot is stale — re-login refreshes it.</summary>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     public static IResult StaleSnapshot() =>
         Results.Json(
             new ErrorResponse("Your server list is out of date — sign in again to re-sync your servers."),
             statusCode: StatusCodes.Status403Forbidden);
 
     /// <summary>403 for acting on another user's data where only self-service is allowed.</summary>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     public static IResult SelfOnly() =>
         Results.Json(new ErrorResponse("You can only do that for your own account."), statusCode: StatusCodes.Status403Forbidden);
 }

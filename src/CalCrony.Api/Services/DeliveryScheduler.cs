@@ -11,12 +11,18 @@ namespace CalCrony.Api.Services;
 /// transitions events Scheduled→Started (with a start ping) and Started→Ended.
 /// Reminders skip this path — they are enqueued directly as future-dated deliveries.
 /// </summary>
+/// <param name="db">The database context.</param>
+/// <param name="materializer">The series occurrence materializer.</param>
+/// <param name="logger">The host logger.</param>
 public sealed class DeliveryScheduler(
     CalCronyDbContext db, SeriesMaterializer materializer, ILogger<DeliveryScheduler> logger)
 {
     private const int DefaultEventLengthMinutes = 60;
 
     /// <summary>Runs one sweep: matures notifications, transitions event statuses, materializes freed series slots, and auto-closes due polls.</summary>
+    /// <param name="now">The current instant.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>How many deliveries this sweep enqueued.</returns>
     public async Task<int> SweepAsync(Instant now, CancellationToken cancellationToken)
     {
         var enqueued = 0;

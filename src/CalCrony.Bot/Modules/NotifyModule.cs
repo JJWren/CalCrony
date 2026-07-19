@@ -6,10 +6,16 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/notify — scheduled pings before an event starts.</summary>
+/// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Adds a pre-event notification to an event found by name/picker.</summary>
+    /// <param name="eventName">Event title (or fragment), or an autocomplete-picked event id.</param>
+    /// <param name="minutesBefore">How many minutes before start the ping fires.</param>
+    /// <param name="message">Optional message text.</param>
+    /// <param name="mention">Optional role/user mention to include.</param>
+    /// <param name="channel">Target text channel (defaults to the current one).</param>
     [SlashCommand("notify", "Add a scheduled notification before an event starts")]
     public async Task NotifyAsync(
         [Summary("event", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string eventName,

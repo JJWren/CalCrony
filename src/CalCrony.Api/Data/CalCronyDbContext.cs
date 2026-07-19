@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CalCrony.Api.Data;
 
 /// <summary>EF Core context for all CalCrony state; model configuration (lengths, indexes, cascades) lives in OnModelCreating.</summary>
+/// <param name="options">The context options.</param>
 public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : DbContext(options)
 {
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -26,6 +27,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<UserGuildMembership> UserGuildMemberships => Set<UserGuildMembership>();
 
     /// <summary>Max lengths, indexes (including the partial unique live-occurrence index), and cascade rules.</summary>
+    /// <param name="modelBuilder">The EF model builder.</param>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ApiKey>(e =>

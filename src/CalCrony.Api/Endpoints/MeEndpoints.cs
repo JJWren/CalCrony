@@ -10,12 +10,17 @@ namespace CalCrony.Api.Endpoints;
 public static class MeEndpoints
 {
     /// <summary>Maps the signed-in user's own-data routes.</summary>
+    /// <param name="app">The route builder to map onto.</param>
     public static void MapMeEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/me/guilds", GetGuilds).RequireAuthorization("UserOnly");
     }
 
     /// <summary>Lists the caller's guilds intersected with bot-present guilds, from their login snapshot.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetGuilds(
         HttpContext context, CalCronyDbContext db, CancellationToken cancellationToken)
     {
