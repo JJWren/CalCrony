@@ -82,6 +82,148 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.DoesNotContain(await GetPendingAsync(), d => d.Id == reminder.Id);
     }
 
+    [Fact]
+    public async Task Ended_series_occurrence_spawns_next_in_the_same_sweep()
+    {
+        var ev = await CreateSeriesEventAsync("Daily spawn", new RecurrenceRuleDto(RecurrenceUnit.Day));
+        await PastDateAsync(ev.Id, minutesAgo: 120);
+
+        // Sweep 1 flips Scheduled→Started (start ping); sweep 2 must end it AND spawn the next
+        // occurrence in the same pass — the in-memory live re-filter, not the stale DB status.
+        await SweepAsync();
+        await SweepAsync();
+
+        var live = await LiveSeriesEventsAsync(ev.SeriesId!.Value);
+        var next = Assert.Single(live);
+        Assert.NotEqual(ev.Id, next.Id);
+        Assert.True(next.StartsAt > SystemClock.Instance.GetCurrentInstant());
+        Assert.Contains(await GetPendingAsync(), d =>
+            d.Type == DeliveryType.PostEventMessage && d.PayloadJson.Contains(next.Id.ToString()));
+
+        // Idempotent: another sweep spawns nothing new.
+        await SweepAsync();
+        Assert.Single(await LiveSeriesEventsAsync(ev.SeriesId.Value));
+    }
+
+    [Fact]
+    public async Task Count_exhaustion_ends_the_series()
+    {
+        var ev = await CreateSeriesEventAsync("Two rounds", new RecurrenceRuleDto(RecurrenceUnit.Day), repeatCount: 2);
+
+        await PastDateAsync(ev.Id, minutesAgo: 120);
+        await SweepAsync();
+        await SweepAsync();
+        var second = Assert.Single(await LiveSeriesEventsAsync(ev.SeriesId!.Value));
+
+        await PastDateAsync(second.Id, minutesAgo: 120, alsoEnd: true);
+        await SweepAsync();
+
+        Assert.Empty(await LiveSeriesEventsAsync(ev.SeriesId.Value));
+        var series = await Client.GetFromJsonAsync<SeriesDto>($"/series/{ev.SeriesId}");
+        Assert.True(series!.Ended);
+        Assert.Equal(2, series.OccurrenceCount);
+    }
+
+    [Fact]
+    public async Task Until_date_reached_ends_the_series_cleanly()
+    {
+        // Weekly with an until-date tomorrow: the next slot (+7d) overshoots it.
+        var ev = await CreateSeriesEventAsync(
+            "Short lived", new RecurrenceRuleDto(RecurrenceUnit.Week), repeatUntil: "tomorrow");
+
+        await PastDateAsync(ev.Id, minutesAgo: 120, alsoEnd: true);
+        await SweepAsync();
+
+        Assert.Empty(await LiveSeriesEventsAsync(ev.SeriesId!.Value));
+        var series = await Client.GetFromJsonAsync<SeriesDto>($"/series/{ev.SeriesId}");
+        Assert.True(series!.Ended);
+    }
+
+    [Fact]
+    public async Task Downtime_catch_up_spawns_exactly_one_future_occurrence()
+    {
+        var ev = await CreateSeriesEventAsync("Stale weekly", new RecurrenceRuleDto(RecurrenceUnit.Week));
+
+        // Simulate three weeks of downtime: the occurrence long over, the cursor three slots stale.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            var staleStart = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(21));
+            await db.Events.Where(e => e.Id == ev.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(e => e.StartsAt, staleStart)
+                .SetProperty(e => e.Status, EventStatus.Ended));
+            var staleDate = staleStart.InUtc().Date;
+            await db.EventSeries.Where(s => s.Id == ev.SeriesId).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.AnchorDate, staleDate)
+                .SetProperty(x => x.CurrentOccurrenceDate, staleDate));
+        }
+
+        await SweepAsync();
+
+        var live = Assert.Single(await LiveSeriesEventsAsync(ev.SeriesId!.Value));
+        Assert.True(live.StartsAt > SystemClock.Instance.GetCurrentInstant());
+
+        // Missed slots were skipped, not materialized (or counted).
+        var series = await Client.GetFromJsonAsync<SeriesDto>($"/series/{ev.SeriesId}");
+        Assert.Equal(2, series!.OccurrenceCount);
+    }
+
+    [Fact]
+    public async Task Partial_unique_index_rejects_a_second_live_occurrence()
+    {
+        var ev = await CreateSeriesEventAsync("Guarded slot", new RecurrenceRuleDto(RecurrenceUnit.Week));
+
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        db.Events.Add(new Event
+        {
+            Id = Guid.NewGuid(),
+            GuildId = GuildId,
+            CreatorId = CreatorId,
+            Title = "Impostor",
+            StartsAt = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromDays(1)),
+            ChannelId = ChannelId,
+            Status = EventStatus.Scheduled,
+            SeriesId = ev.SeriesId,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+        });
+
+        // Regression pin for IX_Events_SeriesId_Live — the enum literals in its filter included.
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    private async Task<EventDto> CreateSeriesEventAsync(
+        string title, RecurrenceRuleDto rule, int? repeatCount = null, string? repeatUntil = null)
+    {
+        var response = await Client.PostAsJsonAsync(
+            $"/guilds/{GuildId}/events",
+            new CreateEventRequest(
+                CreatorId, title, "in 2 hours", ChannelId,
+                Recurrence: rule, RepeatUntilText: repeatUntil, RepeatCount: repeatCount));
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<EventDto>())!;
+    }
+
+    private async Task PastDateAsync(Guid eventId, int minutesAgo, bool alsoEnd = false)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var past = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromMinutes(minutesAgo));
+        await db.Events.Where(e => e.Id == eventId).ExecuteUpdateAsync(s => s
+            .SetProperty(e => e.StartsAt, past)
+            .SetProperty(e => e.Status, alsoEnd ? EventStatus.Ended : EventStatus.Scheduled));
+    }
+
+    private async Task<List<Event>> LiveSeriesEventsAsync(Guid seriesId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        return await db.Events
+            .Where(e => e.SeriesId == seriesId
+                        && (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started))
+            .ToListAsync();
+    }
+
     private async Task SweepAsync(Instant? now = null)
     {
         await using var scope = fixture.Factory.Services.CreateAsyncScope();

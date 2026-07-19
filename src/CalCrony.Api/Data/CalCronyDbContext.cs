@@ -14,6 +14,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<PollOption> PollOptions => Set<PollOption>();
     public DbSet<PollVote> PollVotes => Set<PollVote>();
     public DbSet<EventNotification> EventNotifications => Set<EventNotification>();
+    public DbSet<EventSeries> EventSeries => Set<EventSeries>();
+    public DbSet<SeriesNotification> SeriesNotifications => Set<SeriesNotification>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
     public DbSet<CalendarConnection> CalendarConnections => Set<CalendarConnection>();
@@ -56,6 +58,31 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.HasMany(ev => ev.Options).WithOne().HasForeignKey(o => o.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(ev => ev.Rsvps).WithOne().HasForeignKey(r => r.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(ev => ev.Notifications).WithOne().HasForeignKey(n => n.EventId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(ev => ev.Series).WithMany().HasForeignKey(ev => ev.SeriesId).OnDelete(DeleteBehavior.SetNull);
+            // Named separately or the second HasIndex on the same column replaces the first.
+            e.HasIndex(ev => ev.SeriesId, "IX_Events_SeriesId");
+            // The rolling-occurrence invariant and the concurrent-spawn guard: at most one live
+            // (Scheduled=0 / Started=1) occurrence per series. NULL SeriesId rows are exempt.
+            e.HasIndex(ev => ev.SeriesId, "IX_Events_SeriesId_Live")
+                .IsUnique()
+                .HasFilter("\"Status\" IN (0, 1)");
+        });
+
+        modelBuilder.Entity<EventSeries>(e =>
+        {
+            e.Property(s => s.Title).HasMaxLength(128);
+            e.Property(s => s.Description).HasMaxLength(4096);
+            e.Property(s => s.TimeZone).HasMaxLength(64);
+            e.Property(s => s.Location).HasMaxLength(256);
+            e.Property(s => s.ImageUrl).HasMaxLength(512);
+            e.HasIndex(s => s.GuildId);
+            e.HasMany(s => s.NotificationSpecs).WithOne().HasForeignKey(n => n.SeriesId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SeriesNotification>(e =>
+        {
+            e.Property(n => n.Message).HasMaxLength(1024);
+            e.Property(n => n.Mentions).HasMaxLength(256);
         });
 
         modelBuilder.Entity<RsvpOption>(e =>

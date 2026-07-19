@@ -32,6 +32,15 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<EventDto>> SetMessageAsync(Guid id, SetEventMessageRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PutAsJsonAsync($"/events/{id}/message", request, ct), ct);
 
+    public Task<ApiResult<SkipOccurrenceResponse>> SkipOccurrenceAsync(Guid eventId, CancellationToken ct = default) =>
+        SendAsync<SkipOccurrenceResponse>(http.PostAsync($"/events/{eventId}/skip", null, ct), ct);
+
+    public Task<ApiResult<SeriesDto>> GetSeriesAsync(Guid seriesId, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(http.GetAsync($"/series/{seriesId}", ct), ct);
+
+    public Task<ApiResult<SeriesDto>> StopSeriesAsync(Guid seriesId, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(http.PostAsync($"/series/{seriesId}/stop", null, ct), ct);
+
     public Task<ApiResult<EventDto>> PutRsvpAsync(Guid eventId, long userId, RsvpRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PutAsJsonAsync($"/events/{eventId}/rsvps/{userId}", request, ct), ct);
 

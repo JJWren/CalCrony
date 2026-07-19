@@ -11,7 +11,8 @@ namespace CalCrony.Api.Services;
 /// transitions events Scheduled→Started (with a start ping) and Started→Ended.
 /// Reminders skip this path — they are enqueued directly as future-dated deliveries.
 /// </summary>
-public sealed class DeliveryScheduler(CalCronyDbContext db, ILogger<DeliveryScheduler> logger)
+public sealed class DeliveryScheduler(
+    CalCronyDbContext db, SeriesMaterializer materializer, ILogger<DeliveryScheduler> logger)
 {
     private const int DefaultEventLengthMinutes = 60;
 
@@ -75,6 +76,35 @@ public sealed class DeliveryScheduler(CalCronyDbContext db, ILogger<DeliverySche
             if (ev.StartsAt.Plus(length) <= now)
             {
                 ev.Status = EventStatus.Ended;
+            }
+        }
+
+        // Rolling next occurrence: any running series without a live (Scheduled/Started)
+        // occurrence gets its next event materialized — self-healing regardless of how the slot
+        // freed (ended above, skipped, cancelled via PATCH, or a crashed earlier attempt).
+        var activeSeries = await db.EventSeries
+            .Include(s => s.NotificationSpecs)
+            .Where(s => !s.Ended)
+            .ToListAsync(cancellationToken);
+        if (activeSeries.Count > 0)
+        {
+            var liveCandidates = await db.Events
+                .Where(e => e.SeriesId != null
+                            && (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started))
+                .ToListAsync(cancellationToken);
+            // Re-filter in memory: identity resolution replays this sweep's not-yet-saved
+            // transitions, so an event that just Ended above no longer counts as live. A
+            // projection here would read the stale DB status and miss the freed slot.
+            var liveSeriesIds = liveCandidates
+                .Where(e => e.Status is EventStatus.Scheduled or EventStatus.Started)
+                .Select(e => e.SeriesId!.Value)
+                .ToHashSet();
+            foreach (var series in activeSeries.Where(s => !liveSeriesIds.Contains(s.Id)))
+            {
+                if (materializer.MaterializeNext(series, now) is not null)
+                {
+                    enqueued++;
+                }
             }
         }
 

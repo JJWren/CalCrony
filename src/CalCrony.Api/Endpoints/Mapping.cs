@@ -21,7 +21,35 @@ public static class Mapping
         ev.ImageUrl,
         ev.Status,
         [.. ev.Options.OrderBy(o => o.SortOrder).Select(o => new RsvpOptionDto(o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity))],
-        [.. ev.Rsvps.OrderBy(r => r.CreatedAt).Select(r => new RsvpDto(r.UserId, r.OptionId))]);
+        [.. ev.Rsvps.OrderBy(r => r.CreatedAt).Select(r => new RsvpDto(r.UserId, r.OptionId))],
+        ev.SeriesId,
+        // Summary requires the Series nav loaded; ended series read as one-offs (no 🔁).
+        ev.Series is { Ended: false } series ? Services.RecurrenceCalculator.Describe(series) : null);
+
+    public static SeriesDto ToDto(this EventSeries series, Guid? liveEventId) => new(
+        series.Id,
+        series.GuildId,
+        series.CreatorId,
+        series.Title,
+        series.Unit,
+        series.Interval,
+        series.MonthlyMode,
+        series.TimeZone,
+        series.AnchorDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+        series.StartTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+        series.UntilDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+        series.MaxOccurrences,
+        series.OccurrenceCount,
+        series.Ended,
+        liveEventId,
+        series.Description,
+        series.DurationMinutes,
+        series.ChannelId,
+        series.Location,
+        series.ImageUrl,
+        Services.RecurrenceCalculator.Describe(series),
+        [.. series.NotificationSpecs.OrderByDescending(n => n.MinutesBefore)
+            .Select(n => new SeriesNotificationDto(n.Id, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId))]);
 
     public static DateTimeZone? FindZone(string? id) =>
         id is null ? null : DateTimeZoneProviders.Tzdb.GetZoneOrNull(id);

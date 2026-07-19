@@ -1,5 +1,7 @@
 namespace CalCrony.Contracts;
 
+// Scheduled/Started numeric values are pinned by the partial unique index
+// IX_Events_SeriesId_Live ("Status" IN (0, 1)) — renumbering breaks the live-occurrence guard.
 public enum EventStatus
 {
     Scheduled = 0,
@@ -8,7 +10,9 @@ public enum EventStatus
     Cancelled = 3,
 }
 
-/// <summary>Request to create an event. Datetimes arrive as natural-language text and are parsed server-side.</summary>
+/// <summary>Request to create an event. Datetimes arrive as natural-language text and are parsed
+/// server-side. Recurrence: RepeatUntilText and RepeatCount are mutually exclusive and require
+/// a Recurrence rule; the rule anchors on the first occurrence.</summary>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -17,9 +21,13 @@ public record CreateEventRequest(
     string? Description = null,
     int? DurationMinutes = null,
     string? Location = null,
-    string? ImageUrl = null);
+    string? ImageUrl = null,
+    RecurrenceRuleDto? Recurrence = null,
+    string? RepeatUntilText = null,
+    int? RepeatCount = null);
 
-/// <summary>Partial update; null fields are left unchanged.</summary>
+/// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
+/// the live occurrence of a non-ended series and ignored otherwise.</summary>
 public record UpdateEventRequest(
     long EditorId,
     string? Title = null,
@@ -28,7 +36,8 @@ public record UpdateEventRequest(
     int? DurationMinutes = null,
     string? Location = null,
     string? ImageUrl = null,
-    EventStatus? Status = null);
+    EventStatus? Status = null,
+    EditScope? Scope = null);
 
 public record RsvpOptionDto(Guid Id, string Emote, string Label, int SortOrder, int? Capacity);
 
@@ -49,7 +58,9 @@ public record EventDto(
     string? ImageUrl,
     EventStatus Status,
     IReadOnlyList<RsvpOptionDto> Options,
-    IReadOnlyList<RsvpDto> Rsvps)
+    IReadOnlyList<RsvpDto> Rsvps,
+    Guid? SeriesId = null,
+    string? RecurrenceSummary = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();

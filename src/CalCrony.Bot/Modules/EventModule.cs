@@ -5,6 +5,20 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+public enum RepeatChoice
+{
+    [ChoiceDisplay("daily")] Daily,
+    [ChoiceDisplay("weekly")] Weekly,
+    [ChoiceDisplay("monthly (same date)")] MonthlySameDate,
+    [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
+}
+
+public enum EditScopeChoice
+{
+    [ChoiceDisplay("this occurrence")] Occurrence,
+    [ChoiceDisplay("whole series")] Series,
+}
+
 [RequireContext(ContextType.Guild)]
 public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
@@ -16,7 +30,11 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         [Summary("duration", "Duration in minutes")] int? duration = null,
         [Summary(description: "Channel to post the event in (defaults to here)")] ITextChannel? channel = null,
         [Summary(description: "Where the event happens")] string? location = null,
-        [Summary("image", "Image URL for the event embed")] string? image = null)
+        [Summary("image", "Image URL for the event embed")] string? image = null,
+        [Summary("repeat", "Repeat this event on a schedule anchored to the first occurrence")] RepeatChoice? repeat = null,
+        [Summary("repeat-every", "Repeat interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
+        [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
+        [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -27,11 +45,27 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
             return;
         }
 
+        if (repeat is null && (repeatEvery != 1 || repeatUntil is not null || repeatCount is not null))
+        {
+            await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
+            return;
+        }
+
+        var recurrence = repeat switch
+        {
+            RepeatChoice.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatEvery),
+            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
+            RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
+            RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
+            _ => null,
+        };
+
         var result = await api.CreateEventAsync(
             (long)Context.Guild.Id,
             new CreateEventRequest(
                 (long)Context.User.Id, title, when, (long)targetChannel.Id,
-                description, duration, location, image));
+                description, duration, location, image,
+                recurrence, repeatUntil, repeatCount));
 
         if (!result.Success || result.Value is null)
         {
@@ -45,8 +79,9 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
             components: EventEmbedBuilder.BuildComponents(ev));
         await api.SetMessageAsync(ev.Id, new SetEventMessageRequest((long)targetChannel.Id, (long)message.Id));
 
+        var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
         await FollowupAsync(
-            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.",
+            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}",
             ephemeral: true);
     }
 
@@ -112,7 +147,10 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         }
 
         await TryDeleteMessageAsync(ev);
-        await FollowupAsync($"🗑️ Deleted **{ev.Title}**.", ephemeral: true);
+        var seriesNote = ev.RecurrenceSummary is null
+            ? ""
+            : " This was a repeating event, so the series has been stopped.";
+        await FollowupAsync($"🗑️ Deleted **{ev.Title}**.{seriesNote}", ephemeral: true);
     }
 
     [SlashCommand("edit", "Edit an event you created")]
@@ -123,7 +161,8 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
         [Summary(description: "New description")] string? description = null,
         [Summary("duration", "New duration in minutes")] int? duration = null,
         [Summary(description: "New location")] string? location = null,
-        [Summary("image", "New image URL")] string? image = null)
+        [Summary("image", "New image URL")] string? image = null,
+        [Summary("scope", "Repeating events: apply to this occurrence only or the whole series")] EditScopeChoice? scope = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -146,8 +185,25 @@ public class EventModule(CalCronyApiClient api) : InteractionModuleBase<SocketIn
             return;
         }
 
+        // Friendlier than the API's 400 for the same rule (which still enforces it regardless).
+        if (ev.RecurrenceSummary is not null
+            && ev.Status is EventStatus.Scheduled or EventStatus.Started
+            && scope is null)
+        {
+            await FollowupAsync(
+                $"✋ **{ev.Title}** repeats — run again with `scope` set to *this occurrence* or *whole series*.",
+                ephemeral: true);
+            return;
+        }
+
         var result = await api.UpdateEventAsync(ev.Id, new UpdateEventRequest(
-            (long)Context.User.Id, title, when, description, duration, location, image));
+            (long)Context.User.Id, title, when, description, duration, location, image,
+            Scope: scope switch
+            {
+                EditScopeChoice.Occurrence => EditScope.Occurrence,
+                EditScopeChoice.Series => EditScope.Series,
+                _ => null,
+            }));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

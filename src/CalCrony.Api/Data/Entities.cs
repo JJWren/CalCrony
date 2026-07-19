@@ -43,14 +43,77 @@ public class Event
     public string? ImageUrl { get; set; }
     public EventStatus Status { get; set; }
 
-    /// <summary>Reserved for recurring events; null for one-off events.</summary>
+    /// <summary>Links occurrences of a recurring event to their series; null for one-off events.</summary>
     public Guid? SeriesId { get; set; }
 
     public Instant CreatedAt { get; set; }
 
+    public EventSeries? Series { get; set; }
     public List<RsvpOption> Options { get; set; } = [];
     public List<Rsvp> Rsvps { get; set; } = [];
     public List<EventNotification> Notifications { get; set; } = [];
+}
+
+/// <summary>A repeating event's schedule + content template. Exactly one live (Scheduled/Started)
+/// occurrence exists per non-ended series, enforced by the partial unique index
+/// IX_Events_SeriesId_Live; the scheduler materializes the next occurrence when the slot frees.
+/// Schedule math is anchor-based (never chained), so monthly clamping can't drift.
+/// Series rows are never deleted — an ended series stays as history.</summary>
+public class EventSeries
+{
+    public Guid Id { get; set; }
+    public long GuildId { get; set; }
+    public long CreatorId { get; set; }
+    public RecurrenceUnit Unit { get; set; }
+
+    /// <summary>Every N units, 1..12.</summary>
+    public int Interval { get; set; }
+
+    /// <summary>Meaningful only when Unit == Month.</summary>
+    public MonthlyMode MonthlyMode { get; set; }
+
+    /// <summary>Local date of the first occurrence; re-set by whole-series time edits.</summary>
+    public LocalDate AnchorDate { get; set; }
+
+    public LocalTime StartTime { get; set; }
+
+    /// <summary>IANA zone all schedule math resolves in (8pm stays 8pm across DST).</summary>
+    public string TimeZone { get; set; } = "UTC";
+
+    /// <summary>Inclusive last local date the series may occur on; mutually exclusive with MaxOccurrences.</summary>
+    public LocalDate? UntilDate { get; set; }
+
+    public int? MaxOccurrences { get; set; }
+
+    /// <summary>Slot cursor: the schedule-slot date of the last-materialized occurrence. Only ever
+    /// advances, which makes same-slot re-spawn impossible and keeps one-off time edits schedule-neutral.</summary>
+    public LocalDate CurrentOccurrenceDate { get; set; }
+
+    /// <summary>Occurrences actually materialized (the first counts as 1; downtime-missed slots don't).</summary>
+    public int OccurrenceCount { get; set; }
+
+    public bool Ended { get; set; }
+
+    public required string Title { get; set; }
+    public string? Description { get; set; }
+    public int? DurationMinutes { get; set; }
+    public long ChannelId { get; set; }
+    public string? Location { get; set; }
+    public string? ImageUrl { get; set; }
+    public Instant CreatedAt { get; set; }
+
+    public List<SeriesNotification> NotificationSpecs { get; set; } = [];
+}
+
+/// <summary>Template notification cloned onto each materialized occurrence.</summary>
+public class SeriesNotification
+{
+    public Guid Id { get; set; }
+    public Guid SeriesId { get; set; }
+    public int MinutesBefore { get; set; }
+    public string? Message { get; set; }
+    public string? Mentions { get; set; }
+    public long? ChannelId { get; set; }
 }
 
 public class RsvpOption
@@ -139,6 +202,10 @@ public class EventNotification
     public long? ChannelId { get; set; }
 
     public bool Enqueued { get; set; }
+
+    /// <summary>Lineage to the series template spec this was cloned from; null for one-off events
+    /// and for notifications added with Occurrence scope (diverged rows).</summary>
+    public Guid? SeriesNotificationId { get; set; }
 }
 
 public enum DeliveryStatus

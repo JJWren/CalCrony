@@ -44,4 +44,14 @@ public class EventEmbedBuilderTests
         var row = Assert.Single(components.Components.OfType<Discord.ActionRowComponent>());
         Assert.Equal(3, row.Components.Count);
     }
+    [Fact]
+    public void Recurrence_summary_renders_and_absence_hides_the_line()
+    {
+        var oneOff = SampleEvent();
+        Assert.DoesNotContain("🔁", EventEmbedBuilder.Build(oneOff).Description);
+
+        var repeating = oneOff with { SeriesId = Guid.NewGuid(), RecurrenceSummary = "Repeats weekly on Friday" };
+        var description = EventEmbedBuilder.Build(repeating).Description;
+        Assert.Contains("🔁 Repeats weekly on Friday", description);
+    }
 }
