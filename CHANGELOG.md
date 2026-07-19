@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/JJWren/CalCrony/compare/v0.12.0...v0.13.0) (2026-07-19)
+
+
+### Features
+
+* add attendee roles ([#39](https://github.com/JJWren/CalCrony/issues/39)) ([11175c9](https://github.com/JJWren/CalCrony/commit/11175c954d2e30a881a24177561e6864659d639c))
+
 ## [0.12.0](https://github.com/JJWren/CalCrony/compare/v0.11.0...v0.12.0) (2026-07-19)
 
 
