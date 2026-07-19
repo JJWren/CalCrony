@@ -315,6 +315,28 @@ else
             return;
         }
 
+        // A chosen end mode with a blank input would silently create a never-ending series.
+        if (!IsEdit && repeatKind != RepeatKind.None)
+        {
+            if (repeatInterval is < 1 or > 12)
+            {
+                error = "Repeat interval must be between 1 and 12.";
+                return;
+            }
+
+            if (endMode == EndMode.Until && string.IsNullOrWhiteSpace(repeatUntil))
+            {
+                error = "Enter the date the event should stop repeating, or choose a different end option.";
+                return;
+            }
+
+            if (endMode == EndMode.Count && repeatCount is null)
+            {
+                error = "Enter how many times the event should repeat, or choose a different end option.";
+                return;
+            }
+        }
+
         busy = true;
         if (IsEdit)
         {

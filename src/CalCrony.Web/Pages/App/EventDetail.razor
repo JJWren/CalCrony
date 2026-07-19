@@ -143,9 +143,9 @@ else
                         else if (CanManage)
                         {
                             <span class="meta-mono">remove from:</span>
-                            <button class="btn btn-link btn-sm p-0" @onclick="() => DeleteNotificationAsync(n.Id, EditScope.Occurrence)">this occurrence</button>
-                            <button class="btn btn-link btn-sm p-0" @onclick="() => DeleteNotificationAsync(n.Id, EditScope.Series)">all future</button>
-                            <button class="btn btn-link btn-sm p-0 text-body-secondary" @onclick="() => askingRemoveScopeFor = null">cancel</button>
+                            <button class="btn btn-link btn-sm p-0" disabled="@busy" @onclick="() => DeleteNotificationAsync(n.Id, EditScope.Occurrence)">this occurrence</button>
+                            <button class="btn btn-link btn-sm p-0" disabled="@busy" @onclick="() => DeleteNotificationAsync(n.Id, EditScope.Series)">all future</button>
+                            <button class="btn btn-link btn-sm p-0 text-body-secondary" disabled="@busy" @onclick="() => askingRemoveScopeFor = null">cancel</button>
                         }
                     </li>
                 }
@@ -329,8 +329,11 @@ else
 
     private async Task DeleteNotificationAsync(Guid notificationId, EditScope? scope)
     {
+        notificationError = null;
         askingRemoveScopeFor = null;
+        busy = true;
         var result = await Api.DeleteNotificationAsync(EventId, notificationId, scope);
+        busy = false;
         if (!result.Success)
         {
             notificationError = result.Error;

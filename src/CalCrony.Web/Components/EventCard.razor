@@ -13,7 +13,7 @@
                 <span><LocalTime Utc="Event.StartsAtUtc" Format="ddd h:mm tt" /> · @(Event.DurationMinutes ?? 60) min</span>
                 @if (Event.RecurrenceSummary is not null)
                 {
-                    <span title="@Event.RecurrenceSummary">🔁</span>
+                    <span title="@Event.RecurrenceSummary" role="img" aria-label="@Event.RecurrenceSummary">🔁</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(Event.Location))
                 {

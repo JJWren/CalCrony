@@ -174,6 +174,7 @@ public class SeriesComponentTests : TestContext
             LastRequest = request;
             LastBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
             var json = NextJson ?? JsonFor?.Invoke(request) ?? "{}";
+            NextJson = null; // actually one-shot, so an unexpected extra request can't reuse it
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
