@@ -68,7 +68,8 @@ public sealed class WebTokenService(CalCronyDbContext db, IConfiguration configu
         return new IssuedAccessToken(new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 
-    /// <summary>Mints and stores a refresh token (hash only), pruning the user's expired rows.</summary>
+    /// <summary>Mints and stores a refresh token (hash only). Expired/rotated rows are purged
+    /// by the daily retention sweep, not here.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The raw refresh token (for the cookie) and its expiry.</returns>

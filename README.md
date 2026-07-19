@@ -81,6 +81,7 @@ All settings can be supplied as environment variables using `Section__Key` form.
 | `Database__AutoMigrate` | `true` | Apply EF migrations + seed bootstrap key at startup |
 | `Auth__BootstrapApiKey` | *(empty)* | Seeded (SHA-256-hashed) **only when the ApiKeys table is empty** |
 | `Scheduler__Enabled` / `Scheduler__SweepSeconds` | `true` / `15` | Notification/start-ping sweep loop |
+| `Retention__Enabled` / `Retention__Days` / `Retention__SweepHours` | `true` / `90` / `24` | Daily purge of done rows (sent/failed deliveries, expired login/refresh/link tokens) older than the window; pending deliveries are never purged |
 | `Api__PublicBaseUrl` | *(empty)* | The API's public HTTPS URL — required for Google OAuth and Discord login (`redirect_uri`s are built from it) |
 | `Calendar__Google__ClientId` / `ClientSecret` | *(empty)* | Google OAuth Web-client credentials; calendar features return a clear 503 until set |
 | `Calendar__DataProtectionKeyPath` | `./keys` | **Must be persisted storage.** Encryption keys for stored OAuth tokens live here; losing them silently bricks every linked calendar |
