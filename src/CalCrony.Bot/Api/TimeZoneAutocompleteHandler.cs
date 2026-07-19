@@ -37,7 +37,11 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
         "Pacific/Auckland",
     ];
 
-    private static volatile IReadOnlyList<TimeZoneOptionDto>? cache;
+    // Labels carry the CURRENT UTC offset, so the cache must refresh across DST transitions —
+    // 12h keeps labels accurate without per-keystroke API calls.
+    private sealed record CacheEntry(IReadOnlyList<TimeZoneOptionDto> Options, DateTimeOffset Expires);
+
+    private static volatile CacheEntry? cache;
 
     public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
         IInteractionContext context,
@@ -45,8 +49,8 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
         IParameterInfo parameter,
         IServiceProvider services)
     {
-        var options = cache;
-        if (options is null)
+        var entry = cache;
+        if (entry is null || entry.Expires <= DateTimeOffset.UtcNow)
         {
             var api = services.GetRequiredService<CalCronyApiClient>();
             var result = await api.ListTimeZonesAsync();
@@ -55,8 +59,11 @@ public class TimeZoneAutocompleteHandler : AutocompleteHandler
                 return AutocompletionResult.FromSuccess([]);
             }
 
-            options = cache = result.Value;
+            entry = new CacheEntry(result.Value, DateTimeOffset.UtcNow.AddHours(12));
+            cache = entry;
         }
+
+        var options = entry.Options;
 
         var input = autocompleteInteraction.Data.Current.Value?.ToString() ?? "";
         return AutocompletionResult.FromSuccess(BuildSuggestions(options, input));

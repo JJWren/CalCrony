@@ -20,13 +20,20 @@
     [Parameter] public EventCallback<string> ValueChanged { get; set; }
 
     private static IReadOnlyList<TimeZoneOptionDto>? cached;
+    private static DateTimeOffset cachedUntil;
 
     private IReadOnlyList<TimeZoneOptionDto> options = [];
 
     protected override async Task OnInitializedAsync()
     {
-        // The zone list is static per app lifetime — fetch once, share across pages.
-        cached ??= (await Api.ListTimeZonesAsync()).Value;
+        // Shared across pages, but labels carry the CURRENT UTC offset — refresh every 12h so
+        // a long-lived tab doesn't show pre-DST offsets for months.
+        if (cached is null || DateTimeOffset.UtcNow >= cachedUntil)
+        {
+            cached = (await Api.ListTimeZonesAsync()).Value;
+            cachedUntil = DateTimeOffset.UtcNow.AddHours(12);
+        }
+
         options = cached ?? [];
     }
 }
