@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/JJWren/CalCrony/compare/v0.9.0...v0.10.0) (2026-07-19)
+
+
+### Features
+
+* mirror events to Discord scheduled events ([#31](https://github.com/JJWren/CalCrony/issues/31)) ([3fe6559](https://github.com/JJWren/CalCrony/commit/3fe65594682497017423e8632e85aa2861769321))
+
 ## [0.9.0](https://github.com/JJWren/CalCrony/compare/v0.8.1...v0.9.0) (2026-07-19)
 
 
