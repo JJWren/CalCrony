@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using CalCrony.Api.Data;
 using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
@@ -43,6 +47,90 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         using var anonymous = fixture.Factory.CreateClient();
         var response = await anonymous.GetAsync("/feeds/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.ics");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Running_series_emit_one_rrule_vevent_instead_of_the_live_occurrence()
+    {
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Weekly Standup", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, 2)));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+
+        var ics = await FetchFeedAsync();
+
+        Assert.Contains($"UID:{ev.SeriesId}@calcrony", ics);
+        Assert.Contains("RRULE:", ics);
+        Assert.Contains("FREQ=WEEKLY", ics);
+        Assert.Contains("INTERVAL=2", ics);
+        // The live occurrence is represented by the series VEVENT — never doubled.
+        Assert.DoesNotContain($"UID:{ev.Id}@calcrony", ics);
+    }
+
+    [Fact]
+    public async Task Past_occurrences_stay_concrete_and_count_series_emit_count()
+    {
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Counted Series", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week), RepeatCount: 5));
+        var first = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+
+        // Skip: the first occurrence becomes history-adjacent (Cancelled — excluded), the
+        // replacement becomes the live anchor. Then past-date the replacement's predecessor…
+        var skip = await Client.PostAsync($"/events/{first.Id}/skip", null);
+        skip.EnsureSuccessStatusCode();
+        var next = (await skip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+
+        // …by ending a concrete past row directly: mark the live one Ended and past-dated, so the
+        // sweep-free feed shows it as history while the series projects from a computed next.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            var past = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(2));
+            await db.Events.Where(e => e.Id == next.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(e => e.StartsAt, past)
+                    .SetProperty(e => e.Status, EventStatus.Ended));
+        }
+
+        var ics = await FetchFeedAsync();
+
+        // The ended occurrence is concrete history; the series still projects with a COUNT.
+        Assert.Contains($"UID:{next.Id}@calcrony", ics);
+        Assert.Contains($"UID:{first.SeriesId}@calcrony", ics);
+        Assert.Contains("COUNT=", ics);
+    }
+
+    [Fact]
+    public async Task Until_series_emit_until_and_stopped_series_lose_their_rrule()
+    {
+        var untilCreate = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Until Series", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week), RepeatUntilText: "in 10 weeks"));
+        untilCreate.EnsureSuccessStatusCode();
+
+        var stoppedCreate = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Stopped Series", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+        var stopped = (await stoppedCreate.Content.ReadFromJsonAsync<EventDto>())!;
+        (await Client.PostAsync($"/series/{stopped.SeriesId}/stop", null)).EnsureSuccessStatusCode();
+
+        var ics = await FetchFeedAsync();
+
+        Assert.Contains("UNTIL=", ics);
+        // Stopped: the surviving occurrence returns as a concrete event; no series VEVENT.
+        Assert.Contains($"UID:{stopped.Id}@calcrony", ics);
+        Assert.DoesNotContain($"UID:{stopped.SeriesId}@calcrony", ics);
+    }
+
+    private async Task<string> FetchFeedAsync()
+    {
+        var token = await ReadTokenAsync();
+        using var anonymous = fixture.Factory.CreateClient();
+        var response = await anonymous.GetAsync(token.Path);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
     }
 
     private async Task<FeedTokenDto> ReadTokenAsync()
