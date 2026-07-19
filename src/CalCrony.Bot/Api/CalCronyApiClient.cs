@@ -267,6 +267,28 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<EventDto>> ConvertPollAsync(Guid pollId, ConvertPollRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PostAsJsonAsync($"/polls/{pollId}/convert", request, ct), ct);
 
+    /// <summary>Lists the guild's event templates, name-ordered.</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<List<EventTemplateDto>>> ListTemplatesAsync(long guildId, CancellationToken ct = default) =>
+        SendAsync<List<EventTemplateDto>>(http.GetAsync($"/guilds/{guildId}/templates", ct), ct);
+
+    /// <summary>Saves a template captured from an existing event.</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<EventTemplateDto>> SaveTemplateAsync(long guildId, SaveTemplateRequest request, CancellationToken ct = default) =>
+        SendAsync<EventTemplateDto>(http.PostAsJsonAsync($"/guilds/{guildId}/templates", request, ct), ct);
+
+    /// <summary>Deletes a template (creator or manager).</summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> DeleteTemplateAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/templates/{id}", ct), ct);
+
     /// <summary>Starts a calendar OAuth link for a user.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="ct">Cancels the request.</param>

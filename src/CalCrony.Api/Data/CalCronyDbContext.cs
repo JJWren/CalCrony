@@ -18,6 +18,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<EventNotification> EventNotifications => Set<EventNotification>();
     public DbSet<EventSeries> EventSeries => Set<EventSeries>();
     public DbSet<SeriesNotification> SeriesNotifications => Set<SeriesNotification>();
+    public DbSet<EventTemplate> EventTemplates => Set<EventTemplate>();
+    public DbSet<EventTemplateNotification> EventTemplateNotifications => Set<EventTemplateNotification>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
     public DbSet<CalendarConnection> CalendarConnections => Set<CalendarConnection>();
@@ -84,6 +86,23 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         });
 
         modelBuilder.Entity<SeriesNotification>(e =>
+        {
+            e.Property(n => n.Message).HasMaxLength(1024);
+            e.Property(n => n.Mentions).HasMaxLength(256);
+        });
+
+        modelBuilder.Entity<EventTemplate>(e =>
+        {
+            e.Property(t => t.Name).HasMaxLength(64);
+            e.Property(t => t.Title).HasMaxLength(128);
+            e.Property(t => t.Description).HasMaxLength(4096);
+            e.Property(t => t.Location).HasMaxLength(256);
+            e.Property(t => t.ImageUrl).HasMaxLength(512);
+            e.HasIndex(t => new { t.GuildId, t.Name }).IsUnique();
+            e.HasMany(t => t.Notifications).WithOne().HasForeignKey(n => n.TemplateId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EventTemplateNotification>(e =>
         {
             e.Property(n => n.Message).HasMaxLength(1024);
             e.Property(n => n.Mentions).HasMaxLength(256);

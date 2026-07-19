@@ -25,6 +25,7 @@ flowchart LR
 - **Recurring events** — every-N days/weeks/months schedules (monthly by date or by nth weekday, e.g. "3rd Friday"), anchored on the first occurrence with timezone-aware math (8pm stays 8pm across DST); rolling next occurrence sesh-style — when one ends or is skipped, the next posts automatically; end by date or count; edits ask "this occurrence or the whole series?"; the rule and end condition are editable after creation, and editing an ended series revives it (making stop reversible)
 - **Polls & time polls** — up to 10 options, single- or multi-vote, anonymous mode, voter-added options (➕ opens a modal), natural-language close deadlines with automatic closing, live bar-graph results on the embed — and a closed time poll's winning slot converts into a real event with one click.
 - **Discord native events** — opt-in per server (`/settings native-events on`): events mirror into Discord's built-in Events tab with full lifecycle sync (created/updated/deleted, marked active at start and completed at end); the native description points at the RSVP embed so "Interested" isn't mistaken for an RSVP. Requires the bot to hold **Manage Events** (on the current invite link; servers that added the bot earlier must re-invite or grant it to the bot's role).
+- **Event templates** — save any event's setup (content, reminders, repeat rule) as a named template, then start new events from it with `/create template:` or the web form's picker; up to 25 per server
 - **Web app** — sign in with Discord (identify + guilds scopes only) and use your servers' events in a mobile-first, dark-by-default UI: create, edit, and delete events (embeds post/update/disappear in Discord automatically), RSVP from the browser, manage notifications, set reminders, edit server & personal settings, see availability grids, link your calendar, grab the ICS subscribe URL. Polls work here too: create standard or time polls with live parse previews, vote, add options, close, and convert a time poll's winner into an event. Recurring events are fully manageable from the browser: repeat controls with live previews on the form, skip/stop from the event page, and per-occurrence vs whole-series choices on edits and notifications. Web-created events and polls post to the server's default channel, set once with `/settings default-channel`.
 
 ## Commands
@@ -34,7 +35,7 @@ flowchart LR
 
 | Command | What it does |
 |---|---|
-| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring |
+| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring, `template` starts from a saved template |
 | `/list [channel] [limit]` | Upcoming events |
 | `/edit name [fields...] [scope]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only; repeating events need `scope` (this occurrence / whole series) |
 | `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
@@ -44,6 +45,7 @@ flowchart LR
 | `/poll create question options [single-vote anonymous allow-options closes]` | Create a poll; `options` is comma-separated, `closes` is natural language |
 | `/poll time question slots [anonymous allow-options closes]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
+| `/template save name event` · `/template list` · `/template delete name` | Save an event's setup for reuse · browse · delete (creator or manager) |
 | `/settings view` · `/settings timezone` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` | Personal & server timezone · where web-created embeds post · mirror events to the server's Events tab |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |

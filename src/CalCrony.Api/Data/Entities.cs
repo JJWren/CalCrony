@@ -126,6 +126,41 @@ public class SeriesNotification
     public long? ChannelId { get; set; }
 }
 
+/// <summary>A reusable event shape saved from an existing event: content + notification specs +
+/// an optional repeat rule. Fully denormalized — the source event can be deleted freely. Names
+/// are unique per guild (the API rejects case-insensitive duplicates; the index is exact-case).</summary>
+public class EventTemplate
+{
+    public Guid Id { get; set; }
+    public long GuildId { get; set; }
+    public long CreatorId { get; set; }
+    public required string Name { get; set; }
+    public required string Title { get; set; }
+    public string? Description { get; set; }
+    public int? DurationMinutes { get; set; }
+    public string? Location { get; set; }
+    public string? ImageUrl { get; set; }
+
+    /// <summary>Null = no repeat rule; the interval/mode fields are meaningful only when set.</summary>
+    public RecurrenceUnit? RecurrenceUnit { get; set; }
+
+    public int? RecurrenceInterval { get; set; }
+    public MonthlyMode? RecurrenceMonthlyMode { get; set; }
+    public Instant CreatedAt { get; set; }
+    public List<EventTemplateNotification> Notifications { get; set; } = [];
+}
+
+/// <summary>One notification spec carried by a template, applied to events created from it.</summary>
+public class EventTemplateNotification
+{
+    public Guid Id { get; set; }
+    public Guid TemplateId { get; set; }
+    public int MinutesBefore { get; set; }
+    public string? Message { get; set; }
+    public string? Mentions { get; set; }
+    public long? ChannelId { get; set; }
+}
+
 /// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 public class RsvpOption
 {

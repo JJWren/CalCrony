@@ -1,12 +1,13 @@
-@* Events | Polls pill switcher shown at the top of both guild pages. *@
+@* Events | Polls | Templates pill switcher shown at the top of the guild pages. *@
 <div class="btn-group btn-group-sm" role="group" aria-label="Guild section">
     <a class="btn @(Active == "events" ? "btn-primary" : "btn-outline-primary")" href="/app/guilds/@GuildId/events">Events</a>
     <a class="btn @(Active == "polls" ? "btn-primary" : "btn-outline-primary")" href="/app/guilds/@GuildId/polls">Polls</a>
+    <a class="btn @(Active == "templates" ? "btn-primary" : "btn-outline-primary")" href="/app/guilds/@GuildId/templates">Templates</a>
 </div>
 
 @code {
     [Parameter, EditorRequired] public long GuildId { get; set; }
 
-    /// <summary>"events" or "polls".</summary>
+    /// <summary>"events", "polls", or "templates".</summary>
     [Parameter, EditorRequired] public string Active { get; set; } = "events";
 }
