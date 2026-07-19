@@ -28,6 +28,9 @@ flowchart LR
 
 ## Commands
 
+> **First steps after inviting the bot** (server admins, once per server):
+> `/settings server-timezone` with an IANA id like `America/Chicago` — natural-language times parse in this zone, and until it's set the server runs on UTC, so local wall-clock times can land hours off or be rejected as past. Then `/settings default-channel` pointing at your events channel — web-created events, polls, and reminders post there, and web creation is blocked until it's set.
+
 | Command | What it does |
 |---|---|
 | `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring |
@@ -40,7 +43,7 @@ flowchart LR
 | `/poll create question options [single-vote anonymous allow-options closes]` | Create a poll; `options` is comma-separated, `closes` is natural language |
 | `/poll time question slots [anonymous allow-options closes]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
-| `/settings view` · `/settings timezone` · `/settings server-timezone` | Personal & server timezone (IANA ids) |
+| `/settings view` · `/settings timezone` · `/settings server-timezone` · `/settings default-channel` | Personal & server timezone (IANA ids) · where web-created embeds post |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |
 | `/calendar connect` · `status` · `disconnect` | Link/unlink your Google Calendar (works in DMs) |

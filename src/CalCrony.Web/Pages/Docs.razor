@@ -10,6 +10,28 @@
     Sign in with Discord and you'll see exactly the servers you share with the bot.
 </p>
 
+<h2 class="h5 mt-4 mb-2">First steps for server admins</h2>
+<p class="text-body-secondary" style="max-width:66ch">
+    Right after inviting the bot, run these two commands once — they shape everything else:
+</p>
+<ol class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <code>/settings server-timezone</code> with an IANA id like <code>America/Chicago</code>.
+        Natural-language times ("tomorrow 6pm") are parsed in this zone; until it's set, the
+        server runs on <b>UTC</b>, so local wall-clock times can land hours off or be rejected
+        as "in the past". (Members can also set a personal <code>/settings timezone</code>,
+        which wins over the server's for their own inputs.)
+    </li>
+    <li class="mb-2">
+        <code>/settings default-channel</code> pointing at your events channel. Events, polls,
+        and reminders created from this web app post their embeds there — <b>web creation is
+        blocked until it's set</b>. Bot commands aren't affected (they post where they're run).
+    </li>
+</ol>
+<p class="text-body-secondary" style="max-width:66ch">
+    Check both anytime with <code>/settings view</code> or from the server's settings page here.
+</p>
+
 <h2 class="h5 mt-4 mb-3">Slash commands</h2>
 <div class="table-responsive border rounded">
     <table class="table table-sm mb-0 align-middle">
