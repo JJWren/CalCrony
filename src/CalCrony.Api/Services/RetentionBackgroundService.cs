@@ -19,8 +19,15 @@ public sealed class RetentionBackgroundService(
     /// <param name="stoppingToken">Signals host shutdown.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var interval = TimeSpan.FromHours(configuration.GetValue("Retention:SweepHours", 24));
-        using var timer = new PeriodicTimer(interval);
+        var hours = configuration.GetValue("Retention:SweepHours", 24);
+        if (hours < 1)
+        {
+            // PeriodicTimer throws on non-positive intervals, which would take the host down.
+            logger.LogWarning("Retention:SweepHours was {Hours}; clamping to 1 hour.", hours);
+            hours = 1;
+        }
+
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(hours));
 
         do
         {

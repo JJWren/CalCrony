@@ -22,7 +22,16 @@ public sealed class RetentionService(
     /// <returns>How many rows were purged across all tables.</returns>
     public async Task<int> PurgeAsync(Instant now, CancellationToken cancellationToken)
     {
-        var cutoff = now.Minus(Duration.FromDays(configuration.GetValue("Retention:Days", 90)));
+        var days = configuration.GetValue("Retention:Days", 90);
+        if (days < 1)
+        {
+            // A zero/negative window would purge everything that isn't from the future —
+            // clamp instead of trusting a typo with the whole outbox history.
+            logger.LogWarning("Retention:Days was {Days}; clamping to 1 day.", days);
+            days = 1;
+        }
+
+        var cutoff = now.Minus(Duration.FromDays(days));
 
         var deliveries = await db.Deliveries
             .Where(d => d.Status != DeliveryStatus.Pending && d.CreatedAt < cutoff)
