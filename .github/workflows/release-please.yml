@@ -3,6 +3,9 @@ name: release-please
 on:
   push:
     branches: [master]
+  # Manual escape hatch: GitHub occasionally drops default-branch push events (observed
+  # 2026-07-19 — merges landed with zero check suites), which silently skips the release roll.
+  workflow_dispatch:
 
 permissions:
   contents: write
