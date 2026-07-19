@@ -179,7 +179,7 @@ public sealed class DeliveryPollerService(
 
             if (payload is not null)
             {
-                await threads.TryAddMemberAsync(payload.GuildId, payload.ThreadId, payload.UserId);
+                await threads.TryAddMemberAsync(payload.EventId, payload.GuildId, payload.ThreadId, payload.UserId);
             }
 
             return;
@@ -200,7 +200,7 @@ public sealed class DeliveryPollerService(
 
             if (payload is not null)
             {
-                await threads.TryArchiveAsync(payload.GuildId, payload.ThreadId);
+                await threads.TryArchiveAsync(payload.EventId, payload.GuildId, payload.ThreadId);
             }
 
             return;

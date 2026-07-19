@@ -146,7 +146,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
         var roleNote = ev.AttendeeRoleId is null ? "" : $" · 🏷️ Going grants <@&{ev.AttendeeRoleId}>";
-        var threadNote = ev.WantsThread ? " · 🧵 discussion thread opened" : "";
+        // "opening", not "opened" — thread creation is best-effort and may still fail.
+        var threadNote = ev.WantsThread ? " · 🧵 opening a discussion thread" : "";
         await FollowupAsync(
             $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{threadNote}",
             ephemeral: true);

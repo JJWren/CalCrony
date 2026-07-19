@@ -55,17 +55,21 @@ public class EventThreadManager(DiscordSocketClient client, CalCronyApiClient ap
         }
     }
 
-    /// <summary>Adds a user to the thread (Discord treats re-adding an existing member as a no-op).</summary>
+    /// <summary>Adds a user to the thread (Discord treats re-adding an existing member as a no-op).
+    /// A thread that was deleted Discord-side clears the event's stale id so the API stops
+    /// enqueueing deliveries for it.</summary>
+    /// <param name="eventId">The event id (for stale-id clearing).</param>
     /// <param name="guildId">The Discord guild id.</param>
     /// <param name="threadId">The Discord thread-channel id.</param>
     /// <param name="userId">The Discord user id.</param>
-    public async Task TryAddMemberAsync(long guildId, long threadId, long userId)
+    public async Task TryAddMemberAsync(Guid eventId, long guildId, long threadId, long userId)
     {
         try
         {
             if (await ResolveThreadAsync(guildId, threadId) is not { } thread)
             {
-                return; // Thread deleted Discord-side; nothing to join.
+                await ClearStaleThreadAsync(eventId, threadId);
+                return;
             }
 
             var user = await ResolveGuildUserAsync(guildId, userId);
@@ -84,15 +88,18 @@ public class EventThreadManager(DiscordSocketClient client, CalCronyApiClient ap
         }
     }
 
-    /// <summary>Archives the thread; already archived or deleted counts as done.</summary>
+    /// <summary>Archives the thread; already archived counts as done, and a thread deleted
+    /// Discord-side clears the event's stale id (best-effort — the event row may itself be gone).</summary>
+    /// <param name="eventId">The event id (for stale-id clearing).</param>
     /// <param name="guildId">The Discord guild id.</param>
     /// <param name="threadId">The Discord thread-channel id.</param>
-    public async Task TryArchiveAsync(long guildId, long threadId)
+    public async Task TryArchiveAsync(Guid eventId, long guildId, long threadId)
     {
         try
         {
             if (await ResolveThreadAsync(guildId, threadId) is not { } thread)
             {
+                await ClearStaleThreadAsync(eventId, threadId);
                 return;
             }
 
@@ -105,6 +112,19 @@ public class EventThreadManager(DiscordSocketClient client, CalCronyApiClient ap
         {
             logger.LogWarning(
                 ex, "Best-effort thread archive failed for thread {ThreadId} in guild {GuildId}.", threadId, guildId);
+        }
+    }
+
+    /// <summary>Clears a deleted thread's id off the event so the API stops enqueueing thread
+    /// deliveries for it. Best-effort — a 404 (event already deleted) is fine.</summary>
+    private async Task ClearStaleThreadAsync(Guid eventId, long threadId)
+    {
+        var cleared = await api.SetThreadAsync(eventId, new SetThreadRequest(null));
+        if (!cleared.Success)
+        {
+            logger.LogDebug(
+                "Could not clear stale thread {ThreadId} off event {EventId}: {Error}",
+                threadId, eventId, cleared.Error);
         }
     }
 
