@@ -131,6 +131,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", version })).AllowAno
 app.MapEventEndpoints();
 app.MapSeriesEndpoints();
 app.MapPollEndpoints();
+app.MapTemplateEndpoints();
 app.MapSettingsEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();

@@ -19,6 +19,7 @@ public class SeriesComponentTests : TestContext
     public void Create_form_sends_recurrence_rule_and_count()
     {
         var handler = UseApi();
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
 
         var cut = RenderComponent<EventForm>(p => p.Add(x => x.GuildId, 1));
         cut.Find("#ev-title").Change("Weekly sync");
@@ -43,6 +44,7 @@ public class SeriesComponentTests : TestContext
     public void Create_form_sends_until_text_in_until_mode()
     {
         var handler = UseApi();
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
 
         var cut = RenderComponent<EventForm>(p => p.Add(x => x.GuildId, 1));
         cut.Find("#ev-title").Change("Book club");

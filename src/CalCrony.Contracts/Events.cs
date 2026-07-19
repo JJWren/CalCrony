@@ -25,6 +25,10 @@ public enum EventStatus
 /// <param name="Recurrence">The repeat rule, when the event should recur.</param>
 /// <param name="RepeatUntilText">Natural-language last repeat date.</param>
 /// <param name="RepeatCount">Total occurrences including the first.</param>
+/// <param name="TemplateId">Template to apply: explicit request fields win, the template fills
+/// gaps, and its notification specs are always copied onto the created event.</param>
+/// <param name="NoRecurrence">Explicitly suppresses a template's repeat rule (unset does not —
+/// a template rule applies when no explicit rule is sent). Conflicts with Recurrence.</param>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -36,7 +40,9 @@ public record CreateEventRequest(
     string? ImageUrl = null,
     RecurrenceRuleDto? Recurrence = null,
     string? RepeatUntilText = null,
-    int? RepeatCount = null);
+    int? RepeatCount = null,
+    Guid? TemplateId = null,
+    bool NoRecurrence = false);
 
 /// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
 /// the live occurrence of a non-ended series and ignored otherwise.</summary>

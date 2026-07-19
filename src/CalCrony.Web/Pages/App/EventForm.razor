@@ -20,6 +20,24 @@
 else
 {
     <div class="card p-3" style="max-width:560px">
+        @if (!IsEdit && templates.Count > 0)
+        {
+            <div class="mb-3">
+                <label class="form-label" for="ev-template">Start from template</label>
+                <select id="ev-template" class="form-select" @onchange="OnTemplateChanged">
+                    <option value="" selected="@(selectedTemplateId is null)">(none)</option>
+                    @foreach (var t in templates)
+                    {
+                        <option value="@t.Id" selected="@(t.Id == selectedTemplateId)">@t.Name</option>
+                    }
+                </select>
+                @if (SelectedTemplate is { Notifications.Count: > 0 } selected)
+                {
+                    <div class="form-text text-primary">🔔 Includes @selected.Notifications.Count reminder@(selected.Notifications.Count == 1 ? "" : "s") — added to the event automatically.</div>
+                }
+                <div class="form-text">Picking a template fills the fields below (overwriting edits); everything stays editable.</div>
+            </div>
+        }
         <div class="mb-3">
             <label class="form-label" for="ev-title">Title</label>
             <input id="ev-title" class="form-control" maxlength="128" @bind="title" />
@@ -159,6 +177,9 @@ else
 
     [Parameter] public Guid? EventId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "template")]
+    public Guid? TemplateId { get; set; }
+
     private enum RepeatKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday }
 
     private enum EndMode { Never, Until, Count }
@@ -187,6 +208,12 @@ else
     private string? recurrenceSummary;
     private bool editTargetIsLive;
     private bool askingScope;
+    private List<EventTemplateDto> templates = [];
+    private Guid? selectedTemplateId;
+    private long? templatesLoadedForGuild;
+
+    private EventTemplateDto? SelectedTemplate =>
+        templates.FirstOrDefault(t => t.Id == selectedTemplateId);
 
     private string UnitLabel => repeatKind switch
     {
@@ -229,6 +256,22 @@ else
     protected override async Task OnParametersSetAsync()
     {
         backGuildId = GuildId;
+        if (!IsEdit && templatesLoadedForGuild != GuildId)
+        {
+            // Once per guild: a reused component instance must not keep another guild's
+            // templates or a stale selection, and re-running would clobber user edits.
+            templatesLoadedForGuild = GuildId;
+            selectedTemplateId = null;
+            var loaded = await Api.ListTemplatesAsync(GuildId);
+            // Failure just hides the picker — templates are a convenience, not a requirement.
+            templates = loaded.Success ? loaded.Value ?? [] : [];
+            if (TemplateId is { } preselected && templates.Any(t => t.Id == preselected))
+            {
+                selectedTemplateId = preselected;
+                ApplyTemplate(SelectedTemplate!);
+            }
+        }
+
         if (IsEdit)
         {
             var result = await Api.GetEventAsync(EventId!.Value);
@@ -271,6 +314,37 @@ else
         {
             untilError = result.Error;
         }
+    }
+
+    private void OnTemplateChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        selectedTemplateId = Guid.TryParse(raw, out var id) ? id : null;
+        if (SelectedTemplate is { } template)
+        {
+            ApplyTemplate(template);
+        }
+    }
+
+    // Prefills every template-carried field (overwrites edits — the hint says so). The visible
+    // values are what gets submitted; the TemplateId rides along only for the notification specs.
+    private void ApplyTemplate(EventTemplateDto template)
+    {
+        title = template.Title;
+        description = template.Description;
+        duration = template.DurationMinutes;
+        location = template.Location;
+        imageUrl = template.ImageUrl;
+        repeatKind = template.Recurrence switch
+        {
+            null => RepeatKind.None,
+            { Unit: RecurrenceUnit.Day } => RepeatKind.Daily,
+            { Unit: RecurrenceUnit.Week } => RepeatKind.Weekly,
+            { MonthlyMode: MonthlyMode.NthWeekday } => RepeatKind.MonthlyNthWeekday,
+            _ => RepeatKind.MonthlySameDate,
+        };
+        repeatInterval = template.Recurrence?.Interval ?? 1;
+        endMode = EndMode.Never; // templates never carry end conditions
     }
 
     // Editing a live occurrence of a running series needs the scope ask before submitting.
@@ -373,7 +447,12 @@ else
                 title, when, 0, description, duration, location, imageUrl,
                 recurrence,
                 recurrence is not null && endMode == EndMode.Until && !string.IsNullOrWhiteSpace(repeatUntil) ? repeatUntil : null,
-                recurrence is not null && endMode == EndMode.Count ? repeatCount : null));
+                recurrence is not null && endMode == EndMode.Count ? repeatCount : null,
+                // The visible fields are explicit values (they win); the template id rides along
+                // so the server attaches its notification specs. NoRecurrence protects a rule
+                // the user cleared on a repeating template.
+                selectedTemplateId,
+                NoRecurrence: SelectedTemplate?.Recurrence is not null && repeatKind == RepeatKind.None));
             busy = false;
             if (!result.Success || result.Value is null)
             {

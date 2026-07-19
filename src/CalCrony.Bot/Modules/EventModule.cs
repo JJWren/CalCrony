@@ -12,6 +12,7 @@ public enum RepeatChoice
     [ChoiceDisplay("weekly")] Weekly,
     [ChoiceDisplay("monthly (same date)")] MonthlySameDate,
     [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
+    [ChoiceDisplay("no repeat (ignore template repeat)")] None,
 }
 
 /// <summary>Ask-per-edit scope choices for /edit on repeating events.</summary>
@@ -50,7 +51,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         [Summary("repeat", "Repeat this event on a schedule anchored to the first occurrence")] RepeatChoice? repeat = null,
         [Summary("repeat-every", "Repeat interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
         [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
-        [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null)
+        [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
+        [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -61,7 +63,24 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
             return;
         }
 
-        if (repeat is null && (repeatEvery != 1 || repeatUntil is not null || repeatCount is not null))
+        EventTemplateDto? resolvedTemplate = null;
+        if (template is not null)
+        {
+            var (found, templateProblem) = await TemplateFinder.FindSingleAsync(api, (long)Context.Guild.Id, template);
+            if (found is null)
+            {
+                await FollowupAsync(templateProblem!, ephemeral: true);
+                return;
+            }
+
+            resolvedTemplate = found;
+        }
+
+        // A template with a rule can legitimately carry the repeat end options; otherwise the
+        // API remains the validator of record for the same rule.
+        var templateHasRule = resolvedTemplate?.Recurrence is not null;
+        if (repeat is null && !templateHasRule
+            && (repeatEvery != 1 || repeatUntil is not null || repeatCount is not null))
         {
             await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
             return;
@@ -81,7 +100,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
             new CreateEventRequest(
                 (long)Context.User.Id, title, when, (long)targetChannel.Id,
                 description, duration, location, image,
-                recurrence, repeatUntil, repeatCount));
+                recurrence, repeatUntil, repeatCount,
+                resolvedTemplate?.Id, NoRecurrence: repeat == RepeatChoice.None));
 
         if (!result.Success || result.Value is null)
         {

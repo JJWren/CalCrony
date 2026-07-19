@@ -262,14 +262,54 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse(error!));
         }
 
-        if (request.Recurrence is null && (request.RepeatUntilText is not null || request.RepeatCount is not null))
+        // Template application: explicit request fields win, the template fills gaps, and its
+        // notification specs are always copied. NoRecurrence explicitly suppresses a template
+        // rule (unset means "take it" when no explicit rule was sent).
+        EventTemplate? template = null;
+        if (request.TemplateId is { } templateId)
+        {
+            template = await db.EventTemplates
+                .Include(t => t.Notifications)
+                .FirstOrDefaultAsync(t => t.Id == templateId && t.GuildId == guildId, cancellationToken);
+            if (template is null)
+            {
+                return Results.BadRequest(new ErrorResponse("That template no longer exists."));
+            }
+        }
+
+        if (request.NoRecurrence && request.Recurrence is not null)
+        {
+            return Results.BadRequest(new ErrorResponse("Choose a repeat rule or no repeat, not both."));
+        }
+
+        var title = string.IsNullOrWhiteSpace(request.Title) && template is not null
+            ? template.Title
+            : request.Title;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return Results.BadRequest(new ErrorResponse("The title is required."));
+        }
+
+        var description = request.Description ?? template?.Description;
+        var durationMinutes = request.DurationMinutes ?? template?.DurationMinutes;
+        var location = request.Location ?? template?.Location;
+        var imageUrl = request.ImageUrl ?? template?.ImageUrl;
+        var recurrence = request.Recurrence
+            ?? (request.NoRecurrence || template?.RecurrenceUnit is null
+                ? null
+                : new RecurrenceRuleDto(
+                    template.RecurrenceUnit.Value,
+                    template.RecurrenceInterval!.Value,
+                    template.RecurrenceMonthlyMode!.Value));
+
+        if (recurrence is null && (request.RepeatUntilText is not null || request.RepeatCount is not null))
         {
             return Results.BadRequest(new ErrorResponse("Set a repeat rule to use the repeat end options."));
         }
 
         var now = clock.GetCurrentInstant();
         EventSeries? series = null;
-        if (request.Recurrence is { } rule)
+        if (recurrence is { } rule)
         {
             if (rule.Interval is < 1 or > 12)
             {
@@ -317,12 +357,12 @@ public static class EventEndpoints
                 MaxOccurrences = request.RepeatCount,
                 CurrentOccurrenceDate = firstLocal.Date,
                 OccurrenceCount = 1,
-                Title = request.Title,
-                Description = request.Description,
-                DurationMinutes = request.DurationMinutes,
+                Title = title,
+                Description = description,
+                DurationMinutes = durationMinutes,
                 ChannelId = channelId,
-                Location = request.Location,
-                ImageUrl = request.ImageUrl,
+                Location = location,
+                ImageUrl = imageUrl,
                 CreatedAt = now,
             };
             db.EventSeries.Add(series);
@@ -333,14 +373,14 @@ public static class EventEndpoints
             Id = Guid.NewGuid(),
             GuildId = guildId,
             CreatorId = creatorId,
-            Title = request.Title,
-            Description = request.Description,
+            Title = title,
+            Description = description,
             StartsAt = startsAt,
             TimeZone = zone.Id,
-            DurationMinutes = request.DurationMinutes,
+            DurationMinutes = durationMinutes,
             ChannelId = channelId,
-            Location = request.Location,
-            ImageUrl = request.ImageUrl,
+            Location = location,
+            ImageUrl = imageUrl,
             Status = EventStatus.Scheduled,
             SeriesId = series?.Id,
             Series = series,
@@ -348,6 +388,41 @@ public static class EventEndpoints
             Options = DefaultRsvpOptions(),
         };
         db.Events.Add(ev);
+
+        // Template notification specs go onto the event and — when a series was created — onto
+        // its spec list with lineage, exactly like hand-added Series-scope notifications, so
+        // future occurrences inherit them and Series-scope deletes retire them.
+        if (template is not null)
+        {
+            foreach (var spec in template.Notifications)
+            {
+                SeriesNotification? seriesSpec = null;
+                if (series is not null)
+                {
+                    seriesSpec = new SeriesNotification
+                    {
+                        Id = Guid.NewGuid(),
+                        SeriesId = series.Id,
+                        MinutesBefore = spec.MinutesBefore,
+                        Message = spec.Message,
+                        Mentions = spec.Mentions,
+                        ChannelId = spec.ChannelId,
+                    };
+                    db.SeriesNotifications.Add(seriesSpec);
+                }
+
+                db.EventNotifications.Add(new EventNotification
+                {
+                    Id = Guid.NewGuid(),
+                    EventId = ev.Id,
+                    MinutesBefore = spec.MinutesBefore,
+                    Message = spec.Message,
+                    Mentions = spec.Mentions,
+                    ChannelId = spec.ChannelId,
+                    SeriesNotificationId = seriesSpec?.Id,
+                });
+            }
+        }
 
         if (!isBot)
         {

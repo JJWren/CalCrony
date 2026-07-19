@@ -89,6 +89,33 @@ else
         </div>
     }
 
+    <div class="mt-3" style="max-width:560px">
+        @if (!showTemplateSave)
+        {
+            <button class="btn btn-outline-secondary btn-sm" @onclick="() => { showTemplateSave = true; templateSaveMessage = null; }">Save as template</button>
+        }
+        else
+        {
+            <div class="card p-3">
+                <label class="form-label small mb-1" for="tmpl-name">Template name</label>
+                <div class="d-flex gap-2">
+                    <input id="tmpl-name" class="form-control form-control-sm" maxlength="64" @bind="templateName" />
+                    <button class="btn btn-outline-primary btn-sm" @onclick="SaveTemplateAsync" disabled="@busy">Save</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => showTemplateSave = false" disabled="@busy">Cancel</button>
+                </div>
+                <p class="text-body-secondary small mb-0 mt-2">Captures this event's content, reminders, and repeat rule for reuse from <code>/create</code> or the event form.</p>
+                @if (templateSaveMessage is not null)
+                {
+                    <div class="meta-mono mt-2">@templateSaveMessage</div>
+                }
+            </div>
+        }
+        @if (!showTemplateSave && templateSaveMessage is not null)
+        {
+            <span class="meta-mono ms-2">@templateSaveMessage</span>
+        }
+    </div>
+
     @if (showScheduleEditor)
     {
         <div class="card p-3 mt-3" style="max-width:560px">
@@ -335,6 +362,9 @@ else
 
     private enum ScheduleEndMode { Never, Until, Count }
 
+    private bool showTemplateSave;
+    private string templateName = "";
+    private string? templateSaveMessage;
     private bool showScheduleEditor;
     private SeriesDto? series;
     private ScheduleKind scheduleKind;
@@ -528,6 +558,30 @@ else
         }
 
         Nav.NavigateTo($"/app/guilds/{ev!.GuildId}/events");
+    }
+
+    private async Task SaveTemplateAsync()
+    {
+        templateSaveMessage = null;
+        if (string.IsNullOrWhiteSpace(templateName))
+        {
+            templateSaveMessage = "❌ Enter a template name.";
+            return;
+        }
+
+        busy = true;
+        // CreatorId is forced server-side to the signed-in user.
+        var result = await Api.SaveTemplateAsync(ev!.GuildId, new SaveTemplateRequest(0, templateName.Trim(), ev.Id));
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            templateSaveMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        showTemplateSave = false;
+        templateName = "";
+        templateSaveMessage = $"✅ Saved template \"{result.Value.Name}\" — see the server's Templates tab.";
     }
 
     private async Task SkipAsync()
