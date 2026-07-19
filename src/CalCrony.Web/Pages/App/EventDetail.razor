@@ -33,6 +33,10 @@ else
                 {
                     <span>📍 @ev.Location</span>
                 }
+                @if (ev.AttendeeRoleId is not null)
+                {
+                    <span title="RSVPing Going grants this server role within ~15 seconds">🏷️ Going grants role #@ev.AttendeeRoleId</span>
+                }
             </div>
         </div>
         @if (CanManage)

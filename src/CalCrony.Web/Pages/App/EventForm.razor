@@ -148,6 +148,17 @@ else
             <p class="meta-mono">🔁 @recurrenceSummary — change or stop the schedule from the event page's <b>Edit schedule</b> button.</p>
         }
 
+        @if (IsEdit && attendeeRoleId is not null)
+        {
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="ev-clear-role" @bind="clearAttendeeRole" />
+                <label class="form-check-label" for="ev-clear-role">
+                    Remove attendee role (#@attendeeRoleId) — existing grants are removed too
+                </label>
+                <div class="form-text">Picking a different role happens in Discord with <code>/edit</code>.</div>
+            </div>
+        }
+
         @if (error is not null)
         {
             <div class="alert alert-danger py-2">@error</div>
@@ -208,6 +219,8 @@ else
     private string? recurrenceSummary;
     private bool editTargetIsLive;
     private bool askingScope;
+    private long? attendeeRoleId;
+    private bool clearAttendeeRole;
     private List<EventTemplateDto> templates = [];
     private Guid? selectedTemplateId;
     private long? templatesLoadedForGuild;
@@ -291,6 +304,7 @@ else
             imageUrl = ev.ImageUrl;
             recurrenceSummary = ev.RecurrenceSummary;
             editTargetIsLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
+            attendeeRoleId = ev.AttendeeRoleId;
         }
 
         loading = false;
@@ -422,7 +436,9 @@ else
                 DurationMinutes: duration,
                 Location: location,
                 ImageUrl: imageUrl,
-                Scope: scope));
+                Scope: scope,
+                // Clearing is allowed from the web; picking a role is bot-only (no role list here).
+                ClearAttendeeRole: clearAttendeeRole));
             busy = false;
             if (!result.Success || result.Value is null)
             {

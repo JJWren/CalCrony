@@ -294,6 +294,8 @@ public static class EventEndpoints
         var durationMinutes = request.DurationMinutes ?? template?.DurationMinutes;
         var location = request.Location ?? template?.Location;
         var imageUrl = request.ImageUrl ?? template?.ImageUrl;
+        // Role selection is bot-only (the web can't enumerate Discord roles); templates never carry one.
+        var attendeeRoleId = isBot ? request.AttendeeRoleId : null;
         var recurrence = request.Recurrence
             ?? (request.NoRecurrence || template?.RecurrenceUnit is null
                 ? null
@@ -363,6 +365,7 @@ public static class EventEndpoints
                 ChannelId = channelId,
                 Location = location,
                 ImageUrl = imageUrl,
+                AttendeeRoleId = attendeeRoleId,
                 CreatedAt = now,
             };
             db.EventSeries.Add(series);
@@ -381,6 +384,7 @@ public static class EventEndpoints
             ChannelId = channelId,
             Location = location,
             ImageUrl = imageUrl,
+            AttendeeRoleId = attendeeRoleId,
             Status = EventStatus.Scheduled,
             SeriesId = series?.Id,
             Series = series,
@@ -565,6 +569,21 @@ public static class EventEndpoints
 
         var applyToSeries = series is not null && isLive && request.Scope == EditScope.Series;
 
+        if (request.AttendeeRoleId is not null && request.ClearAttendeeRole)
+        {
+            return Results.BadRequest(new ErrorResponse("Choose an attendee role or clear it, not both."));
+        }
+
+        if (!context.User.IsBot() && request.AttendeeRoleId is not null)
+        {
+            // The web can't enumerate Discord roles, so selection is bot-only; clearing is fine.
+            return Results.BadRequest(new ErrorResponse("Attendee roles are picked in Discord — use /create or /edit."));
+        }
+
+        var oldRole = ev.AttendeeRoleId;
+        var newRole = request.ClearAttendeeRole ? null : request.AttendeeRoleId ?? oldRole;
+        var staysLive = (request.Status ?? ev.Status) is EventStatus.Scheduled or EventStatus.Started;
+
         if (request.WhenText is not null)
         {
             // Series-scope time changes parse in the series zone and re-anchor the schedule;
@@ -601,6 +620,37 @@ public static class EventEndpoints
             series.ImageUrl = request.ImageUrl ?? series.ImageUrl;
         }
 
+        ev.AttendeeRoleId = newRole;
+        if (applyToSeries && (request.AttendeeRoleId is not null || request.ClearAttendeeRole))
+        {
+            series!.AttendeeRoleId = newRole;
+        }
+
+        var roleSyncNow = clock.GetCurrentInstant();
+        if (isLive && !staysLive)
+        {
+            // Cancel/end via PATCH — the previously side-effect-free path. Revoke everything
+            // under the OLD role; a same-request role change never grants on a dying event.
+            if (oldRole is { } endedRole)
+            {
+                AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, endedRole, roleSyncNow);
+            }
+        }
+        else if (isLive && newRole != oldRole)
+        {
+            // Re-sync on role change: without the old-role revoke fan-out, the end-of-event
+            // cleanup would only ever revoke the CURRENT role and the old grants would leak.
+            if (oldRole is { } previousRole)
+            {
+                AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, previousRole, roleSyncNow);
+            }
+
+            if (newRole is { } grantedRole)
+            {
+                AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.GrantAttendeeRole, grantedRole, roleSyncNow);
+            }
+        }
+
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ev.ToDto());
@@ -622,7 +672,7 @@ public static class EventEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
-        var ev = await db.Events.Include(e => e.Series).FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
         {
             return Results.NotFound();
@@ -638,6 +688,14 @@ public static class EventEndpoints
         if (ev.Series is { Ended: false } series && ev.Status is EventStatus.Scheduled or EventStatus.Started)
         {
             series.Ended = true;
+        }
+
+        // Attendee-role revokes must be captured before the delete cascades the RSVP rows away —
+        // and unlike the embed cleanup, they apply to BOTH caller types (roles always ride the outbox).
+        if (AttendeeRoleSync.IsRoleActive(ev))
+        {
+            AttendeeRoleSync.EnqueueRoleFanOut(
+                db, ev, DeliveryType.RevokeAttendeeRole, ev.AttendeeRoleId!.Value, clock.GetCurrentInstant());
         }
 
         // Web deletes: capture the posted message's and mirrored native event's ids before the
@@ -748,6 +806,7 @@ public static class EventEndpoints
         }
 
         var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
+        var oldOptionId = existing?.OptionId;
         if (option.Capacity is int capacity &&
             existing?.OptionId != option.Id &&
             ev.Rsvps.Count(r => r.OptionId == option.Id) >= capacity)
@@ -774,6 +833,23 @@ public static class EventEndpoints
         {
             existing.OptionId = option.Id;
             existing.CreatedAt = clock.GetCurrentInstant();
+        }
+
+        // Attendee role: crossing onto/off the Going option grants/revokes — for BOT callers too
+        // (unlike embed sync, the bot never touches roles itself; everything rides the outbox).
+        if (AttendeeRoleSync.IsRoleActive(ev) && AttendeeRoleSync.GoingOptionId(ev.Options) is { } goingId)
+        {
+            switch (AttendeeRoleSync.Decide(oldOptionId, option.Id, goingId))
+            {
+                case AttendeeRoleAction.Grant:
+                    await AttendeeRoleSync.EnqueueRoleChangeAsync(
+                        db, ev, DeliveryType.GrantAttendeeRole, userId, clock, cancellationToken);
+                    break;
+                case AttendeeRoleAction.Revoke:
+                    await AttendeeRoleSync.EnqueueRoleChangeAsync(
+                        db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
+                    break;
+            }
         }
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
@@ -818,8 +894,18 @@ public static class EventEndpoints
         var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
         if (existing is not null)
         {
+            var wasOptionId = existing.OptionId;
             db.Rsvps.Remove(existing);
             ev.Rsvps.Remove(existing);
+
+            if (AttendeeRoleSync.IsRoleActive(ev)
+                && AttendeeRoleSync.GoingOptionId(ev.Options) is { } goingId
+                && AttendeeRoleSync.Decide(wasOptionId, null, goingId) == AttendeeRoleAction.Revoke)
+            {
+                await AttendeeRoleSync.EnqueueRoleChangeAsync(
+                    db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
+            }
+
             await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }

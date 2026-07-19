@@ -256,6 +256,8 @@ public static class SeriesEndpoints
     {
         var ev = await db.Events
             .Include(e => e.Series!).ThenInclude(s => s.NotificationSpecs)
+            .Include(e => e.Options)
+            .Include(e => e.Rsvps)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev is null)
         {
@@ -279,6 +281,12 @@ public static class SeriesEndpoints
 
         var now = clock.GetCurrentInstant();
         ev.Status = EventStatus.Cancelled;
+
+        // The skipped occurrence's attendee roles come off; the spawned replacement starts fresh.
+        if (ev.AttendeeRoleId is long roleId)
+        {
+            Services.AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
+        }
 
         // Always via the outbox, both caller types — one code path for embed and native-event
         // removal, matching the materializer's always-outbox post of the replacement.

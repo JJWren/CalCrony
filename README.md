@@ -26,6 +26,7 @@ flowchart LR
 - **Polls & time polls** — up to 10 options, single- or multi-vote, anonymous mode, voter-added options (➕ opens a modal), natural-language close deadlines with automatic closing, live bar-graph results on the embed — and a closed time poll's winning slot converts into a real event with one click.
 - **Discord native events** — opt-in per server (`/settings native-events on`): events mirror into Discord's built-in Events tab with full lifecycle sync (created/updated/deleted, marked active at start and completed at end); the native description points at the RSVP embed so "Interested" isn't mistaken for an RSVP. Requires the bot to hold **Manage Events** (on the current invite link; servers that added the bot earlier must re-invite or grant it to the bot's role).
 - **Event templates** — save any event's setup (content, reminders, repeat rule) as a named template, then start new events from it with `/create template:` or the web form's picker; up to 25 per server
+- **Attendee roles** — pick an existing role at `/create attendee-role:` and everyone who RSVPs "Going" gets it automatically (revoked when they switch away, un-RSVP, or the event ends/is deleted); great for event pings and temporary channel access. Requires the bot to hold **Manage Roles** with the picked role below its own.
 - **Web app** — sign in with Discord (identify + guilds scopes only) and use your servers' events in a mobile-first, dark-by-default UI: create, edit, and delete events (embeds post/update/disappear in Discord automatically), RSVP from the browser, manage notifications, set reminders, edit server & personal settings, see availability grids, link your calendar, grab the ICS subscribe URL. Polls work here too: create standard or time polls with live parse previews, vote, add options, close, and convert a time poll's winner into an event. Recurring events are fully manageable from the browser: repeat controls with live previews on the form, skip/stop from the event page, and per-occurrence vs whole-series choices on edits and notifications. Web-created events and polls post to the server's default channel, set once with `/settings default-channel`.
 
 ## Commands
@@ -35,9 +36,9 @@ flowchart LR
 
 | Command | What it does |
 |---|---|
-| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring, `template` starts from a saved template |
+| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring, `template` starts from a saved template, `attendee-role` grants a role to Going RSVPs |
 | `/list [channel] [limit]` | Upcoming events |
-| `/edit name [fields...] [scope]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only; repeating events need `scope` (this occurrence / whole series) |
+| `/edit name [fields...] [scope]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only; repeating events need `scope` (this occurrence / whole series); `attendee-role` / `clear-attendee-role` change or remove the granted role |
 | `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
 | `/series edit name [repeat repeat-every ends until count]` | Change a series' rule or end condition — editing an ended series revives it |
 | `/remind when about` | One-off reminder in the current channel |

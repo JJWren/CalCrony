@@ -49,6 +49,9 @@ public class Event
     /// <summary>Discord Guild Scheduled Event id when mirrored; null when never mirrored.</summary>
     public long? NativeEventId { get; set; }
 
+    /// <summary>Existing Discord role granted to "Going" RSVPs and revoked at event end; null = feature off.</summary>
+    public long? AttendeeRoleId { get; set; }
+
     public string? Location { get; set; }
     public string? ImageUrl { get; set; }
     public EventStatus Status { get; set; }
@@ -110,6 +113,10 @@ public class EventSeries
     public long ChannelId { get; set; }
     public string? Location { get; set; }
     public string? ImageUrl { get; set; }
+
+    /// <summary>Template field copied to spawned occurrences, like Title/Description.</summary>
+    public long? AttendeeRoleId { get; set; }
+
     public Instant CreatedAt { get; set; }
 
     public List<SeriesNotification> NotificationSpecs { get; set; } = [];

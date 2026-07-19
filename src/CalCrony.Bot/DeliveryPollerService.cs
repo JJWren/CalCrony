@@ -15,12 +15,14 @@ namespace CalCrony.Bot;
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The host logger.</param>
 /// <param name="mirror">The native scheduled-event mirror.</param>
+/// <param name="roles">The attendee-role manager.</param>
 public sealed class DeliveryPollerService(
     DiscordSocketClient client,
     CalCronyApiClient api,
     IConfiguration configuration,
     ILogger<DeliveryPollerService> logger,
-    NativeEventMirror mirror) : BackgroundService
+    NativeEventMirror mirror,
+    AttendeeRoleManager roles) : BackgroundService
 {
     /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
@@ -128,6 +130,17 @@ public sealed class DeliveryPollerService(
             var payload = JsonSerializer.Deserialize<CompleteNativeEventPayload>(delivery.PayloadJson)!;
             // Best-effort by design (the helper never throws), so this always acks.
             await mirror.TryCompleteAsync(payload.GuildId, payload.NativeEventId);
+            return;
+        }
+
+        if (delivery.Type is DeliveryType.GrantAttendeeRole or DeliveryType.RevokeAttendeeRole)
+        {
+            var payload = JsonSerializer.Deserialize<AttendeeRolePayload>(delivery.PayloadJson)!;
+            // Best-effort by design (the manager never throws), so this always acks — a retry
+            // could otherwise reorder a stale grant past a later revoke.
+            await (delivery.Type == DeliveryType.GrantAttendeeRole
+                ? roles.TryGrantAsync(payload.GuildId, payload.RoleId, payload.UserId)
+                : roles.TryRevokeAsync(payload.GuildId, payload.RoleId, payload.UserId));
             return;
         }
 
