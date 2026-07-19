@@ -101,20 +101,25 @@ public static class AttendeeRoleSync
     /// <param name="type">Grant or revoke.</param>
     /// <param name="roleId">The Discord role id to grant or revoke.</param>
     /// <param name="now">The current instant.</param>
-    public static void EnqueueRoleFanOut(CalCronyDbContext db, Event ev, DeliveryType type, long roleId, Instant now)
+    /// <returns>How many deliveries were enqueued (one per Going RSVP).</returns>
+    public static int EnqueueRoleFanOut(CalCronyDbContext db, Event ev, DeliveryType type, long roleId, Instant now)
     {
         if (GoingOptionId(ev.Options) is not { } goingId)
         {
-            return;
+            return 0;
         }
 
+        var count = 0;
         foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == goingId))
         {
             AddDelivery(
                 db, ev, type,
                 JsonSerializer.Serialize(new AttendeeRolePayload(ev.Id, ev.GuildId, roleId, rsvp.UserId)),
                 now);
+            count++;
         }
+
+        return count;
     }
 
     private static void AddDelivery(CalCronyDbContext db, Event ev, DeliveryType type, string payloadJson, Instant now)

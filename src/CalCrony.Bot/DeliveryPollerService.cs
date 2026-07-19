@@ -135,9 +135,25 @@ public sealed class DeliveryPollerService(
 
         if (delivery.Type is DeliveryType.GrantAttendeeRole or DeliveryType.RevokeAttendeeRole)
         {
-            var payload = JsonSerializer.Deserialize<AttendeeRolePayload>(delivery.PayloadJson)!;
             // Best-effort by design (the manager never throws), so this always acks — a retry
-            // could otherwise reorder a stale grant past a later revoke.
+            // could otherwise reorder a stale grant past a later revoke. That contract must
+            // survive a malformed payload too, so the deserialize is guarded as well.
+            AttendeeRolePayload? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<AttendeeRolePayload>(delivery.PayloadJson);
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Discarding attendee-role delivery {DeliveryId} with a malformed payload.", delivery.Id);
+                return;
+            }
+
+            if (payload is null)
+            {
+                return;
+            }
+
             await (delivery.Type == DeliveryType.GrantAttendeeRole
                 ? roles.TryGrantAsync(payload.GuildId, payload.RoleId, payload.UserId)
                 : roles.TryRevokeAsync(payload.GuildId, payload.RoleId, payload.UserId));

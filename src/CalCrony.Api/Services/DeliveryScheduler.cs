@@ -102,8 +102,7 @@ public sealed class DeliveryScheduler(
 
                 if (ev.AttendeeRoleId is long roleId)
                 {
-                    AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
-                    enqueued++;
+                    enqueued += AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
                 }
             }
         }

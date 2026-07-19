@@ -305,6 +305,9 @@ else
             recurrenceSummary = ev.RecurrenceSummary;
             editTargetIsLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
             attendeeRoleId = ev.AttendeeRoleId;
+            // Per-event transient state must not survive component reuse — a stale checked
+            // value would silently clear the next event's role on save.
+            clearAttendeeRole = false;
         }
 
         loading = false;
