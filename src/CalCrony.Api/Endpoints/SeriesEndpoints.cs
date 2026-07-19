@@ -288,6 +288,12 @@ public static class SeriesEndpoints
             Services.AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
         }
 
+        // Its discussion thread archives too; the replacement opens its own when posted.
+        if (ev.ThreadId is not null)
+        {
+            Services.EventThreadSync.EnqueueArchive(db, ev, now);
+        }
+
         // Always via the outbox, both caller types — one code path for embed and native-event
         // removal, matching the materializer's always-outbox post of the replacement.
         if (ev.MessageId is not null || ev.NativeEventId is not null)

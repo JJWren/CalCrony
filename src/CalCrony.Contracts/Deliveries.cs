@@ -35,6 +35,14 @@ public enum DeliveryType
     /// <summary>Remove the event's attendee role from a user (RSVP switched away, un-RSVPed,
     /// or the event ended / was deleted / cancelled / re-roled).</summary>
     RevokeAttendeeRole = 11,
+
+    /// <summary>Add a "Going" RSVPer to the event's discussion thread (add-only — switching
+    /// away never removes; leaving a thread is the user's choice).</summary>
+    AddThreadMember = 12,
+
+    /// <summary>Archive the event's discussion thread after the event ends / is deleted /
+    /// skipped / cancelled (history stays readable).</summary>
+    ArchiveThread = 13,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -102,6 +110,20 @@ public record CompleteNativeEventPayload(Guid EventId, long GuildId, long Native
 /// <param name="RoleId">The Discord role id.</param>
 /// <param name="UserId">The Discord user id.</param>
 public record AttendeeRolePayload(Guid EventId, long GuildId, long RoleId, long UserId);
+
+/// <summary>Payload adding a user to an event's discussion thread.</summary>
+/// <param name="EventId">The event id.</param>
+/// <param name="GuildId">The Discord guild id.</param>
+/// <param name="ThreadId">The Discord thread-channel id.</param>
+/// <param name="UserId">The Discord user id.</param>
+public record ThreadMemberPayload(Guid EventId, long GuildId, long ThreadId, long UserId);
+
+/// <summary>Payload archiving an event's discussion thread. Self-contained so the archive
+/// survives event deletion.</summary>
+/// <param name="EventId">The event id.</param>
+/// <param name="GuildId">The Discord guild id.</param>
+/// <param name="ThreadId">The Discord thread-channel id.</param>
+public record ArchiveThreadPayload(Guid EventId, long GuildId, long ThreadId);
 
 /// <summary>Payload asking the bot to re-render a poll's posted embed.</summary>
 /// <param name="PollId">The poll id.</param>

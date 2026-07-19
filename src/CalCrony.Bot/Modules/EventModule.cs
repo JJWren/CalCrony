@@ -24,8 +24,11 @@ public enum EditScopeChoice
 
 /// <summary>Core event slash commands: create, list, edit, delete.</summary>
 /// <param name="api">The CalCrony API client.</param>
+/// <param name="mirror">The native scheduled-event mirror.</param>
+/// <param name="threadManager">The event-thread manager.</param>
 [RequireContext(ContextType.Guild)]
-public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : InteractionModuleBase<SocketInteractionContext>
+public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventThreadManager threadManager)
+    : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Creates an event (optionally recurring), posts its embed, and records the message ids.</summary>
     /// <param name="title">The event title.</param>
@@ -41,6 +44,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
     /// <param name="repeatCount">Total occurrences including the first.</param>
     /// <param name="template">Template name/fragment or picker id to start from.</param>
     /// <param name="attendeeRole">Existing role granted to "Going" RSVPs, revoked at event end.</param>
+    /// <param name="thread">Opens a discussion thread on the event message.</param>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -55,7 +59,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
         [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
         [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null,
-        [Summary("attendee-role", "Existing role given to \"Going\" RSVPs (removed when the event ends)")] IRole? attendeeRole = null)
+        [Summary("attendee-role", "Existing role given to \"Going\" RSVPs (removed when the event ends)")] IRole? attendeeRole = null,
+        [Summary("thread", "Open a discussion thread on the event message (Going RSVPs are added)")] bool thread = false)
     {
         await DeferAsync(ephemeral: true);
 
@@ -69,6 +74,14 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         if (attendeeRole is not null && ValidateAttendeeRole(attendeeRole) is { } roleProblem)
         {
             await FollowupAsync(roleProblem, ephemeral: true);
+            return;
+        }
+
+        if (thread && !Context.Guild.CurrentUser.GetPermissions(targetChannel).CreatePublicThreads)
+        {
+            await FollowupAsync(
+                $"I need the **Create Public Threads** permission in {targetChannel.Mention} to open a discussion thread.",
+                ephemeral: true);
             return;
         }
 
@@ -111,7 +124,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
                 description, duration, location, image,
                 recurrence, repeatUntil, repeatCount,
                 resolvedTemplate?.Id, NoRecurrence: repeat == RepeatChoice.None,
-                AttendeeRoleId: (long?)attendeeRole?.Id));
+                AttendeeRoleId: (long?)attendeeRole?.Id,
+                WantsThread: thread));
 
         if (!result.Success || result.Value is null)
         {
@@ -127,12 +141,14 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror) : Inte
         if (recorded.Success && recorded.Value is not null)
         {
             await mirror.TryUpsertAsync(recorded.Value);
+            await threadManager.TryCreateAsync(recorded.Value, message);
         }
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
         var roleNote = ev.AttendeeRoleId is null ? "" : $" · 🏷️ Going grants <@&{ev.AttendeeRoleId}>";
+        var threadNote = ev.WantsThread ? " · 🧵 discussion thread opened" : "";
         await FollowupAsync(
-            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}",
+            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{threadNote}",
             ephemeral: true);
     }
 

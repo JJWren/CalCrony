@@ -16,13 +16,15 @@ namespace CalCrony.Bot;
 /// <param name="logger">The host logger.</param>
 /// <param name="mirror">The native scheduled-event mirror.</param>
 /// <param name="roles">The attendee-role manager.</param>
+/// <param name="threads">The event-thread manager.</param>
 public sealed class DeliveryPollerService(
     DiscordSocketClient client,
     CalCronyApiClient api,
     IConfiguration configuration,
     ILogger<DeliveryPollerService> logger,
     NativeEventMirror mirror,
-    AttendeeRoleManager roles) : BackgroundService
+    AttendeeRoleManager roles,
+    EventThreadManager threads) : BackgroundService
 {
     /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
@@ -160,6 +162,50 @@ public sealed class DeliveryPollerService(
             return;
         }
 
+        if (delivery.Type == DeliveryType.AddThreadMember)
+        {
+            // Best-effort (the manager never throws), so this always acks; the deserialize is
+            // guarded so a malformed payload can't break that contract.
+            ThreadMemberPayload? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<ThreadMemberPayload>(delivery.PayloadJson);
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Discarding thread-member delivery {DeliveryId} with a malformed payload.", delivery.Id);
+                return;
+            }
+
+            if (payload is not null)
+            {
+                await threads.TryAddMemberAsync(payload.GuildId, payload.ThreadId, payload.UserId);
+            }
+
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.ArchiveThread)
+        {
+            ArchiveThreadPayload? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<ArchiveThreadPayload>(delivery.PayloadJson);
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Discarding thread-archive delivery {DeliveryId} with a malformed payload.", delivery.Id);
+                return;
+            }
+
+            if (payload is not null)
+            {
+                await threads.TryArchiveAsync(payload.GuildId, payload.ThreadId);
+            }
+
+            return;
+        }
+
         if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
         {
             throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
@@ -217,9 +263,10 @@ public sealed class DeliveryPollerService(
             throw new InvalidOperationException($"Failed to record posted message id: {recorded.Error}");
         }
 
-        // After the embed bookkeeping is safe: mirror to a native scheduled event (best-effort —
-        // a native failure never blocks the delivery; a later sync retries the upsert lazily).
+        // After the embed bookkeeping is safe: mirror to a native scheduled event and open the
+        // discussion thread (both best-effort — neither failure blocks the delivery).
         await mirror.TryUpsertAsync(recorded.Value!);
+        await threads.TryCreateAsync(recorded.Value!, message);
     }
 
     /// <summary>A web-deleted event's embed and native twin should disappear; the ids were

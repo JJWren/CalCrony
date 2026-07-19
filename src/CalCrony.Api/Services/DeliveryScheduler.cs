@@ -104,6 +104,12 @@ public sealed class DeliveryScheduler(
                 {
                     enqueued += AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
                 }
+
+                if (ev.ThreadId is not null)
+                {
+                    EventThreadSync.EnqueueArchive(db, ev, now);
+                    enqueued++;
+                }
             }
         }
 

@@ -26,6 +26,7 @@ builder.Services.AddHttpClient<CalCronyApiClient>((sp, http) =>
 
 builder.Services.AddSingleton<NativeEventMirror>();
 builder.Services.AddSingleton<AttendeeRoleManager>();
+builder.Services.AddSingleton<EventThreadManager>();
 
 builder.Services.AddHostedService<DiscordBotService>();
 builder.Services.AddHostedService<DeliveryPollerService>();

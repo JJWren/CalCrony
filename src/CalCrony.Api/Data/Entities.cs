@@ -52,6 +52,12 @@ public class Event
     /// <summary>Existing Discord role granted to "Going" RSVPs and revoked at event end; null = feature off.</summary>
     public long? AttendeeRoleId { get; set; }
 
+    /// <summary>Opt-in: open a discussion thread on the posted embed message.</summary>
+    public bool WantsThread { get; set; }
+
+    /// <summary>The Discord thread-channel id once the bot created the thread; null until then.</summary>
+    public long? ThreadId { get; set; }
+
     public string? Location { get; set; }
     public string? ImageUrl { get; set; }
     public EventStatus Status { get; set; }
@@ -116,6 +122,9 @@ public class EventSeries
 
     /// <summary>Template field copied to spawned occurrences, like Title/Description.</summary>
     public long? AttendeeRoleId { get; set; }
+
+    /// <summary>Template field: each spawned occurrence opens its own discussion thread.</summary>
+    public bool WantsThread { get; set; }
 
     public Instant CreatedAt { get; set; }
 

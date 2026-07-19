@@ -75,6 +75,12 @@ else
 
         @if (!IsEdit)
         {
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="ev-thread" @bind="wantsThread" />
+                <label class="form-check-label" for="ev-thread">🧵 Create a discussion thread in Discord</label>
+                <div class="form-text">Opens on the event message; "Going" RSVPers are added automatically and it archives when the event ends.</div>
+            </div>
+
             <div class="mb-3">
                 <label class="form-label" for="ev-repeat">Repeats</label>
                 <select id="ev-repeat" class="form-select" @bind="repeatKind">
@@ -221,6 +227,7 @@ else
     private bool askingScope;
     private long? attendeeRoleId;
     private bool clearAttendeeRole;
+    private bool wantsThread;
     private List<EventTemplateDto> templates = [];
     private Guid? selectedTemplateId;
     private long? templatesLoadedForGuild;
@@ -471,7 +478,8 @@ else
                 // so the server attaches its notification specs. NoRecurrence protects a rule
                 // the user cleared on a repeating template.
                 selectedTemplateId,
-                NoRecurrence: SelectedTemplate?.Recurrence is not null && repeatKind == RepeatKind.None));
+                NoRecurrence: SelectedTemplate?.Recurrence is not null && repeatKind == RepeatKind.None,
+                WantsThread: wantsThread));
             busy = false;
             if (!result.Success || result.Value is null)
             {

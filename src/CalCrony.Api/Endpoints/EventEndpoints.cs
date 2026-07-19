@@ -24,6 +24,7 @@ public static class EventEndpoints
         app.MapDelete("/events/{id:guid}", DeleteEvent);
         app.MapPut("/events/{id:guid}/message", SetMessage).RequireAuthorization("BotOnly");
         app.MapPut("/events/{id:guid}/native-event", SetNativeEvent).RequireAuthorization("BotOnly");
+        app.MapPut("/events/{id:guid}/thread", SetThread).RequireAuthorization("BotOnly");
         app.MapPut("/events/{id:guid}/rsvps/{userId:long}", PutRsvp);
         app.MapDelete("/events/{id:guid}/rsvps/{userId:long}", DeleteRsvp);
         app.MapPost("/tools/parse-datetime", ParseDateTime);
@@ -296,6 +297,9 @@ public static class EventEndpoints
         var imageUrl = request.ImageUrl ?? template?.ImageUrl;
         // Role selection is bot-only (the web can't enumerate Discord roles); templates never carry one.
         var attendeeRoleId = isBot ? request.AttendeeRoleId : null;
+        // Threads are a plain yes/no, so WantsThread is honored for BOTH caller types — the bot
+        // opens the thread when it posts the embed.
+        var wantsThread = request.WantsThread;
         var recurrence = request.Recurrence
             ?? (request.NoRecurrence || template?.RecurrenceUnit is null
                 ? null
@@ -366,6 +370,7 @@ public static class EventEndpoints
                 Location = location,
                 ImageUrl = imageUrl,
                 AttendeeRoleId = attendeeRoleId,
+                WantsThread = wantsThread,
                 CreatedAt = now,
             };
             db.EventSeries.Add(series);
@@ -385,6 +390,7 @@ public static class EventEndpoints
             Location = location,
             ImageUrl = imageUrl,
             AttendeeRoleId = attendeeRoleId,
+            WantsThread = wantsThread,
             Status = EventStatus.Scheduled,
             SeriesId = series?.Id,
             Series = series,
@@ -635,6 +641,11 @@ public static class EventEndpoints
             {
                 AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, endedRole, roleSyncNow);
             }
+
+            if (ev.ThreadId is not null)
+            {
+                EventThreadSync.EnqueueArchive(db, ev, roleSyncNow);
+            }
         }
         else if (isLive && newRole != oldRole)
         {
@@ -698,6 +709,14 @@ public static class EventEndpoints
                 db, ev, DeliveryType.RevokeAttendeeRole, ev.AttendeeRoleId!.Value, clock.GetCurrentInstant());
         }
 
+        // Deleting the embed message does NOT delete its attached thread (it survives orphaned),
+        // so the discussion thread is archived explicitly — both caller types, payload survives
+        // the event row.
+        if (EventThreadSync.IsThreadActive(ev))
+        {
+            EventThreadSync.EnqueueArchive(db, ev, clock.GetCurrentInstant());
+        }
+
         // Web deletes: capture the posted message's and mirrored native event's ids before the
         // row dies so the bot can remove both. The bot handles both itself, so bot callers
         // enqueue nothing.
@@ -759,6 +778,26 @@ public static class EventEndpoints
         }
 
         ev.NativeEventId = request.NativeEventId;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ev.ToDto());
+    }
+
+    /// <summary>Records (or clears) the Discord thread channel opened on this event's embed (BotOnly).</summary>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> SetThread(
+        Guid id, SetThreadRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        var ev = await LoadEventAsync(db, id, cancellationToken);
+        if (ev is null)
+        {
+            return Results.NotFound();
+        }
+
+        ev.ThreadId = request.ThreadId;
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ev.ToDto());
     }
@@ -835,20 +874,30 @@ public static class EventEndpoints
             existing.CreatedAt = clock.GetCurrentInstant();
         }
 
-        // Attendee role: crossing onto/off the Going option grants/revokes — for BOT callers too
-        // (unlike embed sync, the bot never touches roles itself; everything rides the outbox).
-        if (AttendeeRoleSync.IsRoleActive(ev) && AttendeeRoleSync.GoingOptionId(ev.Options) is { } goingId)
+        // Attendee role + thread membership: crossing onto/off the Going option drives both —
+        // for BOT callers too (unlike embed sync, the bot never initiates these itself;
+        // everything rides the outbox). Thread adds are add-only: no removal on crossing off.
+        if (AttendeeRoleSync.GoingOptionId(ev.Options) is { } goingId)
         {
-            switch (AttendeeRoleSync.Decide(oldOptionId, option.Id, goingId))
+            var decision = AttendeeRoleSync.Decide(oldOptionId, option.Id, goingId);
+            if (AttendeeRoleSync.IsRoleActive(ev))
             {
-                case AttendeeRoleAction.Grant:
-                    await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                        db, ev, DeliveryType.GrantAttendeeRole, userId, clock, cancellationToken);
-                    break;
-                case AttendeeRoleAction.Revoke:
-                    await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                        db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
-                    break;
+                switch (decision)
+                {
+                    case AttendeeRoleAction.Grant:
+                        await AttendeeRoleSync.EnqueueRoleChangeAsync(
+                            db, ev, DeliveryType.GrantAttendeeRole, userId, clock, cancellationToken);
+                        break;
+                    case AttendeeRoleAction.Revoke:
+                        await AttendeeRoleSync.EnqueueRoleChangeAsync(
+                            db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
+                        break;
+                }
+            }
+
+            if (decision == AttendeeRoleAction.Grant && EventThreadSync.IsThreadActive(ev))
+            {
+                await EventThreadSync.EnqueueMemberAddAsync(db, ev, userId, clock, cancellationToken);
             }
         }
 
