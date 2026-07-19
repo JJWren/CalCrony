@@ -63,8 +63,18 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     public Task<ApiResult<EventNotificationDto>> CreateNotificationAsync(Guid eventId, CreateEventNotificationRequest request, CancellationToken ct = default) =>
         SendAsync<EventNotificationDto>(http.PostAsJsonAsync($"/events/{eventId}/notifications", request, ct), ct);
 
-    public Task<ApiResult<Unit>> DeleteNotificationAsync(Guid eventId, Guid notificationId, CancellationToken ct = default) =>
-        SendAsync<Unit>(http.DeleteAsync($"/events/{eventId}/notifications/{notificationId}", ct), ct);
+    public Task<ApiResult<Unit>> DeleteNotificationAsync(Guid eventId, Guid notificationId, EditScope? scope = null, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync(
+            $"/events/{eventId}/notifications/{notificationId}{(scope is null ? "" : $"?scope={scope}")}", ct), ct);
+
+    public Task<ApiResult<SeriesDto>> GetSeriesAsync(Guid seriesId, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(http.GetAsync($"/series/{seriesId}", ct), ct);
+
+    public Task<ApiResult<SeriesDto>> StopSeriesAsync(Guid seriesId, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(http.PostAsync($"/series/{seriesId}/stop", null, ct), ct);
+
+    public Task<ApiResult<SkipOccurrenceResponse>> SkipOccurrenceAsync(Guid eventId, CancellationToken ct = default) =>
+        SendAsync<SkipOccurrenceResponse>(http.PostAsync($"/events/{eventId}/skip", null, ct), ct);
 
     public Task<ApiResult<ReminderDto>> CreateReminderAsync(CreateReminderRequest request, CancellationToken ct = default) =>
         SendAsync<ReminderDto>(http.PostAsJsonAsync("/reminders", request, ct), ct);

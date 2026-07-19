@@ -55,15 +55,102 @@ else
             <input id="ev-image" class="form-control" maxlength="512" @bind="imageUrl" />
         </div>
 
+        @if (!IsEdit)
+        {
+            <div class="mb-3">
+                <label class="form-label" for="ev-repeat">Repeats</label>
+                <select id="ev-repeat" class="form-select" @bind="repeatKind">
+                    <option value="@RepeatKind.None">Doesn't repeat</option>
+                    <option value="@RepeatKind.Daily">Daily</option>
+                    <option value="@RepeatKind.Weekly">Weekly</option>
+                    <option value="@RepeatKind.MonthlySameDate">Monthly (same date)</option>
+                    <option value="@RepeatKind.MonthlyNthWeekday">Monthly (nth weekday, e.g. 3rd Friday)</option>
+                </select>
+            </div>
+
+            @if (repeatKind != RepeatKind.None)
+            {
+                <div class="mb-3">
+                    <label class="form-label" for="ev-interval">Every</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input id="ev-interval" class="form-control" type="number" min="1" max="12" style="width:6rem" @bind="repeatInterval" />
+                        <span class="text-body-secondary">@UnitLabel</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label d-block">Ends</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="ev-ends" id="ev-ends-never"
+                               checked="@(endMode == EndMode.Never)" @onchange="() => endMode = EndMode.Never" />
+                        <label class="form-check-label" for="ev-ends-never">Never</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="ev-ends" id="ev-ends-until"
+                               checked="@(endMode == EndMode.Until)" @onchange="() => endMode = EndMode.Until" />
+                        <label class="form-check-label" for="ev-ends-until">On a date</label>
+                    </div>
+                    @if (endMode == EndMode.Until)
+                    {
+                        <div class="ms-4 mb-2">
+                            <input class="form-control form-control-sm" placeholder="Aug 30 · in 2 months" aria-label="Repeat until"
+                                   @bind="repeatUntil" @bind:after="PreviewUntilAsync" />
+                            @if (untilPreview is not null)
+                            {
+                                <div class="form-text text-primary mb-0">→ last on <LocalTime Utc="untilPreview.Value" Format="D" /></div>
+                            }
+                            else if (untilError is not null)
+                            {
+                                <div class="form-text text-danger mb-0">@untilError</div>
+                            }
+                        </div>
+                    }
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="ev-ends" id="ev-ends-count"
+                               checked="@(endMode == EndMode.Count)" @onchange="() => endMode = EndMode.Count" />
+                        <label class="form-check-label" for="ev-ends-count">After a number of times</label>
+                    </div>
+                    @if (endMode == EndMode.Count)
+                    {
+                        <div class="ms-4">
+                            <input class="form-control form-control-sm" type="number" min="2" max="500" style="width:8rem"
+                                   aria-label="Repeat count" @bind="repeatCount" />
+                        </div>
+                    }
+                </div>
+
+                @if (RepeatPreview is not null)
+                {
+                    <p class="meta-mono">🔁 @RepeatPreview</p>
+                }
+            }
+        }
+        else if (recurrenceSummary is not null)
+        {
+            <p class="meta-mono">🔁 @recurrenceSummary — the repeat schedule itself can't be edited; stop the series and recreate it to change the rule.</p>
+        }
+
         @if (error is not null)
         {
             <div class="alert alert-danger py-2">@error</div>
         }
 
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@busy">@(IsEdit ? "Save changes" : "Create event")</button>
-            <button class="btn btn-outline-secondary" @onclick="Back" disabled="@busy">Cancel</button>
-        </div>
+        @if (!askingScope)
+        {
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @onclick="SaveClickedAsync" disabled="@busy">@(IsEdit ? "Save changes" : "Create event")</button>
+                <button class="btn btn-outline-secondary" @onclick="Back" disabled="@busy">Cancel</button>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <span class="me-1">Apply to:</span>
+                <button class="btn btn-primary btn-sm" @onclick="() => SaveAsync(EditScope.Occurrence)" disabled="@busy">This occurrence</button>
+                <button class="btn btn-primary btn-sm" @onclick="() => SaveAsync(EditScope.Series)" disabled="@busy">Whole series</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => askingScope = false" disabled="@busy">Cancel</button>
+            </div>
+        }
     </div>
 }
 
@@ -71,6 +158,10 @@ else
     [Parameter] public long GuildId { get; set; }
 
     [Parameter] public Guid? EventId { get; set; }
+
+    private enum RepeatKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday }
+
+    private enum EndMode { Never, Until, Count }
 
     private bool IsEdit => EventId is not null;
 
@@ -86,6 +177,54 @@ else
     private DateTimeOffset? whenPreview;
     private string? whenError;
     private long backGuildId;
+    private RepeatKind repeatKind = RepeatKind.None;
+    private int repeatInterval = 1;
+    private EndMode endMode = EndMode.Never;
+    private string repeatUntil = "";
+    private DateTimeOffset? untilPreview;
+    private string? untilError;
+    private int? repeatCount = 5;
+    private string? recurrenceSummary;
+    private bool editTargetIsLive;
+    private bool askingScope;
+
+    private string UnitLabel => repeatKind switch
+    {
+        RepeatKind.Daily => repeatInterval == 1 ? "day" : "days",
+        RepeatKind.Weekly => repeatInterval == 1 ? "week" : "weeks",
+        _ => repeatInterval == 1 ? "month" : "months",
+    };
+
+    // Client-side preview only — the server's summary is the source of truth after save.
+    private string? RepeatPreview
+    {
+        get
+        {
+            if (repeatKind == RepeatKind.None)
+            {
+                return null;
+            }
+
+            var local = whenPreview?.ToLocalTime();
+            var every = repeatInterval == 1 ? "" : $"every {repeatInterval} ";
+            var body = repeatKind switch
+            {
+                RepeatKind.Daily => repeatInterval == 1 ? "daily" : $"every {repeatInterval} days",
+                RepeatKind.Weekly =>
+                    $"{(every == "" ? "weekly" : every + "weeks")}{(local is null ? "" : $" on {local.Value.DayOfWeek}")}",
+                RepeatKind.MonthlySameDate =>
+                    $"{(every == "" ? "monthly" : every + "months")}{(local is null ? "" : $" on day {local.Value.Day}")}",
+                _ =>
+                    $"{(every == "" ? "monthly" : every + "months")}{(local is null ? "" : $" on the {Nth(local.Value.Day)} {local.Value.DayOfWeek}")}",
+            };
+            return $"Repeats {body}";
+        }
+    }
+
+    private static string Nth(int day) => ((day + 6) / 7) switch
+    {
+        1 => "1st", 2 => "2nd", 3 => "3rd", 4 => "4th", _ => "last",
+    };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -107,9 +246,43 @@ else
             duration = ev.DurationMinutes;
             location = ev.Location;
             imageUrl = ev.ImageUrl;
+            recurrenceSummary = ev.RecurrenceSummary;
+            editTargetIsLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
         }
 
         loading = false;
+    }
+
+    private async Task PreviewUntilAsync()
+    {
+        untilPreview = null;
+        untilError = null;
+        if (string.IsNullOrWhiteSpace(repeatUntil))
+        {
+            return;
+        }
+
+        var result = await Api.ParseDateTimeAsync(new ParseDateTimeRequest(repeatUntil, null, backGuildId));
+        if (result.Success && result.Value is not null)
+        {
+            untilPreview = result.Value.Utc;
+        }
+        else
+        {
+            untilError = result.Error;
+        }
+    }
+
+    // Editing a live occurrence of a running series needs the scope ask before submitting.
+    private Task SaveClickedAsync()
+    {
+        if (IsEdit && recurrenceSummary is not null && editTargetIsLive)
+        {
+            askingScope = true;
+            return Task.CompletedTask;
+        }
+
+        return SaveAsync(null);
     }
 
     private async Task PreviewAsync()
@@ -132,13 +305,36 @@ else
         }
     }
 
-    private async Task SaveAsync()
+    private async Task SaveAsync(EditScope? scope)
     {
         error = null;
+        askingScope = false;
         if (string.IsNullOrWhiteSpace(title) || (!IsEdit && string.IsNullOrWhiteSpace(when)))
         {
             error = "Title and time are required.";
             return;
+        }
+
+        // A chosen end mode with a blank input would silently create a never-ending series.
+        if (!IsEdit && repeatKind != RepeatKind.None)
+        {
+            if (repeatInterval is < 1 or > 12)
+            {
+                error = "Repeat interval must be between 1 and 12.";
+                return;
+            }
+
+            if (endMode == EndMode.Until && string.IsNullOrWhiteSpace(repeatUntil))
+            {
+                error = "Enter the date the event should stop repeating, or choose a different end option.";
+                return;
+            }
+
+            if (endMode == EndMode.Count && repeatCount is null)
+            {
+                error = "Enter how many times the event should repeat, or choose a different end option.";
+                return;
+            }
         }
 
         busy = true;
@@ -151,7 +347,8 @@ else
                 Description: description,
                 DurationMinutes: duration,
                 Location: location,
-                ImageUrl: imageUrl));
+                ImageUrl: imageUrl,
+                Scope: scope));
             busy = false;
             if (!result.Success || result.Value is null)
             {
@@ -163,9 +360,20 @@ else
         }
         else
         {
+            var recurrence = repeatKind switch
+            {
+                RepeatKind.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatInterval),
+                RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatInterval),
+                RepeatKind.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatInterval),
+                RepeatKind.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatInterval, MonthlyMode.NthWeekday),
+                _ => null,
+            };
             var result = await Api.CreateEventAsync(GuildId, new CreateEventRequest(
                 0, // CreatorId is forced server-side to the signed-in user.
-                title, when, 0, description, duration, location, imageUrl));
+                title, when, 0, description, duration, location, imageUrl,
+                recurrence,
+                recurrence is not null && endMode == EndMode.Until && !string.IsNullOrWhiteSpace(repeatUntil) ? repeatUntil : null,
+                recurrence is not null && endMode == EndMode.Count ? repeatCount : null));
             busy = false;
             if (!result.Success || result.Value is null)
             {
