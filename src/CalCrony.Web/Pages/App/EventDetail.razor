@@ -25,6 +25,10 @@ else
             <h1 class="h3 mb-1">@ev.Title</h1>
             <div class="meta-mono d-flex gap-3 flex-wrap">
                 <span><LocalTime Utc="ev.StartsAtUtc" /> · @(ev.DurationMinutes ?? 60) min</span>
+                @if (ev.RecurrenceSummary is not null)
+                {
+                    <span>🔁 @ev.RecurrenceSummary</span>
+                }
                 @if (!string.IsNullOrWhiteSpace(ev.Location))
                 {
                     <span>📍 @ev.Location</span>
@@ -33,15 +37,38 @@ else
         </div>
         @if (CanManage)
         {
-            <div class="d-flex gap-2 flex-shrink-0">
+            <div class="d-flex gap-2 flex-shrink-0 flex-wrap">
                 <a class="btn btn-outline-primary btn-sm" href="/app/events/@ev.Id/edit">Edit</a>
+                @if (IsLiveSeries)
+                {
+                    @if (!confirmingSkip)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => confirmingSkip = true">Skip occurrence</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary btn-sm" @onclick="SkipAsync" disabled="@busy">Really skip?</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingSkip = false">Keep</button>
+                    }
+                    @if (!confirmingStop)
+                    {
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingStop = true">Stop repeating</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="StopAsync" disabled="@busy">Really stop?</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingStop = false">Keep</button>
+                    }
+                }
                 @if (!confirmingDelete)
                 {
                     <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingDelete = true">Delete</button>
                 }
                 else
                 {
-                    <button class="btn btn-danger btn-sm" @onclick="DeleteAsync" disabled="@busy">Really delete?</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DeleteAsync" disabled="@busy">
+                        @(IsLiveSeries ? "Really delete? This stops the series." : "Really delete?")
+                    </button>
                     <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingDelete = false">Keep</button>
                 }
             </div>
@@ -107,11 +134,18 @@ else
             <ul class="list-unstyled meta-mono mb-2">
                 @foreach (var n in notifications)
                 {
-                    <li class="py-1 d-flex align-items-center gap-2">
+                    <li class="py-1 d-flex align-items-center gap-2 flex-wrap">
                         <span>🔔 @n.MinutesBefore min before@(n.Message is null ? "" : $" — “{n.Message}”")</span>
-                        @if (CanManage)
+                        @if (CanManage && askingRemoveScopeFor != n.Id)
                         {
-                            <button class="btn btn-link btn-sm text-danger p-0" @onclick="() => DeleteNotificationAsync(n.Id)">remove</button>
+                            <button class="btn btn-link btn-sm text-danger p-0" @onclick="() => RemoveNotificationClicked(n.Id)">remove</button>
+                        }
+                        else if (CanManage)
+                        {
+                            <span class="meta-mono">remove from:</span>
+                            <button class="btn btn-link btn-sm p-0" @onclick="() => DeleteNotificationAsync(n.Id, EditScope.Occurrence)">this occurrence</button>
+                            <button class="btn btn-link btn-sm p-0" @onclick="() => DeleteNotificationAsync(n.Id, EditScope.Series)">all future</button>
+                            <button class="btn btn-link btn-sm p-0 text-body-secondary" @onclick="() => askingRemoveScopeFor = null">cancel</button>
                         }
                     </li>
                 }
@@ -132,8 +166,20 @@ else
                     <label class="form-label small mb-1" for="notif-msg">Message (optional)</label>
                     <input id="notif-msg" class="form-control form-control-sm" maxlength="1024" @bind="newNotificationMessage" />
                 </div>
-                <button class="btn btn-outline-primary btn-sm" @onclick="AddNotificationAsync" disabled="@busy">Add</button>
+                @if (!askingAddScope)
+                {
+                    <button class="btn btn-outline-primary btn-sm" @onclick="AddNotificationClicked" disabled="@busy">Add</button>
+                }
             </div>
+            @if (askingAddScope)
+            {
+                <div class="d-flex gap-2 align-items-center mt-2 flex-wrap">
+                    <span class="small">Add to:</span>
+                    <button class="btn btn-outline-primary btn-sm" @onclick="() => AddNotificationAsync(EditScope.Occurrence)" disabled="@busy">This occurrence</button>
+                    <button class="btn btn-outline-primary btn-sm" @onclick="() => AddNotificationAsync(EditScope.Series)" disabled="@busy">All future occurrences</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => askingAddScope = false" disabled="@busy">Cancel</button>
+                </div>
+            }
         }
         @if (notificationError is not null)
         {
@@ -153,6 +199,10 @@ else
     private string? error;
     private string? notificationError;
     private bool confirmingDelete;
+    private bool confirmingSkip;
+    private bool confirmingStop;
+    private bool askingAddScope;
+    private Guid? askingRemoveScopeFor;
     private bool busy;
     private bool isGuildManager;
     private int newNotificationMinutes = 30;
@@ -161,6 +211,10 @@ else
     private long UserId => AuthApi.Session?.UserId ?? 0;
 
     private bool CanManage => ev is not null && (ev.CreatorId == UserId || isGuildManager);
+
+    /// <summary>Live occurrence of a running series — the states where skip/stop/scope apply.</summary>
+    private bool IsLiveSeries =>
+        ev is { SeriesId: not null, RecurrenceSummary: not null, Status: EventStatus.Scheduled or EventStatus.Started };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -196,12 +250,72 @@ else
         Nav.NavigateTo($"/app/guilds/{ev!.GuildId}/events");
     }
 
-    private async Task AddNotificationAsync()
+    private async Task SkipAsync()
+    {
+        busy = true;
+        var result = await Api.SkipOccurrenceAsync(EventId);
+        busy = false;
+        confirmingSkip = false;
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        // Land on the replacement occurrence; if the skip exhausted the series, back to the list.
+        Nav.NavigateTo(result.Value.NextEvent is { } next
+            ? $"/app/events/{next.Id}"
+            : $"/app/guilds/{ev!.GuildId}/events");
+    }
+
+    private async Task StopAsync()
+    {
+        busy = true;
+        var result = await Api.StopSeriesAsync(ev!.SeriesId!.Value);
+        busy = false;
+        confirmingStop = false;
+        if (!result.Success)
+        {
+            error = result.Error;
+            return;
+        }
+
+        // Reload — the event survives as the final occurrence and the 🔁 chip drops.
+        ev = (await Api.GetEventAsync(EventId)).Value ?? ev;
+    }
+
+    private Task AddNotificationClicked()
+    {
+        if (IsLiveSeries)
+        {
+            askingAddScope = true;
+            return Task.CompletedTask;
+        }
+
+        return AddNotificationAsync(null);
+    }
+
+    private Task RemoveNotificationClicked(Guid notificationId)
+    {
+        if (IsLiveSeries)
+        {
+            askingRemoveScopeFor = notificationId;
+            return Task.CompletedTask;
+        }
+
+        return DeleteNotificationAsync(notificationId, null);
+    }
+
+    private async Task AddNotificationAsync(EditScope? scope)
     {
         notificationError = null;
+        askingAddScope = false;
         busy = true;
         var result = await Api.CreateNotificationAsync(EventId,
-            new CreateEventNotificationRequest(newNotificationMinutes, string.IsNullOrWhiteSpace(newNotificationMessage) ? null : newNotificationMessage));
+            new CreateEventNotificationRequest(
+                newNotificationMinutes,
+                string.IsNullOrWhiteSpace(newNotificationMessage) ? null : newNotificationMessage,
+                Scope: scope));
         busy = false;
         if (!result.Success || result.Value is null)
         {
@@ -213,9 +327,10 @@ else
         newNotificationMessage = null;
     }
 
-    private async Task DeleteNotificationAsync(Guid notificationId)
+    private async Task DeleteNotificationAsync(Guid notificationId, EditScope? scope)
     {
-        var result = await Api.DeleteNotificationAsync(EventId, notificationId);
+        askingRemoveScopeFor = null;
+        var result = await Api.DeleteNotificationAsync(EventId, notificationId, scope);
         if (!result.Success)
         {
             notificationError = result.Error;

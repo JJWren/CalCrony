@@ -11,6 +11,10 @@
             <div class="fw-bold">@Event.Title</div>
             <div class="meta-mono d-flex gap-3 flex-wrap">
                 <span><LocalTime Utc="Event.StartsAtUtc" Format="ddd h:mm tt" /> · @(Event.DurationMinutes ?? 60) min</span>
+                @if (Event.RecurrenceSummary is not null)
+                {
+                    <span title="@Event.RecurrenceSummary">🔁</span>
+                }
                 @if (!string.IsNullOrWhiteSpace(Event.Location))
                 {
                     <span>📍 @Event.Location</span>
