@@ -1,7 +1,7 @@
 namespace CalCrony.Contracts;
 
-/// <summary>One notification spec carried by a template (no id — specs are never individually
-/// mutated; delete and re-save the template to change them).</summary>
+/// <summary>One notification spec carried by a template (no id — specs are edited as a whole
+/// set, never individually).</summary>
 /// <param name="MinutesBefore">How many minutes before start the ping fires.</param>
 /// <param name="Message">Optional message text.</param>
 /// <param name="Mentions">Optional mention text included in the ping.</param>
@@ -42,3 +42,29 @@ public record EventTemplateDto(
 /// <param name="Name">The template name (1-64 chars, unique per guild).</param>
 /// <param name="EventId">The event to capture.</param>
 public record SaveTemplateRequest(long CreatorId, string Name, Guid EventId);
+
+/// <summary>Partial template update (creator or manager); null fields are left unchanged.
+/// Editing a template never touches events already created from it — templates stay fully
+/// denormalized in both directions.</summary>
+/// <param name="EditorId">The editing user's Discord id (ignored for web callers).</param>
+/// <param name="Name">The template name (1-64 chars, unique per guild).</param>
+/// <param name="Title">The event title.</param>
+/// <param name="Description">Optional description text.</param>
+/// <param name="DurationMinutes">Duration in minutes.</param>
+/// <param name="Location">Optional location text.</param>
+/// <param name="ImageUrl">Optional image URL.</param>
+/// <param name="Recurrence">Replaces the repeat rule. Null leaves it unchanged — clear with
+/// ClearRecurrence.</param>
+/// <param name="ClearRecurrence">Removes the repeat rule. Conflicts with Recurrence.</param>
+/// <param name="Notifications">Non-null replaces the whole notification-spec set (max 5).</param>
+public record UpdateTemplateRequest(
+    long EditorId,
+    string? Name = null,
+    string? Title = null,
+    string? Description = null,
+    int? DurationMinutes = null,
+    string? Location = null,
+    string? ImageUrl = null,
+    RecurrenceRuleDto? Recurrence = null,
+    bool ClearRecurrence = false,
+    IReadOnlyList<TemplateNotificationDto>? Notifications = null);

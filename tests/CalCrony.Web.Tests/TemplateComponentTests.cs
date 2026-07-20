@@ -74,6 +74,41 @@ public class TemplateComponentTests : TestContext
     }
 
     [Fact]
+    public void Templates_page_edit_prefills_and_sends_the_full_patch()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var template = SampleTemplate("Editable", recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week), notificationCount: 1);
+        var now = DateTimeOffset.UtcNow;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/templates") => JsonSerializer.Serialize(new List<EventTemplateDto> { template }, JsonWeb),
+            "/me/guilds" => JsonSerializer.Serialize(
+                new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true)]), JsonWeb),
+            _ => JsonSerializer.Serialize(template, JsonWeb),
+        };
+
+        var cut = RenderComponent<GuildTemplates>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Editable", cut.Markup));
+
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit").Click();
+        Assert.Equal("Editable", cut.Find("#tpl-name").GetAttribute("value"));
+
+        cut.Find("#tpl-title").Change("Fresh Title");
+        cut.Find("#tpl-repeat").Change("None"); // clearing the rule
+        cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var body = JsonSerializer.Deserialize<UpdateTemplateRequest>(handler.LastBody!, JsonWeb)!;
+            Assert.Equal("Fresh Title", body.Title);
+            Assert.True(body.ClearRecurrence);
+            Assert.Null(body.Recurrence);
+            Assert.Single(body.Notifications!); // existing spec carried into the replacement set
+        });
+    }
+
+    [Fact]
     public void Event_detail_save_as_template_posts_the_request()
     {
         var handler = UseApi();

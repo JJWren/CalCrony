@@ -35,8 +35,10 @@ else
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <span class="fw-bold flex-grow-1 min-w-0">@template.Name</span>
                     <a class="btn btn-primary btn-sm" href="/app/guilds/@GuildId/events/new?template=@template.Id">Use</a>
-                    @if (CanDelete(template))
+                    @if (CanManage(template))
                     {
+                        <button class="btn btn-outline-primary btn-sm" disabled="@busy"
+                                @onclick="() => ToggleEdit(template)">@(editingId == template.Id ? "Close" : "Edit")</button>
                         @if (confirmingDeleteId != template.Id)
                         {
                             <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmingDeleteId = template.Id">Delete</button>
@@ -63,6 +65,82 @@ else
                         <span>🔔 @template.Notifications.Count reminder@(template.Notifications.Count == 1 ? "" : "s")</span>
                     }
                 </div>
+                @if (editingId == template.Id)
+                {
+                    <div class="border-top mt-3 pt-3" style="max-width:560px">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label" for="tpl-name">Name</label>
+                                <input id="tpl-name" class="form-control form-control-sm" maxlength="64" @bind="editName" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" for="tpl-title">Title</label>
+                                <input id="tpl-title" class="form-control form-control-sm" maxlength="128" @bind="editTitle" />
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="tpl-desc">Description</label>
+                            <textarea id="tpl-desc" class="form-control form-control-sm" rows="2" maxlength="4096" @bind="editDescription"></textarea>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <label class="form-label" for="tpl-duration">Duration (min)</label>
+                                <input id="tpl-duration" class="form-control form-control-sm" type="number" min="1" max="40320" @bind="editDuration" />
+                            </div>
+                            <div class="col-8">
+                                <label class="form-label" for="tpl-location">Location</label>
+                                <input id="tpl-location" class="form-control form-control-sm" maxlength="256" @bind="editLocation" />
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="tpl-image">Image URL</label>
+                            <input id="tpl-image" class="form-control form-control-sm" maxlength="512" @bind="editImageUrl" />
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-8">
+                                <label class="form-label" for="tpl-repeat">Repeats</label>
+                                <select id="tpl-repeat" class="form-select form-select-sm" @bind="editRepeatKind">
+                                    <option value="@RepeatKind.None">Doesn't repeat</option>
+                                    <option value="@RepeatKind.Daily">Daily</option>
+                                    <option value="@RepeatKind.Weekly">Weekly</option>
+                                    <option value="@RepeatKind.MonthlySameDate">Monthly (same date)</option>
+                                    <option value="@RepeatKind.MonthlyNthWeekday">Monthly (nth weekday)</option>
+                                </select>
+                            </div>
+                            @if (editRepeatKind != RepeatKind.None)
+                            {
+                                <div class="col-4">
+                                    <label class="form-label" for="tpl-interval">Every</label>
+                                    <input id="tpl-interval" class="form-control form-control-sm" type="number" min="1" max="12" @bind="editRepeatInterval" />
+                                </div>
+                            }
+                        </div>
+                        <label class="form-label d-block mt-2 mb-1">Reminders <span class="text-body-secondary">(max 5, minutes before start)</span></label>
+                        @for (var i = 0; i < editSpecs.Count; i++)
+                        {
+                            var index = i;
+                            <div class="d-flex gap-2 mb-2 align-items-center">
+                                <input class="form-control form-control-sm" style="width:7rem" type="number" min="0" max="40320"
+                                       aria-label="Minutes before" @bind="editSpecs[index].MinutesBefore" />
+                                <input class="form-control form-control-sm flex-grow-1" maxlength="1024" placeholder="message (optional)"
+                                       aria-label="Reminder message" @bind="editSpecs[index].Message" />
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => editSpecs.RemoveAt(index)">✕</button>
+                            </div>
+                        }
+                        @if (editSpecs.Count < 5)
+                        {
+                            <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="() => editSpecs.Add(new SpecRow())">＋ Reminder</button>
+                        }
+                        @if (editError is not null)
+                        {
+                            <div class="alert alert-danger py-1 my-2">@editError</div>
+                        }
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="SaveEditAsync">Save changes</button>
+                            <button class="btn btn-outline-secondary btn-sm" disabled="@busy" @onclick="() => editingId = null">Cancel</button>
+                        </div>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -76,15 +154,118 @@ else
     private bool busy;
     private Guid? confirmingDeleteId;
     private bool isManager;
+    private Guid? editingId;
+    private string editName = "";
+    private string editTitle = "";
+    private string? editDescription;
+    private int? editDuration;
+    private string? editLocation;
+    private string? editImageUrl;
+    private RepeatKind editRepeatKind;
+    private int editRepeatInterval = 1;
+    private List<SpecRow> editSpecs = [];
+    private string? editError;
+
+    private enum RepeatKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday }
+
+    /// <summary>Mutable row for the reminder editor (DTOs are immutable records).</summary>
+    private sealed class SpecRow
+    {
+        public int MinutesBefore { get; set; } = 30;
+        public string? Message { get; set; }
+        public string? Mentions { get; set; }
+        public long? ChannelId { get; set; }
+    }
 
     private long UserId => AuthApi.Session?.UserId ?? 0;
 
-    private bool CanDelete(EventTemplateDto template) =>
+    private bool CanManage(EventTemplateDto template) =>
         template.CreatorId == UserId || isManager;
+
+    private void ToggleEdit(EventTemplateDto template)
+    {
+        if (editingId == template.Id)
+        {
+            editingId = null;
+            return;
+        }
+
+        editingId = template.Id;
+        editError = null;
+        editName = template.Name;
+        editTitle = template.Title;
+        editDescription = template.Description;
+        editDuration = template.DurationMinutes;
+        editLocation = template.Location;
+        editImageUrl = template.ImageUrl;
+        editRepeatKind = template.Recurrence switch
+        {
+            null => RepeatKind.None,
+            { Unit: RecurrenceUnit.Day } => RepeatKind.Daily,
+            { Unit: RecurrenceUnit.Week } => RepeatKind.Weekly,
+            { Unit: RecurrenceUnit.Month, MonthlyMode: MonthlyMode.NthWeekday } => RepeatKind.MonthlyNthWeekday,
+            _ => RepeatKind.MonthlySameDate,
+        };
+        editRepeatInterval = template.Recurrence?.Interval ?? 1;
+        editSpecs = [.. template.Notifications.Select(n => new SpecRow
+        {
+            MinutesBefore = n.MinutesBefore,
+            Message = n.Message,
+            Mentions = n.Mentions,
+            ChannelId = n.ChannelId,
+        })];
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (editingId is not { } id)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(editName) || string.IsNullOrWhiteSpace(editTitle))
+        {
+            editError = "Name and title are required.";
+            return;
+        }
+
+        var recurrence = editRepeatKind switch
+        {
+            RepeatKind.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, editRepeatInterval),
+            RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, editRepeatInterval),
+            RepeatKind.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, editRepeatInterval),
+            RepeatKind.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, editRepeatInterval, MonthlyMode.NthWeekday),
+            _ => null,
+        };
+
+        busy = true;
+        editError = null;
+        var result = await Api.UpdateTemplateAsync(id, new UpdateTemplateRequest(
+            0, // EditorId is ignored for web callers — identity comes from the session.
+            editName.Trim(),
+            editTitle,
+            editDescription,
+            editDuration,
+            editLocation,
+            editImageUrl,
+            recurrence,
+            ClearRecurrence: recurrence is null,
+            Notifications: [.. editSpecs.Select(s => new TemplateNotificationDto(s.MinutesBefore, s.Message, s.Mentions, s.ChannelId))]));
+        busy = false;
+        if (!result.Success)
+        {
+            editError = result.Error;
+            return;
+        }
+
+        editingId = null;
+        templates = (await Api.ListTemplatesAsync(GuildId)).Value ?? templates;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         confirmingDeleteId = null;
+        editingId = null;
         var result = await Api.ListTemplatesAsync(GuildId);
         if (!result.Success)
         {

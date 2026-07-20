@@ -290,6 +290,14 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<EventTemplateDto>> SaveTemplateAsync(long guildId, SaveTemplateRequest request, CancellationToken ct = default) =>
         SendAsync<EventTemplateDto>(http.PostAsJsonAsync($"/guilds/{guildId}/templates", request, ct), ct);
 
+    /// <summary>Applies a partial template update (creator or manager).</summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<EventTemplateDto>> UpdateTemplateAsync(Guid id, UpdateTemplateRequest request, CancellationToken ct = default) =>
+        SendAsync<EventTemplateDto>(http.PatchAsJsonAsync($"/templates/{id}", request, ct), ct);
+
     /// <summary>Deletes a template (creator or manager).</summary>
     /// <param name="id">The template id.</param>
     /// <param name="ct">Cancels the request.</param>

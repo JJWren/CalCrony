@@ -56,7 +56,7 @@ flowchart LR
 | `/poll create question options [single-vote anonymous allow-options closes]` | Create a poll; `options` is comma-separated, `closes` is natural language |
 | `/poll time question slots [anonymous allow-options closes]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
-| `/template save name event` · `/template list` · `/template delete name` | Save an event's setup for reuse · browse · delete (creator or manager) |
+| `/template save name event` · `/template list` · `/template edit name [fields...]` · `/template delete name` | Save an event's setup for reuse · browse · edit content/repeat rule · delete (creator or manager; reminder lists are edited on the web) |
 | `/settings view` · `/settings timezone` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` | Personal & server timezone · where web-created embeds post · mirror events to the server's Events tab |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |

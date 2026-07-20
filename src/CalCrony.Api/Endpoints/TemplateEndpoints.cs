@@ -7,8 +7,8 @@ using NodaTime;
 namespace CalCrony.Api.Endpoints;
 
 /// <summary>Event templates: reusable event shapes saved from existing events. Any member saves
-/// and uses; deleting requires the creator or a manager. Names are unique per guild — the API
-/// rejects case-insensitive duplicates, backed by a functional unique index on
+/// and uses; editing and deleting require the creator or a manager. Names are unique per guild —
+/// the API rejects case-insensitive duplicates, backed by a functional unique index on
 /// (GuildId, lower(Name)) so races lose regardless of casing.</summary>
 public static class TemplateEndpoints
 {
@@ -21,7 +21,159 @@ public static class TemplateEndpoints
     {
         app.MapPost("/guilds/{guildId:long}/templates", SaveTemplate);
         app.MapGet("/guilds/{guildId:long}/templates", ListTemplates);
+        app.MapPatch("/templates/{id:guid}", UpdateTemplate);
         app.MapDelete("/templates/{id:guid}", DeleteTemplate);
+    }
+
+    private const int MaxNotifications = 5;
+
+    /// <summary>Applies a partial update (creator or manager; non-members get 404 so ids can't be
+    /// probed). Null fields stay unchanged; a non-null Notifications list replaces the whole spec
+    /// set. Editing never touches events already created from the template — denormalization
+    /// runs in both directions.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The template id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> UpdateTemplate(
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        UpdateTemplateRequest request,
+        CalCronyDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var template = await db.EventTemplates
+            .Include(t => t.Notifications)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+        if (template is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await EventEndpoints.GuardMutateAsync(
+                context, access, template.GuildId, template.CreatorId,
+                "Only the template creator or a server manager can edit this template.", cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        if (request.Recurrence is not null && request.ClearRecurrence)
+        {
+            return Results.BadRequest(new ErrorResponse("Choose a repeat rule or clear it, not both."));
+        }
+
+        if (request.Recurrence is { } rule && rule.Interval is < 1 or > 12)
+        {
+            return Results.BadRequest(new ErrorResponse("Repeat interval must be between 1 and 12."));
+        }
+
+        if ((Validation.TooLong("title", request.Title, FieldLimits.EventTitle)
+            ?? Validation.TooLong("description", request.Description, FieldLimits.EventDescription)
+            ?? Validation.TooLong("location", request.Location, FieldLimits.EventLocation)
+            ?? Validation.TooLong("image URL", request.ImageUrl, FieldLimits.EventImageUrl)
+            ?? Validation.BadDuration(request.DurationMinutes)) is { } invalid)
+        {
+            return invalid;
+        }
+
+        if (request.Name is { } rawName)
+        {
+            var name = rawName.Trim();
+            if (name.Length is 0 or > MaxNameLength)
+            {
+                return Results.BadRequest(new ErrorResponse("The template name must be 1-64 characters."));
+            }
+
+            var lowered = name.ToLowerInvariant();
+            if (await db.EventTemplates.AnyAsync(
+                    t => t.GuildId == template.GuildId && t.Id != template.Id && t.Name.ToLower() == lowered,
+                    cancellationToken))
+            {
+                return Results.Conflict(new ErrorResponse($"A template named \"{name}\" already exists."));
+            }
+
+            template.Name = name;
+        }
+
+        if (request.Notifications is { } specs)
+        {
+            if (specs.Count > MaxNotifications)
+            {
+                return Results.BadRequest(new ErrorResponse($"A template can carry at most {MaxNotifications} notifications."));
+            }
+
+            foreach (var spec in specs)
+            {
+                if (spec.MinutesBefore is < 0 or > FieldLimits.MaxMinutes)
+                {
+                    return Results.BadRequest(new ErrorResponse(
+                        $"minutesBefore must be between 0 and {FieldLimits.MaxMinutes} (4 weeks)."));
+                }
+
+                if ((Validation.TooLong("message", spec.Message, FieldLimits.NotificationMessage)
+                    ?? Validation.TooLong("mentions", spec.Mentions, FieldLimits.NotificationMentions)) is { } badSpec)
+                {
+                    return badSpec;
+                }
+            }
+
+            db.EventTemplateNotifications.RemoveRange(template.Notifications);
+            template.Notifications = [];
+            foreach (var spec in specs.OrderByDescending(n => n.MinutesBefore))
+            {
+                var row = new EventTemplateNotification
+                {
+                    Id = Guid.NewGuid(),
+                    TemplateId = template.Id,
+                    MinutesBefore = spec.MinutesBefore,
+                    Message = spec.Message,
+                    Mentions = spec.Mentions,
+                    ChannelId = spec.ChannelId,
+                };
+                // Explicit Add: with a client-set Guid key, graph fixup alone would mark the
+                // row as existing and issue an UPDATE instead of INSERT. Fixup then places the
+                // row into template.Notifications for the response DTO — adding it manually too
+                // would double it up.
+                db.EventTemplateNotifications.Add(row);
+            }
+        }
+
+        template.Title = request.Title ?? template.Title;
+        template.Description = request.Description ?? template.Description;
+        template.DurationMinutes = request.DurationMinutes ?? template.DurationMinutes;
+        template.Location = request.Location ?? template.Location;
+        template.ImageUrl = request.ImageUrl ?? template.ImageUrl;
+
+        if (request.ClearRecurrence)
+        {
+            template.RecurrenceUnit = null;
+            template.RecurrenceInterval = null;
+            template.RecurrenceMonthlyMode = null;
+        }
+        else if (request.Recurrence is { } newRule)
+        {
+            template.RecurrenceUnit = newRule.Unit;
+            template.RecurrenceInterval = newRule.Interval;
+            template.RecurrenceMonthlyMode = newRule.MonthlyMode;
+        }
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException
+        {
+            SqlState: Npgsql.PostgresErrorCodes.UniqueViolation,
+        })
+        {
+            return Results.Conflict(new ErrorResponse($"A template named \"{template.Name}\" already exists."));
+        }
+
+        return Results.Ok(ToDto(template));
     }
 
     /// <summary>Saves a template from an existing event's current content, notifications, and —
