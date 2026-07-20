@@ -8,6 +8,11 @@ COPY src/ src/
 RUN dotnet publish src/CalCrony.Api/CalCrony.Api.csproj -c Release -o /app -p:Version=$VERSION
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+# The aspnet image ships neither wget nor curl; the compose healthcheck needs a probe.
+# The standard (non-chiseled) image builds as root today; USER root guards against the
+# default ever flipping the way the chiseled variants did.
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "CalCrony.Api.dll"]

@@ -1,3 +1,13 @@
+# Production deployment from released GHCR images (no local build).
+#
+#   docker login ghcr.io
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Pin a version with CALCRONY_VERSION=1.0.0 (defaults to :latest). Standalone by design —
+# an override file would keep build: semantics and silently build from source when an image
+# is missing. Override the dev-default secrets (CALCRONY_API_KEY, CALCRONY_JWT_SIGNING_KEY,
+# CALCRONY_DB_PASSWORD) before exposing anything beyond localhost.
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -6,8 +16,6 @@ services:
       POSTGRES_DB: ${CALCRONY_DB_NAME:-calcrony}
       POSTGRES_USER: ${CALCRONY_DB_USER:-calcrony}
       POSTGRES_PASSWORD: ${CALCRONY_DB_PASSWORD:-calcrony}
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,13 +25,11 @@ services:
       retries: 10
 
   api:
-    build:
-      context: .
-      dockerfile: src/CalCrony.Api/Dockerfile
+    image: ghcr.io/jjwren/calcrony-api:${CALCRONY_VERSION:-latest}
     restart: unless-stopped
     environment:
       ConnectionStrings__CalCrony: Host=postgres;Port=5432;Database=${CALCRONY_DB_NAME:-calcrony};Username=${CALCRONY_DB_USER:-calcrony};Password=${CALCRONY_DB_PASSWORD:-calcrony}
-      Auth__BootstrapApiKey: ${CALCRONY_API_KEY:-dev-api-key-change-me}
+      Auth__BootstrapApiKey: ${CALCRONY_API_KEY:?set CALCRONY_API_KEY}
       ASPNETCORE_URLS: http://+:8080
       Api__PublicBaseUrl: ${CALCRONY_PUBLIC_BASE_URL:-http://localhost:8080}
       Calendar__Google__ClientId: ${GOOGLE_OAUTH_CLIENT_ID:-}
@@ -31,7 +37,7 @@ services:
       Calendar__DataProtectionKeyPath: /data/keys
       Auth__Discord__ClientId: ${DISCORD_OAUTH_CLIENT_ID:-}
       Auth__Discord__ClientSecret: ${DISCORD_OAUTH_CLIENT_SECRET:-}
-      Auth__Jwt__SigningKey: ${CALCRONY_JWT_SIGNING_KEY:-dev-signing-key-change-me-32chars!}
+      Auth__Jwt__SigningKey: ${CALCRONY_JWT_SIGNING_KEY:-}
       Web__Origin: ${CALCRONY_WEB_ORIGIN:-http://localhost:8082}
     ports:
       - "8080:8080"
@@ -41,8 +47,6 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      # Readiness (includes a DB probe), not just liveness — dependents wait for a serving API.
-      # start_period covers migrations running before Kestrel listens.
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health/ready"]
       interval: 10s
       timeout: 3s
@@ -50,9 +54,7 @@ services:
       start_period: 30s
 
   web:
-    build:
-      context: .
-      dockerfile: src/CalCrony.Web/Dockerfile
+    image: ghcr.io/jjwren/calcrony-web:${CALCRONY_VERSION:-latest}
     restart: unless-stopped
     environment:
       # Browser-visible API URL (the browser makes the calls, not this container).
@@ -69,14 +71,12 @@ services:
       retries: 6
 
   bot:
-    build:
-      context: .
-      dockerfile: src/CalCrony.Bot/Dockerfile
+    image: ghcr.io/jjwren/calcrony-bot:${CALCRONY_VERSION:-latest}
     restart: unless-stopped
     environment:
-      Discord__BotToken: ${DISCORD_BOT_TOKEN:-}
+      Discord__BotToken: ${DISCORD_BOT_TOKEN:?set DISCORD_BOT_TOKEN}
       Api__BaseUrl: http://api:8080
-      Api__ApiKey: ${CALCRONY_API_KEY:-dev-api-key-change-me}
+      Api__ApiKey: ${CALCRONY_API_KEY:?set CALCRONY_API_KEY}
     depends_on:
       api:
         condition: service_healthy
