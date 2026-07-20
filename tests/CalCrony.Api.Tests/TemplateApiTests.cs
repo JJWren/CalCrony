@@ -182,6 +182,109 @@ public class TemplateApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFix
         Assert.Equal(HttpStatusCode.BadRequest, conflict.StatusCode);
     }
 
+    [Fact]
+    public async Task Edit_updates_scalars_rule_and_name_with_patch_semantics()
+    {
+        var ev = await CreateEventAsync("Edit Source");
+        var template = await SaveTemplateAsync("editable", ev.Id);
+
+        // Scalars + a new rule; untouched fields (description) survive via null-means-unchanged.
+        var patch = await Client.PatchAsJsonAsync($"/templates/{template.Id}", new UpdateTemplateRequest(
+            CreatorId, Name: "renamed", Title: "New Title", DurationMinutes: 45,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, 2)));
+        patch.EnsureSuccessStatusCode();
+        var updated = (await patch.Content.ReadFromJsonAsync<EventTemplateDto>())!;
+        Assert.Equal("renamed", updated.Name);
+        Assert.Equal("New Title", updated.Title);
+        Assert.Equal(45, updated.DurationMinutes);
+        Assert.Equal(RecurrenceUnit.Week, updated.Recurrence!.Unit);
+        Assert.Equal(2, updated.Recurrence.Interval);
+
+        // Clearing the rule; everything else unchanged.
+        var cleared = await Client.PatchAsJsonAsync($"/templates/{template.Id}",
+            new UpdateTemplateRequest(CreatorId, ClearRecurrence: true));
+        cleared.EnsureSuccessStatusCode();
+        Assert.Null((await cleared.Content.ReadFromJsonAsync<EventTemplateDto>())!.Recurrence);
+
+        // Rule + clear together is a contradiction.
+        var both = await Client.PatchAsJsonAsync($"/templates/{template.Id}", new UpdateTemplateRequest(
+            CreatorId, Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day), ClearRecurrence: true));
+        Assert.Equal(HttpStatusCode.BadRequest, both.StatusCode);
+    }
+
+    [Fact]
+    public async Task Edit_rename_rejects_duplicates_but_allows_self_recase()
+    {
+        var ev = await CreateEventAsync("Rename Source");
+        var first = await SaveTemplateAsync("rename-a", ev.Id);
+        await SaveTemplateAsync("rename-b", ev.Id);
+
+        var collide = await Client.PatchAsJsonAsync($"/templates/{first.Id}",
+            new UpdateTemplateRequest(CreatorId, Name: "RENAME-B"));
+        Assert.Equal(HttpStatusCode.Conflict, collide.StatusCode);
+
+        // Re-casing your own name is not a collision (self excluded from the duplicate check).
+        var recase = await Client.PatchAsJsonAsync($"/templates/{first.Id}",
+            new UpdateTemplateRequest(CreatorId, Name: "Rename-A"));
+        recase.EnsureSuccessStatusCode();
+        Assert.Equal("Rename-A", (await recase.Content.ReadFromJsonAsync<EventTemplateDto>())!.Name);
+    }
+
+    [Fact]
+    public async Task Edit_replaces_the_notification_set_and_validates_it()
+    {
+        var ev = await CreateEventAsync("Spec Source");
+        (await Client.PostAsJsonAsync($"/events/{ev.Id}/notifications",
+            new CreateEventNotificationRequest(15, "old"))).EnsureSuccessStatusCode();
+        var template = await SaveTemplateAsync("spec-edit", ev.Id);
+        Assert.Single(template.Notifications);
+
+        var replace = await Client.PatchAsJsonAsync($"/templates/{template.Id}", new UpdateTemplateRequest(
+            CreatorId, Notifications:
+            [
+                new TemplateNotificationDto(60, "new hour", null, null),
+                new TemplateNotificationDto(10, null, null, null),
+            ]));
+        replace.EnsureSuccessStatusCode();
+        var updated = (await replace.Content.ReadFromJsonAsync<EventTemplateDto>())!;
+        Assert.Equal(2, updated.Notifications.Count);
+        Assert.Equal(60, updated.Notifications[0].MinutesBefore); // MinutesBefore desc
+        Assert.Equal("new hour", updated.Notifications[0].Message);
+        Assert.DoesNotContain(updated.Notifications, n => n.Message == "old");
+
+        var tooMany = await Client.PatchAsJsonAsync($"/templates/{template.Id}", new UpdateTemplateRequest(
+            CreatorId, Notifications:
+            [.. Enumerable.Range(0, 6).Select(i => new TemplateNotificationDto(i + 1, null, null, null))]));
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
+
+        var badMinutes = await Client.PatchAsJsonAsync($"/templates/{template.Id}", new UpdateTemplateRequest(
+            CreatorId, Notifications: [new TemplateNotificationDto(-1, null, null, null)]));
+        Assert.Equal(HttpStatusCode.BadRequest, badMinutes.StatusCode);
+    }
+
+    [Fact]
+    public async Task Edit_enforces_the_creator_or_manager_guard()
+    {
+        var ev = await CreateEventAsync("Guarded Edit");
+        var template = await SaveTemplateAsync("guarded-edit", ev.Id);
+
+        var (member, _) = await fixture.LoginAsync(9975, (GuildId, "G", false));
+        var memberPatch = await member.PatchAsJsonAsync($"/templates/{template.Id}",
+            new UpdateTemplateRequest(0, Title: "nope"));
+        Assert.Equal(HttpStatusCode.Forbidden, memberPatch.StatusCode);
+
+        var (outsider, _) = await fixture.LoginAsync(9976, (555555, "Elsewhere", true));
+        var outsiderPatch = await outsider.PatchAsJsonAsync($"/templates/{template.Id}",
+            new UpdateTemplateRequest(0, Title: "nope"));
+        Assert.Equal(HttpStatusCode.NotFound, outsiderPatch.StatusCode);
+
+        var (manager, _) = await fixture.LoginAsync(9977, (GuildId, "G", true));
+        var managerPatch = await manager.PatchAsJsonAsync($"/templates/{template.Id}",
+            new UpdateTemplateRequest(0, Title: "manager edit"));
+        managerPatch.EnsureSuccessStatusCode();
+        Assert.Equal("manager edit", (await managerPatch.Content.ReadFromJsonAsync<EventTemplateDto>())!.Title);
+    }
+
     private async Task<EventDto> CreateEventAsync(
         string title, string? description = null, int? duration = null, string? location = null,
         RecurrenceRuleDto? recurrence = null)

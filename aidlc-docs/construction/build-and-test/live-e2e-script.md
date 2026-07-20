@@ -136,6 +136,8 @@ production id (correct for the prod stack, which needs no new variables).
       explicit `title:` overrides the template's.
 - [ ] `repeat:no repeat` suppresses the template's rule (one-off created).
 - [ ] Duplicate name on save → friendly "already exists" (case-insensitive).
+- [ ] `/template edit` changes title/rule (creator-or-manager guard bails for plain members);
+      web Templates tab Edit prefills, replaces the reminder list, and clears the rule.
 - [ ] Web: Templates tab lists it; Use → prefilled form; save-as-template from an event page works.
 
 ### 6. Attendee roles

@@ -6,7 +6,7 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
-/// <summary>/template — save, list, and delete reusable event templates.</summary>
+/// <summary>/template — save, list, edit, and delete reusable event templates.</summary>
 /// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("template", "Reusable event templates")]
@@ -102,6 +102,79 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         await FollowupAsync(embed: embed, ephemeral: true);
     }
 
+    /// <summary>Edits a template's content or repeat rule (creator or server manager). Reminder
+    /// specs are edited on the web (list-shaped) or by re-saving from an event.</summary>
+    /// <param name="name">Template name (or fragment), or an autocomplete-picked template id.</param>
+    /// <param name="newName">The new template name.</param>
+    /// <param name="title">The event title.</param>
+    /// <param name="description">Optional description text.</param>
+    /// <param name="duration">Duration in minutes.</param>
+    /// <param name="location">Optional location text.</param>
+    /// <param name="image">Optional image URL.</param>
+    /// <param name="repeat">Replacement repeat rule; "no repeat" clears it.</param>
+    /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    [SlashCommand("edit", "Edit a template (creator or manager)")]
+    public async Task EditAsync(
+        [Summary("name", "The template to edit"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string name,
+        [Summary("new-name", "New template name (unique per server)"), MaxLength(64)] string? newName = null,
+        [Summary(description: "New title")] string? title = null,
+        [Summary(description: "New description")] string? description = null,
+        [Summary("duration", "New duration in minutes")] int? duration = null,
+        [Summary(description: "New location")] string? location = null,
+        [Summary("image", "New image URL")] string? image = null,
+        [Summary("repeat", "New repeat rule (\"no repeat\" clears it)")] RepeatChoice? repeat = null,
+        [Summary("repeat-every", "Repeat interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1)
+    {
+        await DeferAsync(ephemeral: true);
+
+        if (newName is null && title is null && description is null && duration is null
+            && location is null && image is null && repeat is null)
+        {
+            await FollowupAsync("Nothing to change — pass at least one field.", ephemeral: true);
+            return;
+        }
+
+        if (repeat is null && repeatEvery != 1)
+        {
+            // Without a rule choice, repeat-every would be silently ignored — mirroring /create.
+            await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
+            return;
+        }
+
+        var (template, problem) = await TemplateFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);
+        if (template is null)
+        {
+            await FollowupAsync(problem!, ephemeral: true);
+            return;
+        }
+
+        if (!CanManage(template))
+        {
+            await FollowupAsync("Only the template creator or a server manager can edit this template.", ephemeral: true);
+            return;
+        }
+
+        var recurrence = repeat switch
+        {
+            RepeatChoice.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatEvery),
+            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
+            RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
+            RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
+            _ => null,
+        };
+
+        var result = await api.UpdateTemplateAsync(template.Id, new UpdateTemplateRequest(
+            (long)Context.User.Id, newName, title, description, duration, location, image,
+            recurrence, ClearRecurrence: repeat == RepeatChoice.None));
+        if (!result.Success || result.Value is null)
+        {
+            await FollowupAsync($"❌ {result.Error}", ephemeral: true);
+            return;
+        }
+
+        await FollowupAsync($"✏️ Updated template **{result.Value.Name}**.", ephemeral: true);
+    }
+
     /// <summary>Deletes a template (creator or server manager).</summary>
     /// <param name="name">Template name (or fragment), or an autocomplete-picked template id.</param>
     [SlashCommand("delete", "Delete a template (creator or manager)")]
@@ -117,9 +190,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
-        var canManage = (long)Context.User.Id == template.CreatorId ||
-            (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
-        if (!canManage)
+        if (!CanManage(template))
         {
             await FollowupAsync("Only the template creator or a server manager can delete this template.", ephemeral: true);
             return;
@@ -130,4 +201,11 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             result.Success ? $"🗑️ Deleted template **{template.Name}**." : $"❌ {result.Error}",
             ephemeral: true);
     }
+
+    /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
+    /// <param name="template">The template.</param>
+    /// <returns>True for the creator or a ManageGuild holder.</returns>
+    private bool CanManage(EventTemplateDto template) =>
+        (long)Context.User.Id == template.CreatorId ||
+        (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 }
