@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.3](https://github.com/JJWren/CalCrony/compare/v0.15.2...v0.15.3) (2026-07-20)
+
+
+### Bug Fixes
+
+* probe the api healthcheck with a GET instead of spider mode ([#55](https://github.com/JJWren/CalCrony/issues/55)) ([42a7ed9](https://github.com/JJWren/CalCrony/commit/42a7ed9f87a876aa728749fc24dbc7a0cd9dd88f))
+
 ## [0.15.2](https://github.com/JJWren/CalCrony/compare/v0.15.1...v0.15.2) (2026-07-20)
 
 
