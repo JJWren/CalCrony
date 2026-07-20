@@ -43,7 +43,9 @@ services:
     healthcheck:
       # Readiness (includes a DB probe), not just liveness — dependents wait for a serving API.
       # start_period covers migrations running before Kestrel listens.
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health/ready"]
+      # Plain GET, not --spider: spider sends HEAD, which the minimal-API GET endpoint
+      # rejects — the container sat "unhealthy" while the app served fine (E2E finding #1).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health/ready"]
       interval: 10s
       timeout: 3s
       retries: 6
