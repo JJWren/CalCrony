@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/JJWren/CalCrony/compare/v0.17.1...v0.17.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* stack the mobile top bar above content and pull the nav down ([#69](https://github.com/JJWren/CalCrony/issues/69)) ([67cb613](https://github.com/JJWren/CalCrony/commit/67cb613cec93227cc8996740d31d85ab378a3000))
+
 ## [0.17.1](https://github.com/JJWren/CalCrony/compare/v0.17.0...v0.17.1) (2026-07-20)
 
 
