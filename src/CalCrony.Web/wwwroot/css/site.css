@@ -18,8 +18,11 @@ body { min-height: 100vh; }
 .app-content { flex: 1 1 auto; width: 100%; max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3.5rem; }
 @media (min-width: 992px) { .app-content { padding: 2.25rem 1.75rem 4rem; } }
 
-/* Top bar (mobile only — the sidebar header replaces it on desktop). */
-.app-topbar { position: sticky; top: 0; z-index: 1030; border-bottom: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); }
+/* Top bar (mobile only — the sidebar header replaces it on desktop). Fixed height so the
+   pull-down drawer can offset below it exactly; z-index above Bootstrap's offcanvas (1045)
+   so the bar — and its hamburger — stay visible and clickable while the drawer is open. */
+:root { --calcrony-topbar-h: 3.4rem; }
+.app-topbar { position: sticky; top: 0; height: var(--calcrony-topbar-h); z-index: 1046; border-bottom: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); }
 @media (min-width: 992px) { .app-topbar { display: none !important; } }
 
 /* Sidebar: Bootstrap's responsive offcanvas (offcanvas-lg) gives drawer behavior below lg
@@ -28,7 +31,7 @@ body { min-height: 100vh; }
    instead of sliding in from the side and eating the content column. */
 .app-sidebar { background-color: var(--bs-tertiary-bg); }
 @media (max-width: 991.98px) {
-    .app-sidebar { width: 100%; height: auto; max-height: 85vh; border-bottom: 1px solid var(--bs-border-color); }
+    .app-sidebar { top: var(--calcrony-topbar-h); width: 100%; height: auto; max-height: calc(100vh - var(--calcrony-topbar-h)); border-bottom: 1px solid var(--bs-border-color); }
     .app-sidebar .sidebar-inner { height: auto; }
 }
 @media (min-width: 992px) {
