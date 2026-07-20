@@ -56,7 +56,9 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
 
         var start = parsed.Value.Utc;
         var end = start.AddMinutes(duration ?? 60);
-        await RunAndReplyAsync(role.Mention, memberIds, start, end);
+        // Plain name, not role.Mention: Discord never renders mention markup inside embed
+        // titles, so the mention form would display as raw <@&id> text.
+        await RunAndReplyAsync($"@{role.Name}", memberIds, start, end);
     }
 
     /// <summary>Free/busy for an event's Going members over the event's own window.</summary>
