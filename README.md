@@ -115,14 +115,29 @@ Or the whole stack: `docker compose up` (set `DISCORD_BOT_TOKEN`, `CALCRONY_API_
 
 ## Deploying
 
-Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api`, `ghcr.io/jjwren/calcrony-bot`, and `ghcr.io/jjwren/calcrony-web` (nginx-served static app; set `API_BASE_URL` to the browser-visible API URL). A production deployment is the compose file pointed at those images instead of `build:`, with:
+Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api`, `ghcr.io/jjwren/calcrony-bot`, and `ghcr.io/jjwren/calcrony-web` (nginx-served static app; set `API_BASE_URL` to the browser-visible API URL). Production runs from **`docker-compose.prod.yml`** (GHCR images, no local build; pin a release with `CALCRONY_VERSION=1.0.0`):
 
-1. A strong `CALCRONY_API_KEY` set **before first boot** (the bootstrap key only seeds into an empty database).
-2. A named volume behind `Calendar__DataProtectionKeyPath` (see the warning above).
-3. The API fronted by a reverse proxy at a public HTTPS URL, with `Api__PublicBaseUrl` set to it, and `{Api__PublicBaseUrl}/oauth/google/callback` registered as an authorized redirect URI on your Google OAuth client.
-4. A Discord application with the bot token, `bot` + `applications.commands` scopes on the invite, and the Server Members intent enabled — plus, for web login, `{Api__PublicBaseUrl}/auth/discord/callback` added to the same application's OAuth2 redirect URIs and its client id/secret in `Auth__Discord__*`.
+```bash
+docker login ghcr.io
+CALCRONY_API_KEY=... CALCRONY_JWT_SIGNING_KEY=... DISCORD_BOT_TOKEN=... \
+  docker compose -f docker-compose.prod.yml up -d
+```
 
-The running API reports its version at `GET /health`.
+Go-live checklist:
+
+1. A strong `CALCRONY_API_KEY` set **before first boot** (the bootstrap key only seeds into an empty database — a fresh database with no key now refuses to start).
+2. A strong `CALCRONY_JWT_SIGNING_KEY` (≥32 chars — `openssl rand -base64 32`); the API refuses to start with a short one, and web login refuses to be configured without one. Rotating it later just signs everyone out.
+3. A named volume behind `Calendar__DataProtectionKeyPath` (see the warning above).
+4. The API fronted by a reverse proxy at a public HTTPS URL, with `Api__PublicBaseUrl` set to it, and `{Api__PublicBaseUrl}/oauth/google/callback` registered as an authorized redirect URI on your Google OAuth client.
+5. A Discord application with the bot token, the Server Members intent enabled, and the bot invited with this URL (grants `bot` + `applications.commands` and the Manage Events / Manage Roles / thread permissions the features need — servers that invited an older build must re-invite or grant the bot's role):
+
+   ```text
+   https://discord.com/oauth2/authorize?client_id=<your-app-id>&permissions=335007534080&scope=bot+applications.commands
+   ```
+
+6. For web login, `{Api__PublicBaseUrl}/auth/discord/callback` added to the same application's OAuth2 redirect URIs and its client id/secret in `Auth__Discord__*`.
+
+The running API reports its version at `GET /health`; `GET /health/ready` adds a database probe (the compose healthchecks target it).
 
 ## Contributing, releases & security
 

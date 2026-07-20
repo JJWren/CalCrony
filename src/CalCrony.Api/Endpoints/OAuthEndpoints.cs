@@ -8,9 +8,9 @@ using NodaTime;
 namespace CalCrony.Api.Endpoints;
 
 /// <summary>
-/// The API's only non-JSON, anonymous surface: the browser-facing legs of the Google OAuth dance.
-/// Both routes are reachable without X-Api-Key (see ApiKeyMiddleware's "/oauth" prefix) since
-/// Google and the user's own browser hit them directly.
+/// The browser-facing legs of the Google OAuth dance. Both routes are AllowAnonymous (the
+/// fallback authorization policy secures everything else) since Google and the user's own
+/// browser hit them directly with no CalCrony credential.
 /// </summary>
 public static class OAuthEndpoints
 {
