@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.4](https://github.com/JJWren/CalCrony/compare/v0.15.3...v0.15.4) (2026-07-20)
+
+
+### Bug Fixes
+
+* add Manage Roles to the bot invite permissions ([#57](https://github.com/JJWren/CalCrony/issues/57)) ([d6c9ade](https://github.com/JJWren/CalCrony/commit/d6c9ade96a0fd7c8cc540c69b960dda45ce33005))
+
 ## [0.15.3](https://github.com/JJWren/CalCrony/compare/v0.15.2...v0.15.3) (2026-07-20)
 
 
