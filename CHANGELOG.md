@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/JJWren/CalCrony/compare/v0.14.0...v0.15.0) (2026-07-20)
+
+
+### Features
+
+* add 90-day data-retention sweep ([#45](https://github.com/JJWren/CalCrony/issues/45)) ([9af494c](https://github.com/JJWren/CalCrony/commit/9af494c5957d0d364b579b4f7218a3ffc98afae0))
+
+
+### Bug Fixes
+
+* fail fast at startup on invalid auth or database configuration ([#46](https://github.com/JJWren/CalCrony/issues/46)) ([8f8b4e9](https://github.com/JJWren/CalCrony/commit/8f8b4e9a55507fb595307c0c057e5dc683ae156d))
+* harden docker compose restart, health, and dependency behavior ([#47](https://github.com/JJWren/CalCrony/issues/47)) ([4e54692](https://github.com/JJWren/CalCrony/commit/4e5469237a84145f0b380c290b4ad059be88f377))
+* validate request field lengths and ranges before persistence ([#43](https://github.com/JJWren/CalCrony/issues/43)) ([fc2a17f](https://github.com/JJWren/CalCrony/commit/fc2a17fd86666a5833b026424365afe7177762df))
+
 ## [0.14.0](https://github.com/JJWren/CalCrony/compare/v0.13.0...v0.14.0) (2026-07-19)
 
 
