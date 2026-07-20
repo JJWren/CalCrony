@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/JJWren/CalCrony/compare/v0.16.0...v0.17.0) (2026-07-20)
+
+
+### Features
+
+* host the legal pages and satisfy Google verification checks ([#65](https://github.com/JJWren/CalCrony/issues/65)) ([dc11433](https://github.com/JJWren/CalCrony/commit/dc11433c326f393d5662de09f3eb10edde406017))
+
 ## [0.16.0](https://github.com/JJWren/CalCrony/compare/v0.15.5...v0.16.0) (2026-07-20)
 
 
