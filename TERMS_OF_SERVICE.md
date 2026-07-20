@@ -1,6 +1,6 @@
 # CalCrony — Terms of Service
 
-**Last updated: 2026-07-20**
+**Last updated: 2026-07-20** · Hosted copy: [calcrony.theguywiththedogs.dev/terms](https://calcrony.theguywiththedogs.dev/terms)
 
 These terms cover use of **CalCrony** — the Discord bot, its web app, and its API — as operated
 by the maintainer of this repository ("the operator", "we"). CalCrony is open-source,

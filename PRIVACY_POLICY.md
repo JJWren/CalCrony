@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-07-20**
+**Last updated: 2026-07-20** · Hosted copy: [calcrony.theguywiththedogs.dev/privacy](https://calcrony.theguywiththedogs.dev/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -29,6 +29,15 @@ Google calendar — only busy/free time blocks, fetched on demand and not stored
 
 **Message content**: CalCrony only processes the slash-command inputs and component interactions
 sent to it. It does not read your server's messages.
+
+## Google user data & Limited Use
+
+CalCrony's use and transfer of information received from Google APIs adheres to the
+[Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy),
+including the **Limited Use** requirements. Free/busy data is used solely to render availability
+grids to members of your Discord server, is never stored, never transferred to third parties,
+never used for advertising, and never read by humans except with your consent or for security
+purposes.
 
 ## 2. What we don't do
 
