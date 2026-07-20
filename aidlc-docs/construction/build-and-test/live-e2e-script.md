@@ -11,13 +11,13 @@ web = the Blazor app signed in via Discord.
 
 ---
 
-# Part A — Test environment setup
+## Part A — Test environment setup
 
 E2E runs in a **test environment that shares nothing with production**: its own Discord
 application (bot identity), its own Discord server, its own database volume, its own secrets.
 The prod and test stacks differ only in their `.env` files.
 
-## A.1 Two Discord applications
+### A.1 Two Discord applications
 
 Create (or reuse) a second application in the [Discord Developer Portal](https://discord.com/developers/applications)
 — e.g. *CalCrony* (prod) and *CalCrony Test*. For the test application:
@@ -29,7 +29,7 @@ Create (or reuse) a second application in the [Discord Developer Portal](https:/
 - [ ] Note the **Application ID** — it is both the invite `client_id` and the `DISCORD_APP_ID`
       below.
 
-## A.2 Per-environment .env files
+### A.2 Per-environment .env files
 
 Keep one `.env` per environment (e.g. `.env.prod`, `.env.test` — compose reads them via
 `--env-file`). The test file mirrors prod's variables with test values, plus:
@@ -49,7 +49,7 @@ CALCRONY_DB_NAME=calcrony_test                # separate database (or a separate
 rides the same runtime-config injection as `API_BASE_URL`, so no rebuild is needed. Unset =
 production id (correct for the prod stack, which needs no new variables).
 
-## A.3 Standing up the stacks
+### A.3 Standing up the stacks
 
 - **Test** (from source or images): `docker compose --env-file .env.test up -d --build`
   (or `-f docker-compose.prod.yml` with the test env-file to test the released images —
@@ -58,7 +58,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] If both stacks share one host, give the test stack its own ports and a distinct compose
       project name (`-p calcrony-test`) so volumes/networks don't collide.
 
-## A.4 Test server
+### A.4 Test server
 
 - [ ] A dedicated Discord server for the pass (never a live community): invite the TEST bot via
       the test application's URL —
@@ -70,9 +70,9 @@ production id (correct for the prod stack, which needs no new variables).
 
 ---
 
-# Part B — The pass
+## Part B — The pass
 
-## 0. Deployment prerequisites & first steps
+### 0. Deployment prerequisites & first steps
 
 - [ ] `docker compose -f docker-compose.prod.yml up -d` with real `CALCRONY_API_KEY`,
       `CALCRONY_JWT_SIGNING_KEY`, `DISCORD_BOT_TOKEN` → all four containers healthy
@@ -86,7 +86,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] First steps as documented: `/settings server-timezone` (autocomplete offers zones with UTC
       offsets), `/settings default-channel` → `/settings view` reflects both.
 
-## 1. Events CRUD & natural-language parsing
+### 1. Events CRUD & natural-language parsing
 
 - [ ] `/create title:Kickoff when:"tomorrow 6pm"` → embed with 🗓️ local time, RSVP buttons;
       ephemeral confirmation.
@@ -99,7 +99,7 @@ production id (correct for the prod stack, which needs no new variables).
       embed re-renders in place.
 - [ ] `/delete` → embed gone, confirmation notes nothing else.
 
-## 2. RSVPs & capacity
+### 2. RSVPs & capacity
 
 - [ ] Click ✅ Going → name appears on the embed within the interaction (bot edits inline).
 - [ ] Click 🤔 Maybe → moves columns; click 🤔 again → un-RSVPs (toggle).
@@ -108,7 +108,7 @@ production id (correct for the prod stack, which needs no new variables).
       full 409 copy via a second account clicking a full option if capacity is configured; otherwise
       mark N/A).
 
-## 3. Reminders & notifications
+### 3. Reminders & notifications
 
 - [ ] `/remind when:"in 2 minutes" about:"stand up"` → ping arrives in-channel at time.
 - [ ] `/notify` a test event `minutes-before:1` (event ~3 min out) → ping fires at T−1.
@@ -117,7 +117,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] On a series occurrence, adding a notification asks for scope; `series` scope → next spawned
       occurrence carries it; `occurrence` scope → next spawn does not.
 
-## 4. Recurrence — full verb set
+### 4. Recurrence — full verb set
 
 - [ ] `/create repeat:weekly` → 🔁 line on embed; `/series info` shows the schedule.
 - [ ] `/series skip` → occurrence cancelled (embed deleted), replacement posts immediately.
@@ -128,7 +128,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] Rule edit that leaves no future occurrence (until-date in the past) → friendly 400 suggesting stop.
 - [ ] Monthly nth-weekday: create "3rd Friday" style; `/series info` describes it correctly.
 
-## 5. Templates
+### 5. Templates
 
 - [ ] Build an event with a description, 2 notifications, and a weekly rule → `/template save`.
 - [ ] `/template list` shows it with 🔁/🔔 markers.
@@ -138,7 +138,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] Duplicate name on save → friendly "already exists" (case-insensitive).
 - [ ] Web: Templates tab lists it; Use → prefilled form; save-as-template from an event page works.
 
-## 6. Attendee roles
+### 6. Attendee roles
 
 - [ ] Create a role `Attendee` below the bot's top role. `/create attendee-role:@Attendee` →
       🏷️ line on embed and reply.
@@ -151,7 +151,7 @@ production id (correct for the prod stack, which needs no new variables).
       an integration-managed role → friendly bail.
 - [ ] Web event page shows the 🏷️ chip; web edit can clear the role but not set one.
 
-## 7. Event threads
+### 7. Event threads
 
 - [ ] `/create thread:true` → public thread on the embed, named after the event.
 - [ ] RSVP Going → added to the thread within ~15s (thread appears in your channel list).
@@ -161,7 +161,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] Precheck: deny Create Public Threads in one channel → `/create thread:true` there bails friendly.
 - [ ] Web: create with the thread checkbox → thread appears; event page shows the 🧵 chip.
 
-## 8. Native-event mirroring
+### 8. Native-event mirroring
 
 - [ ] `/settings native-events on` (bot needs Manage Events — precheck bails if missing).
 - [ ] New event → appears in the server's Events tab; description carries the RSVP pointer line.
@@ -170,7 +170,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] `/delete` a scheduled mirrored event → native twin deleted.
 - [ ] Toggle `native-events off` → existing mirrored events keep syncing; new ones don't mirror.
 
-## 9. Polls & time polls
+### 9. Polls & time polls
 
 - [ ] `/poll create` with 6+ options → select-menu voting; ≤5 options → buttons.
 - [ ] ➕ voter-added option via the modal → components rebuild (button→select swap at 6).
@@ -179,14 +179,14 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] `/poll time` with 3 slots; vote; `/poll close`; `/poll convert` → event posts in the POLL's
       channel at the winning slot.
 
-## 10. ICS feed & RRULE
+### 10. ICS feed & RRULE
 
 - [ ] `/link` → subscribe URL; add to Google Calendar (or another real calendar app).
 - [ ] One-off events appear; a weekly series shows FUTURE occurrences (RRULE), not just the next.
 - [ ] A past occurrence renders as history; the live occurrence appears exactly once (no duplicate
       with the projection).
 
-## 11. Web parity pass
+### 11. Web parity pass
 
 - [ ] Discord login (identify + guilds only); guild list matches; re-sync link refreshes.
 - [ ] Create / edit / delete an event from the browser → embed posts / updates / disappears in
@@ -196,7 +196,7 @@ production id (correct for the prod stack, which needs no new variables).
       ask), templates, settings (timezone picker with UTC offsets) — one smoke action each.
 - [ ] Docs page renders; invite link on the landing page carries `permissions=335007534080`.
 
-## 12. Availability & Google OAuth — CONDITIONAL
+### 12. Availability & Google OAuth — CONDITIONAL
 
 Requires: public HTTPS `Api__PublicBaseUrl`, Google OAuth client (Testing status), redirect URI
 registered, Server Members intent. **Skippable without blocking v1.0.0** (long-standing known
@@ -208,14 +208,14 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
 - [ ] Web: availability grid on the event page; My settings shows the connection; disconnect works.
 - [ ] After 7 days (Google Testing mode) the 🔄 reconnect badge appears — verify the copy if observed.
 
-## 13. Permission-precheck bails
+### 13. Permission-precheck bails
 
 - [ ] Remove Manage Events from the bot → `/settings native-events on` bails friendly.
 - [ ] Remove Manage Roles → `/create attendee-role:` bails friendly.
 - [ ] Deny Create Public Threads in a channel → `/create thread:true` bails friendly.
 - [ ] Restore all permissions; each feature works again with no residue.
 
-## 14. Restart resilience
+### 14. Restart resilience
 
 - [ ] Queue a notification ~2 min out; `docker compose kill bot` before it fires; restart the bot →
       the ping arrives exactly once (ack-only-on-success).
@@ -226,7 +226,7 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
 
 ---
 
-# Part C — Recording results & the v1.0.0 gate
+## Part C — Recording results & the v1.0.0 gate
 
 1. Tick items as they pass; for each failure, file the symptom in the results table in
    [`build-and-test-summary.md`](build-and-test-summary.md) — one `fix:` PR per finding, then
