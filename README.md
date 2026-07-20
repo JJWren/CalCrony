@@ -119,7 +119,8 @@ Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api`, `ghcr.i
 
 ```bash
 docker login ghcr.io
-CALCRONY_API_KEY=... DISCORD_BOT_TOKEN=... docker compose -f docker-compose.prod.yml up -d
+CALCRONY_API_KEY=... CALCRONY_JWT_SIGNING_KEY=... DISCORD_BOT_TOKEN=... \
+  docker compose -f docker-compose.prod.yml up -d
 ```
 
 Go-live checklist:
