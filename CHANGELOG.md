@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.5](https://github.com/JJWren/CalCrony/compare/v0.15.4...v0.15.5) (2026-07-20)
+
+
+### Bug Fixes
+
+* show the role name in the availability embed title ([#61](https://github.com/JJWren/CalCrony/issues/61)) ([f2e844f](https://github.com/JJWren/CalCrony/commit/f2e844f3226fd143b5a34ddf0f57757b9a9cc120))
+
 ## [0.15.4](https://github.com/JJWren/CalCrony/compare/v0.15.3...v0.15.4) (2026-07-20)
 
 
