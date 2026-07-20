@@ -22,6 +22,25 @@ public class NaturalDateTimeParserTests
     }
 
     [Fact]
+    public void Explicit_reference_overrides_the_clock_and_keeps_multi_text_requests_consistent()
+    {
+        // The parser's own clock says Now; the caller pins a different reference — the
+        // clock must not leak into the result.
+        var parser = CreateParser();
+        var reference = Now.Plus(Duration.FromMinutes(90));
+
+        var ok = parser.TryResolve("in 2 hours", Chicago, out var anchored, out var error, reference);
+        Assert.True(ok, error);
+        Assert.Equal(reference.Plus(Duration.FromHours(2)), anchored);
+
+        // Equivalent relative texts against ONE reference resolve identically — the guarantee
+        // CreatePoll's duplicate-slot 409 relies on (per-call clock reads could straddle a
+        // minute boundary and make these differ).
+        Assert.True(parser.TryResolve("in 120 minutes", Chicago, out var sameSlot, out _, reference));
+        Assert.Equal(anchored, sameSlot);
+    }
+
+    [Fact]
     public void Parses_tomorrow_with_time_in_zone()
     {
         var ok = CreateParser().TryResolve("tomorrow 6pm", Chicago, out var result, out var error);
