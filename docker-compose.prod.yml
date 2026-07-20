@@ -59,6 +59,9 @@ services:
     environment:
       # Browser-visible API URL (the browser makes the calls, not this container).
       API_BASE_URL: ${CALCRONY_PUBLIC_BASE_URL:-http://localhost:8080}
+      # Discord application id the invite links advertise — set in TEST environments so the
+      # web app invites the test bot (empty = the production id baked into the app).
+      DISCORD_APP_ID: ${DISCORD_APP_ID:-}
     ports:
       - "8082:80"
     depends_on:

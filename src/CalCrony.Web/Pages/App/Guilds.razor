@@ -3,6 +3,7 @@
 @inject CalCronyWebApiClient Api
 @inject NavigationManager Nav
 @inject AuthApiClient AuthApi
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 
 <PageTitle>My servers — CalCrony</PageTitle>
 
@@ -23,7 +24,7 @@ else if (guilds.Guilds.Count == 0)
     <div class="card p-4">
         <p class="mb-2">None of your servers have CalCrony yet.</p>
         <a class="btn btn-primary align-self-start"
-           href="https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=335007534080&integration_type=0&scope=bot+applications.commands"
+           href="@DiscordInvite.Url(Config["Discord:AppId"])"
            target="_blank" rel="noopener">＋ Add CalCrony to a server</a>
     </div>
 }
