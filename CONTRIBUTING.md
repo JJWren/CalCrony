@@ -41,6 +41,8 @@ Versions follow [SemVer](https://semver.org/) and are **computed from commit mes
 | `feat!: ...` / `fix!: ...` or a `BREAKING CHANGE:` footer | **major** bump | Breaking |
 | `chore:` `docs:` `refactor:` `test:` `ci:` `perf:` `build:` | no release by itself | (not listed) |
 
+**What counts as `docs:`** — repository-only material a user of the running app never sees: README, CONTRIBUTING, SECURITY, the legal files, `aidlc-docs/`. Content that ships **inside the applications** — including the web app's `/docs` page (`Docs.razor`), landing-page copy, command descriptions, and embed/reply text — is product surface: use `feat:` (new user-visible content/guidance) or `fix:` (correcting it) so the change appears in the CHANGELOG and cuts a release users can actually pull.
+
 **Release flow:**
 
 1. Merged PRs accumulate on `master`; release-please maintains a rolling **release PR** (e.g. `chore(master): release 0.2.0`) containing the computed version and CHANGELOG entries.
