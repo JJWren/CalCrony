@@ -47,7 +47,9 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health/ready"]
+      # Plain GET, not --spider: spider sends HEAD, which the minimal-API GET endpoint
+      # rejects — the container sat "unhealthy" while the app served fine (E2E finding #1).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health/ready"]
       interval: 10s
       timeout: 3s
       retries: 6
