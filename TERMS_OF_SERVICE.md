@@ -58,7 +58,7 @@ remedy is to stop using the service.
 
 Updates to these terms are committed to this repository with the date above refreshed;
 continued use after a change is acceptance. The
-[commit history](https://github.com/JJWren/CalCrony/commits/master/TERMS_OF_SERVICE.md) is the
+[commit history](https://github.com/JJWren/CalCrony/commits/HEAD/TERMS_OF_SERVICE.md) is the
 change log.
 
 ## 8. Contact

@@ -74,7 +74,7 @@ local law says so). It is not directed at children.
 ## 6. Changes
 
 Updates are committed to this repository with the date above refreshed; the
-[commit history](https://github.com/JJWren/CalCrony/commits/master/PRIVACY_POLICY.md) is the
+[commit history](https://github.com/JJWren/CalCrony/commits/HEAD/PRIVACY_POLICY.md) is the
 change log.
 
 ## 7. Contact

@@ -35,8 +35,8 @@ public class ComponentTests : TestContext
         // purpose, and a privacy-policy link on the same domain.
         Assert.Contains("CalCrony", cut.Markup);
         Assert.Contains("free/busy availability", cut.Markup);
-        Assert.Contains("href=\"/privacy\"", cut.Markup);
-        Assert.Contains("href=\"/terms\"", cut.Markup);
+        Assert.NotNull(cut.Find("a[href='/privacy']"));
+        Assert.NotNull(cut.Find("a[href='/terms']"));
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class ComponentTests : TestContext
 
         var terms = RenderComponent<Terms>();
         Assert.Contains("Terms of Service", terms.Markup);
-        Assert.Contains("href=\"/privacy\"", terms.Markup);
+        Assert.NotNull(terms.Find("a[href='/privacy']"));
     }
 
     [Fact]
