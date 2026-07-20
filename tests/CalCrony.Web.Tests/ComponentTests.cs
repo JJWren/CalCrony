@@ -21,7 +21,7 @@ public class ComponentTests : TestContext
         // unconfigured deployment must advertise the PRODUCTION application. Asserted on the
         // href attribute value, which is encoding-stable.
         Assert.Equal(
-            "https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=335007534080&integration_type=0&scope=bot+applications.commands",
+            "https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=335275969536&integration_type=0&scope=bot+applications.commands",
             cut.Find("a.btn-primary").GetAttribute("href"));
     }
 
@@ -36,7 +36,7 @@ public class ComponentTests : TestContext
         var href = cut.Find("a.btn-primary").GetAttribute("href")!;
         Assert.Contains("client_id=999000111", href);
         Assert.DoesNotContain("1527749302443835532", href);
-        Assert.Contains("permissions=335007534080", href);
+        Assert.Contains("permissions=335275969536", href);
         Assert.Contains("scope=bot+applications.commands", href);
     }
 
