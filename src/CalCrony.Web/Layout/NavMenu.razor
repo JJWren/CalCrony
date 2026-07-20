@@ -6,7 +6,9 @@
 @* Internal links deliberately carry NO data-bs-dismiss: Bootstrap's dismiss handler calls
    preventDefault() on anchors, which kills Blazor navigation. The drawer closes instead via
    the LocationChanged subscription below. *@
-<nav id="appSidebar" class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" aria-label="Main navigation">
+@* offcanvas-top: below lg the menu pulls down from the top bar (offcanvas-lg neutralizes
+   the placement at lg+, where the element is a normal in-flow sidebar column). *@
+<nav id="appSidebar" class="app-sidebar offcanvas-lg offcanvas-top" tabindex="-1" aria-label="Main navigation">
     <div class="sidebar-inner">
         <div class="d-flex align-items-start justify-content-between px-2 pb-3">
             <div class="wordmark">
