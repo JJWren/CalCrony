@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/JJWren/CalCrony/compare/v0.17.0...v0.17.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* set feed-refresh expectations and retire the testing-mode copy ([#67](https://github.com/JJWren/CalCrony/issues/67)) ([ea64cc5](https://github.com/JJWren/CalCrony/commit/ea64cc5e484cb07fe55cc20a2f1281432ba295c7))
+
 ## [0.17.0](https://github.com/JJWren/CalCrony/compare/v0.16.0...v0.17.0) (2026-07-20)
 
 
