@@ -134,6 +134,13 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
+        if (repeat is null && repeatEvery != 1)
+        {
+            // Without a rule choice, repeat-every would be silently ignored — mirroring /create.
+            await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
+            return;
+        }
+
         var (template, problem) = await TemplateFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);
         if (template is null)
         {

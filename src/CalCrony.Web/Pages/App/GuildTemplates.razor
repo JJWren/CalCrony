@@ -124,7 +124,8 @@ else
                                        aria-label="Minutes before" @bind="editSpecs[index].MinutesBefore" />
                                 <input class="form-control form-control-sm flex-grow-1" maxlength="1024" placeholder="message (optional)"
                                        aria-label="Reminder message" @bind="editSpecs[index].Message" />
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => editSpecs.RemoveAt(index)">✕</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Remove reminder"
+                                        @onclick="() => editSpecs.RemoveAt(index)">✕</button>
                             </div>
                         }
                         @if (editSpecs.Count < 5)
@@ -240,26 +241,33 @@ else
 
         busy = true;
         editError = null;
-        var result = await Api.UpdateTemplateAsync(id, new UpdateTemplateRequest(
-            0, // EditorId is ignored for web callers — identity comes from the session.
-            editName.Trim(),
-            editTitle,
-            editDescription,
-            editDuration,
-            editLocation,
-            editImageUrl,
-            recurrence,
-            ClearRecurrence: recurrence is null,
-            Notifications: [.. editSpecs.Select(s => new TemplateNotificationDto(s.MinutesBefore, s.Message, s.Mentions, s.ChannelId))]));
-        busy = false;
-        if (!result.Success)
+        try
         {
-            editError = result.Error;
-            return;
-        }
+            var result = await Api.UpdateTemplateAsync(id, new UpdateTemplateRequest(
+                0, // EditorId is ignored for web callers — identity comes from the session.
+                editName.Trim(),
+                editTitle,
+                editDescription,
+                editDuration,
+                editLocation,
+                editImageUrl,
+                recurrence,
+                ClearRecurrence: recurrence is null,
+                Notifications: [.. editSpecs.Select(s => new TemplateNotificationDto(s.MinutesBefore, s.Message, s.Mentions, s.ChannelId))]));
+            if (!result.Success)
+            {
+                editError = result.Error;
+                return;
+            }
 
-        editingId = null;
-        templates = (await Api.ListTemplatesAsync(GuildId)).Value ?? templates;
+            editingId = null;
+            templates = (await Api.ListTemplatesAsync(GuildId)).Value ?? templates;
+        }
+        finally
+        {
+            // An unexpected throw must not leave the editor permanently disabled.
+            busy = false;
+        }
     }
 
     protected override async Task OnParametersSetAsync()

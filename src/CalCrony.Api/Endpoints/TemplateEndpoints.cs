@@ -71,6 +71,12 @@ public static class TemplateEndpoints
             return Results.BadRequest(new ErrorResponse("Repeat interval must be between 1 and 12."));
         }
 
+        if (request.Title is { } newTitle && string.IsNullOrWhiteSpace(newTitle))
+        {
+            // A blank template title would break /create's gap-fill (title is required there).
+            return Results.BadRequest(new ErrorResponse("The title is required."));
+        }
+
         if ((Validation.TooLong("title", request.Title, FieldLimits.EventTitle)
             ?? Validation.TooLong("description", request.Description, FieldLimits.EventDescription)
             ?? Validation.TooLong("location", request.Location, FieldLimits.EventLocation)
