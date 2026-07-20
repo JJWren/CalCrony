@@ -140,12 +140,24 @@ var version = typeof(Program).Assembly
     .InformationalVersion ?? "unknown";
 app.MapGet("/health", () => Results.Ok(new { status = "ok", version })).AllowAnonymous();
 // Readiness: liveness plus a cheap DB probe — compose healthchecks target this so dependents
-// wait for an API that can actually serve them.
+// wait for an API that can actually serve them. Any probe failure (including a throw from a
+// malformed connection string) is a 503, never a 500 — healthcheck consumers need the contract.
 app.MapGet("/health/ready", async (CalCronyDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct)
+{
+    bool ready;
+    try
+    {
+        ready = await db.Database.CanConnectAsync(ct);
+    }
+    catch (Exception) when (!ct.IsCancellationRequested)
+    {
+        ready = false;
+    }
+
+    return ready
         ? Results.Ok(new { status = "ok", version })
-        : Results.Json(new { status = "unavailable", version }, statusCode: StatusCodes.Status503ServiceUnavailable))
-    .AllowAnonymous();
+        : Results.Json(new { status = "unavailable", version }, statusCode: StatusCodes.Status503ServiceUnavailable);
+}).AllowAnonymous();
 app.MapEventEndpoints();
 app.MapSeriesEndpoints();
 app.MapPollEndpoints();
