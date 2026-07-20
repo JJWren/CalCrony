@@ -1,0 +1,101 @@
+@page "/privacy"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>Privacy Policy — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2">CalCrony</p>
+<h1 class="h3">Privacy Policy</h1>
+<p class="meta-mono">Last updated: 2026-07-20</p>
+
+<div class="text-body-secondary" style="max-width:70ch">
+    <p>
+        This policy describes what <b>CalCrony</b> — this Discord bot, web app, and API instance —
+        stores and why. CalCrony is <a href="https://github.com/JJWren/CalCrony" target="_blank" rel="noopener">open-source</a>
+        and self-hostable; a self-hosted instance is governed by whoever runs it, not by this document.
+    </p>
+    <p>
+        The short version: CalCrony stores the scheduling data you give it, plus the Discord
+        identifiers needed to make that work. It has no analytics, no ads, no tracking, and sells nothing.
+    </p>
+
+    <h2 class="h5 mt-4">1. What we store</h2>
+    <p><b>From Discord</b> (via the bot and, if you sign in, this web app):</p>
+    <ul>
+        <li>Discord snowflake IDs: your user ID, server (guild) IDs, and the channel/message/thread/role
+            IDs the features touch. CalCrony never sees your Discord password or token.</li>
+        <li>Content you create: event titles, descriptions and locations, poll questions and options,
+            RSVP choices, reminders, notification messages, and templates.</li>
+        <li>Preferences: per-user and per-server timezone, DM-confirmation setting, server settings.</li>
+        <li>Web sign-in (optional, Discord OAuth with <code>identify</code> + <code>guilds</code> scopes
+            only): your username, display name, avatar hash, and a snapshot of which servers you're in
+            (used to scope what the web app shows you). Session security data: hashed refresh tokens and
+            short-lived login-state records.</li>
+    </ul>
+    <p>
+        <b>From Google</b> (optional, only if you link a calendar): an encrypted OAuth token with the
+        read-only <b>free/busy</b> scope. CalCrony never sees event titles, details, or attendees from
+        your Google calendar — only busy/free time blocks, fetched on demand when someone runs an
+        availability check and not stored.
+    </p>
+    <p>
+        <b>Message content</b>: CalCrony only processes the slash-command inputs and component
+        interactions sent to it. It does not read your server's messages.
+    </p>
+
+    <h2 class="h5 mt-4">2. Google user data &amp; Limited Use</h2>
+    <p>
+        CalCrony's use and transfer of information received from Google APIs adheres to the
+        <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google
+        API Services User Data Policy</a>, including the <b>Limited Use</b> requirements. Specifically:
+        free/busy data is used solely to render availability grids to members of your Discord server,
+        is never stored, never transferred to third parties, never used for advertising, and never
+        read by humans except with your consent or for security purposes.
+    </p>
+
+    <h2 class="h5 mt-4">3. What we don't do</h2>
+    <ul>
+        <li>No sale, rental, or sharing of data with third parties.</li>
+        <li>No advertising, analytics, or cross-service tracking.</li>
+        <li>No reading of Google calendar event details (the free/busy scope makes that impossible).</li>
+    </ul>
+    <p>
+        Data goes to exactly two external services, both at your direction: <b>Discord</b> (to run the
+        bot) and <b>Google</b> (only for the free/busy lookups you enable).
+    </p>
+
+    <h2 class="h5 mt-4">4. Security</h2>
+    <ul>
+        <li>Google OAuth tokens are encrypted at rest (ASP.NET Core Data Protection).</li>
+        <li>API keys and web refresh tokens are stored as SHA-256 hashes, never in plain text.</li>
+        <li>The web session uses short-lived tokens with rotate-on-use refresh cookies.</li>
+    </ul>
+
+    <h2 class="h5 mt-4">5. Retention &amp; deletion</h2>
+    <ul>
+        <li><b>Scheduling content</b> (events, polls, templates, RSVPs) lives until you or a server
+            manager delete it, or until the bot is removed and the operator prunes the server's data
+            on request.</li>
+        <li><b>Operational records</b> (delivered notifications, consumed login/link tokens, expired
+            session tokens) are automatically purged after <b>90 days</b>.</li>
+        <li><b>Google connection</b>: disconnecting (<code>/calendar disconnect</code> or this web app's
+            My settings page) deletes the stored tokens immediately.</li>
+        <li><b>Removal requests</b>: to have a server's or your own data deleted, open a
+            <a href="https://github.com/JJWren/CalCrony/issues" target="_blank" rel="noopener">GitHub issue</a>
+            or contact the operator; deletion is manual but honored.</li>
+    </ul>
+
+    <h2 class="h5 mt-4">6. Children</h2>
+    <p>
+        CalCrony is used through Discord and follows Discord's age requirements (13+, or higher where
+        local law says so). It is not directed at children.
+    </p>
+
+    <h2 class="h5 mt-4">7. Changes &amp; contact</h2>
+    <p>
+        Updates are committed to the
+        <a href="https://github.com/JJWren/CalCrony/commits/HEAD/PRIVACY_POLICY.md" target="_blank" rel="noopener">repository</a>
+        with the date above refreshed. Privacy questions or deletion requests: open a
+        <a href="https://github.com/JJWren/CalCrony/issues" target="_blank" rel="noopener">GitHub issue</a>.
+        See also the <a href="/terms">Terms of Service</a>.
+    </p>
+</div>

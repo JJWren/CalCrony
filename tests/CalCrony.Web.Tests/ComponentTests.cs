@@ -26,6 +26,33 @@ public class ComponentTests : TestContext
     }
 
     [Fact]
+    public void Landing_names_the_app_and_links_the_legal_pages()
+    {
+        UseConfig();
+        var cut = RenderComponent<Landing>();
+
+        // Google OAuth verification requires the homepage to carry the exact app name, its
+        // purpose, and a privacy-policy link on the same domain.
+        Assert.Contains("CalCrony", cut.Markup);
+        Assert.Contains("free/busy availability", cut.Markup);
+        Assert.NotNull(cut.Find("a[href='/privacy']"));
+        Assert.NotNull(cut.Find("a[href='/terms']"));
+    }
+
+    [Fact]
+    public void Legal_pages_render_with_the_limited_use_disclosure()
+    {
+        var privacy = RenderComponent<Privacy>();
+        Assert.Contains("Limited Use", privacy.Markup);
+        Assert.Contains("free/busy", privacy.Markup);
+        Assert.Contains("Privacy Policy", privacy.Markup);
+
+        var terms = RenderComponent<Terms>();
+        Assert.Contains("Terms of Service", terms.Markup);
+        Assert.NotNull(terms.Find("a[href='/privacy']"));
+    }
+
+    [Fact]
     public void Landing_invite_uses_the_configured_app_id_with_the_same_permissions()
     {
         UseConfig(("Discord:AppId", "999000111"));
