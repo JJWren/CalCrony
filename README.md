@@ -34,6 +34,15 @@ flowchart LR
 
 > **First steps after inviting the bot** (server admins, once per server):
 > `/settings server-timezone` — pick your zone from the command's suggestions (start typing a city, e.g. `America/Chicago`); natural-language times parse in this zone, and until it's set the server runs on UTC, so local wall-clock times can land hours off or be rejected as past. Then `/settings default-channel` pointing at your events channel — web-created events, polls, and reminders post there, and web creation is blocked until it's set.
+>
+> **Then set up your roles** — two kinds, used differently: standing **interest roles** members self-assign and keep (e.g. `@dnd`, `@movie-night`) are what you point `/availability role` and `/notify mention:` at; empty **attendee roles** (e.g. `@session-players`) are what you pass to `/create attendee-role:` — CalCrony grants them to "Going" RSVPs and empties them when the event ends. ⚠️ Never use a standing role as an attendee role (it gets emptied at event end), and keep bot-managed roles below the bot's own role. Worked example — a self-running weekly game night:
+>
+> ```text
+> /availability role role:@dnd when:"friday 7pm" duration:180        ← check the group first
+> /create title:"D&D Night" when:"friday 7pm" duration:180 repeat:weekly attendee-role:@session-players thread:true
+> /notify event:"D&D Night" minutes-before:60 mention:@dnd           ← heads-up for the interest group
+> /template save name:"Game Night" event:"D&D Night"                 ← reuse the whole setup later
+> ```
 
 | Command | What it does |
 |---|---|

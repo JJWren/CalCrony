@@ -36,6 +36,67 @@
     settings page here.
 </p>
 
+<h2 class="h5 mt-4 mb-2">Set up your interest roles</h2>
+<p class="text-body-secondary" style="max-width:66ch">
+    Several features point at Discord roles, so a few minutes in <b>Server Settings → Roles</b>
+    pays off. Two patterns matter, and they behave very differently:
+</p>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Interest roles</b> — standing groups people join once and keep, e.g.
+        <code>@@dnd</code>, <code>@@movie-night</code>, <code>@@raiders</code>. Let members
+        self-assign them (Discord's onboarding prompts or a roles channel work great). These are
+        what you point <i>planning</i> features at:
+        <code>/availability role role:@@dnd</code> shows the whole group's free/busy grid before
+        you pick a session time, and <code>/notify mention:@@dnd</code> pings the group before an
+        event starts.
+    </li>
+    <li class="mb-2">
+        <b>Attendee roles</b> — temporary, per-event badges CalCrony manages for you, e.g.
+        <code>@@session-players</code>. Create the role empty and pass it at
+        <code>/create attendee-role:</code> — everyone who RSVPs <b>Going</b> gets it
+        automatically, switching away removes it, and the whole role empties when the event
+        ends. Perfect for pinging only confirmed attendees or temporarily unlocking a
+        planning channel.
+    </li>
+</ul>
+<p class="text-body-secondary" style="max-width:66ch">
+    ⚠️ Don't use a standing interest role as an <code>attendee-role</code>: CalCrony removes the
+    attendee role from everyone when the event ends, which would wipe your group's membership.
+    Keep the two kinds separate — interest roles for reach, attendee roles for attendance.
+    (Roles the bot manages must sit <b>below the bot's own role</b> in the role list, and the
+    bot needs <b>Manage Roles</b> — both come with the current invite link.)
+</p>
+
+<h2 class="h5 mt-4 mb-2">Worked example: weekly D&amp;D night</h2>
+<p class="text-body-secondary" style="max-width:66ch">
+    From zero to a self-running game night:
+</p>
+<ol class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-1">Create two roles: <code>@@dnd</code> (interest — let players self-assign) and
+        <code>@@session-players</code> (empty; CalCrony will manage it).</li>
+    <li class="mb-1"><code>/availability role role:@@dnd when:"friday 7pm" duration:180</code> —
+        check the group's calendars before committing to a slot (players link theirs once with
+        <code>/calendar connect</code>).</li>
+    <li class="mb-1"><code>/create title:"D&amp;D Night" when:"friday 7pm" duration:180
+        repeat:weekly attendee-role:@@session-players thread:true</code> — a recurring event with
+        RSVP buttons, a discussion thread that Going RSVPers join automatically, and an
+        auto-managed attendee role.</li>
+    <li class="mb-1"><code>/notify event:"D&amp;D Night" minutes-before:60 mention:@@dnd</code> —
+        the whole interest group gets a one-hour heads-up; add a second one mentioning
+        <code>@@session-players</code> at 10 minutes for just the confirmed table.</li>
+    <li class="mb-1"><code>/template save name:"Game Night" event:"D&amp;D Night"</code> — next
+        campaign or a one-shot, start from <code>/create template:"Game Night"</code> and only
+        pick a time.</li>
+    <li class="mb-1">Skip a holiday week with <code>/series skip</code>; the next occurrence posts
+        itself when each session ends. <code>/link</code> gives everyone a calendar-app
+        subscription that carries the whole schedule.</li>
+</ol>
+<p class="text-body-secondary" style="max-width:66ch">
+    The same recipe fits movie nights, raid schedules, or book clubs — swap the roles and the
+    repeat rule.
+</p>
+
 <h2 class="h5 mt-4 mb-3">Slash commands</h2>
 <div class="table-responsive border rounded">
     <table class="table table-sm mb-0 align-middle">
