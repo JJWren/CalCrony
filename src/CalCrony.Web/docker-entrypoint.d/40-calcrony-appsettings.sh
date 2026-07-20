@@ -9,8 +9,8 @@
 set -e
 
 if [ -n "${API_BASE_URL:-}" ] || [ -n "${DISCORD_APP_ID:-}" ]; then
-    # JSON-escape backslashes and double quotes so a malformed .env value can't
-    # produce invalid JSON that silently breaks the SPA's config load.
+    # Escape backslashes and double quotes — the common .env mishaps. Exotic control
+    # characters in a value could still break the JSON; keep values simple.
     escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
     printf '{\n  "Api": {\n    "BaseUrl": "%s"\n  },\n  "Discord": {\n    "AppId": "%s"\n  }\n}\n' \
         "$(escape "${API_BASE_URL:-}")" "$(escape "${DISCORD_APP_ID:-}")" \
