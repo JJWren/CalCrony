@@ -1,5 +1,6 @@
 @page "/"
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 
 <PageTitle>CalCrony — events &amp; calendars for Discord</PageTitle>
 
@@ -15,7 +16,7 @@
 
 <div class="d-flex flex-wrap gap-2 my-4">
     <a class="btn btn-primary"
-       href="https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=335007534080&integration_type=0&scope=bot+applications.commands"
+       href="@DiscordInvite.Url(Config["Discord:AppId"])"
        target="_blank" rel="noopener">＋ Add CalCrony to your server</a>
     <a class="btn btn-outline-primary" href="/app">Open the app →</a>
     <a class="btn btn-outline-secondary" href="https://github.com/JJWren/CalCrony" target="_blank" rel="noopener">View source</a>

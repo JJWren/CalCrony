@@ -4,6 +4,7 @@ using CalCrony.Contracts;
 using CalCrony.Web.Auth;
 using CalCrony.Web.Components;
 using CalCrony.Web.Pages;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Web.Tests;
@@ -11,15 +12,36 @@ namespace CalCrony.Web.Tests;
 public class ComponentTests : TestContext
 {
     [Fact]
-    public void Landing_carries_the_exact_bot_invite_url()
+    public void Landing_carries_the_exact_bot_invite_url_by_default()
     {
+        UseConfig();
         var cut = RenderComponent<Landing>();
 
-        // String regression on the locked invite URL — permissions/scopes must not drift.
+        // String regression on the locked invite URL — permissions/scopes must not drift, and
+        // an unconfigured deployment must advertise the PRODUCTION application.
         Assert.Contains(
-            "https://discord.com/oauth2/authorize?client_id=1527749302443835532&permissions=335007534080&integration_type=0&scope=bot+applications.commands",
+            "https://discord.com/oauth2/authorize?client_id=1527749302443835532&amp;permissions=335007534080&amp;integration_type=0&amp;scope=bot+applications.commands",
             cut.Markup);
     }
+
+    [Fact]
+    public void Landing_invite_uses_the_configured_app_id_with_the_same_permissions()
+    {
+        UseConfig(("Discord:AppId", "999000111"));
+        var cut = RenderComponent<Landing>();
+
+        // A test environment's web app must invite the TEST bot, never production's —
+        // permissions and scopes stay locked regardless.
+        Assert.Contains("client_id=999000111", cut.Markup);
+        Assert.DoesNotContain("client_id=1527749302443835532", cut.Markup);
+        Assert.Contains("permissions=335007534080", cut.Markup);
+        Assert.Contains("scope=bot+applications.commands", cut.Markup);
+    }
+
+    private void UseConfig(params (string Key, string Value)[] pairs) =>
+        Services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(pairs.ToDictionary(p => p.Key, p => (string?)p.Value))
+            .Build());
 
     [Fact]
     public void Theme_toggle_defaults_to_dark()
