@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/JJWren/CalCrony/compare/v0.15.5...v0.16.0) (2026-07-20)
+
+
+### Features
+
+* allow editing templates ([#63](https://github.com/JJWren/CalCrony/issues/63)) ([b19ff96](https://github.com/JJWren/CalCrony/commit/b19ff964a45999c8b917597790eb52d0443ea275))
+
 ## [0.15.5](https://github.com/JJWren/CalCrony/compare/v0.15.4...v0.15.5) (2026-07-20)
 
 
