@@ -89,10 +89,13 @@ public static class PollEndpoints
         var zone = await EventEndpoints.ResolveZoneAsync(db, creatorId, guild, cancellationToken);
         var now = clock.GetCurrentInstant();
 
+        // Every text in this request parses against the same captured reference — separate
+        // per-call clock reads can straddle a minute boundary, making duplicate relative slots
+        // ("in 2 hours" vs "in 120 minutes") resolve a minute apart and dodge the 409.
         Instant? closesAt = null;
         if (!string.IsNullOrWhiteSpace(request.ClosesText))
         {
-            if (!parser.TryResolve(request.ClosesText, zone, out var resolved, out var error))
+            if (!parser.TryResolve(request.ClosesText, zone, out var resolved, out var error, now))
             {
                 return Results.BadRequest(new ErrorResponse($"Close time: {error}"));
             }
@@ -106,7 +109,7 @@ public static class PollEndpoints
             var slots = new List<(string Text, Instant Slot)>();
             foreach (var text in optionTexts)
             {
-                if (!parser.TryResolve(text, zone, out var slot, out var error))
+                if (!parser.TryResolve(text, zone, out var slot, out var error, now))
                 {
                     return Results.BadRequest(new ErrorResponse($"Option \"{text}\": {error}"));
                 }

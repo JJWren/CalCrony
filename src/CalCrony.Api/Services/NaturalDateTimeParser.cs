@@ -62,8 +62,13 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// <param name="zone">The IANA zone to resolve in.</param>
     /// <param name="result">The resolved future instant, when successful.</param>
     /// <param name="error">The user-facing error text.</param>
+    /// <param name="referenceInstant">The "now" relative text resolves against. Callers parsing
+    /// several texts in one request pass one captured instant so the results are mutually
+    /// consistent — separate per-call clock reads can straddle a minute boundary and make
+    /// "in 2 hours" and "in 120 minutes" resolve a minute apart. Null = read the clock.</param>
     /// <returns>True when text resolved to a future instant.</returns>
-    public bool TryResolve(string text, DateTimeZone zone, out Instant result, out string? error)
+    public bool TryResolve(
+        string text, DateTimeZone zone, out Instant result, out string? error, Instant? referenceInstant = null)
     {
         result = default;
         error = null;
@@ -79,7 +84,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
             text = zoneRegex.Replace(text, " ", 1).Trim();
         }
 
-        var now = clock.GetCurrentInstant();
+        var now = referenceInstant ?? clock.GetCurrentInstant();
         var localNow = now.InZone(zone).LocalDateTime;
         var reference = localNow.ToDateTimeUnspecified();
 
