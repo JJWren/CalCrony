@@ -13,7 +13,7 @@ public static class DiscordInvite
 
     /// <summary>Bot permissions the invite grants; keep in sync with README's go-live checklist
     /// and the pinned invite-URL test.</summary>
-    public const string Permissions = "335007534080";
+    public const string Permissions = "335275969536";
 
     /// <summary>The full invite URL for the given application id (null/blank = production).
     /// The id is trimmed and URL-escaped so a sloppy .env value can't break the URL.</summary>

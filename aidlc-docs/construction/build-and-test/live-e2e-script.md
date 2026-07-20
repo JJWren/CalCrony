@@ -62,7 +62,7 @@ production id (correct for the prod stack, which needs no new variables).
 
 - [ ] A dedicated Discord server for the pass (never a live community): invite the TEST bot via
       the test application's URL —
-      `https://discord.com/oauth2/authorize?client_id=<TEST-app-id>&permissions=335007534080&scope=bot+applications.commands`
+      `https://discord.com/oauth2/authorize?client_id=<TEST-app-id>&permissions=335275969536&scope=bot+applications.commands`
       — or the test web app's landing button, which now advertises the same thing.
 - [ ] A second account (or a willing friend) for multi-user RSVP/capacity/anonymous-poll checks.
 - [ ] A role the bot can manage (below its top role) and one channel where Create Public Threads
@@ -82,7 +82,7 @@ production id (correct for the prod stack, which needs no new variables).
       api exits with the "at least 32 characters" message (not a running-but-broken API). Restore.
 - [ ] Retention: api boot logs show no retention errors (a "Retention purge removed N rows" line
       appears only when something was purged — absence is fine on a fresh DB).
-- [ ] Invite the bot with the README URL (`permissions=335007534080`). Bot comes online.
+- [ ] Invite the bot with the README URL (`permissions=335275969536`). Bot comes online.
 - [ ] First steps as documented: `/settings server-timezone` (autocomplete offers zones with UTC
       offsets), `/settings default-channel` → `/settings view` reflects both.
 
@@ -194,7 +194,7 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] Web create without a default channel set → actionable error message.
 - [ ] Notifications, polls (create/vote/close/convert), series (skip/stop/schedule edit with scope
       ask), templates, settings (timezone picker with UTC offsets) — one smoke action each.
-- [ ] Docs page renders; invite link on the landing page carries `permissions=335007534080`.
+- [ ] Docs page renders; invite link on the landing page carries `permissions=335275969536`.
 
 ### 12. Availability & Google OAuth — CONDITIONAL
 
