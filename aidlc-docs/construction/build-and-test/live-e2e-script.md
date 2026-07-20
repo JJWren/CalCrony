@@ -1,13 +1,76 @@
-# CalCrony — Live E2E Script (Milestone 15, gates v1.0.0)
+# CalCrony — E2E Testing Guide (Milestone 15, gates v1.0.0)
 
-A numbered manual pass over every feature area against a **real deployment** (GHCR images via
-`docker-compose.prod.yml`) and a **real Discord server**. Check items off as they pass; log
-failures in `build-and-test-summary.md` (a `fix:` PR per finding). v1.0.0 ships only when this
-pass is declared complete. Section 12 is conditional on deployment prerequisites and does not
-block the release.
+The full manual pass over every feature area against a **real deployment** and a **real Discord
+server**. Part A sets up an isolated test environment; Part B is the numbered pass itself; the
+results land in [`build-and-test-summary.md`](build-and-test-summary.md) (a `fix:` PR per
+finding). v1.0.0 ships only when the pass is declared complete. Section 12 is conditional on
+deployment prerequisites and does not block the release.
 
 Conventions: "embed" = the event's Discord message; "~15s" = one delivery-poller cycle;
 web = the Blazor app signed in via Discord.
+
+---
+
+# Part A — Test environment setup
+
+E2E runs in a **test environment that shares nothing with production**: its own Discord
+application (bot identity), its own Discord server, its own database volume, its own secrets.
+The prod and test stacks differ only in their `.env` files.
+
+## A.1 Two Discord applications
+
+Create (or reuse) a second application in the [Discord Developer Portal](https://discord.com/developers/applications)
+— e.g. *CalCrony* (prod) and *CalCrony Test*. For the test application:
+
+- [ ] Bot token generated → `DISCORD_BOT_TOKEN` for the test `.env` only.
+- [ ] **Server Members Intent** enabled (Bot settings).
+- [ ] For web-login testing: OAuth2 redirect `{Api__PublicBaseUrl}/auth/discord/callback` added,
+      client id/secret → `DISCORD_OAUTH_CLIENT_ID/SECRET` in the test `.env`.
+- [ ] Note the **Application ID** — it is both the invite `client_id` and the `DISCORD_APP_ID`
+      below.
+
+## A.2 Per-environment .env files
+
+Keep one `.env` per environment (e.g. `.env.prod`, `.env.test` — compose reads them via
+`--env-file`). The test file mirrors prod's variables with test values, plus:
+
+```bash
+# .env.test — differs from prod in every identity-bearing value
+DISCORD_BOT_TOKEN=<test application's bot token>
+DISCORD_APP_ID=<test application's id>        # web invite links advertise the TEST bot
+DISCORD_OAUTH_CLIENT_ID=<test app id>         # web login against the test application
+DISCORD_OAUTH_CLIENT_SECRET=<test app secret>
+CALCRONY_API_KEY=<distinct from prod>
+CALCRONY_JWT_SIGNING_KEY=<distinct from prod>
+CALCRONY_DB_NAME=calcrony_test                # separate database (or a separate host)
+```
+
+`DISCORD_APP_ID` is what keeps the test web app from advertising the production invite — it
+rides the same runtime-config injection as `API_BASE_URL`, so no rebuild is needed. Unset =
+production id (correct for the prod stack, which needs no new variables).
+
+## A.3 Standing up the stacks
+
+- **Test** (from source or images): `docker compose --env-file .env.test up -d --build`
+  (or `-f docker-compose.prod.yml` with the test env-file to test the released images —
+  preferred for the v1.0.0 gate).
+- **Prod**: `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d`.
+- [ ] If both stacks share one host, give the test stack its own ports and a distinct compose
+      project name (`-p calcrony-test`) so volumes/networks don't collide.
+
+## A.4 Test server
+
+- [ ] A dedicated Discord server for the pass (never a live community): invite the TEST bot via
+      the test application's URL —
+      `https://discord.com/oauth2/authorize?client_id=<TEST-app-id>&permissions=335007534080&scope=bot+applications.commands`
+      — or the test web app's landing button, which now advertises the same thing.
+- [ ] A second account (or a willing friend) for multi-user RSVP/capacity/anonymous-poll checks.
+- [ ] A role the bot can manage (below its top role) and one channel where Create Public Threads
+      is denied to the bot — sections 6/7/13 use them.
+
+---
+
+# Part B — The pass
 
 ## 0. Deployment prerequisites & first steps
 
@@ -160,3 +223,16 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
       bot resumes polling; web recovers.
 - [ ] `docker compose restart api` → boot logs clean; `/health/ready` 200 again; a Retention line
       appears at startup when anything qualified for purge.
+
+---
+
+# Part C — Recording results & the v1.0.0 gate
+
+1. Tick items as they pass; for each failure, file the symptom in the results table in
+   [`build-and-test-summary.md`](build-and-test-summary.md) — one `fix:` PR per finding, then
+   re-run the affected section against the fixed build.
+2. Section 12 may be marked **skipped** if the Google/HTTPS prerequisites aren't in place; every
+   other section must pass.
+3. When the table is fully green, the pass is complete: the final `docs: prepare v1.0.0` PR
+   records the results, and its **squash commit footer** carries `Release-As: 1.0.0` (footer of
+   the commit message in the merge dialog — never the PR description).

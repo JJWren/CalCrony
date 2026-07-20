@@ -103,6 +103,13 @@ Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/
 
 The `/availability role` command requires the **Server Members** privileged gateway intent, enabled in the Discord Developer Portal.
 
+### Web (`CalCrony.Web` container)
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `API_BASE_URL` | *(baked appsettings)* | Browser-visible URL of the API (never the compose-internal name) |
+| `DISCORD_APP_ID` | *(production app id)* | Discord application id the invite links advertise — set it in a **test environment** so the test web app invites the test bot |
+
 ## Running locally
 
 ```bash
@@ -136,9 +143,10 @@ Go-live checklist:
    ```
 
 6. For web login, `{Api__PublicBaseUrl}/auth/discord/callback` added to the same application's OAuth2 redirect URIs and its client id/secret in `Auth__Discord__*`.
+7. The application's **Terms of Service** and **Privacy Policy** URLs in the Discord Developer Portal pointed at [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) and [PRIVACY_POLICY.md](PRIVACY_POLICY.md) in this repository.
 
 The running API reports its version at `GET /health`; `GET /health/ready` adds a database probe (the compose healthchecks target it).
 
 ## Contributing, releases & security
 
-All changes flow through PRs on GitHub Flow branches with conventional-commit titles; `master` is protected by a ruleset (required review, Copilot review, required checks, squash-only). Releases are cut automatically by release-please and published to GHCR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process and [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+All changes flow through PRs on GitHub Flow branches with conventional-commit titles; `master` is protected by a ruleset (required review, Copilot review, required checks, squash-only). Releases are cut automatically by release-please and published to GHCR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process and [SECURITY.md](SECURITY.md) for how to report vulnerabilities. The hosted instance's [Terms of Service](TERMS_OF_SERVICE.md) and [Privacy Policy](PRIVACY_POLICY.md) live here too.
