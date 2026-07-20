@@ -185,6 +185,8 @@ production id (correct for the prod stack, which needs no new variables).
 
 - [ ] `/link` → subscribe URL; add to Google Calendar (or another real calendar app).
 - [ ] One-off events appear; a weekly series shows FUTURE occurrences (RRULE), not just the next.
+      **Pass criterion is the raw feed URL** (curl/browser) — Google Calendar re-fetches URL
+      subscriptions only every 12–24h, so its display lag is expected, not a finding.
 - [ ] A past occurrence renders as history; the live occurrence appears exactly once (no duplicate
       with the projection).
 
