@@ -135,8 +135,18 @@
 
 <h2 class="h5 mt-4 mb-2">Good to know</h2>
 <p class="text-body-secondary" style="max-width:66ch">
-    Google links currently expire every 7 days (the app runs in Google's testing mode). When that happens
-    you'll see a 🔄 "needs to reconnect" badge — re-running <code>/calendar connect</code> or clicking
-    Connect in My settings fixes it in seconds. Server lists are a snapshot from sign-in; the
-    "re-sync servers" link in the sidebar refreshes yours instantly.
+    <b>Calendar subscriptions refresh on the calendar app's schedule, not ours.</b> The feed itself
+    updates the instant an event changes, but Google Calendar re-fetches URL subscriptions only every
+    12–24 hours (with no manual refresh); Apple Calendar and Outlook let you choose a faster
+    interval. If a new event seems missing from your calendar, it's almost certainly waiting on the
+    next fetch — opening the subscribe URL that <code>/link</code> gives you always shows the
+    current feed.
+</p>
+<p class="text-body-secondary" style="max-width:66ch">
+    When connecting Google Calendar you may see a <i>"Google hasn't verified this app"</i> screen —
+    click <b>Advanced</b>, then <b>Continue</b>; the permission requested is free/busy only (see the
+    <a href="/privacy">Privacy Policy</a>). If you ever see a 🔄 "needs to reconnect" badge,
+    re-running <code>/calendar connect</code> or clicking Connect in My settings fixes it in seconds.
+    Server lists are a snapshot from sign-in; the "re-sync servers" link in the sidebar refreshes
+    yours instantly.
 </p>

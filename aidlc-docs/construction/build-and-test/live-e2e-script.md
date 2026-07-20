@@ -185,6 +185,8 @@ production id (correct for the prod stack, which needs no new variables).
 
 - [ ] `/link` → subscribe URL; add to Google Calendar (or another real calendar app).
 - [ ] One-off events appear; a weekly series shows FUTURE occurrences (RRULE), not just the next.
+      **Pass criterion is the raw feed URL** (curl/browser) — Google Calendar re-fetches URL
+      subscriptions only every 12–24h, so its display lag is expected, not a finding.
 - [ ] A past occurrence renders as history; the live occurrence appears exactly once (no duplicate
       with the projection).
 
@@ -200,15 +202,18 @@ production id (correct for the prod stack, which needs no new variables).
 
 ### 12. Availability & Google OAuth — CONDITIONAL
 
-Requires: public HTTPS `Api__PublicBaseUrl`, Google OAuth client (Testing status), redirect URI
-registered, Server Members intent. **Skippable without blocking v1.0.0** (long-standing known
+Requires: public HTTPS `Api__PublicBaseUrl`, Google OAuth client (published to production;
+verification pending is fine — expect the unverified-app interstitial), redirect URI registered,
+Server Members intent. **Skippable without blocking v1.0.0** (long-standing known
 constraint) — mark the section skipped in the summary if prerequisites aren't in place.
 
 - [ ] `/calendar connect` (works in DM) → Google consent (free/busy scope only) → linked.
 - [ ] `/availability event` on an event with Going RSVPs → grid renders; linked users show busy blocks.
 - [ ] `/availability role` → grid for role holders.
 - [ ] Web: availability grid on the event page; My settings shows the connection; disconnect works.
-- [ ] After 7 days (Google Testing mode) the 🔄 reconnect badge appears — verify the copy if observed.
+- [ ] The 🔄 reconnect badge should NOT appear over time now that the consent screen is
+      published (7-day expiry was a Testing-mode behavior); if observed, verify the reconnect
+      copy and investigate why the token died.
 
 ### 13. Permission-precheck bails
 
