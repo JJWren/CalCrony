@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/JJWren/CalCrony/compare/v0.15.1...v0.15.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* make the web invite link's Discord application id configurable ([#51](https://github.com/JJWren/CalCrony/issues/51)) ([cad44d6](https://github.com/JJWren/CalCrony/commit/cad44d66633696a7903fc08f4c3a6da7359ca2ac))
+
 ## [0.15.1](https://github.com/JJWren/CalCrony/compare/v0.15.0...v0.15.1) (2026-07-20)
 
 
