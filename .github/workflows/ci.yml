@@ -27,6 +27,42 @@ jobs:
       - name: Test
         run: dotnet test CalCrony.slnx --no-build -c Release --logger "console;verbosity=normal"
 
+  # Every merge to master publishes ghcr.io/jjwren/calcrony-{api,bot,web}:main (and :sha-<short>) -
+  # the images the TEST stack tracks. Releases publish the versioned (pinnable) tags from
+  # release-please.yml. Only this job may push packages; build-test (incl. PRs) stays read-only.
+  publish-main:
+    name: publish-main
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push :main images
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          SHORT="${GITHUB_SHA::7}"
+          build_and_push() {
+            local dockerfile="$1" image="ghcr.io/${OWNER}/$2"
+            # 0.0.0-main.<sha> keeps MSBuild's Version valid (a bare "main-<sha>" is not a version).
+            docker build --build-arg VERSION="0.0.0-main.${SHORT}" -f "${dockerfile}" -t "${image}:main" -t "${image}:sha-${SHORT}" .
+            docker push "${image}:main"
+            docker push "${image}:sha-${SHORT}"
+          }
+          build_and_push src/CalCrony.Api/Dockerfile calcrony-api
+          build_and_push src/CalCrony.Bot/Dockerfile calcrony-bot
+          build_and_push src/CalCrony.Web/Dockerfile calcrony-web
+
   pr-title:
     name: pr-title
     if: github.event_name == 'pull_request'

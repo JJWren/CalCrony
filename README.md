@@ -131,7 +131,7 @@ Or the whole stack: `docker compose up` (set `DISCORD_BOT_TOKEN`, `CALCRONY_API_
 
 ## Deploying
 
-Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api`, `ghcr.io/jjwren/calcrony-bot`, and `ghcr.io/jjwren/calcrony-web` (nginx-served static app; set `API_BASE_URL` to the browser-visible API URL). Production runs from **`docker-compose.prod.yml`** (GHCR images, no local build; pin a release with `CALCRONY_VERSION=1.0.0`):
+Releases publish versioned Docker images: `ghcr.io/jjwren/calcrony-api`, `ghcr.io/jjwren/calcrony-bot`, and `ghcr.io/jjwren/calcrony-web` (`:<version>` and `:latest`); every merge to `master` also publishes `:main` (and `:sha-<short>`) for a test environment that should track the newest code (nginx-served static app; set `API_BASE_URL` to the browser-visible API URL). Production runs from **`docker-compose.prod.yml`** (GHCR images, no local build; pin a release with `CALCRONY_VERSION=1.0.0`):
 
 ```bash
 docker login ghcr.io
