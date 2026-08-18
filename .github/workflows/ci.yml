@@ -35,6 +35,10 @@ jobs:
     needs: build-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # Only the newest push may publish :main - a slower older run must not re-tag it backwards.
+    concurrency:
+      group: publish-main
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
