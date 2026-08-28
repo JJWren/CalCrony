@@ -1,5 +1,6 @@
-# CodeQL static analysis. build-mode: none scans without compiling; the CI build job
-# already proves the project builds.
+# CodeQL static analysis. build-mode: none uses CodeQL's buildless C# extraction -
+# the same mode GitHub's default setup uses - so the job needs no .NET SDK setup;
+# the tradeoff (reduced generated-code coverage) is acceptable for this repo.
 name: CodeQL
 
 on:
@@ -38,7 +39,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          build-mode: ${{ matrix['build-mode'] }}
 
       - name: Analyze
         uses: github/codeql-action/analyze@v3
