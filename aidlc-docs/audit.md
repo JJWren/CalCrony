@@ -70,3 +70,11 @@
 **Context**: Construction — defect remediation via /remediate.
 
 ---
+
+## Design Review — Web App (/design)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "review the web app for CalCrony and let's refine this. I want it to be fitting to the atmosphere of Discord, but subtly nod toward TTRPG/DND groups. It should be easy on the eyes to read. I want you to do a detailed review of the web app for both pros and cons and any major findings. Also, I want detailed feedback on the current design state and how it could be improved."
+**AI Response**: Reviewed CalCrony.Web source (theme.css, site.css, layout, all pages/components). Delivered a detailed pros/cons review plus a refined design direction ("candlelit slate": Discord-register slate surfaces, indigo primary + rare gilt gold, Marcellus/Nunito Sans type, SVG icon set with shield/scroll/d20 nods) on a Claude Design canvas with current-state recreation, refined mockups (events list, event page, mobile, landing, tokens sheet), and one low-fi alternate. No code changes made.
+**Context**: Inception — design review & direction exploration; artifacts on design canvas, review in chat.
+
+---

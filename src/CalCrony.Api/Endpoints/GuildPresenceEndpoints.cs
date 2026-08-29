@@ -41,6 +41,11 @@ public static class GuildPresenceEndpoints
     private static async Task<IResult> SyncPresence(
         SyncGuildPresenceRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
     {
+        if (request.GuildIds is null)
+        {
+            return Results.BadRequest(new ErrorResponse("GuildIds is required (an empty list marks every guild absent)."));
+        }
+
         var currentIds = request.GuildIds.ToHashSet();
         var known = await db.Guilds.ToListAsync(cancellationToken);
         foreach (var guild in known)

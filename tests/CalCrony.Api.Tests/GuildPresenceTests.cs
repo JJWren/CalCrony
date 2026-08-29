@@ -75,6 +75,13 @@ public class GuildPresenceTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
     }
 
     [Fact]
+    public async Task Sync_without_guild_ids_is_a_bad_request()
+    {
+        var response = await fixture.Client.PutAsJsonAsync("/guilds/presence/sync", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Web_callers_cannot_report_presence()
     {
         var (client, _) = await fixture.LoginAsync(7504, (7105, "No Spoofing", true));

@@ -73,15 +73,15 @@ public sealed class DiscordBotService(
         // Full reconcile: catches joins/leaves that happened while the bot was offline and
         // repopulates presence after a fresh database (e.g. the test stack's nightly reset).
         var result = await api.SyncGuildPresenceAsync([.. client.Guilds.Select(g => (long)g.Id)]);
-        if (result.Success)
+        if (result is { Success: true, Value: { } counts })
         {
             logger.LogInformation(
-                "Synced guild presence: {Present} present, {Absent} absent.",
-                result.Value!.Present, result.Value.Absent);
+                "Synced guild presence: {Present} present, {Absent} absent.", counts.Present, counts.Absent);
         }
         else
         {
-            logger.LogWarning("Guild presence sync failed: {Error}", result.Error);
+            logger.LogWarning(
+                "Guild presence sync failed: {Error}", result.Error ?? "empty response body");
         }
     }
 
