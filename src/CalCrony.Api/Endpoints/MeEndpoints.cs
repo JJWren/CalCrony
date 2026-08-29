@@ -28,7 +28,7 @@ public static class MeEndpoints
 
         var rows = await db.UserGuildMemberships
             .Where(m => m.UserId == userId)
-            .Join(db.Guilds, m => m.GuildId, g => g.Id, (m, g) => m)
+            .Join(db.Guilds.Where(g => g.BotPresent), m => m.GuildId, g => g.Id, (m, g) => m)
             .OrderBy(m => m.GuildName)
             .ToListAsync(cancellationToken);
 

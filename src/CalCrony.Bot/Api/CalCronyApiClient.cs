@@ -144,6 +144,21 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<GuildSettingsDto>> PutGuildSettingsAsync(long guildId, GuildSettingsDto settings, CancellationToken ct = default) =>
         SendAsync<GuildSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/settings", settings, ct), ct);
 
+    /// <summary>Records a single guild presence change (bot joined or left).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="present">Whether the bot is now in the guild.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> SetGuildPresenceAsync(long guildId, bool present, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PutAsJsonAsync($"/guilds/{guildId}/presence", new GuildPresenceRequest(present), ct), ct);
+
+    /// <summary>Reconciles presence against the bot's full current guild list (called at Ready).</summary>
+    /// <param name="guildIds">Every guild id the bot is currently in.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<SyncGuildPresenceResponse>> SyncGuildPresenceAsync(IReadOnlyList<long> guildIds, CancellationToken ct = default) =>
+        SendAsync<SyncGuildPresenceResponse>(http.PutAsJsonAsync("/guilds/presence/sync", new SyncGuildPresenceRequest(guildIds), ct), ct);
+
     /// <summary>Reads a user's personal settings.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="ct">Cancels the request.</param>

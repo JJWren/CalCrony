@@ -37,7 +37,7 @@ public sealed class GuildAccessService(CalCronyDbContext db, IClock clock)
             return GuildAccess.Stale;
         }
 
-        if (!await db.Guilds.AnyAsync(g => g.Id == guildId, cancellationToken))
+        if (!await db.Guilds.AnyAsync(g => g.Id == guildId && g.BotPresent, cancellationToken))
         {
             return GuildAccess.None;
         }

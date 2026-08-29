@@ -13,6 +13,11 @@ public class Guild
     /// <summary>Opt-in: mirror events into Discord's native scheduled events. Gates creation only —
     /// events that already have a native twin keep syncing regardless.</summary>
     public bool MirrorNativeEvents { get; set; }
+
+    /// <summary>Whether the bot is currently in the guild. Maintained by the bot's join/leave
+    /// events and its Ready-time sync; rows are kept when the bot leaves so guild settings and
+    /// data survive a re-invite.</summary>
+    public bool BotPresent { get; set; } = true;
 }
 
 /// <summary>A Discord user's per-person preferences plus display fields captured at web login.</summary>

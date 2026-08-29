@@ -163,6 +163,7 @@ app.MapSeriesEndpoints();
 app.MapPollEndpoints();
 app.MapTemplateEndpoints();
 app.MapSettingsEndpoints();
+app.MapGuildPresenceEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
 app.MapFeedEndpoints();
