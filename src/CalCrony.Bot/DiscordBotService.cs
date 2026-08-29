@@ -1,19 +1,23 @@
+using CalCrony.Bot.Api;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 
 namespace CalCrony.Bot;
 
-/// <summary>Hosts the Discord client: login, slash-command registration, and interaction dispatch.</summary>
+/// <summary>Hosts the Discord client: login, slash-command registration, interaction dispatch,
+/// and guild-presence reporting to the API.</summary>
 /// <param name="client">The Discord socket client.</param>
 /// <param name="interactions">The interaction service.</param>
 /// <param name="services">The request service provider.</param>
+/// <param name="api">The CalCrony API client.</param>
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The host logger.</param>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
     IServiceProvider services,
+    CalCronyApiClient api,
     IConfiguration configuration,
     ILogger<DiscordBotService> logger) : IHostedService
 {
@@ -25,6 +29,8 @@ public sealed class DiscordBotService(
         interactions.Log += OnLogAsync;
         client.Ready += OnReadyAsync;
         client.InteractionCreated += OnInteractionAsync;
+        client.JoinedGuild += OnJoinedGuildAsync;
+        client.LeftGuild += OnLeftGuildAsync;
 
         await interactions.AddModulesAsync(typeof(DiscordBotService).Assembly, services);
 
@@ -47,7 +53,8 @@ public sealed class DiscordBotService(
         await client.LogoutAsync();
     }
 
-    /// <summary>Registers slash commands (to the test guild when configured, else globally).</summary>
+    /// <summary>Registers slash commands (to the test guild when configured, else globally)
+    /// and reconciles guild presence with the API.</summary>
     private async Task OnReadyAsync()
     {
         // Guild-scoped registration is instant; global registration can take up to an hour.
@@ -61,6 +68,42 @@ public sealed class DiscordBotService(
         {
             await interactions.RegisterCommandsGloballyAsync();
             logger.LogInformation("Registered slash commands globally.");
+        }
+
+        // Full reconcile: catches joins/leaves that happened while the bot was offline and
+        // repopulates presence after a fresh database (e.g. the test stack's nightly reset).
+        var result = await api.SyncGuildPresenceAsync([.. client.Guilds.Select(g => (long)g.Id)]);
+        if (result is { Success: true, Value: { } counts })
+        {
+            logger.LogInformation(
+                "Synced guild presence: {Present} present, {Absent} absent.", counts.Present, counts.Absent);
+        }
+        else
+        {
+            logger.LogWarning(
+                "Guild presence sync failed: {Error}", result.Error ?? "empty response body");
+        }
+    }
+
+    /// <summary>Marks the guild bot-present so it appears in the web app immediately after an invite.</summary>
+    /// <param name="guild">The guild the bot joined.</param>
+    private async Task OnJoinedGuildAsync(SocketGuild guild)
+    {
+        var result = await api.SetGuildPresenceAsync((long)guild.Id, present: true);
+        if (!result.Success)
+        {
+            logger.LogWarning("Failed to record join of guild {GuildId}: {Error}", guild.Id, result.Error);
+        }
+    }
+
+    /// <summary>Marks the guild bot-absent; the row (and its settings and data) is kept for a re-invite.</summary>
+    /// <param name="guild">The guild the bot left.</param>
+    private async Task OnLeftGuildAsync(SocketGuild guild)
+    {
+        var result = await api.SetGuildPresenceAsync((long)guild.Id, present: false);
+        if (!result.Success)
+        {
+            logger.LogWarning("Failed to record leave of guild {GuildId}: {Error}", guild.Id, result.Error);
         }
     }
 

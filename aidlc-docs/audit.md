@@ -63,3 +63,18 @@
 **Context**: Operations — CI/CD pipeline and engineering process.
 
 ---
+## Remediation — guild presence (issues #74, #75)
+**Timestamp**: 2026-08-29T20:15:00Z
+**User Input**: "I'm testing the test stack of calcrony. I remember this working in the past and haven't done anything since then besides AdGuard and the hairping fix as of today. When I removed the bot and re-invited it via the web app, I was able to get the bot back into my person server for testing, but on the web app, it shows as not added to a server yet." → after diagnosis: "file those issues and then remediate"
+**AI Response**: Diagnosed on the test stack: /me/guilds is UserGuildMemberships ⋈ Guilds, and nothing ever creates a Guilds row on invite (no JoinedGuild handler; invite URL has no callback; rows appear only lazily on first bot command). The nightly test reset wipes the DB, so a re-invited server stays invisible until a command runs. Filed #74 (no presence registration on join) and #75 (presence never revoked on leave). Fix on fix/guild-presence-sync: Guild.BotPresent flag (migration AddGuildBotPresence, backfill true), bot-only PUT /guilds/{id}/presence + PUT /guilds/presence/sync endpoints, bot handlers for JoinedGuild/LeftGuild plus a Ready-time full reconcile, /me/guilds and GuildAccessService filter on BotPresent. Rows are kept on leave so settings/data survive a re-invite. 4 new integration tests; suite 290/290 green.
+**Context**: Construction — defect remediation via /remediate.
+
+---
+
+## Design Review — Web App (/design)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "review the web app for CalCrony and let's refine this. I want it to be fitting to the atmosphere of Discord, but subtly nod toward TTRPG/DND groups. It should be easy on the eyes to read. I want you to do a detailed review of the web app for both pros and cons and any major findings. Also, I want detailed feedback on the current design state and how it could be improved."
+**AI Response**: Reviewed CalCrony.Web source (theme.css, site.css, layout, all pages/components). Delivered a detailed pros/cons review plus a refined design direction ("candlelit slate": Discord-register slate surfaces, indigo primary + rare gilt gold, Marcellus/Nunito Sans type, SVG icon set with shield/scroll/d20 nods) on a Claude Design canvas with current-state recreation, refined mockups (events list, event page, mobile, landing, tokens sheet), and one low-fi alternate. No code changes made.
+**Context**: Inception — design review & direction exploration; artifacts on design canvas, review in chat.
+
+---
