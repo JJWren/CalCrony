@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.3](https://github.com/JJWren/CalCrony/compare/v0.17.2...v0.17.3) (2026-08-29)
+
+
+### Bug Fixes
+
+* track bot guild presence so invited servers appear in the web app ([#76](https://github.com/JJWren/CalCrony/issues/76)) ([033aca1](https://github.com/JJWren/CalCrony/commit/033aca1e6d327807fbf5df4e0a7b7242b6a1b424)), closes [#74](https://github.com/JJWren/CalCrony/issues/74) [#75](https://github.com/JJWren/CalCrony/issues/75)
+
 ## [0.17.2](https://github.com/JJWren/CalCrony/compare/v0.17.1...v0.17.2) (2026-07-20)
 
 
