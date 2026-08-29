@@ -118,3 +118,11 @@
 **Context**: Construction — code generation executed; PR to follow.
 
 ---
+
+## Construction — Interface Themes (PR opened)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: (continuation)
+**AI Response**: Rebased feat/interface-themes onto origin/master (0.17.3), pushed, and opened PR #79 (https://github.com/JJWren/CalCrony/pull/79, commit c2aaf4e) closing #78. Full suite 299/299 green pre-push. Note: env GITHUB_TOKEN fine-grained PAT lacks pull-request write; PR created via the keyring gh login (env -u GITHUB_TOKEN).
+**Context**: Construction complete pending review/checks; squash-merge per repo ruleset.
+
+---
