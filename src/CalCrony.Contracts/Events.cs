@@ -168,10 +168,15 @@ public record RsvpRequest(Guid OptionId);
 /// (requires the bot to hold Manage Events).</param>
 public record GuildSettingsDto(string TimeZone, long? DefaultChannelId, bool MirrorNativeEvents = false);
 
-/// <summary>A user's personal timezone (null = use the server's) and DM-confirmation preference.</summary>
+/// <summary>A user's personal timezone (null = use the server's), DM-confirmation preference,
+/// and web interface theme.</summary>
 /// <param name="TimeZone">The IANA timezone id.</param>
 /// <param name="DmConfirmations">Whether the bot may DM confirmations.</param>
-public record UserSettingsDto(string? TimeZone, bool DmConfirmations);
+/// <param name="Theme">The web app's interface theme (see <see cref="InterfaceThemes"/>). Null on
+/// a write means "keep the stored value" — writers that don't handle theming (the bot's
+/// /settings timezone) must not clobber it; null on a read means the user never picked one, i.e.
+/// <see cref="InterfaceThemes.Default"/>.</param>
+public record UserSettingsDto(string? TimeZone, bool DmConfirmations, string? Theme = null);
 
 /// <summary>TimeZone (IANA id), when set, overrides the user/guild zone resolution — used where
 /// the caller must preview in a specific zone, e.g. a series' stored zone for schedule edits.</summary>

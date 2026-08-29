@@ -100,7 +100,7 @@ public static class SettingsEndpoints
         }
 
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
-        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true));
+        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true, user?.Theme));
     }
 
     /// <summary>Updates a user's personal settings (self-only for web callers); validates the timezone id.</summary>
@@ -123,6 +123,12 @@ public static class SettingsEndpoints
             return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
         }
 
+        if (settings.Theme is not null && !InterfaceThemes.IsValid(settings.Theme))
+        {
+            return Results.BadRequest(new ErrorResponse(
+                $"Unknown theme \"{settings.Theme}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
+        }
+
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
         if (user is null)
         {
@@ -132,7 +138,10 @@ public static class SettingsEndpoints
 
         user.TimeZone = settings.TimeZone;
         user.DmConfirmations = settings.DmConfirmations;
+        // Null keeps the stored theme (see UserSettingsDto.Theme) — the bot's timezone/DM writes
+        // never carry a theme and must not reset a web-chosen one.
+        user.Theme = settings.Theme ?? user.Theme;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations));
+        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations, user.Theme));
     }
 }

@@ -1,5 +1,8 @@
-// Theme helper invoked from Blazor (ThemeToggle) — persists the tri-state choice and applies it.
+// Theme helpers invoked from Blazor. Two independent choices (issue #78):
+// the dark/light/auto FACE ("calcrony-theme", per-device, ThemeToggle) and the interface
+// THEME name ("calcrony-theme-name", per-account via UserSettings, InterfaceThemePicker).
 window.calcronyTheme = {
+    themes: ["slate", "ember", "moss", "parchment", "obsidian"],
     getTheme: function () {
         try { return localStorage.getItem("calcrony-theme") || "dark"; } catch { return "dark"; }
     },
@@ -12,6 +15,16 @@ window.calcronyTheme = {
             ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
             : theme;
         document.documentElement.setAttribute("data-bs-theme", resolved);
+    },
+    getThemeName: function () {
+        var name;
+        try { name = localStorage.getItem("calcrony-theme-name"); } catch { name = null; }
+        return window.calcronyTheme.themes.indexOf(name) >= 0 ? name : "slate";
+    },
+    setThemeName: function (name) {
+        if (window.calcronyTheme.themes.indexOf(name) < 0) { return; }
+        try { localStorage.setItem("calcrony-theme-name", name); } catch { /* private mode */ }
+        document.documentElement.setAttribute("data-cc-theme", name);
     }
 };
 

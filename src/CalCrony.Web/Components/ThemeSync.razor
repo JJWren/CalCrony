@@ -1,0 +1,31 @@
+@inject IJSRuntime Js
+@inject CalCronyWebApiClient Api
+@inject AuthApiClient AuthApi
+
+@* Renders nothing. Once per app load, for signed-in users, applies the account's saved interface
+   theme on this device (the server value wins; setThemeName also caches it in localStorage so
+   theme-init.js applies it before first paint on the next load). Sessions are hydrated before
+   first render (Program.cs awaits TryRefreshAsync), so Session is authoritative here. *@
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || AuthApi.Session is null)
+        {
+            return;
+        }
+
+        var settings = await Api.GetUserSettingsAsync(AuthApi.Session.UserId);
+        var theme = settings.Value?.Theme;
+        if (theme is null || !InterfaceThemes.IsValid(theme))
+        {
+            return;
+        }
+
+        var local = await Js.InvokeAsync<string>("calcronyTheme.getThemeName");
+        if (local != theme)
+        {
+            await Js.InvokeVoidAsync("calcronyTheme.setThemeName", theme);
+        }
+    }
+}

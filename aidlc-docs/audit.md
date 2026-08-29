@@ -78,3 +78,43 @@
 **Context**: Inception — design review & direction exploration; artifacts on design canvas, review in chat.
 
 ---
+
+## Design Review — Theme Family (/design continuation)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "I love everything about this. I like this as the base theme. Can we present several themes (about 5 would be good) for various user tastes? It would be nice to allow users to customize their interface theme when logged in."
+**AI Response**: Candlelit Slate confirmed as base/default. Added a "Themes" page to the design canvas: five token-variant themes (01 Candlelit Slate default, 02 Tavern Ember, 03 Feywild Moss, 04 Parchment light, 05 Obsidian Azure OLED/legacy-palette) rendered over the same condensed events screen for comparison, plus a refined My-settings mockup with a per-user Interface Theme picker (5 tiles + match-system auto pairing Slate/Parchment). Low-fi Tavern alternate retired (promoted into Theme 02). No code changes.
+**Context**: Inception — design direction iteration; artifacts on design canvas.
+
+---
+
+## Design Review — Light Theme Faces (/design continuation)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "These are all excellent. What would the light version of these look like?"
+**AI Response**: Added a "Light faces" page to the design canvas: light counterparts for the four dark themes — Candlelit Slate → Moonstone (cool porcelain/indigo), Tavern Ember → Morning Hearth (peach cream/burnt sienna), Feywild Moss → Sunlit Glade (sage paper/leaf green), Obsidian Azure → Azure Quartz (the existing rose-tinted light theme kept, azure darkened to pass AA). Parchment remains the light-first theme (dark face: Slate). Model: each theme has two faces; the moon/sun toggle and "match my system" flip faces; theme picker copy updated to match. All light accents re-derived to clear 4.5:1 on their tinted grounds.
+**Context**: Inception — design direction iteration; artifacts on design canvas.
+
+---
+
+## Design Review — Paired Theme Layout (/design continuation)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "Can you show each dark and light side by side"
+**AI Response**: Reorganized the design canvas: merged the Themes and Light faces pages into one Themes page laid out as pairs — one row per theme, dark face left / light face right (Slate|Moonstone, Ember|Morning Hearth, Moss|Sunlit Glade, note|Parchment, Obsidian|Azure Quartz), column-header notes, a Parchment light-first explainer in its empty dark slot, and the theme picker below. Layout-only change; no artboard content edited.
+**Context**: Inception — design direction iteration; artifacts on design canvas.
+
+---
+
+## Construction — Interface Themes (issue + implementation)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "These look great. Let's create an issue for this feature implementation if it does not exist yet and then implement this"
+**AI Response**: Searching for an existing GitHub issue for the interface-theme feature; creating one if absent (spec: five two-faced themes from the approved design canvas, Candlelit Slate default, per-user persistence, settings picker), then implementing on a feature branch per GitHub Flow and opening a PR.
+**Context**: Construction — code generation for the theme system.
+
+---
+
+## Construction — Interface Themes (implementation complete)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: (continuation of "…and then implement this")
+**AI Response**: Implemented issue #78 on feat/interface-themes: theme.css rewritten as 9 face-keyed token blocks mapped onto Bootstrap vars (slate default dark, moonstone default light; parchment dark falls through to slate); site.css accent-var wiring + raised cards + picker tile styles; theme-init.js/site.js store+apply calcrony-theme-name pre-paint; InterfaceThemePicker on My settings (instant apply, RMW save, parchment face flip); ThemeSync applies account theme post-login; UserSettingsDto.Theme with null=keep semantics; UserProfiles.Theme column + AddUserInterfaceTheme migration; README note. Tests: 3 new API integration tests + 5 new bUnit tests; full suite 299/299 green.
+**Context**: Construction — code generation executed; PR to follow.
+
+---
