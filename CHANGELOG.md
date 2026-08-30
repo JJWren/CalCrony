@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/JJWren/CalCrony/compare/v0.23.0...v0.23.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* drop the redundant Source code link from the sidebar ([#102](https://github.com/JJWren/CalCrony/issues/102)) ([9f2f547](https://github.com/JJWren/CalCrony/commit/9f2f547ef22a0866d01abd39a535caa39ed9945b))
+
 ## [0.23.0](https://github.com/JJWren/CalCrony/compare/v0.22.0...v0.23.0) (2026-08-30)
 
 
