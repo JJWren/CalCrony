@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Public, indexable pages only: /login and the auth-gated /app/* routes are deliberately
+     absent. URLs are absolute against the hosted instance's origin. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://calcrony.app/</loc>
+  </url>
+  <url>
+    <loc>https://calcrony.app/docs</loc>
+  </url>
+  <url>
+    <loc>https://calcrony.app/privacy</loc>
+  </url>
+  <url>
+    <loc>https://calcrony.app/terms</loc>
+  </url>
+</urlset>
