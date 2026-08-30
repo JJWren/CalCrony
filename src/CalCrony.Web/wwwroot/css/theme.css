@@ -1,88 +1,321 @@
-/* CalCrony palette mapped onto Bootstrap 5.3 CSS variables.
-   Pinned palette: #000000 · #1098F7 (azure) · #FFFFFF · #B89E97 (taupe) · #DECCCC (dust rose). */
+/* CalCrony interface themes (issue #78): five themes, each with a dark and a light FACE.
+   data-cc-theme picks the theme (slate = default · ember · moss · parchment · obsidian);
+   data-bs-theme picks the face — both set before first paint by theme-init.js.
 
-:root {
-    --bs-primary: #1098f7;
-    --bs-primary-rgb: 16, 152, 247;
-    --bs-secondary: #b89e97;
-    --bs-secondary-rgb: 184, 158, 151;
-    --bs-link-color: #1098f7;
-    --bs-link-color-rgb: 16, 152, 247;
-    --bs-link-hover-color: #4cb2f9;
-    --bs-link-hover-color-rgb: 76, 178, 249;
-    --bs-focus-ring-color: rgba(16, 152, 247, .3);
-    --calcrony-azure: #1098f7;
-    --calcrony-azure-press: #0c7ac6;
-    --calcrony-azure-soft: rgba(16, 152, 247, .14);
-    --calcrony-taupe: #b89e97;
-    --calcrony-rose: #decccc;
-}
+   Each face block defines raw --cc-* tokens; the [data-bs-theme] mapping block underneath pins
+   them onto Bootstrap's variables — the same move the old single pinned palette made here.
+   Token values come from the approved design canvas; every text-sized pairing clears WCAG AA
+   on both faces (the light accents are re-derived, not brightened).
 
-/* Dark (the default): true black ground, stepped near-black surfaces, white text,
-   taupe muted text, dust-rose low-alpha borders. */
+   Parchment is light-first: it defines no dark block on purpose, so its dark face falls through
+   to the default dark — Candlelit Slate. */
+
+/* ── Dark faces ─────────────────────────────────────────────────────────────── */
+
+/* Candlelit Slate (default dark; also Parchment's dark face). */
 [data-bs-theme="dark"] {
-    --bs-body-bg: #000000;
-    --bs-body-bg-rgb: 0, 0, 0;
-    --bs-body-color: #ffffff;
-    --bs-body-color-rgb: 255, 255, 255;
-    --bs-secondary-bg: #141414;
-    --bs-secondary-bg-rgb: 20, 20, 20;
-    --bs-tertiary-bg: #0a0a0a;
-    --bs-tertiary-bg-rgb: 10, 10, 10;
-    --bs-secondary-color: #b89e97;
-    --bs-tertiary-color: rgba(184, 158, 151, .7);
-    --bs-border-color: rgba(222, 204, 204, .18);
-    --bs-border-color-translucent: rgba(222, 204, 204, .18);
-    --bs-emphasis-color: #ffffff;
+    --cc-ground: #16171f;
+    --cc-base: #1c1e27;
+    --cc-base-rgb: 28, 30, 39;
+    --cc-raised: #242734;
+    --cc-text: #e9e7df;
+    --cc-text-rgb: 233, 231, 223;
+    --cc-muted: #a8a299;
+    --cc-muted-rgb: 168, 162, 153;
+    --cc-line: rgba(203, 208, 240, 0.10);
+    --cc-line-strong: rgba(203, 208, 240, 0.17);
+    --cc-accent: #8b93f8;
+    --cc-accent-rgb: 139, 147, 248;
+    --cc-accent-hover: #a0a7fa;
+    --cc-accent-hover-rgb: 160, 167, 250;
+    --cc-accent-press: #6f78ea;
+    --cc-accent-soft: rgba(139, 147, 248, 0.13);
+    --cc-accent-ink: #12131d;
 }
 
-/* Light: white ground with dust-rose-tinted surfaces and taupe muted text. */
+/* Tavern Ember — firelit umber and brass. */
+[data-bs-theme="dark"][data-cc-theme="ember"] {
+    --cc-ground: #1a140e;
+    --cc-base: #211a13;
+    --cc-base-rgb: 33, 26, 19;
+    --cc-raised: #2a2118;
+    --cc-text: #ece2cf;
+    --cc-text-rgb: 236, 226, 207;
+    --cc-muted: #a08b6f;
+    --cc-muted-rgb: 160, 139, 111;
+    --cc-line: rgba(214, 186, 140, 0.12);
+    --cc-line-strong: rgba(214, 186, 140, 0.20);
+    --cc-accent: #d97b3f;
+    --cc-accent-rgb: 217, 123, 63;
+    --cc-accent-hover: #e28f58;
+    --cc-accent-hover-rgb: 226, 143, 88;
+    --cc-accent-press: #b96430;
+    --cc-accent-soft: rgba(217, 123, 63, 0.15);
+    --cc-accent-ink: #1c1108;
+}
+
+/* Feywild Moss — deep forest green with verdigris. */
+[data-bs-theme="dark"][data-cc-theme="moss"] {
+    --cc-ground: #131a16;
+    --cc-base: #18211c;
+    --cc-base-rgb: 24, 33, 28;
+    --cc-raised: #202b24;
+    --cc-text: #e4eae0;
+    --cc-text-rgb: 228, 234, 224;
+    --cc-muted: #94a897;
+    --cc-muted-rgb: 148, 168, 151;
+    --cc-line: rgba(190, 225, 205, 0.10);
+    --cc-line-strong: rgba(190, 225, 205, 0.17);
+    --cc-accent: #63b885;
+    --cc-accent-rgb: 99, 184, 133;
+    --cc-accent-hover: #7cc698;
+    --cc-accent-hover-rgb: 124, 198, 152;
+    --cc-accent-press: #4c9a6b;
+    --cc-accent-soft: rgba(99, 184, 133, 0.13);
+    --cc-accent-ink: #0f1712;
+}
+
+/* Obsidian Azure — true-black OLED keeping the original azure, text pulled off pure white. */
+[data-bs-theme="dark"][data-cc-theme="obsidian"] {
+    --cc-ground: #000000;
+    --cc-base: #050507;
+    --cc-base-rgb: 5, 5, 7;
+    --cc-raised: #101014;
+    --cc-text: #e8e6e3;
+    --cc-text-rgb: 232, 230, 227;
+    --cc-muted: #a29b93;
+    --cc-muted-rgb: 162, 155, 147;
+    --cc-line: rgba(205, 215, 235, 0.14);
+    --cc-line-strong: rgba(205, 215, 235, 0.22);
+    --cc-accent: #1098f7;
+    --cc-accent-rgb: 16, 152, 247;
+    --cc-accent-hover: #4cb2f9;
+    --cc-accent-hover-rgb: 76, 178, 249;
+    --cc-accent-press: #0c7ac6;
+    --cc-accent-soft: rgba(16, 152, 247, 0.14);
+    --cc-accent-ink: #000000;
+}
+
+/* ── Light faces ────────────────────────────────────────────────────────────── */
+
+/* Moonstone — Candlelit Slate's light face (default light). */
 [data-bs-theme="light"] {
-    --bs-body-bg: #ffffff;
-    --bs-body-color: #141414;
-    --bs-secondary-bg: #f4ecea;
-    --bs-tertiary-bg: #faf6f5;
-    --bs-secondary-color: #8d7268;
-    --bs-tertiary-color: rgba(141, 114, 104, .75);
-    --bs-border-color: rgba(184, 158, 151, .35);
-    --bs-border-color-translucent: rgba(184, 158, 151, .35);
+    --cc-ground: #e3e4ee;
+    --cc-base: #edeef5;
+    --cc-base-rgb: 237, 238, 245;
+    --cc-raised: #fafbfe;
+    --cc-text: #23242e;
+    --cc-text-rgb: 35, 36, 46;
+    --cc-muted: #5c5f73;
+    --cc-muted-rgb: 92, 95, 115;
+    --cc-line: rgba(55, 60, 110, 0.14);
+    --cc-line-strong: rgba(55, 60, 110, 0.22);
+    --cc-accent: #444cbe;
+    --cc-accent-rgb: 68, 76, 190;
+    --cc-accent-hover: #3a41ac;
+    --cc-accent-hover-rgb: 58, 65, 172;
+    --cc-accent-press: #333a9a;
+    --cc-accent-soft: rgba(68, 76, 190, 0.12);
+    --cc-accent-ink: #ffffff;
 }
 
-/* Azure primary buttons carry BLACK text: ~6.8:1 contrast (white-on-azure fails AA). */
+/* Morning Hearth — Tavern Ember's light face. */
+[data-bs-theme="light"][data-cc-theme="ember"] {
+    --cc-ground: #efdfce;
+    --cc-base: #f8ecdf;
+    --cc-base-rgb: 248, 236, 223;
+    --cc-raised: #fef9f2;
+    --cc-text: #2e211a;
+    --cc-text-rgb: 46, 33, 26;
+    --cc-muted: #715743;
+    --cc-muted-rgb: 113, 87, 67;
+    --cc-line: rgba(110, 70, 35, 0.15);
+    --cc-line-strong: rgba(110, 70, 35, 0.24);
+    --cc-accent: #8f3d0d;
+    --cc-accent-rgb: 143, 61, 13;
+    --cc-accent-hover: #7e360b;
+    --cc-accent-hover-rgb: 126, 54, 11;
+    --cc-accent-press: #6f2f0a;
+    --cc-accent-soft: rgba(143, 61, 13, 0.12);
+    --cc-accent-ink: #ffffff;
+}
+
+/* Sunlit Glade — Feywild Moss's light face. */
+[data-bs-theme="light"][data-cc-theme="moss"] {
+    --cc-ground: #dee7da;
+    --cc-base: #ebf1e6;
+    --cc-base-rgb: 235, 241, 230;
+    --cc-raised: #f9fcf6;
+    --cc-text: #222b23;
+    --cc-text-rgb: 34, 43, 35;
+    --cc-muted: #566a58;
+    --cc-muted-rgb: 86, 106, 88;
+    --cc-line: rgba(60, 90, 65, 0.15);
+    --cc-line-strong: rgba(60, 90, 65, 0.24);
+    --cc-accent: #1f5f3a;
+    --cc-accent-rgb: 31, 95, 58;
+    --cc-accent-hover: #1a5232;
+    --cc-accent-hover-rgb: 26, 82, 50;
+    --cc-accent-press: #16472b;
+    --cc-accent-soft: rgba(31, 95, 58, 0.12);
+    --cc-accent-ink: #ffffff;
+}
+
+/* Parchment — light-first: warm paper, iron-gall ink, wax-blue accent. */
+[data-bs-theme="light"][data-cc-theme="parchment"] {
+    --cc-ground: #ede4d3;
+    --cc-base: #f6f0e3;
+    --cc-base-rgb: 246, 240, 227;
+    --cc-raised: #fcf9f1;
+    --cc-text: #2b2620;
+    --cc-text-rgb: 43, 38, 32;
+    --cc-muted: #6f6555;
+    --cc-muted-rgb: 111, 101, 85;
+    --cc-line: rgba(92, 74, 46, 0.14);
+    --cc-line-strong: rgba(92, 74, 46, 0.22);
+    --cc-accent: #4f58c4;
+    --cc-accent-rgb: 79, 88, 196;
+    --cc-accent-hover: #3f48b0;
+    --cc-accent-hover-rgb: 63, 72, 176;
+    --cc-accent-press: #3a42a6;
+    --cc-accent-soft: rgba(79, 88, 196, 0.10);
+    --cc-accent-ink: #ffffff;
+}
+
+/* Azure Quartz — Obsidian Azure's light face: today's rose-tinted light theme, with azure
+   darkened so links pass AA (the old #1098f7 sat at 3.1:1 on white). */
+[data-bs-theme="light"][data-cc-theme="obsidian"] {
+    --cc-ground: #ece2df;
+    --cc-base: #f6efec;
+    --cc-base-rgb: 246, 239, 236;
+    --cc-raised: #fdfaf8;
+    --cc-text: #272220;
+    --cc-text-rgb: 39, 34, 32;
+    --cc-muted: #6e625a;
+    --cc-muted-rgb: 110, 98, 90;
+    --cc-line: rgba(120, 85, 75, 0.16);
+    --cc-line-strong: rgba(120, 85, 75, 0.25);
+    --cc-accent: #085a96;
+    --cc-accent-rgb: 8, 90, 150;
+    --cc-accent-hover: #074e83;
+    --cc-accent-hover-rgb: 7, 78, 131;
+    --cc-accent-press: #064470;
+    --cc-accent-soft: rgba(8, 90, 150, 0.11);
+    --cc-accent-ink: #ffffff;
+}
+
+/* ── Tokens → Bootstrap ─────────────────────────────────────────────────────── */
+
+[data-bs-theme] {
+    --bs-body-bg: var(--cc-base);
+    --bs-body-bg-rgb: var(--cc-base-rgb);
+    --bs-body-color: var(--cc-text);
+    --bs-body-color-rgb: var(--cc-text-rgb);
+    --bs-emphasis-color: var(--cc-text);
+    --bs-secondary-bg: var(--cc-raised);
+    --bs-tertiary-bg: var(--cc-ground);
+    --bs-secondary-color: var(--cc-muted);
+    --bs-tertiary-color: var(--cc-muted);
+    --bs-border-color: var(--cc-line);
+    --bs-border-color-translucent: var(--cc-line);
+    --bs-primary: var(--cc-accent);
+    --bs-primary-rgb: var(--cc-accent-rgb);
+    --bs-secondary: var(--cc-muted);
+    --bs-secondary-rgb: var(--cc-muted-rgb);
+    --bs-link-color: var(--cc-accent);
+    --bs-link-color-rgb: var(--cc-accent-rgb);
+    --bs-link-hover-color: var(--cc-accent-hover);
+    --bs-link-hover-color-rgb: var(--cc-accent-hover-rgb);
+    --bs-focus-ring-color: rgba(var(--cc-accent-rgb), 0.3);
+
+    /* App-facing accent names (site.css + inline component styles). */
+    --calcrony-accent: var(--cc-accent);
+    --calcrony-accent-hover: var(--cc-accent-hover);
+    --calcrony-accent-press: var(--cc-accent-press);
+    --calcrony-accent-soft: var(--cc-accent-soft);
+    --calcrony-accent-ink: var(--cc-accent-ink);
+
+    /* Legacy aliases from the single-palette era — keep existing markup working. */
+    --calcrony-azure: var(--cc-accent);
+    --calcrony-azure-press: var(--cc-accent-press);
+    --calcrony-azure-soft: var(--cc-accent-soft);
+}
+
+/* ── Components ─────────────────────────────────────────────────────────────── */
+
+/* Accent buttons carry the face's ink color (dark ink on the bright dark-face accents,
+   white on the deep light-face accents) — every pairing is AA-checked in the token sets. */
 .btn-primary {
-    --bs-btn-bg: #1098f7;
-    --bs-btn-border-color: #1098f7;
-    --bs-btn-color: #000000;
-    --bs-btn-hover-bg: #0c7ac6;
-    --bs-btn-hover-border-color: #0c7ac6;
-    --bs-btn-hover-color: #000000;
-    --bs-btn-active-bg: #0a68a9;
-    --bs-btn-active-border-color: #0a68a9;
-    --bs-btn-active-color: #000000;
-    --bs-btn-disabled-bg: #1098f7;
-    --bs-btn-disabled-border-color: #1098f7;
-    --bs-btn-disabled-color: #000000;
+    --bs-btn-bg: var(--cc-accent);
+    --bs-btn-border-color: var(--cc-accent);
+    --bs-btn-color: var(--cc-accent-ink);
+    --bs-btn-hover-bg: var(--cc-accent-hover);
+    --bs-btn-hover-border-color: var(--cc-accent-hover);
+    --bs-btn-hover-color: var(--cc-accent-ink);
+    --bs-btn-active-bg: var(--cc-accent-press);
+    --bs-btn-active-border-color: var(--cc-accent-press);
+    --bs-btn-active-color: var(--cc-accent-ink);
+    --bs-btn-disabled-bg: var(--cc-accent);
+    --bs-btn-disabled-border-color: var(--cc-accent);
+    --bs-btn-disabled-color: var(--cc-accent-ink);
 }
 
 .btn-outline-primary {
-    --bs-btn-color: #1098f7;
-    --bs-btn-border-color: #1098f7;
-    --bs-btn-hover-bg: #1098f7;
-    --bs-btn-hover-border-color: #1098f7;
-    --bs-btn-hover-color: #000000;
-    --bs-btn-active-bg: #1098f7;
-    --bs-btn-active-border-color: #1098f7;
-    --bs-btn-active-color: #000000;
+    --bs-btn-color: var(--cc-accent);
+    --bs-btn-border-color: var(--cc-accent);
+    --bs-btn-hover-bg: var(--cc-accent);
+    --bs-btn-hover-border-color: var(--cc-accent);
+    --bs-btn-hover-color: var(--cc-accent-ink);
+    --bs-btn-active-bg: var(--cc-accent);
+    --bs-btn-active-border-color: var(--cc-accent);
+    --bs-btn-active-color: var(--cc-accent-ink);
+    --bs-btn-disabled-color: var(--cc-accent);
+    --bs-btn-disabled-border-color: var(--cc-accent);
 }
 
+/* Disabled states are set on every button variant below too — an unset --bs-btn-disabled-*
+   falls back to Bootstrap's COMPILED colors, quietly reintroducing the stock-gray/blue leaks
+   this file exists to remove. Bootstrap's own disabled opacity does the dimming. */
 .btn-secondary {
-    --bs-btn-bg: #b89e97;
-    --bs-btn-border-color: #b89e97;
-    --bs-btn-color: #000000;
-    --bs-btn-hover-bg: #a78b83;
-    --bs-btn-hover-border-color: #a78b83;
-    --bs-btn-hover-color: #000000;
+    --bs-btn-bg: var(--cc-muted);
+    --bs-btn-border-color: var(--cc-muted);
+    --bs-btn-color: var(--cc-base);
+    --bs-btn-hover-bg: var(--cc-muted);
+    --bs-btn-hover-border-color: var(--cc-muted);
+    --bs-btn-hover-color: var(--cc-ground);
+    --bs-btn-active-bg: var(--cc-muted);
+    --bs-btn-active-border-color: var(--cc-muted);
+    --bs-btn-active-color: var(--cc-ground);
+    --bs-btn-disabled-bg: var(--cc-muted);
+    --bs-btn-disabled-border-color: var(--cc-muted);
+    --bs-btn-disabled-color: var(--cc-base);
 }
 
-.text-primary { color: #1098f7 !important; }
-.bg-primary-soft { background-color: var(--calcrony-azure-soft); }
+/* Compiled Bootstrap hardcodes gray here; theme it like the rest of the muted scale. */
+.btn-outline-secondary {
+    --bs-btn-color: var(--cc-muted);
+    --bs-btn-border-color: var(--cc-muted);
+    --bs-btn-hover-bg: var(--cc-raised);
+    --bs-btn-hover-border-color: var(--cc-muted);
+    --bs-btn-hover-color: var(--cc-text);
+    --bs-btn-active-bg: var(--cc-raised);
+    --bs-btn-active-border-color: var(--cc-muted);
+    --bs-btn-active-color: var(--cc-text);
+    --bs-btn-disabled-color: var(--cc-muted);
+    --bs-btn-disabled-border-color: var(--cc-muted);
+}
+
+/* Cards sit on the raised surface instead of inheriting the body color — the old palette drew
+   black outlines on black; the themes carry a real elevation step. */
+.card { --bs-card-bg: var(--bs-secondary-bg); }
+
+/* Compiled Bootstrap blue (#0d6efd) leaks through on these two — pin them to the accent. */
+.form-check-input:checked {
+    background-color: var(--cc-accent);
+    border-color: var(--cc-accent);
+}
+
+.progress-bar { background-color: var(--cc-accent); }
+
+.text-primary { color: var(--cc-accent) !important; }
+.bg-primary-soft { background-color: var(--cc-accent-soft); }

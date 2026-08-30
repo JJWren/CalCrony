@@ -1,4 +1,5 @@
 @inject IJSRuntime Js
+@implements IDisposable
 
 <div class="btn-group btn-group-sm w-100" role="group" aria-label="Theme">
     <button type="button" class="btn @(current == "dark" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("dark")'>Dark</button>
@@ -10,18 +11,67 @@
     // CalCrony's default theme is dark — an explicit product decision, not "auto".
     private string current = "dark";
 
+    private DotNetObjectReference<ThemeToggle>? selfRef;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             current = await Js.InvokeAsync<string>("calcronyTheme.getTheme");
             StateHasChanged();
+
+            // Follow mode changes made elsewhere (the theme picker flips the face when Parchment
+            // is picked from dark mode) so the highlighted button never goes stale.
+            selfRef = DotNetObjectReference.Create(this);
+            await Js.InvokeVoidAsync("calcronyTheme.watchMode", selfRef);
         }
+    }
+
+    /// <summary>Called from site.js whenever calcronyTheme.setTheme runs, wherever it ran.</summary>
+    /// <param name="mode">The stored tri-state mode ("dark", "light", or "auto").</param>
+    [JSInvokable]
+    public void OnModeChanged(string mode)
+    {
+        if (current == mode)
+        {
+            return;
+        }
+
+        // JS-invokable: never trust the payload — an unexpected value must not become UI state.
+        if (mode is not ("dark" or "light" or "auto"))
+        {
+            return;
+        }
+
+        current = mode;
+        StateHasChanged();
     }
 
     private async Task SetAsync(string theme)
     {
         current = theme;
         await Js.InvokeVoidAsync("calcronyTheme.setTheme", theme);
+    }
+
+    public void Dispose()
+    {
+        var reference = selfRef;
+        if (reference is null)
+        {
+            return;
+        }
+
+        selfRef = null;
+        try
+        {
+            // Unregister the JS-side watcher entry, then release the reference — disposal can't
+            // await, so the release rides the interop task's completion.
+            Js.InvokeVoidAsync("calcronyTheme.unwatchMode", reference).AsTask()
+                .ContinueWith(_ => reference.Dispose(), TaskScheduler.Default);
+        }
+        catch
+        {
+            reference.Dispose();
+        }
     }
 }

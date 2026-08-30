@@ -1,0 +1,115 @@
+@inject IJSRuntime Js
+@inject CalCronyWebApiClient Api
+@inject AuthApiClient AuthApi
+
+@* Five themes, each with a dark and a light face (issue #78). Picking one applies instantly on
+   this device (localStorage, before-paint via theme-init.js) and saves to the account so it
+   follows the user anywhere they sign in. The Dark/Light/Auto toggle flips the face. *@
+<div class="card p-3">
+    <div class="fw-bold">Interface theme</div>
+    <p class="text-body-secondary small mt-1 mb-2">
+        Applies right away and saves to your account — any device you sign in on.
+        The Dark/Light/Auto toggle in the sidebar picks the theme's face.
+    </p>
+    <div class="d-flex flex-wrap gap-2" role="group" aria-label="Interface theme">
+        @foreach (var theme in Themes)
+        {
+            var isSelected = theme.Id == current;
+            <button type="button" class="theme-tile @(isSelected ? "selected" : null)" disabled="@busy"
+                    aria-pressed="@isSelected" @onclick="() => PickAsync(theme.Id)">
+                <span class="theme-swatch">
+                    <span style="height:26px;background-color:@theme.Ground;padding:6px 7px"><span style="width:26px;height:6px;border-radius:3px;background-color:@theme.Accent"></span></span>
+                    <span style="height:15px;background-color:@theme.Raised;padding:4px 7px"><span style="width:60%;height:4px;border-radius:2px;background-color:@theme.Text;opacity:.85"></span></span>
+                </span>
+                <span class="theme-tile-name d-block">@theme.Name</span>
+                <span class="meta-mono">@theme.Tag</span>
+            </button>
+        }
+    </div>
+    @if (message is not null)
+    {
+        <div class="meta-mono mt-2">@message</div>
+    }
+</div>
+
+@code {
+    /// <summary>Tile data: each preview is drawn in that theme's own home-face colors (Parchment
+    /// shows its light face — it is light-first), independent of the active theme.</summary>
+    private sealed record ThemeInfo(string Id, string Name, string Tag, string Ground, string Raised, string Accent, string Text);
+
+    private static readonly ThemeInfo[] Themes =
+    [
+        new("slate", "Candlelit Slate", "default · dark", "#16171F", "#242734", "#8B93F8", "#E9E7DF"),
+        new("ember", "Tavern Ember", "warm · dark", "#1A140E", "#2A2118", "#D97B3F", "#ECE2CF"),
+        new("moss", "Feywild Moss", "green · dark", "#131A16", "#202B24", "#63B885", "#E4EAE0"),
+        new("parchment", "Parchment", "light", "#EDE4D3", "#FCF9F1", "#4F58C4", "#2B2620"),
+        new("obsidian", "Obsidian Azure", "OLED · azure", "#000000", "#101014", "#1098F7", "#E8E6E3"),
+    ];
+
+    private string current = InterfaceThemes.Default;
+    private bool busy;
+    private string? message;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        current = await Js.InvokeAsync<string>("calcronyTheme.getThemeName");
+        StateHasChanged();
+    }
+
+    private async Task PickAsync(string themeId)
+    {
+        // Guard BEFORE the first await: a second click while a save is in flight would otherwise
+        // interleave two read-modify-write rounds and could persist the losing theme.
+        if (busy)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+        current = themeId;
+        try
+        {
+            await Js.InvokeVoidAsync("calcronyTheme.setThemeName", themeId);
+
+            // Parchment is light-first: picked from dark mode it would show no change at all (its
+            // dark face IS Candlelit Slate), so flip the face to make the pick visible.
+            if (themeId == "parchment" && await Js.InvokeAsync<string>("calcronyTheme.getTheme") == "dark")
+            {
+                await Js.InvokeVoidAsync("calcronyTheme.setTheme", "light");
+            }
+
+            if (AuthApi.Session is null)
+            {
+                message = "applied on this device";
+                return;
+            }
+
+            // Read-modify-write: theme rides along without clobbering timezone/DM preferences.
+            // If the read fails, DON'T write — a PUT built from defaults would wipe the stored
+            // timezone/DM values. The theme is already applied locally either way.
+            var existing = await Api.GetUserSettingsAsync(AuthApi.Session.UserId);
+            if (!existing.Success || existing.Value is null)
+            {
+                message = $"applied on this device — couldn't save to your account ({existing.Error})";
+                return;
+            }
+
+            var result = await Api.PutUserSettingsAsync(AuthApi.Session.UserId, new UserSettingsDto(
+                existing.Value.TimeZone, existing.Value.DmConfirmations, themeId));
+
+            message = result.Success
+                ? "✓ saved to your account"
+                : $"applied on this device — couldn't save to your account ({result.Error})";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

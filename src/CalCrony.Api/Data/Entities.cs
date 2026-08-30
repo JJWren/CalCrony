@@ -27,6 +27,11 @@ public class UserProfile
     public string? TimeZone { get; set; }
     public bool DmConfirmations { get; set; } = true;
 
+    /// <summary>Web interface theme (a value from <see cref="InterfaceThemes.All"/>); null = the
+    /// user never picked one and the web app uses its default. The dark/light face is a per-device
+    /// choice and deliberately not stored.</summary>
+    public string? Theme { get; set; }
+
     /// <summary>Display name captured at web login (global name, falling back to username);
     /// null until the user has signed in to the web app at least once.</summary>
     public string? Username { get; set; }

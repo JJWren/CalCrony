@@ -100,8 +100,16 @@ public static class SettingsEndpoints
         }
 
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
-        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true));
+        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true, ValidThemeOrNull(user?.Theme)));
     }
+
+    /// <summary>Responses never carry a theme id clients don't know: a stored value that is no
+    /// longer valid (renamed/retired theme) reads as null, i.e. the default. PUT validates on the
+    /// way in, so this only matters for values that predate a rename.</summary>
+    /// <param name="theme">The stored theme value.</param>
+    /// <returns>The theme when it is currently valid; otherwise null.</returns>
+    private static string? ValidThemeOrNull(string? theme) =>
+        theme is not null && InterfaceThemes.IsValid(theme) ? theme : null;
 
     /// <summary>Updates a user's personal settings (self-only for web callers); validates the timezone id.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
@@ -123,6 +131,12 @@ public static class SettingsEndpoints
             return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
         }
 
+        if (settings.Theme is not null && !InterfaceThemes.IsValid(settings.Theme))
+        {
+            return Results.BadRequest(new ErrorResponse(
+                $"Unknown theme \"{settings.Theme}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
+        }
+
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
         if (user is null)
         {
@@ -132,7 +146,10 @@ public static class SettingsEndpoints
 
         user.TimeZone = settings.TimeZone;
         user.DmConfirmations = settings.DmConfirmations;
+        // Null keeps the stored theme (see UserSettingsDto.Theme) — the bot's timezone/DM writes
+        // never carry a theme and must not reset a web-chosen one.
+        user.Theme = settings.Theme ?? user.Theme;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations));
+        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations, ValidThemeOrNull(user.Theme)));
     }
 }
