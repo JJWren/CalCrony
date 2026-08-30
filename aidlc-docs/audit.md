@@ -150,3 +150,11 @@
 **Context**: Inception → Construction handoff. Preceded by user question on staleness trade-off, answered: snapshot staleness (seconds, healed at Ready) is invisible under Google's 12–24h feed polling.
 
 ---
+
+## Operations — Interface Themes merged and deployed to test stack
+**Timestamp**: 2026-08-30T00:00:00Z
+**User Input**: (user squash-merged PR #79 with owner privileges after the agent was permission-blocked from --admin)
+**AI Response**: PR #79 merged as b7baa9d after 7 Copilot review rounds (findings fixed each round: PickAsync re-entrancy, failed-GET settings clobber, link-hover RGB mapping, JS input sanitization, stale-theme GET leak, ThemeToggle staleness + JS→.NET guard, disabled-button theming, watcher disposal; a peer session contributed the promise-rejection pruning fix 2006fc9). CI publish-main succeeded; test-calcrony stack pulled :main and re-upped: api/web healthy, /health reports 0.0.0-main.b7baa9d, web serves themed theme-init.js and data-cc-theme="slate". Remote feature branch auto-deleted. Production remains pinned 0.17.3 until the next release is cut.
+**Context**: Operations — feature live on the test environment; issue #78 closed by merge.
+
+---
