@@ -15,7 +15,7 @@ public class ComponentTests : TestContext
     public void Landing_carries_the_exact_bot_invite_url_by_default()
     {
         UseConfig();
-        var cut = RenderComponent<Landing>();
+        var cut = Render<Landing>();
 
         // Regression on the locked invite URL — permissions/scopes must not drift, and an
         // unconfigured deployment must advertise the PRODUCTION application. Asserted on the
@@ -29,7 +29,7 @@ public class ComponentTests : TestContext
     public void Landing_names_the_app_and_its_purpose()
     {
         UseConfig();
-        var cut = RenderComponent<Landing>();
+        var cut = Render<Landing>();
 
         // Google OAuth verification requires the homepage to carry the exact app name and its
         // purpose; the privacy-policy link requirement is satisfied by the layout footer, which
@@ -46,7 +46,7 @@ public class ComponentTests : TestContext
         // single home — this guard keeps it there.
         ComponentFactories.AddStub<Layout.NavMenu>();
         ComponentFactories.AddStub<ThemeSync>();
-        var cut = RenderComponent<Layout.MainLayout>();
+        var cut = Render<Layout.MainLayout>();
 
         Assert.NotNull(cut.Find("footer a[href='/privacy']"));
         Assert.NotNull(cut.Find("footer a[href='/terms']"));
@@ -56,12 +56,12 @@ public class ComponentTests : TestContext
     [Fact]
     public void Legal_pages_render_with_the_limited_use_disclosure()
     {
-        var privacy = RenderComponent<Privacy>();
+        var privacy = Render<Privacy>();
         Assert.Contains("Limited Use", privacy.Markup);
         Assert.Contains("free/busy", privacy.Markup);
         Assert.Contains("Privacy Policy", privacy.Markup);
 
-        var terms = RenderComponent<Terms>();
+        var terms = Render<Terms>();
         Assert.Contains("Terms of Service", terms.Markup);
         Assert.NotNull(terms.Find("a[href='/privacy']"));
     }
@@ -70,7 +70,7 @@ public class ComponentTests : TestContext
     public void Landing_invite_uses_the_configured_app_id_with_the_same_permissions()
     {
         UseConfig(("Discord:AppId", "999000111"));
-        var cut = RenderComponent<Landing>();
+        var cut = Render<Landing>();
 
         // A test environment's web app must invite the TEST bot, never production's —
         // permissions and scopes stay locked regardless.
@@ -92,7 +92,7 @@ public class ComponentTests : TestContext
         JSInterop.Mode = JSRuntimeMode.Loose; // the toggle also registers a mode watcher
         JSInterop.Setup<string>("calcronyTheme.getTheme").SetResult("dark");
 
-        var cut = RenderComponent<ThemeToggle>();
+        var cut = Render<ThemeToggle>();
 
         var darkButton = cut.FindAll("button").First(b => b.GetAttribute("title") == "Dark");
         Assert.Contains("active", darkButton.ClassName);
@@ -111,7 +111,7 @@ public class ComponentTests : TestContext
             new(5, CalendarAvailabilityStatus.Error, []),
         ]);
 
-        var cut = RenderComponent<AvailabilityGrid>(p => p.Add(x => x.Response, response));
+        var cut = Render<AvailabilityGrid>(p => p.Add(x => x.Response, response));
 
         Assert.Single(cut.FindAll(".status-free"));
         Assert.Single(cut.FindAll(".status-busy"));
@@ -132,9 +132,9 @@ public class ComponentTests : TestContext
             new HttpClient { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<ITokenStore>(),
             sp.GetRequiredService<JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
 
-        var cut = RenderComponent<CalCrony.Web.Layout.NavMenu>();
+        var cut = Render<CalCrony.Web.Layout.NavMenu>();
 
         foreach (var anchor in cut.FindAll("a[href^='/'], a[href='']"))
         {
@@ -153,7 +153,7 @@ public class ComponentTests : TestContext
             3, null, null, null, EventStatus.Scheduled,
             [going, notGoing], [new RsvpDto(42, going.Id)]);
 
-        var cut = RenderComponent<RsvpButtons>(p => p
+        var cut = Render<RsvpButtons>(p => p
             .Add(x => x.Event, ev)
             .Add(x => x.UserId, 42));
 

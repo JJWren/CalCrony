@@ -19,7 +19,7 @@ public class BrandMarkTests : TestContext
     [Fact]
     public void Default_mark_is_the_simplified_navbar_variant()
     {
-        var cut = RenderComponent<BrandMark>();
+        var cut = Render<BrandMark>();
 
         var svg = cut.Find("svg.brand-mark");
         Assert.Equal("20", svg.GetAttribute("width"));
@@ -33,7 +33,7 @@ public class BrandMarkTests : TestContext
     [Fact]
     public void Full_mark_renders_all_struts_at_the_requested_size()
     {
-        var cut = RenderComponent<BrandMark>(p => p
+        var cut = Render<BrandMark>(p => p
             .Add(m => m.Full, true)
             .Add(m => m.Size, 32));
 
