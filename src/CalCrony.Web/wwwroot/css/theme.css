@@ -14,6 +14,11 @@
 
 /* Candlelit Slate (default dark; also Parchment's dark face). */
 [data-bs-theme="dark"] {
+    /* Callout hues are semantic per mode (design system callouts) — warning alone is the face gilt. */
+    --cc-gilt: #d3a655;
+    --cc-callout-note: #6fb1e8;
+    --cc-callout-important: #b98cf1;
+    --cc-callout-caution: #e0685a;
     --cc-ground: #16171f;
     --cc-base: #1c1e27;
     --cc-base-rgb: 28, 30, 39;
@@ -35,6 +40,7 @@
 
 /* Tavern Ember — firelit umber and brass. */
 [data-bs-theme="dark"][data-cc-theme="ember"] {
+    --cc-gilt: #c9a35c;
     --cc-ground: #1a140e;
     --cc-base: #211a13;
     --cc-base-rgb: 33, 26, 19;
@@ -56,6 +62,7 @@
 
 /* Feywild Moss — deep forest green with verdigris. */
 [data-bs-theme="dark"][data-cc-theme="moss"] {
+    --cc-gilt: #d3a655;
     --cc-ground: #131a16;
     --cc-base: #18211c;
     --cc-base-rgb: 24, 33, 28;
@@ -77,6 +84,7 @@
 
 /* Obsidian Azure — true-black OLED keeping the original azure, text pulled off pure white. */
 [data-bs-theme="dark"][data-cc-theme="obsidian"] {
+    --cc-gilt: #d3a655;
     --cc-ground: #000000;
     --cc-base: #050507;
     --cc-base-rgb: 5, 5, 7;
@@ -100,6 +108,11 @@
 
 /* Moonstone — Candlelit Slate's light face (default light). */
 [data-bs-theme="light"] {
+    /* Callout hues are semantic per mode (design system callouts) — warning alone is the face gilt. */
+    --cc-gilt: #71581c;
+    --cc-callout-note: #2e6da8;
+    --cc-callout-important: #6e3ebf;
+    --cc-callout-caution: #a93b2b;
     --cc-ground: #e3e4ee;
     --cc-base: #edeef5;
     --cc-base-rgb: 237, 238, 245;
@@ -121,6 +134,7 @@
 
 /* Morning Hearth — Tavern Ember's light face. */
 [data-bs-theme="light"][data-cc-theme="ember"] {
+    --cc-gilt: #755417;
     --cc-ground: #efdfce;
     --cc-base: #f8ecdf;
     --cc-base-rgb: 248, 236, 223;
@@ -142,6 +156,7 @@
 
 /* Sunlit Glade — Feywild Moss's light face. */
 [data-bs-theme="light"][data-cc-theme="moss"] {
+    --cc-gilt: #6f5719;
     --cc-ground: #dee7da;
     --cc-base: #ebf1e6;
     --cc-base-rgb: 235, 241, 230;
@@ -163,6 +178,7 @@
 
 /* Parchment — light-first: warm paper, iron-gall ink, wax-blue accent. */
 [data-bs-theme="light"][data-cc-theme="parchment"] {
+    --cc-gilt: #6e5319;
     --cc-ground: #ede4d3;
     --cc-base: #f6f0e3;
     --cc-base-rgb: 246, 240, 227;
@@ -185,6 +201,7 @@
 /* Azure Quartz — Obsidian Azure's light face: today's rose-tinted light theme, with azure
    darkened so links pass AA (the old #1098f7 sat at 3.1:1 on white). */
 [data-bs-theme="light"][data-cc-theme="obsidian"] {
+    --cc-gilt: #77591b;
     --cc-ground: #ece2df;
     --cc-base: #f6efec;
     --cc-base-rgb: 246, 239, 236;

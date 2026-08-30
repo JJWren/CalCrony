@@ -95,6 +95,18 @@ body { min-height: 100vh; }
 
 .meta-mono { font-family: var(--bs-font-monospace); font-size: .72rem; color: var(--bs-secondary-color); }
 
+/* Callouts (design system components/callouts.html): hue background at 10%, hairline border at
+   30%, 12px radius, mono small-caps head in the hue; the body keeps the face's text color.
+   Warning alone takes the face's gilt token — the other hues are semantic per light/dark mode. */
+.callout { --callout-hue: var(--cc-callout-note); background-color: color-mix(in srgb, var(--callout-hue) 10%, transparent); border: 1px solid color-mix(in srgb, var(--callout-hue) 30%, transparent); border-radius: 12px; padding: .8rem 1rem .9rem; max-width: 66ch; }
+.callout-important { --callout-hue: var(--cc-callout-important); }
+.callout-warning { --callout-hue: var(--cc-gilt); }
+.callout-caution { --callout-hue: var(--cc-callout-caution); }
+.callout .co-head { display: flex; align-items: center; gap: .5rem; color: var(--callout-hue); font-family: var(--bs-font-monospace); font-size: .69rem; letter-spacing: .16em; text-transform: uppercase; }
+.callout .co-head svg { flex-shrink: 0; }
+.callout .co-body { margin: .45rem 0 0; font-size: .85rem; line-height: 1.6; }
+.callout .co-body p:last-child { margin-bottom: 0; }
+
 /* RSVP buttons */
 .rsvp-btn { border: 1px solid var(--bs-border-color); background: none; color: var(--bs-body-color); border-radius: .55rem; padding: .55rem 1rem; font-size: .9rem; }
 .rsvp-btn:hover { background-color: var(--bs-secondary-bg); }

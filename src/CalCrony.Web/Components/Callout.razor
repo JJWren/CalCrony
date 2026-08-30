@@ -1,0 +1,48 @@
+@* Callout from the design system (components/callouts.html). Recipe, theme-invariant: full box
+   — hue background at ~10%, hairline border at ~30%, 12px radius; mono small-caps label with a
+   stroke icon in the hue (circle-i / diamond-! / triangle-! / octagon-!); the body keeps the
+   face's own text color. Stroke SVGs, never emoji; one per section, never a bare
+   left-border strip. *@
+<div class="callout callout-@Variant.ToString().ToLowerInvariant()" role="note">
+    <div class="co-head">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            @if (Variant == CalloutVariant.Note)
+            {
+                <circle cx="10" cy="10" r="6.9" />
+                <path d="M10 9.4 V13.4" />
+                <circle cx="10" cy="6.7" r="0.9" fill="currentColor" stroke="none" />
+            }
+            else if (Variant == CalloutVariant.Important)
+            {
+                <path d="M10 2.8 L17.2 10 L10 17.2 L2.8 10 Z" />
+                <path d="M10 6.9 V10.6" />
+                <circle cx="10" cy="13.2" r="0.9" fill="currentColor" stroke="none" />
+            }
+            else if (Variant == CalloutVariant.Warning)
+            {
+                <path d="M10 3.2 L17.8 16.2 H2.2 Z" />
+                <path d="M10 8.2 V11.6" />
+                <circle cx="10" cy="13.9" r="0.9" fill="currentColor" stroke="none" />
+            }
+            else
+            {
+                <path d="M6.7 2.6 H13.3 L17.4 6.7 V13.3 L13.3 17.4 H6.7 L2.6 13.3 V6.7 Z" />
+                <path d="M10 6.4 V10.4" />
+                <circle cx="10" cy="13.2" r="0.9" fill="currentColor" stroke="none" />
+            }
+        </svg>
+        <span>@Variant</span>
+    </div>
+    <div class="co-body">@ChildContent</div>
+</div>
+
+@code {
+    /// <summary>The semantic flavor; picks the icon, label, and hue.</summary>
+    [Parameter, EditorRequired]
+    public CalloutVariant Variant { get; set; }
+
+    /// <summary>The callout body; rendered in the face's own text color.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

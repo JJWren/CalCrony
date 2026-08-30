@@ -196,6 +196,11 @@
 
 ---
 
+## Construction — Design-system callouts (issue #93)
+**Timestamp**: 2026-08-30T19:46:00Z
+**User Input**: "/design-login (authorized) — design sync completed. go ahead and work the callouts issue"
+**AI Response**: Read components/callouts.html from the Claude Design project via DesignSync. Implemented Callout.razor (Note/Important/Warning/Caution; exact spec icons, mono small-caps head, hue bg 10% + hairline 30% via color-mix, 12px radius); semantic hue tokens per light/dark mode + per-face --cc-gilt in theme.css (Warning borrows the face's gilt per spec). Converted the two standalone Docs admonitions (standing-role Caution — emoji dropped per "stroke SVGs, never emoji"; calendar-refresh Note); the first-steps list stays a list per "one per section, never stacked". CalloutTests pins icons/labels/classes.
+**Context**: Construction on feature/design-callouts.
 ## Construction — Navbar brand simplification + callouts issue filed
 **Timestamp**: 2026-08-30T19:20:00Z
 **User Input**: "Shipping to prod is fine here. I would like to see “Events - Calendars - Discord” removed from under the logo and the CalCrony centered vertically to the right of the d20. We already state these things at the top of the homepage view and they are bleeding off the side navbar. It would better for them not to be in the navbar. Also, for the warning sections / etc, we need to implement the callouts from our CalCrony design system (https://claude.ai/design/p/4f922f52-55b3-42de-a5ee-18b3dfb63598). If you cannot see this or access it, do not implement. We will need to make sure you can see the design before doing this work. However, we can file the issue."
