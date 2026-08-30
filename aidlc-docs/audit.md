@@ -26,7 +26,7 @@
 
 ## Plan Revision Request
 **Timestamp**: 2026-07-17T00:00:00Z
-**User Input**: "I am going to go with option 1, but first thing that is needed is a private repo establish on github for this. We shall call the app CalCrony. This should link to a local repo by the same name located within "C:\\Users\\joshu\\source\\repos"."
+**User Input**: "I am going to go with option 1, but first thing that is needed is a private repo establish on github for this. We shall call the app CalCrony. This should link to a local repo by the same name located within `C:\\Users\\joshu\\source\\repos`."
 **AI Response**: Renamed project to CalCrony throughout plan; added Milestone 0 (private GitHub repo + local repo at C:\Users\joshu\source\repos\CalCrony); resubmitted plan.
 **Context**: Inception — Workflow Planning revision.
 
