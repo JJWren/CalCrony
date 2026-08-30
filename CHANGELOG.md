@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/JJWren/CalCrony/compare/v0.21.0...v0.22.0) (2026-08-30)
+
+
+### Features
+
+* design-system callouts for docs admonitions ([#95](https://github.com/JJWren/CalCrony/issues/95)) ([19ca1b4](https://github.com/JJWren/CalCrony/commit/19ca1b4e15ab645076fa4ba259312c0f9130da4a))
+
 ## [0.21.0](https://github.com/JJWren/CalCrony/compare/v0.20.0...v0.21.0) (2026-08-30)
 
 
