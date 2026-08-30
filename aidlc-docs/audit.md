@@ -174,3 +174,11 @@
 **Context**: Construction on feature/d20-brand-mark; Joshua handles release PR #84 merge himself.
 
 ---
+
+## Construction — Fantasy typography (issue #88)
+**Timestamp**: 2026-08-30T19:00:00Z
+**User Input**: "Another bug: We did not bring in the fonts and stuff from our design (it needs to feel fantasy-like: https://claude.ai/design/p/4f922f52-55b3-42de-a5ee-18b3dfb63598)" / "Before I answer, what is the difference between the woff2 and Google Fonts in style? Is it the same or different?" / "Then yes I agree with your answers"
+**AI Response**: Explained self-hosted woff2 = the same Google Fonts files (delivery differs, not style). Decisions: Q1=A self-hosted latin woff2 subsets (Marcellus 400 14.5KB + Nunito Sans variable 400-800 31KB vendored under wwwroot/fonts), Q2=A full canvas mapping (Marcellus on headings/.card-title/wordmark at pinned weight 400; Nunito Sans as --bs-body-font-family; mono stack aligned). New css/fonts.css loaded after bootstrap; wordmark re-spec'd 800/-.03em → 400/.01em; Landing h1 drops fw-bold (Bootstrap !important would faux-bold Marcellus). DesignSync project link needs /design-login — proceeded from the saved canvas artifact instead.
+**Context**: Construction on feature/fantasy-typography (issue #88).
+
+---
