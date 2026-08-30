@@ -1,0 +1,27 @@
+@* The d20 wireframe mark from the CalCrony Design Refresh canvas: icosahedron silhouette,
+   central face, and strut lines. Strokes are currentColor and the .brand-mark class colors it
+   with the interface theme's accent, so it follows every theme's face. *@
+<svg class="brand-mark" width="@Size" height="@Size" viewBox="0 0 20 20" fill="none"
+     stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true">
+    <path d="M10 2 L16.93 6 V14 L10 18 L3.07 14 V6 Z" />
+    <path d="M10 5.6 L14.8 13 H5.2 Z" />
+    @if (Full)
+    {
+        <path d="M10 2 L10 5.6 M16.93 6 L14.8 13 M3.07 6 L5.2 13 M16.93 6 L10 5.6 M3.07 6 L10 5.6 M10 18 L14.8 13 M10 18 L5.2 13 M16.93 14 L14.8 13 M3.07 14 L5.2 13" />
+    }
+    else
+    {
+        <path d="M10 2 L10 5.6 M16.93 6 L14.8 13 M3.07 6 L5.2 13 M10 18 L14.8 13 M10 18 L5.2 13" />
+    }
+</svg>
+
+@code {
+    /// <summary>Rendered width/height in pixels.</summary>
+    [Parameter]
+    public int Size { get; set; } = 20;
+
+    /// <summary>Render all nine strut lines (the full mark, used by the favicon); the default
+    /// five-strut variant reads cleaner at navbar sizes, per the design canvas.</summary>
+    [Parameter]
+    public bool Full { get; set; }
+}
