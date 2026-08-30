@@ -81,7 +81,8 @@ public static class ChannelEndpoints
             channel.Name = snapshot.Name;
         }
 
-        foreach (var snapshot in snapshots.Values.Where(s => known.All(c => c.Id != s.ChannelId)))
+        var knownIds = known.Select(c => c.Id).ToHashSet();
+        foreach (var snapshot in snapshots.Values.Where(s => !knownIds.Contains(s.ChannelId)))
         {
             db.Channels.Add(new Channel { Id = snapshot.ChannelId, GuildId = snapshot.GuildId, Name = snapshot.Name });
         }
