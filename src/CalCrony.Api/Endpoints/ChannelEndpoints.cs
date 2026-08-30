@@ -22,7 +22,8 @@ public static class ChannelEndpoints
 
     /// <summary>Lists every channel the API currently references and wants a name snapshot for:
     /// channels of events on the feed horizon (last 30 days plus upcoming, matching what the
-    /// feed renders), of running series, and guild default channels.</summary>
+    /// feed renders), of running series, and guild default channels — bot-present guilds only,
+    /// since the bot can't resolve channels of guilds it has left.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -30,18 +31,20 @@ public static class ChannelEndpoints
     private static async Task<IResult> GetReferenced(
         CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
+        var presentGuilds = db.Guilds.Where(g => g.BotPresent);
         var horizon = clock.GetCurrentInstant().Minus(Duration.FromDays(30));
         var fromEvents = await db.Events
-            .Where(e => e.Status != EventStatus.Cancelled && e.StartsAt >= horizon)
+            .Where(e => e.Status != EventStatus.Cancelled && e.StartsAt >= horizon
+                        && presentGuilds.Any(g => g.Id == e.GuildId))
             .Select(e => new { e.GuildId, e.ChannelId })
             .Distinct()
             .ToListAsync(cancellationToken);
         var fromSeries = await db.EventSeries
-            .Where(s => !s.Ended)
+            .Where(s => !s.Ended && presentGuilds.Any(g => g.Id == s.GuildId))
             .Select(s => new { s.GuildId, s.ChannelId })
             .Distinct()
             .ToListAsync(cancellationToken);
-        var fromDefaults = await db.Guilds
+        var fromDefaults = await presentGuilds
             .Where(g => g.DefaultChannelId != null)
             .Select(g => new { GuildId = g.Id, ChannelId = g.DefaultChannelId!.Value })
             .ToListAsync(cancellationToken);
