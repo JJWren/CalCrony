@@ -114,8 +114,8 @@ public record RsvpDto(long UserId, Guid OptionId);
 /// <param name="AttendeeRoleId">The Discord role granted to "Going" RSVPs, when set.</param>
 /// <param name="WantsThread">Whether a discussion thread should open on the posted embed.</param>
 /// <param name="ThreadId">The Discord thread-channel id once the thread exists.</param>
-/// <param name="ChannelName">The channel's name snapshot, when one is stored (single-event reads
-/// only); consumers must omit gracefully when null.</param>
+/// <param name="ChannelName">The channel's name snapshot, when one is stored (attached to every
+/// single-event response, never list rows); consumers must omit gracefully when null.</param>
 public record EventDto(
     Guid Id,
     long GuildId,

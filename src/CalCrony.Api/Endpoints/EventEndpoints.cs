@@ -467,7 +467,7 @@ public static class EventEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Created($"/events/{ev.Id}", ev.ToDto());
+        return Results.Created($"/events/{ev.Id}", await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Lists a guild's events ascending; includePast widens the window to the last 30 days.</summary>
@@ -541,14 +541,23 @@ public static class EventEndpoints
             return denied;
         }
 
-        // The channel-name snapshot rides single-event reads only (issue #80) — list views
-        // don't render it, and joining per row there would be wasted work.
-        var channelName = await db.Channels
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
+    }
+
+    /// <summary>Maps a single event to its DTO with the channel-name snapshot attached. Every
+    /// single-event response carries it (issue #80) — the web page overwrites its in-memory
+    /// event with mutation responses (RSVP, edit), so a GET-only snapshot would make the
+    /// channel chip vanish after user actions. List views deliberately skip the lookup.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event to map.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The projected DTO.</returns>
+    private static async Task<EventDto> ToDtoWithChannelAsync(
+        CalCronyDbContext db, Event ev, CancellationToken cancellationToken) =>
+        ev.ToDto(await db.Channels
             .Where(c => c.Id == ev.ChannelId)
             .Select(c => c.Name)
-            .FirstOrDefaultAsync(cancellationToken);
-        return Results.Ok(ev.ToDto(channelName));
-    }
+            .FirstOrDefaultAsync(cancellationToken));
 
     /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs template + re-anchor).</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
@@ -698,7 +707,7 @@ public static class EventEndpoints
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ev.ToDto());
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Deletes an event; deleting a live series occurrence stops its series (skip is the just-this-one verb).</summary>
@@ -795,7 +804,7 @@ public static class EventEndpoints
         await ChannelEndpoints.UpsertSnapshotAsync(
             db, request.ChannelId, ev.GuildId, request.ChannelName, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ev.ToDto());
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Records (or clears) the Discord scheduled event mirroring this event (BotOnly).</summary>
@@ -815,7 +824,7 @@ public static class EventEndpoints
 
         ev.NativeEventId = request.NativeEventId;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ev.ToDto());
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Records (or clears) the Discord thread channel opened on this event's embed (BotOnly).</summary>
@@ -835,7 +844,7 @@ public static class EventEndpoints
 
         ev.ThreadId = request.ThreadId;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ev.ToDto());
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Sets a user's RSVP (self-only for web callers) and syncs the embed for web-side changes.</summary>
@@ -939,7 +948,7 @@ public static class EventEndpoints
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ev.ToDto());
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Clears a user's RSVP (self-only for web callers).</summary>
@@ -995,7 +1004,7 @@ public static class EventEndpoints
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return Results.Ok(ev.ToDto());
+        return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
     /// <summary>Parses natural-language datetime text: explicit TimeZone override, else user zone, else guild zone, else UTC.</summary>
