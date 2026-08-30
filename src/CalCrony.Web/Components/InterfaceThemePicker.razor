@@ -63,32 +63,45 @@
 
     private async Task PickAsync(string themeId)
     {
-        message = null;
-        current = themeId;
-        await Js.InvokeVoidAsync("calcronyTheme.setThemeName", themeId);
-
-        // Parchment is light-first: picked from dark mode it would show no change at all (its
-        // dark face IS Candlelit Slate), so flip the face to make the pick visible.
-        if (themeId == "parchment" && await Js.InvokeAsync<string>("calcronyTheme.getTheme") == "dark")
+        // Guard BEFORE the first await: a second click while a save is in flight would otherwise
+        // interleave two read-modify-write rounds and could persist the losing theme.
+        if (busy)
         {
-            await Js.InvokeVoidAsync("calcronyTheme.setTheme", "light");
-        }
-
-        if (AuthApi.Session is null)
-        {
-            message = "applied on this device";
             return;
         }
 
-        // Read-modify-write: theme rides along without clobbering timezone/DM preferences.
         busy = true;
-        var existing = await Api.GetUserSettingsAsync(AuthApi.Session.UserId);
-        var result = await Api.PutUserSettingsAsync(AuthApi.Session.UserId, new UserSettingsDto(
-            existing.Value?.TimeZone, existing.Value?.DmConfirmations ?? true, themeId));
-        busy = false;
+        message = null;
+        current = themeId;
+        try
+        {
+            await Js.InvokeVoidAsync("calcronyTheme.setThemeName", themeId);
 
-        message = result.Success
-            ? "✓ saved to your account"
-            : $"applied on this device — couldn't save to your account ({result.Error})";
+            // Parchment is light-first: picked from dark mode it would show no change at all (its
+            // dark face IS Candlelit Slate), so flip the face to make the pick visible.
+            if (themeId == "parchment" && await Js.InvokeAsync<string>("calcronyTheme.getTheme") == "dark")
+            {
+                await Js.InvokeVoidAsync("calcronyTheme.setTheme", "light");
+            }
+
+            if (AuthApi.Session is null)
+            {
+                message = "applied on this device";
+                return;
+            }
+
+            // Read-modify-write: theme rides along without clobbering timezone/DM preferences.
+            var existing = await Api.GetUserSettingsAsync(AuthApi.Session.UserId);
+            var result = await Api.PutUserSettingsAsync(AuthApi.Session.UserId, new UserSettingsDto(
+                existing.Value?.TimeZone, existing.Value?.DmConfirmations ?? true, themeId));
+
+            message = result.Success
+                ? "✓ saved to your account"
+                : $"applied on this device — couldn't save to your account ({result.Error})";
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 }
