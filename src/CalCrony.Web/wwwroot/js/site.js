@@ -2,11 +2,17 @@
 // the dark/light/auto FACE ("calcrony-theme", per-device, ThemeToggle) and the interface
 // THEME name ("calcrony-theme-name", per-account via UserSettings, InterfaceThemePicker).
 window.calcronyTheme = {
+    modes: ["dark", "light", "auto"],
     themes: ["slate", "ember", "moss", "parchment", "obsidian"],
+    // Sanitize on read AND write, matching theme-init.js: stale/edited localStorage must never
+    // put an unsupported value on data-bs-theme.
     getTheme: function () {
-        try { return localStorage.getItem("calcrony-theme") || "dark"; } catch { return "dark"; }
+        var mode;
+        try { mode = localStorage.getItem("calcrony-theme"); } catch { mode = null; }
+        return window.calcronyTheme.modes.indexOf(mode) >= 0 ? mode : "dark";
     },
     setTheme: function (theme) {
+        if (window.calcronyTheme.modes.indexOf(theme) < 0) { return; }
         try { localStorage.setItem("calcrony-theme", theme); } catch { /* private mode */ }
         window.calcronyTheme.apply(theme);
     },

@@ -27,6 +27,7 @@
     --cc-accent: #8b93f8;
     --cc-accent-rgb: 139, 147, 248;
     --cc-accent-hover: #a0a7fa;
+    --cc-accent-hover-rgb: 160, 167, 250;
     --cc-accent-press: #6f78ea;
     --cc-accent-soft: rgba(139, 147, 248, 0.13);
     --cc-accent-ink: #12131d;
@@ -47,6 +48,7 @@
     --cc-accent: #d97b3f;
     --cc-accent-rgb: 217, 123, 63;
     --cc-accent-hover: #e28f58;
+    --cc-accent-hover-rgb: 226, 143, 88;
     --cc-accent-press: #b96430;
     --cc-accent-soft: rgba(217, 123, 63, 0.15);
     --cc-accent-ink: #1c1108;
@@ -67,6 +69,7 @@
     --cc-accent: #63b885;
     --cc-accent-rgb: 99, 184, 133;
     --cc-accent-hover: #7cc698;
+    --cc-accent-hover-rgb: 124, 198, 152;
     --cc-accent-press: #4c9a6b;
     --cc-accent-soft: rgba(99, 184, 133, 0.13);
     --cc-accent-ink: #0f1712;
@@ -87,6 +90,7 @@
     --cc-accent: #1098f7;
     --cc-accent-rgb: 16, 152, 247;
     --cc-accent-hover: #4cb2f9;
+    --cc-accent-hover-rgb: 76, 178, 249;
     --cc-accent-press: #0c7ac6;
     --cc-accent-soft: rgba(16, 152, 247, 0.14);
     --cc-accent-ink: #000000;
@@ -109,6 +113,7 @@
     --cc-accent: #444cbe;
     --cc-accent-rgb: 68, 76, 190;
     --cc-accent-hover: #3a41ac;
+    --cc-accent-hover-rgb: 58, 65, 172;
     --cc-accent-press: #333a9a;
     --cc-accent-soft: rgba(68, 76, 190, 0.12);
     --cc-accent-ink: #ffffff;
@@ -129,6 +134,7 @@
     --cc-accent: #8f3d0d;
     --cc-accent-rgb: 143, 61, 13;
     --cc-accent-hover: #7e360b;
+    --cc-accent-hover-rgb: 126, 54, 11;
     --cc-accent-press: #6f2f0a;
     --cc-accent-soft: rgba(143, 61, 13, 0.12);
     --cc-accent-ink: #ffffff;
@@ -149,6 +155,7 @@
     --cc-accent: #1f5f3a;
     --cc-accent-rgb: 31, 95, 58;
     --cc-accent-hover: #1a5232;
+    --cc-accent-hover-rgb: 26, 82, 50;
     --cc-accent-press: #16472b;
     --cc-accent-soft: rgba(31, 95, 58, 0.12);
     --cc-accent-ink: #ffffff;
@@ -169,6 +176,7 @@
     --cc-accent: #4f58c4;
     --cc-accent-rgb: 79, 88, 196;
     --cc-accent-hover: #3f48b0;
+    --cc-accent-hover-rgb: 63, 72, 176;
     --cc-accent-press: #3a42a6;
     --cc-accent-soft: rgba(79, 88, 196, 0.10);
     --cc-accent-ink: #ffffff;
@@ -190,6 +198,7 @@
     --cc-accent: #085a96;
     --cc-accent-rgb: 8, 90, 150;
     --cc-accent-hover: #074e83;
+    --cc-accent-hover-rgb: 7, 78, 131;
     --cc-accent-press: #064470;
     --cc-accent-soft: rgba(8, 90, 150, 0.11);
     --cc-accent-ink: #ffffff;
@@ -216,7 +225,7 @@
     --bs-link-color: var(--cc-accent);
     --bs-link-color-rgb: var(--cc-accent-rgb);
     --bs-link-hover-color: var(--cc-accent-hover);
-    --bs-link-hover-color-rgb: var(--cc-accent-rgb);
+    --bs-link-hover-color-rgb: var(--cc-accent-hover-rgb);
     --bs-focus-ring-color: rgba(var(--cc-accent-rgb), 0.3);
 
     /* App-facing accent names (site.css + inline component styles). */
