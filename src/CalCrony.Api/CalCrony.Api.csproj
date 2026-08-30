@@ -13,7 +13,7 @@
          which the .NET 10 SDK's transitive audit flags as vulnerable (GHSA-68w7-72jg-6qpp).
          Referencing a patched version directly wins resolution; it's a build-tool package,
          nothing from it ships. -->
-    <PackageReference Include="NuGet.CommandLine" Version="7.9.0" PrivateAssets="all" />
+    <PackageReference Include="NuGet.CommandLine" Version="7.9.0" PrivateAssets="all" ExcludeAssets="all" />
     <PackageReference Include="NodaTime" Version="3.3.3" />
     <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.*" />
