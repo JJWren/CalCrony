@@ -22,10 +22,16 @@
         try { localStorage.setItem("calcrony-theme", theme); } catch { /* private mode */ }
         cc.apply(theme);
         // Notify Blazor subscribers (ThemeToggle) so their highlight follows mode changes made
-        // elsewhere — e.g. the picker's Parchment face flip. Dead references are pruned.
-        for (var i = cc.modeWatchers.length - 1; i >= 0; i--) {
-            try { cc.modeWatchers[i].invokeMethodAsync("OnModeChanged", theme); } catch { cc.modeWatchers.splice(i, 1); }
-        }
+        // elsewhere — e.g. the picker's Parchment face flip. invokeMethodAsync returns a Promise:
+        // a disposed reference usually REJECTS rather than throwing synchronously, so dead
+        // watchers are pruned from the rejection handler (the sync catch covers the throw case).
+        cc.modeWatchers.slice().forEach(function (ref) {
+            var pending;
+            try { pending = ref.invokeMethodAsync("OnModeChanged", theme); } catch { cc.unwatchMode(ref); return; }
+            if (pending && typeof pending.catch === "function") {
+                pending.catch(function () { cc.unwatchMode(ref); });
+            }
+        });
     };
 
     cc.apply = function (theme) {
