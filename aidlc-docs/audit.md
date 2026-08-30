@@ -169,7 +169,7 @@
 
 ## Construction — d20 brand mark + favicon (issue #85)
 **Timestamp**: 2026-08-30T13:45:00Z
-**User Input**: "I am working the merge on the chore now. I noticed from the theme revamp that we did not do the d20 log as shown in the artifacts (https://claude.ai/code/artifact/86e8f2e8-4b99-4133-8bb6-1de3c79b5bf5?org=9ed274a7-3204-4e11-8a13-12c893e2e2b1) nor did we add the favicon (I assume would also be the d20)."
+**User Input**: "I am working the merge on the chore now. I noticed from the theme revamp that we did not do the d20 log as shown in the artifacts (https://claude.ai/code/artifact/86e8f2e8-4b99-4133-8bb6-1de3c79b5bf5?org=[redacted]) nor did we add the favicon (I assume would also be the d20)."
 **AI Response**: Read the CalCrony Design Refresh canvas, extracted the d20 wireframe SVG (full 9-strut "d20 mark + favicon" + simplified 5-strut navbar lockup variant). Filed issue #85; implementing BrandMark.razor (currentColor + accent CSS) in topbar and sidebar lockups, favicon.svg + index.html icon link, bUnit tests.
 **Context**: Construction on feature/d20-brand-mark; Joshua handles release PR #84 merge himself.
 
