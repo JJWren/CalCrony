@@ -26,7 +26,7 @@
 
 ## Plan Revision Request
 **Timestamp**: 2026-07-17T00:00:00Z
-**User Input**: "I am going to go with option 1, but first thing that is needed is a private repo establish on github for this. We shall call the app CalCrony. This should link to a local repo by the same name located within \"C:\\Users\\joshu\\source\\repos\"."
+**User Input**: "I am going to go with option 1, but first thing that is needed is a private repo establish on github for this. We shall call the app CalCrony. This should link to a local repo by the same name located within `C:\\Users\\joshu\\source\\repos`."
 **AI Response**: Renamed project to CalCrony throughout plan; added Milestone 0 (private GitHub repo + local repo at C:\Users\joshu\source\repos\CalCrony); resubmitted plan.
 **Context**: Inception — Workflow Planning revision.
 
@@ -193,5 +193,13 @@
 **User Input**: "While we are here, is this issue still being worked? https://github.com/JJWren/CalCrony/issues/80" (answered: unworked; user picked "Yes, work it next")
 **AI Response**: EventDto gains trailing ChannelName (null default; single-event GET joins the Channels snapshot table — list views deliberately skip it). EventDetail: back link names the server (from the /me/guilds fetch the page already made), 💬 #channel chip, and an Open-in-Discord jump link when MessageId exists; all omit gracefully. Tests: EventApiTests snapshot round-trip + EventContextComponentTests (2 bUnit).
 **Context**: Construction on feature/web-event-context.
+
+---
+
+## Construction — Navbar brand simplification + callouts issue filed
+**Timestamp**: 2026-08-30T19:20:00Z
+**User Input**: "Shipping to prod is fine here. I would like to see “Events - Calendars - Discord” removed from under the logo and the CalCrony centered vertically to the right of the d20. We already state these things at the top of the homepage view and they are bleeding off the side navbar. It would better for them not to be in the navbar. Also, for the warning sections / etc, we need to implement the callouts from our CalCrony design system (https://claude.ai/design/p/4f922f52-55b3-42de-a5ee-18b3dfb63598). If you cannot see this or access it, do not implement. We will need to make sure you can see the design before doing this work. However, we can file the issue."
+**AI Response**: Verified design access: DesignSync unauthorized (/design-login needed) and the saved canvas has zero callout components — per instruction, filed issue #93 only, no implementation. Navbar: wordmark-sub tagline removed from NavMenu (with orphaned CSS), wordmark now centers vertically beside the d20 via the existing align-items-center lockup. Prod ship of the rolling release to follow once this merges.
+**Context**: Construction on fix/navbar-brand-simplify; then release merge + prod deploy.
 
 ---
