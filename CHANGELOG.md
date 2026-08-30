@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/JJWren/CalCrony/compare/v0.17.3...v0.18.0) (2026-08-30)
+
+
+### Features
+
+* interface themes — five two-faced themes with per-user selection ([#79](https://github.com/JJWren/CalCrony/issues/79)) ([b7baa9d](https://github.com/JJWren/CalCrony/commit/b7baa9d3cbc9ac12fa670bef8603a9443f4d22ac))
+
 ## [0.17.3](https://github.com/JJWren/CalCrony/compare/v0.17.2...v0.17.3) (2026-08-29)
 
 
