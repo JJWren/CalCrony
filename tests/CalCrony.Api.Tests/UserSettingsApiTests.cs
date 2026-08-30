@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using CalCrony.Api.Data;
 using CalCrony.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Api.Tests;
 
@@ -42,6 +44,22 @@ public class UserSettingsApiTests(WebAuthFixture fixture) : IClassFixture<WebAut
         Assert.Contains("slate", error!.Error);
 
         var fetched = await fixture.Client.GetFromJsonAsync<UserSettingsDto>("/users/8102/settings");
+        Assert.Null(fetched!.Theme);
+    }
+
+    [Fact]
+    public async Task Stale_stored_theme_reads_as_null_instead_of_leaking_to_clients()
+    {
+        // A theme id that later gets renamed/retired must never reach clients: seed one directly
+        // (PUT would reject it) and confirm GET reports the default instead.
+        using (var scope = fixture.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            db.UserProfiles.Add(new UserProfile { Id = 8105, Theme = "retired-theme" });
+            await db.SaveChangesAsync();
+        }
+
+        var fetched = await fixture.Client.GetFromJsonAsync<UserSettingsDto>("/users/8105/settings");
         Assert.Null(fetched!.Theme);
     }
 
