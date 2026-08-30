@@ -4,9 +4,9 @@
 @* Words are .nav-label so the collapsed rail (which hides labels and stacks the group
    vertically via .theme-toggle CSS) shows just the glyphs, with titles as the fallback. *@
 <div class="btn-group btn-group-sm w-100 theme-toggle" role="group" aria-label="Theme">
-    <button type="button" title="Dark" class="btn @(current == "dark" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("dark")'><span aria-hidden="true">●</span><span class="nav-label"> Dark</span></button>
-    <button type="button" title="Light" class="btn @(current == "light" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("light")'><span aria-hidden="true">○</span><span class="nav-label"> Light</span></button>
-    <button type="button" title="Auto" class="btn @(current == "auto" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("auto")'><span aria-hidden="true">◐</span><span class="nav-label"> Auto</span></button>
+    <button type="button" title="Dark" aria-label="Dark" class="btn @(current == "dark" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("dark")'><span aria-hidden="true">●</span><span class="nav-label"> Dark</span></button>
+    <button type="button" title="Light" aria-label="Light" class="btn @(current == "light" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("light")'><span aria-hidden="true">○</span><span class="nav-label"> Light</span></button>
+    <button type="button" title="Auto" aria-label="Auto" class="btn @(current == "auto" ? "btn-outline-primary active" : "btn-outline-secondary")" @onclick='() => SetAsync("auto")'><span aria-hidden="true">◐</span><span class="nav-label"> Auto</span></button>
 </div>
 
 @code {
