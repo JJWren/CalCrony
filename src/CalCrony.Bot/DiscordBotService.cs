@@ -1,4 +1,5 @@
 using CalCrony.Bot.Api;
+using CalCrony.Contracts;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -31,6 +32,8 @@ public sealed class DiscordBotService(
         client.InteractionCreated += OnInteractionAsync;
         client.JoinedGuild += OnJoinedGuildAsync;
         client.LeftGuild += OnLeftGuildAsync;
+        client.GuildUpdated += OnGuildUpdatedAsync;
+        client.ChannelUpdated += OnChannelUpdatedAsync;
 
         await interactions.AddModulesAsync(typeof(DiscordBotService).Assembly, services);
 
@@ -70,9 +73,11 @@ public sealed class DiscordBotService(
             logger.LogInformation("Registered slash commands globally.");
         }
 
-        // Full reconcile: catches joins/leaves that happened while the bot was offline and
-        // repopulates presence after a fresh database (e.g. the test stack's nightly reset).
-        var result = await api.SyncGuildPresenceAsync([.. client.Guilds.Select(g => (long)g.Id)]);
+        // Full reconcile: catches joins/leaves (and renames) that happened while the bot was
+        // offline and repopulates presence + name snapshots after a fresh database (e.g. the
+        // test stack's nightly reset).
+        var result = await api.SyncGuildPresenceAsync(
+            [.. client.Guilds.Select(g => new GuildSnapshotDto((long)g.Id, g.Name))]);
         if (result is { Success: true, Value: { } counts })
         {
             logger.LogInformation(
@@ -83,16 +88,95 @@ public sealed class DiscordBotService(
             logger.LogWarning(
                 "Guild presence sync failed: {Error}", result.Error ?? "empty response body");
         }
+
+        await ReconcileChannelNamesAsync();
+    }
+
+    /// <summary>Refreshes channel-name snapshots for every channel the API references — heals a
+    /// fresh database and picks up renames missed while offline. Channels that no longer resolve
+    /// (deleted, or a guild the bot left) are simply skipped: their stored snapshot stays as the
+    /// last-known name.</summary>
+    private async Task ReconcileChannelNamesAsync()
+    {
+        var referenced = await api.GetReferencedChannelsAsync();
+        if (referenced is not { Success: true, Value: { } response })
+        {
+            logger.LogWarning(
+                "Referenced-channel lookup failed: {Error}", referenced.Error ?? "empty response body");
+            return;
+        }
+
+        var snapshots = new List<ChannelSnapshotDto>();
+        foreach (var reference in response.Channels)
+        {
+            var name = client.GetGuild((ulong)reference.GuildId)?.GetChannel((ulong)reference.ChannelId)?.Name;
+            if (name is not null)
+            {
+                snapshots.Add(new ChannelSnapshotDto(reference.ChannelId, reference.GuildId, name));
+            }
+        }
+
+        if (snapshots.Count == 0)
+        {
+            return;
+        }
+
+        var synced = await api.SyncChannelsAsync(snapshots);
+        if (synced.Success)
+        {
+            logger.LogInformation("Synced {Count} channel-name snapshots.", snapshots.Count);
+        }
+        else
+        {
+            logger.LogWarning("Channel-name sync failed: {Error}", synced.Error);
+        }
     }
 
     /// <summary>Marks the guild bot-present so it appears in the web app immediately after an invite.</summary>
     /// <param name="guild">The guild the bot joined.</param>
     private async Task OnJoinedGuildAsync(SocketGuild guild)
     {
-        var result = await api.SetGuildPresenceAsync((long)guild.Id, present: true);
+        var result = await api.SetGuildPresenceAsync((long)guild.Id, present: true, guild.Name);
         if (!result.Success)
         {
             logger.LogWarning("Failed to record join of guild {GuildId}: {Error}", guild.Id, result.Error);
+        }
+    }
+
+    /// <summary>Keeps the guild-name snapshot fresh when a server renames itself.</summary>
+    /// <param name="before">The guild before the update.</param>
+    /// <param name="after">The guild after the update.</param>
+    private async Task OnGuildUpdatedAsync(SocketGuild before, SocketGuild after)
+    {
+        if (before.Name == after.Name)
+        {
+            return;
+        }
+
+        var result = await api.SetGuildPresenceAsync((long)after.Id, present: true, after.Name);
+        if (!result.Success)
+        {
+            logger.LogWarning("Failed to record rename of guild {GuildId}: {Error}", after.Id, result.Error);
+        }
+    }
+
+    /// <summary>Keeps channel-name snapshots fresh when a channel is renamed. The API updates
+    /// existing snapshots only, so renames of channels CalCrony never references are no-ops.</summary>
+    /// <param name="before">The channel before the update.</param>
+    /// <param name="after">The channel after the update.</param>
+    private async Task OnChannelUpdatedAsync(SocketChannel before, SocketChannel after)
+    {
+        if (before is not SocketGuildChannel oldChannel
+            || after is not SocketGuildChannel newChannel
+            || oldChannel.Name == newChannel.Name)
+        {
+            return;
+        }
+
+        var result = await api.SetChannelNameAsync((long)newChannel.Id, newChannel.Name);
+        if (!result.Success)
+        {
+            logger.LogWarning("Failed to record rename of channel {ChannelId}: {Error}", newChannel.Id, result.Error);
         }
     }
 

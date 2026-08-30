@@ -786,6 +786,8 @@ public static class EventEndpoints
 
         ev.ChannelId = request.ChannelId;
         ev.MessageId = request.MessageId;
+        await ChannelEndpoints.UpsertSnapshotAsync(
+            db, request.ChannelId, ev.GuildId, request.ChannelName, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ev.ToDto());
     }

@@ -144,20 +144,43 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<GuildSettingsDto>> PutGuildSettingsAsync(long guildId, GuildSettingsDto settings, CancellationToken ct = default) =>
         SendAsync<GuildSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/settings", settings, ct), ct);
 
-    /// <summary>Records a single guild presence change (bot joined or left).</summary>
+    /// <summary>Records a single guild presence change (bot joined or left), optionally with a
+    /// guild-name snapshot (renames report present with the new name).</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="present">Whether the bot is now in the guild.</param>
+    /// <param name="name">The guild's current Discord name; null leaves the stored snapshot untouched.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<Unit>> SetGuildPresenceAsync(long guildId, bool present, CancellationToken ct = default) =>
-        SendAsync<Unit>(http.PutAsJsonAsync($"/guilds/{guildId}/presence", new GuildPresenceRequest(present), ct), ct);
+    public Task<ApiResult<Unit>> SetGuildPresenceAsync(long guildId, bool present, string? name = null, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PutAsJsonAsync($"/guilds/{guildId}/presence", new GuildPresenceRequest(present, name), ct), ct);
 
-    /// <summary>Reconciles presence against the bot's full current guild list (called at Ready).</summary>
-    /// <param name="guildIds">Every guild id the bot is currently in.</param>
+    /// <summary>Reconciles presence and guild-name snapshots against the bot's full current guild list (called at Ready).</summary>
+    /// <param name="guilds">Every guild the bot is currently in, with current names.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<SyncGuildPresenceResponse>> SyncGuildPresenceAsync(IReadOnlyList<long> guildIds, CancellationToken ct = default) =>
-        SendAsync<SyncGuildPresenceResponse>(http.PutAsJsonAsync("/guilds/presence/sync", new SyncGuildPresenceRequest(guildIds), ct), ct);
+    public Task<ApiResult<SyncGuildPresenceResponse>> SyncGuildPresenceAsync(IReadOnlyList<GuildSnapshotDto> guilds, CancellationToken ct = default) =>
+        SendAsync<SyncGuildPresenceResponse>(http.PutAsJsonAsync("/guilds/presence/sync", new SyncGuildPresenceRequest(guilds), ct), ct);
+
+    /// <summary>Lists the channels the API references and wants name snapshots for (called at Ready).</summary>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<ReferencedChannelsResponse>> GetReferencedChannelsAsync(CancellationToken ct = default) =>
+        SendAsync<ReferencedChannelsResponse>(http.GetAsync("/channels/referenced", ct), ct);
+
+    /// <summary>Bulk-upserts channel-name snapshots (the Ready-time channel reconcile).</summary>
+    /// <param name="channels">The resolved snapshots.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> SyncChannelsAsync(IReadOnlyList<ChannelSnapshotDto> channels, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PutAsJsonAsync("/channels/sync", new SyncChannelsRequest(channels), ct), ct);
+
+    /// <summary>Records a channel rename (updates an existing snapshot only).</summary>
+    /// <param name="channelId">The Discord channel id.</param>
+    /// <param name="name">The channel's new name.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> SetChannelNameAsync(long channelId, string name, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PutAsJsonAsync($"/channels/{channelId}/name", new ChannelNameRequest(name), ct), ct);
 
     /// <summary>Reads a user's personal settings.</summary>
     /// <param name="userId">The Discord user id.</param>

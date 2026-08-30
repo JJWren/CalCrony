@@ -31,6 +31,7 @@ public class ApiFixture : IAsyncLifetime
             b.UseSetting("Database:AutoMigrate", "true");
             b.UseSetting("Auth:BootstrapApiKey", ApiKeyValue);
             b.UseSetting("Scheduler:Enabled", "false");
+            b.UseSetting("Web:Origin", "https://web.test");
             ConfigureWebHost(b);
             b.ConfigureTestServices(ConfigureTestServices);
         });
