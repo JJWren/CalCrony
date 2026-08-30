@@ -212,7 +212,7 @@
 ## Construction — sitemap.xml + robots.txt
 **Timestamp**: 2026-08-30T20:28:00Z
 **User Input**: "We need to add a sitemap.xml asap and ship it."
-**AI Response**: Static sitemap.xml (/, /docs, /privacy, /terms — /login and auth-gated /app/* excluded) + robots.txt (Disallow /app/, Sitemap pointer) in wwwroot, served by nginx like every other static asset. Shipped via the standard gate; rides the next release cut alongside the .NET 10 upgrade (#98).
+**AI Response**: Static sitemap.xml (/, /docs, /privacy, /terms — /login and auth-gated /app routes excluded) + robots.txt (Disallow /app and /login, Sitemap pointer) in wwwroot, served by nginx like every other static asset. Shipped via the standard gate; rides the next release cut alongside the .NET 10 upgrade (#98).
 **Context**: Construction on feature/sitemap.
 
 ---

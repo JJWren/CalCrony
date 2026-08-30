@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Public, indexable pages only: /login and the auth-gated /app/* routes are deliberately
+<!-- Public, indexable pages only: /login and the auth-gated /app routes (the bare route and everything beneath it) are deliberately
      absent. URLs are absolute against the hosted instance's origin. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>

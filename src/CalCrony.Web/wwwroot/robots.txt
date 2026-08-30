@@ -1,4 +1,4 @@
-# The app area is auth-gated and has nothing to index; everything else is welcome.
+# The auth-gated app area and the login redirect have nothing to index; everything else is welcome.
 User-agent: *
 Disallow: /app
 Disallow: /login
