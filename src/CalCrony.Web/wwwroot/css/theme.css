@@ -269,8 +269,13 @@
     --bs-btn-active-bg: var(--cc-accent);
     --bs-btn-active-border-color: var(--cc-accent);
     --bs-btn-active-color: var(--cc-accent-ink);
+    --bs-btn-disabled-color: var(--cc-accent);
+    --bs-btn-disabled-border-color: var(--cc-accent);
 }
 
+/* Disabled states are set on every button variant below too — an unset --bs-btn-disabled-*
+   falls back to Bootstrap's COMPILED colors, quietly reintroducing the stock-gray/blue leaks
+   this file exists to remove. Bootstrap's own disabled opacity does the dimming. */
 .btn-secondary {
     --bs-btn-bg: var(--cc-muted);
     --bs-btn-border-color: var(--cc-muted);
@@ -281,6 +286,9 @@
     --bs-btn-active-bg: var(--cc-muted);
     --bs-btn-active-border-color: var(--cc-muted);
     --bs-btn-active-color: var(--cc-ground);
+    --bs-btn-disabled-bg: var(--cc-muted);
+    --bs-btn-disabled-border-color: var(--cc-muted);
+    --bs-btn-disabled-color: var(--cc-base);
 }
 
 /* Compiled Bootstrap hardcodes gray here; theme it like the rest of the muted scale. */
@@ -293,6 +301,8 @@
     --bs-btn-active-bg: var(--cc-raised);
     --bs-btn-active-border-color: var(--cc-muted);
     --bs-btn-active-color: var(--cc-text);
+    --bs-btn-disabled-color: var(--cc-muted);
+    --bs-btn-disabled-border-color: var(--cc-muted);
 }
 
 /* Cards sit on the raised surface instead of inheriting the body color — the old palette drew

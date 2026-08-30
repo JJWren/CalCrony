@@ -1,48 +1,56 @@
 // Theme helpers invoked from Blazor. Two independent choices (issue #78):
 // the dark/light/auto FACE ("calcrony-theme", per-device, ThemeToggle) and the interface
 // THEME name ("calcrony-theme-name", per-account via UserSettings, InterfaceThemePicker).
-window.calcronyTheme = {
-    modes: ["dark", "light", "auto"],
-    themes: ["slate", "ember", "moss", "parchment", "obsidian"],
+// The valid-id arrays live on window.calcronyTheme, seeded by theme-init.js before first
+// paint; the fallbacks below only matter if theme-init ever failed to run.
+(function () {
+    var cc = window.calcronyTheme = window.calcronyTheme || {};
+    cc.modes = cc.modes || ["dark", "light", "auto"];
+    cc.themes = cc.themes || ["slate", "ember", "moss", "parchment", "obsidian"];
+    cc.modeWatchers = [];
+
     // Sanitize on read AND write, matching theme-init.js: stale/edited localStorage must never
     // put an unsupported value on data-bs-theme.
-    getTheme: function () {
+    cc.getTheme = function () {
         var mode;
         try { mode = localStorage.getItem("calcrony-theme"); } catch { mode = null; }
-        return window.calcronyTheme.modes.indexOf(mode) >= 0 ? mode : "dark";
-    },
-    setTheme: function (theme) {
-        if (window.calcronyTheme.modes.indexOf(theme) < 0) { return; }
+        return cc.modes.indexOf(mode) >= 0 ? mode : "dark";
+    };
+
+    cc.setTheme = function (theme) {
+        if (cc.modes.indexOf(theme) < 0) { return; }
         try { localStorage.setItem("calcrony-theme", theme); } catch { /* private mode */ }
-        window.calcronyTheme.apply(theme);
+        cc.apply(theme);
         // Notify Blazor subscribers (ThemeToggle) so their highlight follows mode changes made
         // elsewhere — e.g. the picker's Parchment face flip. Dead references are pruned.
-        var watchers = window.calcronyTheme.modeWatchers;
-        for (var i = watchers.length - 1; i >= 0; i--) {
-            try { watchers[i].invokeMethodAsync("OnModeChanged", theme); } catch { watchers.splice(i, 1); }
+        for (var i = cc.modeWatchers.length - 1; i >= 0; i--) {
+            try { cc.modeWatchers[i].invokeMethodAsync("OnModeChanged", theme); } catch { cc.modeWatchers.splice(i, 1); }
         }
-    },
-    modeWatchers: [],
-    watchMode: function (dotnetRef) {
-        window.calcronyTheme.modeWatchers.push(dotnetRef);
-    },
-    apply: function (theme) {
+    };
+
+    cc.apply = function (theme) {
         var resolved = theme === "auto"
             ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
             : theme;
         document.documentElement.setAttribute("data-bs-theme", resolved);
-    },
-    getThemeName: function () {
+    };
+
+    cc.getThemeName = function () {
         var name;
         try { name = localStorage.getItem("calcrony-theme-name"); } catch { name = null; }
-        return window.calcronyTheme.themes.indexOf(name) >= 0 ? name : "slate";
-    },
-    setThemeName: function (name) {
-        if (window.calcronyTheme.themes.indexOf(name) < 0) { return; }
+        return cc.themes.indexOf(name) >= 0 ? name : "slate";
+    };
+
+    cc.setThemeName = function (name) {
+        if (cc.themes.indexOf(name) < 0) { return; }
         try { localStorage.setItem("calcrony-theme-name", name); } catch { /* private mode */ }
         document.documentElement.setAttribute("data-cc-theme", name);
-    }
-};
+    };
+
+    cc.watchMode = function (dotnetRef) {
+        cc.modeWatchers.push(dotnetRef);
+    };
+})();
 
 // Closes the mobile nav drawer after a navigation. Called from Blazor on LocationChanged —
 // NOT via data-bs-dismiss on the links, which preventDefault()s anchors and breaks routing.

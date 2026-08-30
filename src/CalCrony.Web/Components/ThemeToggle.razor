@@ -37,6 +37,12 @@
             return;
         }
 
+        // JS-invokable: never trust the payload — an unexpected value must not become UI state.
+        if (mode is not ("dark" or "light" or "auto"))
+        {
+            return;
+        }
+
         current = mode;
         StateHasChanged();
     }

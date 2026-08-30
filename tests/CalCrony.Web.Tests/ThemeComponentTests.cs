@@ -145,6 +145,10 @@ public class ThemeComponentTests : TestContext
 
         Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Light").ClassName);
         Assert.DoesNotContain("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Dark").ClassName ?? "");
+
+        // The callback is JS-invokable: an unexpected payload must be ignored, not become state.
+        await cut.InvokeAsync(() => cut.Instance.OnModeChanged("banana"));
+        Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Light").ClassName);
     }
 
     private CapturingHandler UseApi()
