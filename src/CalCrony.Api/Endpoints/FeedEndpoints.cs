@@ -69,13 +69,17 @@ public static class FeedEndpoints
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> GetFeed(
-        string token, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
+        string token, CalCronyDbContext db, IClock clock, IConfiguration configuration, CancellationToken cancellationToken)
     {
         var feedToken = await db.IcsFeedTokens.FirstOrDefaultAsync(t => t.Token == token, cancellationToken);
         if (feedToken is null)
         {
             return Results.NotFound();
         }
+
+        var guild = await db.Guilds.FirstOrDefaultAsync(g => g.Id == feedToken.GuildId, cancellationToken);
+        var webOrigin = (configuration["Web:Origin"] ?? "").TrimEnd('/');
+        var guildEventsUrl = webOrigin.Length == 0 ? null : $"{webOrigin}/app/guilds/{feedToken.GuildId}/events";
 
         // Include a month of history so recently finished events don't vanish from subscribers.
         var now = clock.GetCurrentInstant();
@@ -89,8 +93,23 @@ public static class FeedEndpoints
             .ToListAsync(cancellationToken);
 
         var calendar = new Ical.Net.Calendar();
-        calendar.AddProperty("X-WR-CALNAME", "CalCrony events");
+        // The server name lives at the calendar level (a per-feed constant), not in every event.
+        calendar.AddProperty("X-WR-CALNAME",
+            guild?.Name is { Length: > 0 } guildName ? $"CalCrony · {guildName}" : "CalCrony events");
         calendar.AddProperty("METHOD", "PUBLISH");
+
+        // Channel-name snapshots for every channel this feed will render; missing rows just
+        // omit the channel line (names degrade gracefully — see docs/adr/0001).
+        var gapSeries = await db.EventSeries
+            .Where(s => s.GuildId == feedToken.GuildId && !s.Ended)
+            .ToListAsync(cancellationToken);
+        var channelIds = events.Select(e => e.ChannelId)
+            .Concat(gapSeries.Select(s => s.ChannelId))
+            .Distinct()
+            .ToList();
+        var channelNames = await db.Channels
+            .Where(c => channelIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
 
         foreach (var ev in events)
         {
@@ -100,20 +119,28 @@ public static class FeedEndpoints
                 continue;
             }
 
+            var eventUrl = webOrigin.Length == 0 ? null : $"{webOrigin}/app/events/{ev.Id}";
+            var discordUrl = ev.MessageId is { } messageId
+                ? $"https://discord.com/channels/{ev.GuildId}/{ev.ChannelId}/{messageId}"
+                : null;
             var start = ev.StartsAt.ToDateTimeUtc();
             calendar.Events.Add(new CalendarEvent
             {
                 Uid = $"{ev.Id}@calcrony",
                 Summary = ev.Title,
-                Description = ev.Description,
+                Description = BuildDescription(
+                    ev.Description, channelNames.GetValueOrDefault(ev.ChannelId), "Event page", eventUrl, discordUrl),
                 Location = ev.Location,
+                Url = eventUrl is null ? null : new Uri(eventUrl),
                 DtStart = new CalDateTime(start),
                 DtEnd = new CalDateTime(start.AddMinutes(ev.DurationMinutes ?? 60)),
                 DtStamp = new CalDateTime(ev.CreatedAt.ToDateTimeUtc()),
             });
         }
 
-        // One RRULE VEVENT per running series, anchored on its live occurrence.
+        // One RRULE VEVENT per running series, anchored on its live occurrence. Series VEVENTs
+        // link to the guild's events list — the live occurrence (and its Discord message)
+        // rotates every cycle, so nothing durable may point at it.
         var liveBySeries = events
             .Where(IsLiveSeriesOccurrence)
             .ToDictionary(e => e.SeriesId!.Value);
@@ -121,14 +148,14 @@ public static class FeedEndpoints
         {
             AddSeriesEvent(
                 calendar, live.Series!, live.StartsAt, anchorIsCounted: true,
-                live.Title, live.Description, live.Location, live.DurationMinutes);
+                live.Title,
+                BuildDescription(
+                    live.Description, channelNames.GetValueOrDefault(live.ChannelId), "Events page", guildEventsUrl, discordUrl: null),
+                live.Location, live.DurationMinutes, guildEventsUrl);
         }
 
         // A series can briefly lack a live occurrence (between an end/skip and the sweep's next
         // spawn) — project it from the computed next slot so it never vanishes from the feed.
-        var gapSeries = await db.EventSeries
-            .Where(s => s.GuildId == feedToken.GuildId && !s.Ended)
-            .ToListAsync(cancellationToken);
         foreach (var series in gapSeries.Where(s => !liveBySeries.ContainsKey(s.Id)))
         {
             // NextOccurrence knows nothing about counts (the materializer enforces those), so a
@@ -149,7 +176,10 @@ public static class FeedEndpoints
 
             AddSeriesEvent(
                 calendar, series, next.Value.Instant, anchorIsCounted: false,
-                series.Title, series.Description, series.Location, series.DurationMinutes);
+                series.Title,
+                BuildDescription(
+                    series.Description, channelNames.GetValueOrDefault(series.ChannelId), "Events page", guildEventsUrl, discordUrl: null),
+                series.Location, series.DurationMinutes, guildEventsUrl);
         }
 
         var text = new CalendarSerializer().SerializeToString(calendar);
@@ -172,12 +202,13 @@ public static class FeedEndpoints
     /// <param name="startsAt">The DTSTART instant (live occurrence start, or the computed next slot).</param>
     /// <param name="anchorIsCounted">Whether DTSTART is an already-counted occurrence (shifts COUNT math).</param>
     /// <param name="title">The event title.</param>
-    /// <param name="description">Optional description text.</param>
+    /// <param name="description">Optional description text (metadata block already applied).</param>
     /// <param name="location">Optional location text.</param>
     /// <param name="durationMinutes">Duration in minutes.</param>
+    /// <param name="url">Optional web URL for the ICS URL property.</param>
     private static void AddSeriesEvent(
         Ical.Net.Calendar calendar, EventSeries series, Instant startsAt, bool anchorIsCounted,
-        string title, string? description, string? location, int? durationMinutes)
+        string title, string? description, string? location, int? durationMinutes, string? url)
     {
         var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
         CalDateTime dtStart;
@@ -206,11 +237,49 @@ public static class FeedEndpoints
             Summary = title,
             Description = description,
             Location = location,
+            Url = url is null ? null : new Uri(url),
             DtStart = dtStart,
             DtEnd = dtEnd,
             DtStamp = new CalDateTime(series.CreatedAt.ToDateTimeUtc()),
         };
         vevent.RecurrenceRule = Services.IcsRecurrence.BuildPattern(series, anchorIsCounted);
         calendar.Events.Add(vevent);
+    }
+
+    /// <summary>Appends the Discord-context metadata block (channel, web link, Discord jump link)
+    /// below the user's own description text. Every line is optional and missing pieces are
+    /// simply omitted — with nothing to add, the user's text passes through untouched.</summary>
+    /// <param name="text">The user-entered description.</param>
+    /// <param name="channelName">The channel-name snapshot, or null when none is stored.</param>
+    /// <param name="pageLabel">Label for the web link ("Event page" / "Events page").</param>
+    /// <param name="pageUrl">The web link, or null when Web:Origin isn't configured.</param>
+    /// <param name="discordUrl">The Discord message jump link, or null when there's no message.</param>
+    /// <returns>The composed DESCRIPTION value.</returns>
+    private static string? BuildDescription(
+        string? text, string? channelName, string pageLabel, string? pageUrl, string? discordUrl)
+    {
+        var lines = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(channelName))
+        {
+            lines.Add($"📍 #{channelName}");
+        }
+
+        if (pageUrl is not null)
+        {
+            lines.Add($"🔗 {pageLabel}: {pageUrl}");
+        }
+
+        if (discordUrl is not null)
+        {
+            lines.Add($"💬 Open in Discord: {discordUrl}");
+        }
+
+        if (lines.Count == 0)
+        {
+            return text;
+        }
+
+        var block = string.Join('\n', lines);
+        return string.IsNullOrWhiteSpace(text) ? block : $"{text}\n\n{block}";
     }
 }

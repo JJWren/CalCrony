@@ -144,7 +144,9 @@ public record EventDto(
 /// <summary>Records where the bot posted an event's embed (bot-only; only the bot knows message ids).</summary>
 /// <param name="ChannelId">The Discord channel id.</param>
 /// <param name="MessageId">The Discord message id.</param>
-public record SetEventMessageRequest(long ChannelId, long MessageId);
+/// <param name="ChannelName">The channel's current Discord name, upserted as a name snapshot;
+/// null skips the snapshot.</param>
+public record SetEventMessageRequest(long ChannelId, long MessageId, string? ChannelName = null);
 
 /// <summary>Records the Discord Guild Scheduled Event mirroring an event (bot-only). Null clears
 /// a stale id after the native event was deleted Discord-side.</summary>

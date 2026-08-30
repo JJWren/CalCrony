@@ -14,6 +14,11 @@ public static class FieldLimits
     public const int NotificationMentions = 256;
     public const int ReminderText = 1024;
 
+    // Discord's own caps for guild and channel names; snapshots longer than this are truncated
+    // rather than rejected (they're best-effort bot reports, not user input).
+    public const int GuildName = 100;
+    public const int ChannelName = 100;
+
     /// <summary>Ceiling for durations and notification lead times: 4 weeks in minutes. A larger
     /// lead time would just fire immediately today, so nonsense becomes a friendly 400 instead.</summary>
     public const int MaxMinutes = 40320;

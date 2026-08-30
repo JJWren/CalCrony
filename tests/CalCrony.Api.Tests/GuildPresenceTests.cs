@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using CalCrony.Api.Data;
 using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Api.Tests;
 
@@ -63,7 +66,7 @@ public class GuildPresenceTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
 
         // The bot reports it is only in 7104 now: 7103 becomes absent, 7104 is created present.
         var sync = await fixture.Client.PutAsJsonAsync(
-            "/guilds/presence/sync", new SyncGuildPresenceRequest([7104]));
+            "/guilds/presence/sync", new SyncGuildPresenceRequest([new(7104, "Joined Offline")]));
         sync.EnsureSuccessStatusCode();
         var counts = await sync.Content.ReadFromJsonAsync<SyncGuildPresenceResponse>();
         Assert.Equal(1, counts!.Present);
@@ -72,6 +75,34 @@ public class GuildPresenceTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         var guilds = await client.GetFromJsonAsync<WebGuildListResponse>("/me/guilds");
         var guild = Assert.Single(guilds!.Guilds);
         Assert.Equal(7104, guild.Id);
+    }
+
+    [Fact]
+    public async Task Presence_reports_maintain_the_guild_name_snapshot()
+    {
+        var join = await fixture.Client.PutAsJsonAsync(
+            "/guilds/7106/presence", new GuildPresenceRequest(true, "Original"));
+        Assert.Equal(HttpStatusCode.NoContent, join.StatusCode);
+        Assert.Equal("Original", await NameAsync(7106));
+
+        // Leaves send no name — the last-known snapshot survives for historical rendering.
+        var leave = await fixture.Client.PutAsJsonAsync(
+            "/guilds/7106/presence", new GuildPresenceRequest(false));
+        leave.EnsureSuccessStatusCode();
+        Assert.Equal("Original", await NameAsync(7106));
+
+        // The Ready-time sync refreshes names for listed guilds (renames missed while offline).
+        var sync = await fixture.Client.PutAsJsonAsync(
+            "/guilds/presence/sync", new SyncGuildPresenceRequest([new(7106, "Renamed")]));
+        sync.EnsureSuccessStatusCode();
+        Assert.Equal("Renamed", await NameAsync(7106));
+    }
+
+    private async Task<string?> NameAsync(long guildId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        return (await db.Guilds.AsNoTracking().FirstOrDefaultAsync(g => g.Id == guildId))?.Name;
     }
 
     [Fact]
@@ -89,7 +120,7 @@ public class GuildPresenceTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         var put = await client.PutAsJsonAsync("/guilds/7105/presence", new GuildPresenceRequest(true));
         Assert.Equal(HttpStatusCode.Forbidden, put.StatusCode);
 
-        var sync = await client.PutAsJsonAsync("/guilds/presence/sync", new SyncGuildPresenceRequest([7105]));
+        var sync = await client.PutAsJsonAsync("/guilds/presence/sync", new SyncGuildPresenceRequest([new(7105)]));
         Assert.Equal(HttpStatusCode.Forbidden, sync.StatusCode);
     }
 }

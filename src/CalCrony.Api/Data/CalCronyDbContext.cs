@@ -8,6 +8,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 {
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<Guild> Guilds => Set<Guild>();
+    public DbSet<Channel> Channels => Set<Channel>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<RsvpOption> RsvpOptions => Set<RsvpOption>();
@@ -43,6 +44,14 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             e.Property(g => g.Id).ValueGeneratedNever();
             e.Property(g => g.TimeZone).HasMaxLength(64);
+            e.Property(g => g.Name).HasMaxLength(FieldLimits.GuildName);
+        });
+
+        modelBuilder.Entity<Channel>(e =>
+        {
+            e.Property(c => c.Id).ValueGeneratedNever();
+            e.Property(c => c.Name).HasMaxLength(FieldLimits.ChannelName);
+            e.HasIndex(c => c.GuildId);
         });
 
         modelBuilder.Entity<UserProfile>(e =>

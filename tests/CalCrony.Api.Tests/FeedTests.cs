@@ -165,6 +165,62 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Contains("TZID:America/Chicago", ics);
     }
 
+    [Fact]
+    public async Task Calendar_is_named_after_the_guild_once_a_snapshot_exists()
+    {
+        var before = Unfold(await FetchFeedAsync());
+        Assert.Contains("X-WR-CALNAME:CalCrony events", before);
+
+        var named = await Client.PutAsJsonAsync(
+            $"/guilds/{GuildId}/presence", new GuildPresenceRequest(true, "The Grove"));
+        named.EnsureSuccessStatusCode();
+
+        var after = Unfold(await FetchFeedAsync());
+        Assert.Contains("X-WR-CALNAME:CalCrony · The Grove", after);
+    }
+
+    [Fact]
+    public async Task Descriptions_carry_channel_web_link_and_discord_jump_link()
+    {
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Context Party", "in 6 hours", ChannelId, Description: "bring chips"));
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var posted = await Client.PutAsJsonAsync($"/events/{ev.Id}/message",
+            new SetEventMessageRequest(ChannelId, 987654, "events-hall"));
+        posted.EnsureSuccessStatusCode();
+
+        // A second event with no posted message must not render a Discord jump link.
+        var linkless = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events",
+            new CreateEventRequest(CreatorId, "Linkless", "in 7 hours", ChannelId));
+        linkless.EnsureSuccessStatusCode();
+
+        var ics = Unfold(await FetchFeedAsync());
+
+        Assert.Contains("📍 #events-hall", ics);
+        Assert.Contains($"🔗 Event page: https://web.test/app/events/{ev.Id}", ics);
+        Assert.Contains($"💬 Open in Discord: https://discord.com/channels/{GuildId}/{ChannelId}/987654", ics);
+        Assert.Contains($"URL:https://web.test/app/events/{ev.Id}", ics);
+        // Exactly one event has a message, so exactly one jump link renders.
+        Assert.Equal(2, ics.Split("Open in Discord").Length);
+    }
+
+    [Fact]
+    public async Task Series_vevents_link_to_the_guild_events_list_not_the_live_occurrence()
+    {
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Linked Series", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+        create.EnsureSuccessStatusCode();
+
+        var ics = Unfold(await FetchFeedAsync());
+
+        Assert.Contains($"🔗 Events page: https://web.test/app/guilds/{GuildId}/events", ics);
+        Assert.Contains($"URL:https://web.test/app/guilds/{GuildId}/events", ics);
+    }
+
+    /// <summary>Reverses RFC 5545 line folding so assertions can match full URLs.</summary>
+    private static string Unfold(string ics) => ics.Replace("\r\n ", "");
+
     private async Task<string> FetchFeedAsync()
     {
         var token = await ReadTokenAsync();

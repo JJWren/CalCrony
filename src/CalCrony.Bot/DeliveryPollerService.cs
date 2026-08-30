@@ -244,7 +244,8 @@ public sealed class DeliveryPollerService(
             embed: EventEmbedBuilder.Build(ev),
             components: EventEmbedBuilder.BuildComponents(ev));
 
-        var recorded = await api.SetMessageAsync(ev.Id, new SetEventMessageRequest(delivery.ChannelId, (long)message.Id));
+        var recorded = await api.SetMessageAsync(
+            ev.Id, new SetEventMessageRequest(delivery.ChannelId, (long)message.Id, channel.Name));
         if (!recorded.Success)
         {
             // Without a recorded MessageId, future syncs/deletes can't find the embed — and a

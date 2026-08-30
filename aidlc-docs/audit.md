@@ -126,3 +126,27 @@
 **Context**: Construction complete pending review/checks; squash-merge per repo ruleset.
 
 ---
+
+## Construction — Babysit PR #79 through merge + redeploy
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "Yes babysit the review and carry this through to re-spinning up the stack when it is all finished."
+**AI Response**: Monitoring PR #79 checks and Copilot review, addressing findings until clean, squash-merging per the ruleset, then re-spinning the stack on the freshly published :main images and verifying health.
+**Context**: Construction → Operations handoff for the interface-themes feature.
+
+---
+
+## Inception — ICS feed Discord-context design session (grill)
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "I feel like each event should at the very least list the server name and channel for an event... if anything, at least in the description. The event could just have the event name, but in it's description, I should be provided with the name and channel and other details. Even better if I get a link to go directly to it."
+**AI Response**: Ran a two-round grilling/domain-modeling session. Settled design: server name lives in X-WR-CALNAME as "CalCrony · {Server}" (Q2=A, Q9=B); each VEVENT description gains a metadata block (channel, web event-page link, Discord deep link when MessageId present) below the user's text plus an ICS URL property (Q8); series VEVENTs link to the stable guild events list, never the rotating live occurrence; names arrive via bot snapshots only — Guild.Name through the presence machinery + GuildUpdated, a Channels table for referenced channels through post-site upserts + ChannelUpdated + Ready reconcile (Q4=A, Q5, Q6=A); missing names degrade gracefully with no placeholders (Q7=A). Web EventDetail parity split out as issue #80 (Q10). CONTEXT.md created with session vocabulary.
+**Context**: Requirements/design for feed context feature; ADR offered for the names-via-snapshots boundary.
+
+---
+
+## Inception — Greenlight
+**Timestamp**: 2026-08-29T00:00:00Z
+**User Input**: "Sounds goog. I greenlight the decisions then."
+**AI Response**: Proceeding to construction on branch feature/feed-discord-context: contracts + Guild.Name + Channels table + migration, bot handlers (GuildUpdated/ChannelUpdated/Ready channel reconcile, names in presence sync, channel name via SetEventMessageRequest), feed changes, ADR 0001, tests; then PR through the Copilot review gate.
+**Context**: Inception → Construction handoff. Preceded by user question on staleness trade-off, answered: snapshot staleness (seconds, healed at Ready) is invisible under Google's 12–24h feed polling.
+
+---

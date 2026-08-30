@@ -164,6 +164,7 @@ app.MapPollEndpoints();
 app.MapTemplateEndpoints();
 app.MapSettingsEndpoints();
 app.MapGuildPresenceEndpoints();
+app.MapChannelEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
 app.MapFeedEndpoints();

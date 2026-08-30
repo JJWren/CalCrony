@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CalCrony.Api.Endpoints;
 
-/// <summary>Bot-only guild presence endpoints — the source of truth for which guilds the bot is in.
+/// <summary>Bot-only guild presence endpoints — the source of truth for which guilds the bot is
+/// in, and the write path for guild-name snapshots (the API never asks Discord for names).
 /// Guild rows are never deleted here: leaving only clears the flag, so settings and data
 /// survive a re-invite.</summary>
 public static class GuildPresenceEndpoints
@@ -28,9 +29,22 @@ public static class GuildPresenceEndpoints
     {
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
         guild.BotPresent = request.Present;
+        if (Truncate(request.Name, FieldLimits.GuildName) is { } name)
+        {
+            guild.Name = name;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
+
+    /// <summary>Clamps a bot-reported name snapshot to its column limit; null/whitespace stays
+    /// null (never overwrites a stored snapshot with nothing).</summary>
+    /// <param name="name">The reported name.</param>
+    /// <param name="limit">The column max length.</param>
+    /// <returns>The storable name, or null to leave the snapshot untouched.</returns>
+    internal static string? Truncate(string? name, int limit) =>
+        string.IsNullOrWhiteSpace(name) ? null : name.Length <= limit ? name : name[..limit];
 
     /// <summary>Reconciles presence against the bot's full guild list (reported at Ready):
     /// listed guilds become present (rows created as needed), unlisted known guilds become absent.</summary>
@@ -41,25 +55,31 @@ public static class GuildPresenceEndpoints
     private static async Task<IResult> SyncPresence(
         SyncGuildPresenceRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
     {
-        if (request.GuildIds is null)
+        if (request.Guilds is null)
         {
-            return Results.BadRequest(new ErrorResponse("GuildIds is required (an empty list marks every guild absent)."));
+            return Results.BadRequest(new ErrorResponse("Guilds is required (an empty list marks every guild absent)."));
         }
 
-        var currentIds = request.GuildIds.ToHashSet();
+        var current = request.Guilds
+            .GroupBy(g => g.Id)
+            .ToDictionary(g => g.Key, g => Truncate(g.First().Name, FieldLimits.GuildName));
         var known = await db.Guilds.ToListAsync(cancellationToken);
         foreach (var guild in known)
         {
-            guild.BotPresent = currentIds.Contains(guild.Id);
+            guild.BotPresent = current.ContainsKey(guild.Id);
+            if (current.TryGetValue(guild.Id, out var name) && name is not null)
+            {
+                guild.Name = name;
+            }
         }
 
-        foreach (var guildId in currentIds.Except(known.Select(g => g.Id)))
+        foreach (var guildId in current.Keys.Except(known.Select(g => g.Id)))
         {
-            db.Guilds.Add(new Guild { Id = guildId });
+            db.Guilds.Add(new Guild { Id = guildId, Name = current[guildId] });
         }
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new SyncGuildPresenceResponse(
-            currentIds.Count, known.Count(g => !g.BotPresent)));
+            current.Count, known.Count(g => !g.BotPresent)));
     }
 }

@@ -18,6 +18,22 @@ public class Guild
     /// events and its Ready-time sync; rows are kept when the bot leaves so guild settings and
     /// data survive a re-invite.</summary>
     public bool BotPresent { get; set; } = true;
+
+    /// <summary>Name snapshot maintained by the bot (presence reports, Ready-time sync, and
+    /// guild-update events) — the API never asks Discord. Null until the bot has reported one;
+    /// consumers must degrade gracefully.</summary>
+    public string? Name { get; set; }
+}
+
+/// <summary>Name snapshot for a Discord channel CalCrony references (an event, a series, or a
+/// guild default channel). Rows are created only at reference points — the bot's embed post
+/// sites and its Ready-time reconcile — so the table never grows beyond channels CalCrony
+/// actually uses; renames update existing rows only.</summary>
+public class Channel
+{
+    public long Id { get; set; }
+    public long GuildId { get; set; }
+    public required string Name { get; set; }
 }
 
 /// <summary>A Discord user's per-person preferences plus display fields captured at web login.</summary>

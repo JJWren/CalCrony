@@ -137,7 +137,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         var message = await targetChannel.SendMessageAsync(
             embed: EventEmbedBuilder.Build(ev),
             components: EventEmbedBuilder.BuildComponents(ev));
-        var recorded = await api.SetMessageAsync(ev.Id, new SetEventMessageRequest((long)targetChannel.Id, (long)message.Id));
+        var recorded = await api.SetMessageAsync(
+            ev.Id, new SetEventMessageRequest((long)targetChannel.Id, (long)message.Id, targetChannel.Name));
         if (recorded.Success && recorded.Value is not null)
         {
             await mirror.TryUpsertAsync(recorded.Value);
