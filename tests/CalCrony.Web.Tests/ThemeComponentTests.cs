@@ -81,6 +81,26 @@ public class ThemeComponentTests : TestContext
     }
 
     [Fact]
+    public async Task Picker_skips_the_account_save_when_settings_cannot_be_read()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        JSInterop.Setup<string>("calcronyTheme.getThemeName").SetResult("slate");
+        // A failed settings GET must not turn into a PUT built from defaults — that would wipe
+        // the stored timezone/DM preferences just to save a theme.
+        handler.StatusFor = req => req.Method == HttpMethod.Get ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;
+
+        var cut = RenderComponent<InterfaceThemePicker>();
+        cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll("button.theme-tile").Count));
+
+        cut.FindAll("button.theme-tile").Single(t => t.TextContent.Contains("Feywild Moss")).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("couldn't save to your account", cut.Markup));
+        Assert.Equal("moss", JSInterop.VerifyInvoke("calcronyTheme.setThemeName").Arguments[0]);
+        Assert.Null(handler.PutBody);
+    }
+
+    [Fact]
     public async Task Theme_sync_applies_the_account_theme_on_this_device_after_login()
     {
         var handler = UseApi();
@@ -158,6 +178,8 @@ public class ThemeComponentTests : TestContext
 
         public Func<HttpRequestMessage, string?>? JsonFor { get; set; }
 
+        public Func<HttpRequestMessage, HttpStatusCode>? StatusFor { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             LastRequest = request;
@@ -167,7 +189,7 @@ public class ThemeComponentTests : TestContext
             }
 
             var json = JsonFor?.Invoke(request) ?? "{}";
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            return new HttpResponseMessage(StatusFor?.Invoke(request) ?? HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
             };

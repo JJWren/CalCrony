@@ -91,9 +91,17 @@
             }
 
             // Read-modify-write: theme rides along without clobbering timezone/DM preferences.
+            // If the read fails, DON'T write — a PUT built from defaults would wipe the stored
+            // timezone/DM values. The theme is already applied locally either way.
             var existing = await Api.GetUserSettingsAsync(AuthApi.Session.UserId);
+            if (!existing.Success || existing.Value is null)
+            {
+                message = $"applied on this device — couldn't save to your account ({existing.Error})";
+                return;
+            }
+
             var result = await Api.PutUserSettingsAsync(AuthApi.Session.UserId, new UserSettingsDto(
-                existing.Value?.TimeZone, existing.Value?.DmConfirmations ?? true, themeId));
+                existing.Value.TimeZone, existing.Value.DmConfirmations, themeId));
 
             message = result.Success
                 ? "✓ saved to your account"
