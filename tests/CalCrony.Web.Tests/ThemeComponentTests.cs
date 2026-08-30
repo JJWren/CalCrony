@@ -137,18 +137,18 @@ public class ThemeComponentTests : TestContext
 
         var cut = RenderComponent<ThemeToggle>();
         cut.WaitForAssertion(() =>
-            Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Dark").ClassName));
+            Assert.Contains("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Dark").ClassName));
 
         // The picker's Parchment face flip calls calcronyTheme.setTheme("light"), which notifies
         // watchers — simulate that callback and expect the highlight to move.
         await cut.InvokeAsync(() => cut.Instance.OnModeChanged("light"));
 
-        Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Light").ClassName);
-        Assert.DoesNotContain("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Dark").ClassName ?? "");
+        Assert.Contains("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Light").ClassName);
+        Assert.DoesNotContain("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Dark").ClassName ?? "");
 
         // The callback is JS-invokable: an unexpected payload must be ignored, not become state.
         await cut.InvokeAsync(() => cut.Instance.OnModeChanged("banana"));
-        Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Light").ClassName);
+        Assert.Contains("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Light").ClassName);
     }
 
     private CapturingHandler UseApi()
