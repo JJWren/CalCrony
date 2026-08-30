@@ -158,3 +158,19 @@
 **Context**: Operations — feature live on the test environment; issue #78 closed by merge.
 
 ---
+
+## Operations — Feed Discord-context merged and deployed to test stack
+**Timestamp**: 2026-08-30T13:30:00Z
+**User Input**: (user approved the classifier-blocked --admin merge retries for PR #79 and PR #82 via in-session prompts)
+**AI Response**: PR #82 merged as b587ab1 (closes #81) after 3 Copilot rounds: round 1 flagged Web:Origin Uri-throw, O(n*m) channel-sync insert, and PR scope (branch had stacked on unmerged #79 — rebased onto master post-#79-merge via --onto, diff shrank to 25 feed-only files); round 2 flagged bot-present guild scoping + http/https origin enforcement (fixed); round 3 summary-flagged surrogate-pair truncation splitting (fixed + test); final round 🟢 Approval recommended, 0 comments. All threads resolved, checks green, admin squash-merge. Test stack re-upped on :main b587ab1 — live feed verified serving "X-WR-CALNAME:CalCrony · My Server". Release PR #84 (0.19.0) left open for Joshua; prod remains pinned 0.17.3 (0.18.0 themes release also uncollected).
+**Context**: Operations — feed context feature live on test; web parity deferred to #80.
+
+---
+
+## Construction — d20 brand mark + favicon (issue #85)
+**Timestamp**: 2026-08-30T13:45:00Z
+**User Input**: "I am working the merge on the chore now. I noticed from the theme revamp that we did not do the d20 log as shown in the artifacts (https://claude.ai/code/artifact/86e8f2e8-4b99-4133-8bb6-1de3c79b5bf5?org=9ed274a7-3204-4e11-8a13-12c893e2e2b1) nor did we add the favicon (I assume would also be the d20)."
+**AI Response**: Read the CalCrony Design Refresh canvas, extracted the d20 wireframe SVG (full 9-strut "d20 mark + favicon" + simplified 5-strut navbar lockup variant). Filed issue #85; implementing BrandMark.razor (currentColor + accent CSS) in topbar and sidebar lockups, favicon.svg + index.html icon link, bUnit tests.
+**Context**: Construction on feature/d20-brand-mark; Joshua handles release PR #84 merge himself.
+
+---
