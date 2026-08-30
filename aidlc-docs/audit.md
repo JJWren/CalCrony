@@ -197,7 +197,7 @@
 ---
 
 ## Construction — Design-system callouts (issue #93)
-**Timestamp**: 2026-08-30T19:50:00Z
+**Timestamp**: 2026-08-30T19:46:00Z
 **User Input**: "/design-login (authorized) — design sync completed. go ahead and work the callouts issue"
 **AI Response**: Read components/callouts.html from the Claude Design project via DesignSync. Implemented Callout.razor (Note/Important/Warning/Caution; exact spec icons, mono small-caps head, hue bg 10% + hairline 30% via color-mix, 12px radius); semantic hue tokens per light/dark mode + per-face --cc-gilt in theme.css (Warning borrows the face's gilt per spec). Converted the two standalone Docs admonitions (standing-role Caution — emoji dropped per "stroke SVGs, never emoji"; calendar-refresh Note); the first-steps list stays a list per "one per section, never stacked". CalloutTests pins icons/labels/classes.
 **Context**: Construction on feature/design-callouts.

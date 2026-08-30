@@ -62,6 +62,7 @@
 
 /* Feywild Moss — deep forest green with verdigris. */
 [data-bs-theme="dark"][data-cc-theme="moss"] {
+    --cc-gilt: #d3a655;
     --cc-ground: #131a16;
     --cc-base: #18211c;
     --cc-base-rgb: 24, 33, 28;
@@ -83,6 +84,7 @@
 
 /* Obsidian Azure — true-black OLED keeping the original azure, text pulled off pure white. */
 [data-bs-theme="dark"][data-cc-theme="obsidian"] {
+    --cc-gilt: #d3a655;
     --cc-ground: #000000;
     --cc-base: #050507;
     --cc-base-rgb: 5, 5, 7;
