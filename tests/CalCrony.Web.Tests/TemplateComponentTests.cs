@@ -25,9 +25,9 @@ public class TemplateComponentTests : TestContext
             _ => "{}",
         };
 
-        var nav = Services.GetRequiredService<Bunit.TestDoubles.FakeNavigationManager>();
+        var nav = Services.GetRequiredService<Bunit.TestDoubles.BunitNavigationManager>();
         nav.NavigateTo($"/app/guilds/1/events/new?template={template.Id}");
-        var cut = RenderComponent<EventForm>(p => p.Add(x => x.GuildId, 1L));
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1L));
 
         cut.WaitForAssertion(() =>
         {
@@ -60,7 +60,7 @@ public class TemplateComponentTests : TestContext
             _ => "{}",
         };
 
-        var cut = RenderComponent<GuildTemplates>(p => p.Add(x => x.GuildId, 1L));
+        var cut = Render<GuildTemplates>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Movies", cut.Markup);
@@ -88,7 +88,7 @@ public class TemplateComponentTests : TestContext
             _ => JsonSerializer.Serialize(template, JsonWeb),
         };
 
-        var cut = RenderComponent<GuildTemplates>(p => p.Add(x => x.GuildId, 1L));
+        var cut = Render<GuildTemplates>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() => Assert.Contains("Editable", cut.Markup));
 
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit").Click();
@@ -127,7 +127,7 @@ public class TemplateComponentTests : TestContext
             _ => JsonSerializer.Serialize(ev, JsonWeb),
         };
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         cut.WaitForAssertion(() => Assert.Contains("Save as template", cut.Markup));
 
         cut.FindAll("button").First(b => b.TextContent.Contains("Save as template")).Click();
@@ -157,7 +157,7 @@ public class TemplateComponentTests : TestContext
             new HttpClient { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<CalCrony.Web.Auth.ITokenStore>(),
             sp.GetRequiredService<CalCrony.Web.Auth.JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
     }
 
     private static EventTemplateDto SampleTemplate(

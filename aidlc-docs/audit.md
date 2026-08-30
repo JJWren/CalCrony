@@ -214,5 +214,10 @@
 **User Input**: "We need to add a sitemap.xml asap and ship it."
 **AI Response**: Static sitemap.xml (/, /docs, /privacy, /terms — /login and auth-gated /app routes excluded) + robots.txt (Disallow /app and /login, Sitemap pointer) in wwwroot, served by nginx like every other static asset. Shipped via the standard gate; rides the next release cut alongside the .NET 10 upgrade (#98).
 **Context**: Construction on feature/sitemap.
+## Construction — .NET 10 upgrade (issue #97)
+**Timestamp**: 2026-08-30T20:10:00Z
+**User Input**: "what .net version is calcrony on? about says .net 9" / "Yes do that" (file issue + upgrade after prod ship) / "don't forget to push to test also" / "link me to the png of the calcrony svg if we have one. I want to swap the bot icon with it so it the same"
+**AI Response**: Prod shipped v0.22.0 and test refreshed to :main 049d74a (both verified). Rendered calcrony-icon-1024.png (d20 on slate, headless Edge from favicon geometry) for the Discord bot avatar. Upgrade: net10.0 across 7 projects, Dockerfiles sdk/aspnet/runtime:10.0, CI setup-dotnet 10.0.x, README. .NET 10's transitive audit flagged NuGet.CommandLine 5.11.5 (critical, via Recognizers — overridden to 7.9.0 PrivateAssets=all), SSH.NET (via Testcontainers → 4.14.0), AngleSharp 1.2.0 (via bunit; every patched AngleSharp is ABI-incompatible with bunit 1.x → migrated to bunit 2.*: RenderComponent→Render, AddTestAuthorization→AddAuthorization, FakeNavigationManager→BunitNavigationManager). Audit warnings zero; 321 tests green on net10.
+**Context**: Construction on feature/dotnet-10-upgrade.
 
 ---

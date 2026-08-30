@@ -1,7 +1,7 @@
 # Build context is the repo root (see docker-compose.yml) so project references resolve.
 
 # ---------- Build ----------
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG VERSION=0.0.0-local
 WORKDIR /source
 

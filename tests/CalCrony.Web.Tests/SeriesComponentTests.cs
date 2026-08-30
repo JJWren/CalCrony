@@ -21,7 +21,7 @@ public class SeriesComponentTests : TestContext
         var handler = UseApi();
         handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
 
-        var cut = RenderComponent<EventForm>(p => p.Add(x => x.GuildId, 1));
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1));
         cut.Find("#ev-title").Change("Weekly sync");
         cut.Find("#ev-when").Change("friday 6pm");
         cut.Find("#ev-repeat").Change("Weekly");
@@ -46,7 +46,7 @@ public class SeriesComponentTests : TestContext
         var handler = UseApi();
         handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
 
-        var cut = RenderComponent<EventForm>(p => p.Add(x => x.GuildId, 1));
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1));
         cut.Find("#ev-title").Change("Book club");
         cut.Find("#ev-when").Change("sunday 3pm");
         cut.Find("#ev-repeat").Change("MonthlySameDate");
@@ -72,7 +72,7 @@ public class SeriesComponentTests : TestContext
         var ev = SampleEvent(recurrenceSummary: "Repeats weekly on Friday");
         handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
 
-        var cut = RenderComponent<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
+        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
 
         // Save swaps into the scope ask instead of submitting.
         cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
@@ -104,7 +104,7 @@ public class SeriesComponentTests : TestContext
             _ => JsonSerializer.Serialize(ev, JsonWeb),
         };
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         cut.WaitForAssertion(() => Assert.Contains("Repeats weekly on Friday", cut.Markup));
 
         cut.FindAll("button").First(b => b.TextContent.Contains("Skip occurrence")).Click();
@@ -131,7 +131,7 @@ public class SeriesComponentTests : TestContext
             _ => JsonSerializer.Serialize(ev, JsonWeb),
         };
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         cut.WaitForAssertion(() => Assert.Contains("Edit schedule", cut.Markup));
 
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit schedule").Click();
@@ -174,7 +174,7 @@ public class SeriesComponentTests : TestContext
             _ => JsonSerializer.Serialize(ev, JsonWeb),
         };
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         cut.WaitForAssertion(() => Assert.Contains("Edit schedule", cut.Markup));
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit schedule").Click();
         cut.WaitForAssertion(() => cut.Find("#se-repeat"));
@@ -206,7 +206,7 @@ public class SeriesComponentTests : TestContext
         };
 
         handler.JsonFor = req => Router(req, canManage: true);
-        var manager = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var manager = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         manager.WaitForAssertion(() =>
         {
             Assert.Contains("repeating series that has ended", manager.Markup);
@@ -214,7 +214,7 @@ public class SeriesComponentTests : TestContext
         });
 
         handler.JsonFor = req => Router(req, canManage: false);
-        var member = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var member = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         member.WaitForAssertion(() =>
         {
             Assert.Contains("repeating series that has ended", member.Markup);
@@ -240,7 +240,7 @@ public class SeriesComponentTests : TestContext
             _ => "{}",
         };
 
-        var cut = RenderComponent<CalCrony.Web.Pages.App.GuildSettings>(p => p.Add(x => x.GuildId, 1L));
+        var cut = Render<CalCrony.Web.Pages.App.GuildSettings>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() => Assert.Contains("Manage Events", cut.Markup));
 
         cut.Find("#gs-native").Change(true);
@@ -257,10 +257,10 @@ public class SeriesComponentTests : TestContext
     public void Event_card_shows_repeat_badge_only_for_series()
     {
         UseApi();
-        var plain = RenderComponent<EventCard>(p => p.Add(x => x.Event, SampleEvent()));
+        var plain = Render<EventCard>(p => p.Add(x => x.Event, SampleEvent()));
         Assert.DoesNotContain("🔁", plain.Markup);
 
-        var repeating = RenderComponent<EventCard>(p => p.Add(
+        var repeating = Render<EventCard>(p => p.Add(
             x => x.Event, SampleEvent(recurrenceSummary: "Repeats daily")));
         Assert.Contains("🔁", repeating.Markup);
         Assert.Contains("Repeats daily", repeating.Markup); // title attribute carries the summary
@@ -283,7 +283,7 @@ public class SeriesComponentTests : TestContext
             new HttpClient { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<CalCrony.Web.Auth.ITokenStore>(),
             sp.GetRequiredService<CalCrony.Web.Auth.JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
     }
 
     private static EventDto SampleEvent(string? recurrenceSummary = null)

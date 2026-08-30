@@ -23,7 +23,7 @@ public class EventContextComponentTests : TestContext
         var ev = SampleEvent(messageId: 424242, channelName: "game-night");
         RouteEventPages(handler, ev, guildName: "Wren Den");
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
 
         cut.WaitForAssertion(() => Assert.Contains("💬 #game-night", cut.Markup));
         Assert.Contains("Back to Wren Den", cut.Markup);
@@ -39,7 +39,7 @@ public class EventContextComponentTests : TestContext
         var ev = SampleEvent(messageId: null, channelName: null);
         RouteEventPages(handler, ev, guildName: "Wren Den");
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
 
         cut.WaitForAssertion(() => Assert.Contains(ev.Title, cut.Markup));
         Assert.DoesNotContain("💬", cut.Markup);
@@ -77,7 +77,7 @@ public class EventContextComponentTests : TestContext
             new HttpClient { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<CalCrony.Web.Auth.ITokenStore>(),
             sp.GetRequiredService<CalCrony.Web.Auth.JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
     }
 
     private static EventDto SampleEvent(long? messageId, string? channelName)

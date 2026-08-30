@@ -14,7 +14,7 @@ public class CalloutTests : TestContext
     [InlineData(CalloutVariant.Caution, "callout-caution", "M6.7 2.6 H13.3")]
     public void Variant_picks_hue_class_label_and_icon(CalloutVariant variant, string hueClass, string iconSignature)
     {
-        var cut = RenderComponent<Callout>(p => p
+        var cut = Render<Callout>(p => p
             .Add(c => c.Variant, variant)
             .AddChildContent("<b>body text</b>"));
 

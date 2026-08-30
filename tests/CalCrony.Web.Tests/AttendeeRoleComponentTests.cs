@@ -22,7 +22,7 @@ public class AttendeeRoleComponentTests : TestContext
         var ev = SampleEvent(attendeeRoleId: 555001);
         RouteEventPages(handler, ev);
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         cut.WaitForAssertion(() => Assert.Contains("Going grants role #555001", cut.Markup));
     }
 
@@ -34,7 +34,7 @@ public class AttendeeRoleComponentTests : TestContext
         var ev = SampleEvent(attendeeRoleId: null);
         RouteEventPages(handler, ev);
 
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
         cut.WaitForAssertion(() => Assert.Contains(ev.Title, cut.Markup));
         Assert.DoesNotContain("Going grants role", cut.Markup);
     }
@@ -46,7 +46,7 @@ public class AttendeeRoleComponentTests : TestContext
         var ev = SampleEvent(attendeeRoleId: 555002);
         handler.JsonFor = _ => JsonSerializer.Serialize(ev, JsonWeb);
 
-        var cut = RenderComponent<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
+        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
         cut.WaitForAssertion(() => Assert.Contains("Remove attendee role (#555002)", cut.Markup));
 
         cut.Find("#ev-clear-role").Change(true);
@@ -89,7 +89,7 @@ public class AttendeeRoleComponentTests : TestContext
             new HttpClient { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<CalCrony.Web.Auth.ITokenStore>(),
             sp.GetRequiredService<CalCrony.Web.Auth.JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
     }
 
     private static EventDto SampleEvent(long? attendeeRoleId)
