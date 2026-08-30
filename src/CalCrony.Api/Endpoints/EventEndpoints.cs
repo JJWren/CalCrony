@@ -541,7 +541,13 @@ public static class EventEndpoints
             return denied;
         }
 
-        return Results.Ok(ev.ToDto());
+        // The channel-name snapshot rides single-event reads only (issue #80) — list views
+        // don't render it, and joining per row there would be wasted work.
+        var channelName = await db.Channels
+            .Where(c => c.Id == ev.ChannelId)
+            .Select(c => c.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+        return Results.Ok(ev.ToDto(channelName));
     }
 
     /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs template + re-anchor).</summary>

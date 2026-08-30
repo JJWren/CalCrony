@@ -104,6 +104,25 @@ public class EventApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal("America/Chicago", good.TimeZone);
     }
 
+    [Fact]
+    public async Task Get_event_carries_the_channel_name_snapshot_once_one_exists()
+    {
+        var ev = await CreateEventAsync("Context Read", "in 6 hours");
+
+        // No snapshot yet: the DTO omits the name (graceful-degradation contract, issue #80).
+        var before = await ReadAsync<EventDto>(await Client.GetAsync($"/events/{ev.Id}"));
+        Assert.Null(before.ChannelName);
+
+        // The embed post site records the name via SetMessage…
+        var posted = await Client.PutAsJsonAsync($"/events/{ev.Id}/message",
+            new SetEventMessageRequest(ChannelId, 777001, "war-room"));
+        posted.EnsureSuccessStatusCode();
+
+        // …and single-event reads carry it from then on.
+        var after = await ReadAsync<EventDto>(await Client.GetAsync($"/events/{ev.Id}"));
+        Assert.Equal("war-room", after.ChannelName);
+    }
+
     private async Task<EventDto> CreateEventAsync(string title, string when)
     {
         var response = await Client.PostAsJsonAsync(

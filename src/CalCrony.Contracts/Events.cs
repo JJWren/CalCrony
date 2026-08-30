@@ -114,6 +114,8 @@ public record RsvpDto(long UserId, Guid OptionId);
 /// <param name="AttendeeRoleId">The Discord role granted to "Going" RSVPs, when set.</param>
 /// <param name="WantsThread">Whether a discussion thread should open on the posted embed.</param>
 /// <param name="ThreadId">The Discord thread-channel id once the thread exists.</param>
+/// <param name="ChannelName">The channel's name snapshot, when one is stored (single-event reads
+/// only); consumers must omit gracefully when null.</param>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -135,7 +137,8 @@ public record EventDto(
     long? NativeEventId = null,
     long? AttendeeRoleId = null,
     bool WantsThread = false,
-    long? ThreadId = null)
+    long? ThreadId = null,
+    string? ChannelName = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
