@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/JJWren/CalCrony/compare/v0.20.0...v0.21.0) (2026-08-30)
+
+
+### Features
+
+* show server, channel, and a Discord jump link on the web event page ([#91](https://github.com/JJWren/CalCrony/issues/91)) ([8f82187](https://github.com/JJWren/CalCrony/commit/8f821873959ebe678a7a6d748076e203badb551d))
+
 ## [0.20.0](https://github.com/JJWren/CalCrony/compare/v0.19.0...v0.20.0) (2026-08-30)
 
 
