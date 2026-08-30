@@ -175,6 +175,11 @@
 
 ---
 
+## Construction — Fantasy typography (issue #88)
+**Timestamp**: 2026-08-30T18:10:00Z
+**User Input**: "Another bug: We did not bring in the fonts and stuff from our design (it needs to feel fantasy-like: https://claude.ai/design/p/4f922f52-55b3-42de-a5ee-18b3dfb63598)" / "Before I answer, what is the difference between the woff2 and Google Fonts in style? Is it the same or different?" / "Then yes I agree with your answers"
+**AI Response**: Explained self-hosted woff2 = the same Google Fonts files (delivery differs, not style). Decisions: Q1=A self-hosted latin woff2 subsets (Marcellus 400 14.5KB + Nunito Sans variable 400-800 31KB vendored under wwwroot/fonts), Q2=A full canvas mapping (Marcellus on headings/.card-title/wordmark at pinned weight 400; Nunito Sans as --bs-body-font-family; mono stack aligned). New css/fonts.css loaded after bootstrap; wordmark re-spec'd 800/-.03em → 400/.01em; Landing h1 drops fw-bold (Bootstrap !important would faux-bold Marcellus). DesignSync project link needs /design-login — proceeded from the saved canvas artifact instead.
+**Context**: Construction on feature/fantasy-typography (issue #88).
 ## Construction — Rail-collapse layout fixes + Landing legal dedupe (grill session 2)
 **Timestamp**: 2026-08-30T18:30:00Z
 **User Input**: "A few bugs that I found: - when collapsing the side navbar (desktop), the logo section tries to keep everything when it should condense down to just the SVG. Additionally, the dark/light/auto section remains horizontal. These two things create a scrollbar in the nav which is just awkward and bad looking. - Additionally in the navbar, when collapsing, the signed in user icon is not centered in its box." / "Also, we have the privacy policy, terms of service, and github/source link duplicated on home. It's at the bottom of the view and in the footer. It should just be in the footer." / "Q1) A Q2) B"

@@ -65,8 +65,10 @@ body { min-height: 100vh; }
 .sidebar-inner { display: flex; flex-direction: column; height: 100%; padding: 1.1rem .8rem; overflow-y: auto; }
 
 .brand-mark { color: var(--calcrony-accent); flex-shrink: 0; }
-.wordmark { font-size: 1.3rem; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
-.wordmark b { color: var(--calcrony-accent); font-weight: 800; }
+/* The wordmark wears the display face (canvas lockup): Marcellus has one weight, so the old
+   800/-.03em bold-sans treatment becomes 400/.01em inscription spacing. */
+.wordmark { font-family: var(--calcrony-display-font); font-size: 1.35rem; font-weight: 400; letter-spacing: .01em; white-space: nowrap; }
+.wordmark b { color: var(--calcrony-accent); font-weight: 400; }
 .wordmark-sub { display: block; font-family: var(--bs-font-monospace); font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--bs-secondary-color); margin-top: .15rem; }
 
 .sidebar-eyebrow { font-family: var(--bs-font-monospace); font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--bs-secondary-color); padding: .9rem .6rem .35rem; }

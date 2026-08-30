@@ -8,7 +8,7 @@
             <div class="datechip-day">@Event.StartsAtUtc.ToLocalTime().Day</div>
         </div>
         <div class="flex-grow-1 min-w-0">
-            <div class="fw-bold">@Event.Title</div>
+            <div class="display-title">@Event.Title</div>
             <div class="meta-mono d-flex gap-3 flex-wrap">
                 <span><LocalTime Utc="Event.StartsAtUtc" Format="ddd h:mm tt" /> · @(Event.DurationMinutes ?? 60) min</span>
                 @if (Event.RecurrenceSummary is not null)
