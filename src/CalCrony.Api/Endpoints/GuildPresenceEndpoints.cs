@@ -39,12 +39,27 @@ public static class GuildPresenceEndpoints
     }
 
     /// <summary>Clamps a bot-reported name snapshot to its column limit; null/whitespace stays
-    /// null (never overwrites a stored snapshot with nothing).</summary>
+    /// null (never overwrites a stored snapshot with nothing). The cut backs off one unit rather
+    /// than split a surrogate pair — Discord names carry emoji, and a lone surrogate is an
+    /// invalid string Npgsql refuses to persist.</summary>
     /// <param name="name">The reported name.</param>
     /// <param name="limit">The column max length.</param>
     /// <returns>The storable name, or null to leave the snapshot untouched.</returns>
-    internal static string? Truncate(string? name, int limit) =>
-        string.IsNullOrWhiteSpace(name) ? null : name.Length <= limit ? name : name[..limit];
+    internal static string? Truncate(string? name, int limit)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        if (name.Length <= limit)
+        {
+            return name;
+        }
+
+        var cut = char.IsHighSurrogate(name[limit - 1]) ? limit - 1 : limit;
+        return name[..cut];
+    }
 
     /// <summary>Reconciles presence against the bot's full guild list (reported at Ready):
     /// listed guilds become present (rows created as needed), unlisted known guilds become absent.</summary>

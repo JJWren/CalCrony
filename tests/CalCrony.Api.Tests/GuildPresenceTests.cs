@@ -98,6 +98,17 @@ public class GuildPresenceTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         Assert.Equal("Renamed", await NameAsync(7106));
     }
 
+    [Fact]
+    public async Task Name_truncation_never_splits_a_surrogate_pair()
+    {
+        // 101 UTF-16 units where a naive cut at 100 lands mid-emoji — the pair is dropped whole.
+        var name = new string('a', 99) + "🎲";
+        var put = await fixture.Client.PutAsJsonAsync(
+            "/guilds/7107/presence", new GuildPresenceRequest(true, name));
+        Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
+        Assert.Equal(new string('a', 99), await NameAsync(7107));
+    }
+
     private async Task<string?> NameAsync(long guildId)
     {
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
