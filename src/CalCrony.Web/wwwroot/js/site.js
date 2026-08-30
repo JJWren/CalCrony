@@ -15,6 +15,16 @@ window.calcronyTheme = {
         if (window.calcronyTheme.modes.indexOf(theme) < 0) { return; }
         try { localStorage.setItem("calcrony-theme", theme); } catch { /* private mode */ }
         window.calcronyTheme.apply(theme);
+        // Notify Blazor subscribers (ThemeToggle) so their highlight follows mode changes made
+        // elsewhere — e.g. the picker's Parchment face flip. Dead references are pruned.
+        var watchers = window.calcronyTheme.modeWatchers;
+        for (var i = watchers.length - 1; i >= 0; i--) {
+            try { watchers[i].invokeMethodAsync("OnModeChanged", theme); } catch { watchers.splice(i, 1); }
+        }
+    },
+    modeWatchers: [],
+    watchMode: function (dotnetRef) {
+        window.calcronyTheme.modeWatchers.push(dotnetRef);
     },
     apply: function (theme) {
         var resolved = theme === "auto"

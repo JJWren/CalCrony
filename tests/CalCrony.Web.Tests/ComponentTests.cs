@@ -75,6 +75,7 @@ public class ComponentTests : TestContext
     [Fact]
     public void Theme_toggle_defaults_to_dark()
     {
+        JSInterop.Mode = JSRuntimeMode.Loose; // the toggle also registers a mode watcher
         JSInterop.Setup<string>("calcronyTheme.getTheme").SetResult("dark");
 
         var cut = RenderComponent<ThemeToggle>();

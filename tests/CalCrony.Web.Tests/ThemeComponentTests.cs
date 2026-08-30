@@ -129,6 +129,24 @@ public class ThemeComponentTests : TestContext
         Assert.DoesNotContain(JSInterop.Invocations, i => i.Identifier == "calcronyTheme.setThemeName");
     }
 
+    [Fact]
+    public async Task Theme_toggle_highlight_follows_mode_changes_made_elsewhere()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        JSInterop.Setup<string>("calcronyTheme.getTheme").SetResult("dark");
+
+        var cut = RenderComponent<ThemeToggle>();
+        cut.WaitForAssertion(() =>
+            Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Dark").ClassName));
+
+        // The picker's Parchment face flip calls calcronyTheme.setTheme("light"), which notifies
+        // watchers — simulate that callback and expect the highlight to move.
+        await cut.InvokeAsync(() => cut.Instance.OnModeChanged("light"));
+
+        Assert.Contains("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Light").ClassName);
+        Assert.DoesNotContain("active", cut.FindAll("button").First(b => b.TextContent.Trim() == "Dark").ClassName ?? "");
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();
