@@ -541,11 +541,14 @@ else
     protected override async Task OnParametersSetAsync()
     {
         // Navigating between event pages reuses this component instance — another series'
-        // cached schedule (or an open editor) must not carry over.
+        // cached schedule (or an open editor), and another guild's name/management state,
+        // must not carry over.
         series = null;
         showScheduleEditor = false;
         scheduleNote = null;
         scheduleError = null;
+        guildName = null;
+        isGuildManager = false;
 
         var result = await Api.GetEventAsync(EventId);
         if (!result.Success || result.Value is null)
