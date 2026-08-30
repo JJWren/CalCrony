@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.0](https://github.com/JJWren/CalCrony/compare/v0.22.0...v0.23.0) (2026-08-30)
+
+
+### Features
+
+* add sitemap.xml and robots.txt for the public pages ([#99](https://github.com/JJWren/CalCrony/issues/99)) ([6cdce0a](https://github.com/JJWren/CalCrony/commit/6cdce0a7f6a05ea97933be534785321b8de8fa56))
+* upgrade to .NET 10 — .NET 9 is end-of-life ([#98](https://github.com/JJWren/CalCrony/issues/98)) ([16e8dd7](https://github.com/JJWren/CalCrony/commit/16e8dd734f8126d659d5f6a3d2aa9c39942d5528))
+
 ## [0.22.0](https://github.com/JJWren/CalCrony/compare/v0.21.0...v0.22.0) (2026-08-30)
 
 
