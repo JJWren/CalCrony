@@ -29,11 +29,14 @@
 }
 
 /* The display face everywhere the canvas uses it: headings and card/event titles. Marcellus
-   ships a single 400 weight — weight is pinned so nothing faux-bolds it. */
+   ships a single 400 weight — weight is pinned so nothing faux-bolds it. Card titles opt in
+   with .display-title (replacing fw-bold, whose !important would force a faux bold). */
 h1, h2, h3, h4, h5, h6,
 .h1, .h2, .h3, .h4, .h5, .h6,
 .display-1, .display-2, .display-3, .display-4, .display-5, .display-6,
-.card-title {
+.card-title, .display-title {
     font-family: var(--calcrony-display-font);
     font-weight: 400;
 }
+
+.display-title { font-size: 1.05em; letter-spacing: .01em; }
