@@ -50,6 +50,11 @@
     cc.watchMode = function (dotnetRef) {
         cc.modeWatchers.push(dotnetRef);
     };
+
+    cc.unwatchMode = function (dotnetRef) {
+        var i = cc.modeWatchers.indexOf(dotnetRef);
+        if (i >= 0) { cc.modeWatchers.splice(i, 1); }
+    };
 })();
 
 // Closes the mobile nav drawer after a navigation. Called from Blazor on LocationChanged —

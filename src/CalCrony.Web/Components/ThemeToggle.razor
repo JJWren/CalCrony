@@ -53,6 +53,25 @@
         await Js.InvokeVoidAsync("calcronyTheme.setTheme", theme);
     }
 
-    // The JS side prunes the dead reference on its next dispatch.
-    public void Dispose() => selfRef?.Dispose();
+    public void Dispose()
+    {
+        var reference = selfRef;
+        if (reference is null)
+        {
+            return;
+        }
+
+        selfRef = null;
+        try
+        {
+            // Unregister the JS-side watcher entry, then release the reference — disposal can't
+            // await, so the release rides the interop task's completion.
+            Js.InvokeVoidAsync("calcronyTheme.unwatchMode", reference).AsTask()
+                .ContinueWith(_ => reference.Dispose(), TaskScheduler.Default);
+        }
+        catch
+        {
+            reference.Dispose();
+        }
+    }
 }

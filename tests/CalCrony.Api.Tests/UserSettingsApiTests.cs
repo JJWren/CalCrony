@@ -51,7 +51,8 @@ public class UserSettingsApiTests(WebAuthFixture fixture) : IClassFixture<WebAut
     public async Task Stale_stored_theme_reads_as_null_instead_of_leaking_to_clients()
     {
         // A theme id that later gets renamed/retired must never reach clients: seed one directly
-        // (PUT would reject it) and confirm GET reports the default instead.
+        // (PUT would reject it) and confirm GET returns null — the wire contract for "unset",
+        // which clients render as InterfaceThemes.Default.
         using (var scope = fixture.Factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
