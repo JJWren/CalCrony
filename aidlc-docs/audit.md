@@ -189,7 +189,7 @@
 ---
 
 ## Construction — Web event-page Discord context (issue #80)
-**Timestamp**: 2026-08-30T18:35:00Z
+**Timestamp**: 2026-08-30T18:30:00Z
 **User Input**: "While we are here, is this issue still being worked? https://github.com/JJWren/CalCrony/issues/80" (answered: unworked; user picked "Yes, work it next")
 **AI Response**: EventDto gains trailing ChannelName (null default; single-event GET joins the Channels snapshot table — list views deliberately skip it). EventDetail: back link names the server (from the /me/guilds fetch the page already made), 💬 #channel chip, and an Open-in-Discord jump link when MessageId exists; all omit gracefully. Tests: EventApiTests snapshot round-trip + EventContextComponentTests (2 bUnit).
 **Context**: Construction on feature/web-event-context.
