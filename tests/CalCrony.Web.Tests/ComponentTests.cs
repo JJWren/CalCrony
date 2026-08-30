@@ -26,17 +26,31 @@ public class ComponentTests : TestContext
     }
 
     [Fact]
-    public void Landing_names_the_app_and_links_the_legal_pages()
+    public void Landing_names_the_app_and_its_purpose()
     {
         UseConfig();
         var cut = RenderComponent<Landing>();
 
-        // Google OAuth verification requires the homepage to carry the exact app name, its
-        // purpose, and a privacy-policy link on the same domain.
+        // Google OAuth verification requires the homepage to carry the exact app name and its
+        // purpose; the privacy-policy link requirement is satisfied by the layout footer, which
+        // renders on the same page (pinned below).
         Assert.Contains("CalCrony", cut.Markup);
         Assert.Contains("free/busy availability", cut.Markup);
-        Assert.NotNull(cut.Find("a[href='/privacy']"));
-        Assert.NotNull(cut.Find("a[href='/terms']"));
+    }
+
+    [Fact]
+    public void Layout_footer_links_the_legal_pages_and_source()
+    {
+        // Google OAuth verification requires a privacy-policy link on the homepage's own domain;
+        // since the Landing page dropped its duplicate block, the layout footer is that link's
+        // single home — this guard keeps it there.
+        ComponentFactories.AddStub<Layout.NavMenu>();
+        ComponentFactories.AddStub<ThemeSync>();
+        var cut = RenderComponent<Layout.MainLayout>();
+
+        Assert.NotNull(cut.Find("footer a[href='/privacy']"));
+        Assert.NotNull(cut.Find("footer a[href='/terms']"));
+        Assert.NotNull(cut.Find("footer a[href='https://github.com/JJWren/CalCrony']"));
     }
 
     [Fact]
@@ -80,7 +94,7 @@ public class ComponentTests : TestContext
 
         var cut = RenderComponent<ThemeToggle>();
 
-        var darkButton = cut.FindAll("button").First(b => b.TextContent.Trim() == "Dark");
+        var darkButton = cut.FindAll("button").First(b => b.GetAttribute("title") == "Dark");
         Assert.Contains("active", darkButton.ClassName);
     }
 
