@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/JJWren/CalCrony/compare/v0.19.0...v0.20.0) (2026-08-30)
+
+
+### Features
+
+* fantasy typography from the design canvas, self-hosted ([#89](https://github.com/JJWren/CalCrony/issues/89)) ([08e8c03](https://github.com/JJWren/CalCrony/commit/08e8c0376b12f502794eda7214aefe2343ae4b85))
+
+
+### Bug Fixes
+
+* make the collapsed rail fit its column and dedupe Landing legal links ([#87](https://github.com/JJWren/CalCrony/issues/87)) ([d86effa](https://github.com/JJWren/CalCrony/commit/d86effa11fa6bf0bb4d6b46ad50f448694bd6f26))
+
 ## [0.19.0](https://github.com/JJWren/CalCrony/compare/v0.18.0...v0.19.0) (2026-08-30)
 
 
