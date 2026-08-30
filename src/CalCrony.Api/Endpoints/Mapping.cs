@@ -9,8 +9,9 @@ public static class Mapping
 {
     /// <summary>Projects an event with ordered options/RSVPs; the recurrence summary requires the Series navigation loaded.</summary>
     /// <param name="ev">The event.</param>
+    /// <param name="channelName">The channel-name snapshot to carry, when the caller looked one up.</param>
     /// <returns>The projected DTO.</returns>
-    public static EventDto ToDto(this Event ev) => new(
+    public static EventDto ToDto(this Event ev, string? channelName = null) => new(
         ev.Id,
         ev.GuildId,
         ev.CreatorId,
@@ -32,7 +33,8 @@ public static class Mapping
         ev.NativeEventId,
         ev.AttendeeRoleId,
         ev.WantsThread,
-        ev.ThreadId);
+        ev.ThreadId,
+        channelName);
 
     /// <summary>Projects a series' schedule, template, progress, and notification specs.</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>

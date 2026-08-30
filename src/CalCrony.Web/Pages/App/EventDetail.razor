@@ -15,7 +15,7 @@ else if (ev is null)
 }
 else
 {
-    <p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@ev.GuildId/events">← Back to events</a></p>
+    <p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@ev.GuildId/events">← Back to @(guildName ?? "events")</a></p>
     <div class="d-flex gap-3 align-items-start flex-wrap">
         <div class="datechip" style="min-width:4rem">
             <div class="datechip-month">@ev.StartsAtUtc.ToLocalTime().ToString("MMM")</div>
@@ -40,6 +40,16 @@ else
                 @if (ev.ThreadId is not null)
                 {
                     <span title="RSVPing Going adds you to the thread; it archives when the event ends">🧵 Discussion thread open in Discord</span>
+                }
+                @* Discord context (issue #80): name snapshots omit gracefully when absent. *@
+                @if (!string.IsNullOrWhiteSpace(ev.ChannelName))
+                {
+                    <span>💬 #@ev.ChannelName</span>
+                }
+                @if (ev.MessageId is not null)
+                {
+                    <a href="https://discord.com/channels/@ev.GuildId/@ev.ChannelId/@ev.MessageId"
+                       target="_blank" rel="noopener">Open in Discord ↗</a>
                 }
             </div>
         </div>
@@ -350,6 +360,7 @@ else
     private Guid? askingRemoveScopeFor;
     private bool busy;
     private bool isGuildManager;
+    private string? guildName;
     private int newNotificationMinutes = 30;
     private string? newNotificationMessage;
 
@@ -530,11 +541,14 @@ else
     protected override async Task OnParametersSetAsync()
     {
         // Navigating between event pages reuses this component instance — another series'
-        // cached schedule (or an open editor) must not carry over.
+        // cached schedule (or an open editor), and another guild's name/management state,
+        // must not carry over.
         series = null;
         showScheduleEditor = false;
         scheduleNote = null;
         scheduleError = null;
+        guildName = null;
+        isGuildManager = false;
 
         var result = await Api.GetEventAsync(EventId);
         if (!result.Success || result.Value is null)
@@ -550,8 +564,9 @@ else
         var guildsTask = Api.GetMyGuildsAsync();
         availability = (await availabilityTask).Value;
         notifications = (await notificationsTask).Value;
-        isGuildManager = (await guildsTask).Value?.Guilds
-            .Any(g => g.Id == ev.GuildId && g.CanManage) ?? false;
+        var myGuild = (await guildsTask).Value?.Guilds.FirstOrDefault(g => g.Id == ev.GuildId);
+        isGuildManager = myGuild?.CanManage ?? false;
+        guildName = myGuild?.Name;
     }
 
     private async Task DeleteAsync()
