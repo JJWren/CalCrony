@@ -20,7 +20,7 @@ public class PollComponentTests : TestContext
         UseApi(out _);
         var poll = SamplePoll(votes: [(UserId, 0), (77, 1)]);
 
-        var cut = RenderComponent<PollVotePanel>(p => p
+        var cut = Render<PollVotePanel>(p => p
             .Add(x => x.Poll, poll)
             .Add(x => x.UserId, UserId));
 
@@ -36,7 +36,7 @@ public class PollComponentTests : TestContext
         var poll = SamplePoll(votes: [(UserId, 0)]);
         handler.NextPoll = poll;
 
-        var cut = RenderComponent<PollVotePanel>(p => p
+        var cut = Render<PollVotePanel>(p => p
             .Add(x => x.Poll, poll)
             .Add(x => x.UserId, UserId));
 
@@ -57,7 +57,7 @@ public class PollComponentTests : TestContext
         var poll = SamplePoll(singleVote: true, votes: [(UserId, 0)]);
         handler.NextPoll = poll;
 
-        var cut = RenderComponent<PollVotePanel>(p => p
+        var cut = Render<PollVotePanel>(p => p
             .Add(x => x.Poll, poll)
             .Add(x => x.UserId, UserId));
 
@@ -74,7 +74,7 @@ public class PollComponentTests : TestContext
         // Anonymity contract: the DTO carries only the caller's own vote rows.
         var poll = SamplePoll(anonymous: true, votes: [(UserId, 0)], voteCounts: [3, 1]);
 
-        var cut = RenderComponent<PollVotePanel>(p => p
+        var cut = Render<PollVotePanel>(p => p
             .Add(x => x.Poll, poll)
             .Add(x => x.UserId, UserId)
             .Add(x => x.NameResolver, (Func<long, string>?)null));
@@ -91,7 +91,7 @@ public class PollComponentTests : TestContext
         var slot = new DateTimeOffset(2030, 6, 1, 18, 0, 0, TimeSpan.Zero);
         var poll = SamplePoll(status: PollStatus.Closed, isTimePoll: true, slots: [slot, slot.AddHours(2)], voteCounts: [2, 0]);
 
-        var cut = RenderComponent<PollVotePanel>(p => p
+        var cut = Render<PollVotePanel>(p => p
             .Add(x => x.Poll, poll)
             .Add(x => x.UserId, UserId));
 
@@ -105,7 +105,7 @@ public class PollComponentTests : TestContext
     {
         UseApi(out _);
 
-        var cut = RenderComponent<PollForm>(p => p.Add(x => x.GuildId, 1));
+        var cut = Render<PollForm>(p => p.Add(x => x.GuildId, 1));
 
         Assert.Equal(2, cut.FindAll("[aria-label^='Remove option']").Count);
         Assert.All(cut.FindAll("[aria-label^='Remove option']"), b => Assert.True(b.HasAttribute("disabled")));

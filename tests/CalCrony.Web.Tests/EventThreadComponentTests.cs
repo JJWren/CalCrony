@@ -20,7 +20,7 @@ public class EventThreadComponentTests : TestContext
         var handler = UseApi();
         handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
 
-        var cut = RenderComponent<EventForm>(p => p.Add(x => x.GuildId, 1L));
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1L));
         cut.Find("#ev-title").Change("Threaded");
         cut.Find("#ev-when").Change("friday 6pm");
         cut.Find("#ev-thread").Change(true);
@@ -39,7 +39,7 @@ public class EventThreadComponentTests : TestContext
         SetupAuth();
         var threaded = SampleEvent(threadId: 888200);
         RouteEventPages(handler, threaded);
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, threaded.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, threaded.Id));
         cut.WaitForAssertion(() => Assert.Contains("Discussion thread open in Discord", cut.Markup));
     }
 
@@ -50,7 +50,7 @@ public class EventThreadComponentTests : TestContext
         SetupAuth();
         var plain = SampleEvent(threadId: null);
         RouteEventPages(handler, plain);
-        var cut = RenderComponent<EventDetail>(p => p.Add(x => x.EventId, plain.Id));
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, plain.Id));
         cut.WaitForAssertion(() => Assert.Contains(plain.Title, cut.Markup));
         Assert.DoesNotContain("Discussion thread", cut.Markup);
     }
@@ -87,7 +87,7 @@ public class EventThreadComponentTests : TestContext
             new HttpClient { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<CalCrony.Web.Auth.ITokenStore>(),
             sp.GetRequiredService<CalCrony.Web.Auth.JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
     }
 
     private static EventDto SampleEvent(long? threadId)

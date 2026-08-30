@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG VERSION=0.0.0-local
 WORKDIR /source
 COPY src/CalCrony.Contracts/CalCrony.Contracts.csproj src/CalCrony.Contracts/
@@ -7,7 +7,7 @@ RUN dotnet restore src/CalCrony.Bot/CalCrony.Bot.csproj
 COPY src/ src/
 RUN dotnet publish src/CalCrony.Bot/CalCrony.Bot.csproj -c Release -o /app -p:Version=$VERSION
 
-FROM mcr.microsoft.com/dotnet/runtime:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "CalCrony.Bot.dll"]

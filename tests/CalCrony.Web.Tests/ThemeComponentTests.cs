@@ -23,7 +23,7 @@ public class ThemeComponentTests : TestContext
         await SetupAuthAsync(signedIn: false);
         JSInterop.Setup<string>("calcronyTheme.getThemeName").SetResult("ember");
 
-        var cut = RenderComponent<InterfaceThemePicker>();
+        var cut = Render<InterfaceThemePicker>();
 
         cut.WaitForAssertion(() =>
         {
@@ -46,7 +46,7 @@ public class ThemeComponentTests : TestContext
             ? JsonSerializer.Serialize(new UserSettingsDto("America/Chicago", false), JsonWeb)
             : JsonSerializer.Serialize(new UserSettingsDto("America/Chicago", false, "moss"), JsonWeb);
 
-        var cut = RenderComponent<InterfaceThemePicker>();
+        var cut = Render<InterfaceThemePicker>();
         cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll("button.theme-tile").Count));
 
         cut.FindAll("button.theme-tile").Single(t => t.TextContent.Contains("Feywild Moss")).Click();
@@ -70,7 +70,7 @@ public class ThemeComponentTests : TestContext
         JSInterop.Setup<string>("calcronyTheme.getThemeName").SetResult("slate");
         JSInterop.Setup<string>("calcronyTheme.getTheme").SetResult("dark");
 
-        var cut = RenderComponent<InterfaceThemePicker>();
+        var cut = Render<InterfaceThemePicker>();
         cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll("button.theme-tile").Count));
 
         cut.FindAll("button.theme-tile").Single(t => t.TextContent.Contains("Parchment")).Click();
@@ -90,7 +90,7 @@ public class ThemeComponentTests : TestContext
         // the stored timezone/DM preferences just to save a theme.
         handler.StatusFor = req => req.Method == HttpMethod.Get ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;
 
-        var cut = RenderComponent<InterfaceThemePicker>();
+        var cut = Render<InterfaceThemePicker>();
         cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll("button.theme-tile").Count));
 
         cut.FindAll("button.theme-tile").Single(t => t.TextContent.Contains("Feywild Moss")).Click();
@@ -108,7 +108,7 @@ public class ThemeComponentTests : TestContext
         JSInterop.Setup<string>("calcronyTheme.getThemeName").SetResult("slate");
         handler.JsonFor = _ => JsonSerializer.Serialize(new UserSettingsDto(null, true, "obsidian"), JsonWeb);
 
-        var cut = RenderComponent<ThemeSync>();
+        var cut = Render<ThemeSync>();
 
         cut.WaitForAssertion(() =>
             Assert.Equal("obsidian", JSInterop.VerifyInvoke("calcronyTheme.setThemeName").Arguments[0]));
@@ -122,7 +122,7 @@ public class ThemeComponentTests : TestContext
         JSInterop.Setup<string>("calcronyTheme.getThemeName").SetResult("slate");
         handler.JsonFor = _ => JsonSerializer.Serialize(new UserSettingsDto(null, true), JsonWeb);
 
-        var cut = RenderComponent<ThemeSync>();
+        var cut = Render<ThemeSync>();
 
         // The settings GET resolves first; only then is "no invocation" meaningful.
         cut.WaitForAssertion(() => Assert.NotNull(handler.LastRequest));
@@ -135,7 +135,7 @@ public class ThemeComponentTests : TestContext
         JSInterop.Mode = JSRuntimeMode.Loose;
         JSInterop.Setup<string>("calcronyTheme.getTheme").SetResult("dark");
 
-        var cut = RenderComponent<ThemeToggle>();
+        var cut = Render<ThemeToggle>();
         cut.WaitForAssertion(() =>
             Assert.Contains("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Dark").ClassName));
 
@@ -170,7 +170,7 @@ public class ThemeComponentTests : TestContext
             new HttpClient(new SessionHandler()) { BaseAddress = new Uri("http://localhost") },
             sp.GetRequiredService<ITokenStore>(),
             sp.GetRequiredService<JwtAuthenticationStateProvider>()));
-        this.AddTestAuthorization();
+        this.AddAuthorization();
 
         if (signedIn)
         {
