@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0](https://github.com/JJWren/CalCrony/compare/v0.18.0...v0.19.0) (2026-08-30)
+
+
+### Features
+
+* add server/channel context and jump links to the ICS feed ([#82](https://github.com/JJWren/CalCrony/issues/82)) ([b587ab1](https://github.com/JJWren/CalCrony/commit/b587ab1ddda465ba8aeb2b6991bc479be24428e6))
+* d20 brand mark in the navbar lockups and as the site favicon ([#86](https://github.com/JJWren/CalCrony/issues/86)) ([fd01a8f](https://github.com/JJWren/CalCrony/commit/fd01a8fa1fafa1bc53aced0a2d8c3690d0b002e3))
+
 ## [0.18.0](https://github.com/JJWren/CalCrony/compare/v0.17.3...v0.18.0) (2026-08-30)
 
 
