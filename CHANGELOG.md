@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.0](https://github.com/JJWren/CalCrony/compare/v0.24.0...v0.25.0) (2026-08-31)
+
+
+### Features
+
+* add /help command with docs, community, and donate links ([#110](https://github.com/JJWren/CalCrony/issues/110)) ([14cb513](https://github.com/JJWren/CalCrony/commit/14cb51349aa61665aea0ebf3a9bb986ed6f562ad))
+* add configurable Buy Me a Coffee donate link to footer and README ([#111](https://github.com/JJWren/CalCrony/issues/111)) ([7bcf3bd](https://github.com/JJWren/CalCrony/commit/7bcf3bd062b0e2935de692ec379f2b868b1dc3c9))
+* template sitemap/robots origin for self-hosted deployments ([#113](https://github.com/JJWren/CalCrony/issues/113)) ([e89854a](https://github.com/JJWren/CalCrony/commit/e89854ae2f9c8788227b9fac8ce3fab74e1892a5))
+
 ## [0.24.0](https://github.com/JJWren/CalCrony/compare/v0.23.1...v0.24.0) (2026-08-31)
 
 
