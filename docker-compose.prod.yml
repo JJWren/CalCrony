@@ -80,6 +80,9 @@ services:
     restart: unless-stopped
     environment:
       Discord__BotToken: ${DISCORD_BOT_TOKEN:?set DISCORD_BOT_TOKEN}
+      # Optional /help links — unset means the embed omits them.
+      Discord__SupportServerInvite: ${DISCORD_SUPPORT_SERVER_INVITE:-}
+      Donations__BuyMeACoffeeUrl: ${DONATE_URL:-}
       Api__BaseUrl: http://api:8080
       Api__ApiKey: ${CALCRONY_API_KEY:?set CALCRONY_API_KEY}
     depends_on:

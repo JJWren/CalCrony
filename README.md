@@ -60,6 +60,7 @@ flowchart LR
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
 | `/template save name event` · `/template list` · `/template edit name [fields...]` · `/template delete name` | Save an event's setup for reuse · browse · edit content/repeat rule · delete (creator or manager; reminder lists are edited on the web) |
 | `/settings view` · `/settings timezone` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` | Personal & server timezone · where web-created embeds post · mirror events to the server's Events tab |
+| `/help` | What CalCrony is, first steps, and links to docs, the community server, and support |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |
 | `/calendar connect` · `status` · `disconnect` | Link/unlink your Google Calendar (works in DMs) |
