@@ -67,7 +67,7 @@ else
                 <div class="meta-mono text-uppercase mb-1">@day.Date.ToString("ddd d MMM", CultureInfo.InvariantCulture)</div>
                 @foreach (var ev in day.Events)
                 {
-                    @Chip(ev)
+                    @Chip(ev, compact: false)
                 }
             </div>
         }
@@ -91,7 +91,7 @@ else
                             <div class="pub-cal-day meta-mono">@cell.Date.Day</div>
                             @foreach (var ev in cell.Events)
                             {
-                                @Chip(ev)
+                                @Chip(ev, compact: true)
                             }
                         </div>
                     }
@@ -117,6 +117,7 @@ else
     private static readonly string[] DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     private bool loading = true;
+    private string? loadedSlug;
     private bool inactive;
     private string? loadError;
     private PublicCalendarDto? calendar;
@@ -137,6 +138,15 @@ else
     protected override async Task OnParametersSetAsync()
     {
         loading = true;
+        if (!string.Equals(Slug, loadedSlug, StringComparison.Ordinal))
+        {
+            // A different link: stale data is only ever kept across month navigation within one
+            // calendar — never shown under another slug's URL.
+            calendar = null;
+            cells = [];
+            loadedSlug = Slug;
+        }
+
         var (year, month) = ParseMonth(MonthQuery);
         var result = await Api.GetPublicCalendarAsync(Slug, year, month);
         // Only a 404 means the link is gone; anything else keeps whatever month is already shown
@@ -156,33 +166,51 @@ else
         loading = false;
     }
 
-    /// <summary>Renders one event chip: a Discord jump link when the event has been posted,
-    /// plain text otherwise (projected occurrences have nothing to link to yet).</summary>
-    private RenderFragment Chip(PublicCalendarEventDto ev) => __builder =>
+    /// <summary>Renders one event chip: a Discord jump link when the event has been posted, plain
+    /// text otherwise (projected occurrences have nothing to link to yet). Compact chips (the grid)
+    /// keep one line and carry the metadata as screen-reader text plus a hover title; agenda chips
+    /// show it in full — a mobile-first page must present every public field visibly, not only on
+    /// hover.</summary>
+    private RenderFragment Chip(PublicCalendarEventDto ev, bool compact) => __builder =>
     {
         var css = ev.Projected ? "pub-cal-chip projected" : "pub-cal-chip";
         var time = ev.StartsAtLocal.ToString("h:mm tt", CultureInfo.InvariantCulture);
-        var title = ChipTitle(ev);
+        var meta = ChipMeta(ev);
+        var hoverTitle = !compact ? null : meta.Length == 0 ? ev.Title : $"{ev.Title} · {meta}";
         if (ev.DiscordUrl is { } url)
         {
-            <a class="@css" href="@url" target="_blank" rel="noopener" title="@title">
-                <span class="pub-cal-time">@time</span> @ev.Title
-            </a>
+            <a class="@css" href="@url" target="_blank" rel="noopener" title="@hoverTitle">@ChipBody(ev, time, meta, compact)</a>
         }
         else
         {
-            <span class="@css" title="@title">
-                <span class="pub-cal-time">@time</span> @ev.Title
-            </span>
+            <span class="@css" title="@hoverTitle">@ChipBody(ev, time, meta, compact)</span>
         }
     };
 
-    private static string ChipTitle(PublicCalendarEventDto ev)
+    private static RenderFragment ChipBody(PublicCalendarEventDto ev, string time, string meta, bool compact) => __builder =>
     {
-        var parts = new List<string> { ev.Title };
+        <span class="pub-cal-time">@time</span>@ev.Title
+        @if (meta.Length > 0 && compact)
+        {
+            <span class="visually-hidden"> — @meta</span>
+        }
+        else if (meta.Length > 0)
+        {
+            <span class="pub-cal-meta">@meta</span>
+        }
+    };
+
+    private static string ChipMeta(PublicCalendarEventDto ev)
+    {
+        var parts = new List<string>();
         if (ev.DurationMinutes is int minutes)
         {
-            parts.Add(minutes % 60 == 0 ? $"{minutes / 60} hr" : $"{minutes} min");
+            parts.Add(minutes switch
+            {
+                < 60 => $"{minutes} min",
+                _ when minutes % 60 == 0 => $"{minutes / 60} hr",
+                _ => $"{minutes / 60} hr {minutes % 60} min",
+            });
         }
 
         if (!string.IsNullOrWhiteSpace(ev.Location))

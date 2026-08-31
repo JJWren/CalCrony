@@ -82,6 +82,13 @@ public static partial class PublicCalendarEndpoints
             return denied;
         }
 
+        // Serialized per guild: two first-enables racing would each mint a slug, and one caller
+        // would walk away with a link the other's write immediately invalidated. A transaction-
+        // scoped advisory lock keyed by the guild id makes the later request observe (and return)
+        // the canonical stored slug — and, unlike a row lock, it works before the guild row exists.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({guildId})", cancellationToken);
+
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
         if (!request.Enabled)
         {
@@ -93,6 +100,7 @@ public static partial class PublicCalendarEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(ToSettingsDto(guild.PublicCalendarSlug, configuration));
     }
 

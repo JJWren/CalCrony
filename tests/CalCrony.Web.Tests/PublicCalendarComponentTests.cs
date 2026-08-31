@@ -152,6 +152,48 @@ public class PublicCalendarComponentTests : TestContext
         Assert.False(cut.Find("button[aria-label='Previous month']").HasAttribute("disabled"));
     }
 
+    [Fact]
+    public void Agenda_shows_metadata_visibly_and_grid_chips_expose_it_to_assistive_tech()
+    {
+        var handler = UseApi();
+        handler.Respond = _ => (HttpStatusCode.OK, JsonSerializer.Serialize(SampleMonth(), JsonWeb));
+
+        var cut = Render<PublicCalendar>(p => p.Add(x => x.Slug, "abc"));
+        cut.WaitForAssertion(() => Assert.Contains("Test Guild", cut.Markup));
+
+        // Agenda (mobile): duration, place, and channel are visible text, not a tooltip.
+        var agendaMeta = cut.FindAll(".d-md-none .pub-cal-meta");
+        Assert.Equal(2, agendaMeta.Count);
+        Assert.Contains("1 hr 30 min", agendaMeta[0].TextContent);
+        Assert.Contains("Voice", agendaMeta[0].TextContent);
+        Assert.Contains("#events", agendaMeta[0].TextContent);
+        Assert.Contains("not posted yet", agendaMeta[1].TextContent);
+
+        // Grid: compact chips carry the same details as screen-reader text.
+        var hidden = cut.FindAll(".pub-cal-grid .pub-cal-chip .visually-hidden");
+        Assert.Equal(2, hidden.Count);
+        Assert.Contains("Voice", hidden[0].TextContent);
+    }
+
+    [Fact]
+    public void Switching_slugs_never_shows_the_previous_calendars_events()
+    {
+        var handler = UseApi();
+        handler.Respond = req => req.RequestUri!.AbsolutePath.EndsWith("/public/calendars/abc")
+            ? (HttpStatusCode.OK, JsonSerializer.Serialize(SampleMonth(), JsonWeb))
+            : (HttpStatusCode.BadRequest, JsonSerializer.Serialize(new ErrorResponse("nope"), JsonWeb));
+
+        var cut = Render<PublicCalendar>(p => p.Add(x => x.Slug, "abc"));
+        cut.WaitForAssertion(() => Assert.Contains("Raid Night", cut.Markup));
+
+        // Blazor reuses the component for a new slug on the same route; calendar A must not
+        // linger under calendar B's URL when B's request fails.
+        cut.Render(p => p.Add(x => x.Slug, "other"));
+
+        cut.WaitForAssertion(() => Assert.Contains("Couldn't load this calendar", cut.Markup));
+        Assert.DoesNotContain("Raid Night", cut.Markup);
+    }
+
     private static PublicCalendarDto SampleMonth() =>
         new("Test Guild", "America/Chicago", 2026, 9,
         [

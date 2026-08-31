@@ -143,4 +143,5 @@ body { min-height: 100vh; }
 a.pub-cal-chip:hover, a.pub-cal-chip:focus-visible { text-decoration: underline; }
 .pub-cal-chip.projected { background: transparent; border-color: var(--cc-line-strong); border-style: dashed; border-left-color: var(--cc-accent); }
 .pub-cal-time { font-family: var(--bs-font-monospace); font-size: .72rem; opacity: .85; margin-right: .2rem; }
+.pub-cal-meta { display: block; font-size: .72rem; opacity: .8; white-space: normal; margin-top: .1rem; }
 .d-md-none .pub-cal-chip { white-space: normal; }

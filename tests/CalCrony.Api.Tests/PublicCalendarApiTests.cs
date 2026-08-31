@@ -57,6 +57,24 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
     }
 
     [Fact]
+    public async Task Concurrent_first_enables_agree_on_a_single_slug()
+    {
+        const long guildId = 12170;
+        var responses = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
+            Client.PutAsJsonAsync($"/guilds/{guildId}/public-calendar", new PublicCalendarRequest(true))));
+
+        var stored = (await ReadAsync<PublicCalendarSettingsDto>(
+            await Client.GetAsync($"/guilds/{guildId}/public-calendar"))).Slug;
+        Assert.NotNull(stored);
+        foreach (var response in responses)
+        {
+            // Every caller got the ONE link that actually exists — never a slug a racing
+            // request immediately replaced.
+            Assert.Equal(stored, (await ReadAsync<PublicCalendarSettingsDto>(response)).Slug);
+        }
+    }
+
+    [Fact]
     public async Task Only_managers_change_the_setting_while_members_can_read_it()
     {
         const long guildId = 12120;

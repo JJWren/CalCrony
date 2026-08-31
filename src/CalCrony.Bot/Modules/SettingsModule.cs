@@ -190,7 +190,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             : "🔗 Public calendar is **on**.";
         await FollowupAsync(
             $"{status}\n{PublicCalendarLinkLine(result.Value)}\n" +
-            "Anyone with the link sees event titles, times, and locations — no sign-in, and never descriptions, RSVPs, or member names. " +
+            "Anyone with the link sees event titles, start times, durations, locations, and channel names — no sign-in, and never descriptions, RSVPs, or member names. " +
             "`/settings public-calendar off` turns it off; `new-link` retires a leaked link.",
             ephemeral: true);
     }

@@ -78,7 +78,7 @@ else
                 <p class="text-body-secondary small mt-1 mb-2">Subscribe from Google, Apple, or Outlook — anyone with this URL can read this server's events.</p>
                 @if (feedUrl is null)
                 {
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
                 }
                 else
                 {
@@ -91,8 +91,9 @@ else
             <div class="card p-3 h-100">
                 <div class="fw-bold">Public calendar</div>
                 <p class="text-body-secondary small mt-1 mb-2">
-                    Off by default. When on, anyone with the link sees this server's event titles, times, and
-                    locations as a month calendar — no sign-in needed. Descriptions, RSVPs, and member names never appear there.
+                    Off by default. When on, anyone with the link sees this server's event titles, start times,
+                    durations, locations, and channel names as a month calendar — no sign-in needed. Descriptions,
+                    RSVPs, and member names never appear there.
                 </p>
                 @if (publicCalendarError is not null)
                 {
@@ -100,7 +101,7 @@ else
                 }
                 else if (publicCalendar is null)
                 {
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
                 }
                 else
                 {
