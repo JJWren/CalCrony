@@ -1,0 +1,210 @@
+@page "/c/{Slug}"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@using System.Globalization
+@inject CalCronyWebApiClient Api
+@inject NavigationManager Nav
+
+@* The login-free public calendar (issue #121): one server's events as a month grid, reached only
+   through the server's unguessable slug link. It shows what a passer-by should see — titles,
+   times, places, a jump link into Discord — and nothing else; the API never sends descriptions,
+   RSVPs, or member names here. Shareable, not discoverable: noindex, and robots.txt disallows /c/. *@
+
+<PageTitle>@Heading — CalCrony</PageTitle>
+<HeadContent>
+    <meta name="robots" content="noindex, nofollow" />
+</HeadContent>
+
+@if (loading)
+{
+    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
+}
+else if (calendar is null)
+{
+    <p class="meta-mono text-uppercase mb-2">Public calendar</p>
+    <h1 class="h3">This calendar link isn't active</h1>
+    <p class="text-body-secondary" style="max-width:52ch">
+        The server may have turned its public calendar off or generated a new link. Ask a server
+        manager for the current one.
+    </p>
+}
+else
+{
+    <p class="meta-mono text-uppercase mb-2">Public calendar</p>
+    <h1 class="h3">@Heading</h1>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 my-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(-1)" aria-label="Previous month">‹</button>
+        <span class="fw-bold text-center" style="min-width:12ch" aria-live="polite">@MonthLabel</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(1)" aria-label="Next month">›</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToCurrentAsync">This month</button>
+        <span class="meta-mono ms-auto">times in @calendar.TimeZone</span>
+    </div>
+
+    @if (calendar.Events.Count == 0)
+    {
+        <p class="text-body-secondary">Nothing scheduled this month.</p>
+    }
+
+    @* Narrow screens: an agenda of the days that have something on. *@
+    <div class="d-md-none">
+        @foreach (var day in cells.Where(c => c.InMonth && c.Events.Count > 0))
+        {
+            <div class="mb-3">
+                <div class="meta-mono text-uppercase mb-1">@day.Date.ToString("ddd d MMM", CultureInfo.InvariantCulture)</div>
+                @foreach (var ev in day.Events)
+                {
+                    @Chip(ev)
+                }
+            </div>
+        }
+    </div>
+
+    @* Wider screens: the month grid, Sunday-first. *@
+    <div class="d-none d-md-block">
+        <div class="pub-cal-grid" role="grid" aria-label="@MonthLabel">
+            @foreach (var name in DayNames)
+            {
+                <div class="pub-cal-dow meta-mono text-uppercase" role="columnheader">@name</div>
+            }
+            @foreach (var cell in cells)
+            {
+                <div class="pub-cal-cell @(cell.InMonth ? null : "outside")" role="gridcell">
+                    <div class="pub-cal-day meta-mono">@cell.Date.Day</div>
+                    @foreach (var ev in cell.Events)
+                    {
+                        @Chip(ev)
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (calendar.Events.Any(e => e.Projected))
+    {
+        <p class="text-body-secondary small mt-3 mb-0">
+            Dashed entries are upcoming occurrences of repeating events that haven't been posted to Discord yet.
+        </p>
+    }
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    /// <summary>Month to show as <c>yyyy-MM</c>; absent means the server's current month.</summary>
+    [SupplyParameterFromQuery(Name = "m")] public string? MonthQuery { get; set; }
+
+    private static readonly string[] DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    private bool loading = true;
+    private PublicCalendarDto? calendar;
+    private List<DayCell> cells = [];
+
+    private string Heading => calendar?.GuildName is { Length: > 0 } name ? name : "Server calendar";
+
+    private string MonthLabel => calendar is null
+        ? ""
+        : new DateTime(calendar.Year, calendar.Month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        var (year, month) = ParseMonth(MonthQuery);
+        var result = await Api.GetPublicCalendarAsync(Slug, year, month);
+        calendar = result.Success ? result.Value : null;
+        cells = calendar is null ? [] : BuildCells(calendar);
+        loading = false;
+    }
+
+    /// <summary>Renders one event chip: a Discord jump link when the event has been posted,
+    /// plain text otherwise (projected occurrences have nothing to link to yet).</summary>
+    private RenderFragment Chip(PublicCalendarEventDto ev) => __builder =>
+    {
+        var css = ev.Projected ? "pub-cal-chip projected" : "pub-cal-chip";
+        var time = ev.StartsAtLocal.ToString("h:mm tt", CultureInfo.InvariantCulture);
+        var title = ChipTitle(ev);
+        if (ev.DiscordUrl is { } url)
+        {
+            <a class="@css" href="@url" target="_blank" rel="noopener" title="@title">
+                <span class="pub-cal-time">@time</span> @ev.Title
+            </a>
+        }
+        else
+        {
+            <span class="@css" title="@title">
+                <span class="pub-cal-time">@time</span> @ev.Title
+            </span>
+        }
+    };
+
+    private static string ChipTitle(PublicCalendarEventDto ev)
+    {
+        var parts = new List<string> { ev.Title };
+        if (ev.DurationMinutes is int minutes)
+        {
+            parts.Add(minutes % 60 == 0 ? $"{minutes / 60} hr" : $"{minutes} min");
+        }
+
+        if (!string.IsNullOrWhiteSpace(ev.Location))
+        {
+            parts.Add(ev.Location);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ev.ChannelName))
+        {
+            parts.Add($"#{ev.ChannelName}");
+        }
+
+        if (ev.Projected)
+        {
+            parts.Add("upcoming occurrence — not posted yet");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private static (int? Year, int? Month) ParseMonth(string? query) =>
+        DateTime.TryParseExact(query, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? (parsed.Year, parsed.Month)
+            : (null, null);
+
+    private Task GoAsync(int deltaMonths)
+    {
+        if (calendar is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var target = new DateTime(calendar.Year, calendar.Month, 1).AddMonths(deltaMonths);
+        Nav.NavigateTo($"/c/{Slug}?m={target:yyyy-MM}");
+        return Task.CompletedTask;
+    }
+
+    private Task GoToCurrentAsync()
+    {
+        Nav.NavigateTo($"/c/{Slug}");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Lays the month out Sunday-first, padded with the neighbouring months' days to
+    /// whole weeks; each cell carries its events in start order.</summary>
+    private static List<DayCell> BuildCells(PublicCalendarDto month)
+    {
+        var first = new DateTime(month.Year, month.Month, 1);
+        var start = first.AddDays(-(int)first.DayOfWeek);
+        var afterLast = first.AddMonths(1);
+        var end = afterLast.AddDays((7 - (int)afterLast.DayOfWeek) % 7);
+        var byDay = month.Events
+            .GroupBy(e => e.StartsAtLocal.Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartsAtLocal).ToList());
+
+        var result = new List<DayCell>();
+        for (var day = start; day < end; day = day.AddDays(1))
+        {
+            result.Add(new DayCell(day, day.Month == month.Month, byDay.GetValueOrDefault(day) ?? []));
+        }
+
+        return result;
+    }
+
+    private sealed record DayCell(DateTime Date, bool InMonth, List<PublicCalendarEventDto> Events);
+}

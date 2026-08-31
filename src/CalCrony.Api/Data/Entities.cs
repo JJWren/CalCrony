@@ -23,6 +23,12 @@ public class Guild
     /// guild-update events) — the API never asks Discord. Null until the bot has reported one;
     /// consumers must degrade gracefully.</summary>
     public string? Name { get; set; }
+
+    /// <summary>Opt-in public calendar: the unguessable URL slug (<c>/c/{slug}</c>) while it is
+    /// on, null while off — the default, because the privacy stance is the product. Regenerating
+    /// replaces the slug, which revokes every old link ("links are keys", like the ICS feed
+    /// token).</summary>
+    public string? PublicCalendarSlug { get; set; }
 }
 
 /// <summary>Name snapshot for a Discord channel CalCrony references (an event, a series, or a

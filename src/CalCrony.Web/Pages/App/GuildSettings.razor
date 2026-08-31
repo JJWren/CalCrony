@@ -2,6 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject CalCronyWebApiClient Api
 @inject IJSRuntime Js
+@inject NavigationManager Nav
 
 <PageTitle>Server settings — CalCrony</PageTitle>
 
@@ -86,6 +87,54 @@ else
                 }
             </div>
         </div>
+        <div class="col-12 col-md-6">
+            <div class="card p-3 h-100">
+                <div class="fw-bold">Public calendar</div>
+                <p class="text-body-secondary small mt-1 mb-2">
+                    Off by default. When on, anyone with the link sees this server's event titles, times, and
+                    locations as a month calendar — no sign-in needed. Descriptions, RSVPs, and member names never appear there.
+                </p>
+                @if (publicCalendar is null)
+                {
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                }
+                else
+                {
+                    @if (isManager)
+                    {
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="gs-public-cal" checked="@publicCalendar.Enabled" @onchange="TogglePublicCalendarAsync" disabled="@busy" />
+                            <label class="form-check-label small" for="gs-public-cal">Share a public calendar link</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="meta-mono mb-1">@(publicCalendar.Enabled ? "on" : "off")</p>
+                    }
+                    @if (publicCalendar.Enabled && PublicCalendarUrl is { } link)
+                    {
+                        <p class="meta-mono text-break mb-2 mt-2"><a href="@link" target="_blank" rel="noopener">@link</a></p>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <button class="btn btn-outline-primary btn-sm" @onclick="CopyPublicCalendarAsync">@publicCopyLabel</button>
+                            @if (isManager && !confirmRegenerate)
+                            {
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmRegenerate = true" disabled="@busy">New link…</button>
+                            }
+                            else if (isManager)
+                            {
+                                <span class="small">Old links stop working.</span>
+                                <button class="btn btn-danger btn-sm" @onclick="RegeneratePublicCalendarAsync" disabled="@busy">Generate new link</button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmRegenerate = false">Cancel</button>
+                            }
+                        </div>
+                    }
+                    @if (publicCalendarMessage is not null)
+                    {
+                        <div class="meta-mono mt-2">@publicCalendarMessage</div>
+                    }
+                }
+            </div>
+        </div>
     </div>
 }
 
@@ -102,6 +151,15 @@ else
     private string? saveMessage;
     private bool mirrorInput;
     private string? mirrorMessage;
+    private PublicCalendarSettingsDto? publicCalendar;
+    private string? publicCalendarMessage;
+    private string publicCopyLabel = "Copy link";
+    private bool confirmRegenerate;
+
+    // The API's absolute Url (from Web:Origin) is canonical; without one, the link is built from
+    // this app's own origin — the calendar is a web-app route, not an API one.
+    private string? PublicCalendarUrl => publicCalendar?.Url
+        ?? (publicCalendar?.Path is { } path ? Nav.ToAbsoluteUri(path.TrimStart('/')).ToString() : null);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -123,6 +181,50 @@ else
         {
             feedUrl = Api.FeedUrl(feedResult.Value);
         }
+
+        confirmRegenerate = false;
+        publicCalendarMessage = null;
+        var publicResult = await Api.GetPublicCalendarSettingsAsync(GuildId);
+        publicCalendar = publicResult.Success ? publicResult.Value : new PublicCalendarSettingsDto(false, null, null, null);
+    }
+
+    private Task TogglePublicCalendarAsync(ChangeEventArgs e)
+    {
+        var enable = e.Value is true;
+        return SavePublicCalendarAsync(new PublicCalendarRequest(enable), enable
+            ? "🔗 On — share the link below. Turn it off any time; a new link retires the old one."
+            : "🔒 Off — the old link no longer works.");
+    }
+
+    private Task RegeneratePublicCalendarAsync()
+    {
+        confirmRegenerate = false;
+        return SavePublicCalendarAsync(
+            new PublicCalendarRequest(true, Regenerate: true), "🔗 New link generated — the previous one no longer works.");
+    }
+
+    private async Task SavePublicCalendarAsync(PublicCalendarRequest request, string successMessage)
+    {
+        publicCalendarMessage = null;
+        busy = true;
+        var result = await Api.PutPublicCalendarAsync(GuildId, request);
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            publicCalendarMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        publicCalendar = result.Value;
+        publicCalendarMessage = successMessage;
+    }
+
+    private async Task CopyPublicCalendarAsync()
+    {
+        var ok = await Js.InvokeAsync<bool>("calcronyCopy", PublicCalendarUrl);
+        publicCopyLabel = ok ? "Copied ✓" : "Copy failed";
+        await Task.Delay(1500);
+        publicCopyLabel = "Copy link";
     }
 
     private async Task SaveTimezoneAsync()

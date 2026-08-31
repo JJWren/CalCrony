@@ -1,7 +1,9 @@
-# The auth-gated app area and the login redirect have nothing to index; everything else is welcome.
+# The auth-gated app area and the login redirect have nothing to index, and public calendars
+# (/c/<slug>) are shareable-not-discoverable — their pages also carry noindex. Everything else is welcome.
 User-agent: *
 Disallow: /app
 Disallow: /login
+Disallow: /c/
 Allow: /
 
 Sitemap: https://calcrony.app/sitemap.xml
