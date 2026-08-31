@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/JJWren/CalCrony/compare/v0.23.1...v0.24.0) (2026-08-31)
+
+
+### Features
+
+* link the community Discord server across product surfaces ([#108](https://github.com/JJWren/CalCrony/issues/108)) ([d9f892d](https://github.com/JJWren/CalCrony/commit/d9f892d4c161e4959f293c552f5e8e1259a1af79))
+
 ## [0.23.1](https://github.com/JJWren/CalCrony/compare/v0.23.0...v0.23.1) (2026-08-30)
 
 
