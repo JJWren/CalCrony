@@ -22,12 +22,16 @@ public record PublicCalendarRequest(bool Enabled, bool Regenerate = false);
 /// <param name="Year">The month's year.</param>
 /// <param name="Month">The month (1-12).</param>
 /// <param name="Events">The month's events in start order: concrete rows plus projected future occurrences of repeating series.</param>
+/// <param name="EarliestMonth">First of the earliest month the calendar will serve (the view is bounded around the server's current month).</param>
+/// <param name="LatestMonth">First of the latest month the calendar will serve.</param>
 public record PublicCalendarDto(
     string? GuildName,
     string TimeZone,
     int Year,
     int Month,
-    IReadOnlyList<PublicCalendarEventDto> Events);
+    IReadOnlyList<PublicCalendarEventDto> Events,
+    DateTime EarliestMonth,
+    DateTime LatestMonth);
 
 /// <summary>One public calendar entry.</summary>
 /// <param name="Title">The event title.</param>

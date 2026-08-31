@@ -28,6 +28,9 @@ public class PublicCalendarComponentTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("Test Guild", cut.Markup));
         Assert.Contains("September 2026", cut.Markup);
+        // ARIA grid pattern: header and week rows own the cells.
+        Assert.Equal(6, cut.FindAll(".pub-cal-grid [role='row']").Count); // 1 header + 5 weeks
+        Assert.Empty(cut.FindAll(".pub-cal-grid > [role='gridcell']"));
         Assert.Contains("times in America/Chicago", cut.Markup);
 
         // The posted event links to its Discord message (once in the grid, once in the agenda).
@@ -121,6 +124,34 @@ public class PublicCalendarComponentTests : TestContext
         Assert.Contains("New link", cut.Markup); // regenerate is offered, behind an inline confirm
     }
 
+    [Fact]
+    public void A_rejected_month_shows_the_message_instead_of_claiming_the_link_is_dead()
+    {
+        var handler = UseApi();
+        handler.Respond = _ => (HttpStatusCode.BadRequest, JsonSerializer.Serialize(
+            new ErrorResponse("Pick a month within 2 years of today (month 1-12)."), JsonWeb));
+
+        var cut = Render<PublicCalendar>(p => p.Add(x => x.Slug, "abc"));
+
+        cut.WaitForAssertion(() => Assert.Contains("Couldn't load this calendar", cut.Markup));
+        Assert.Contains("Pick a month within 2 years", cut.Markup);
+        Assert.DoesNotContain("isn't active", cut.Markup);
+    }
+
+    [Fact]
+    public void Navigation_stops_at_the_served_range()
+    {
+        var handler = UseApi();
+        var atLatest = SampleMonth() with { Year = 2028, Month = 8 }; // LatestMonth in SampleMonth
+        handler.Respond = _ => (HttpStatusCode.OK, JsonSerializer.Serialize(atLatest, JsonWeb));
+
+        var cut = Render<PublicCalendar>(p => p.Add(x => x.Slug, "abc"));
+
+        cut.WaitForAssertion(() => Assert.Contains("August 2028", cut.Markup));
+        Assert.True(cut.Find("button[aria-label='Next month']").HasAttribute("disabled"));
+        Assert.False(cut.Find("button[aria-label='Previous month']").HasAttribute("disabled"));
+    }
+
     private static PublicCalendarDto SampleMonth() =>
         new("Test Guild", "America/Chicago", 2026, 9,
         [
@@ -130,7 +161,9 @@ public class PublicCalendarComponentTests : TestContext
             new PublicCalendarEventDto(
                 "Raid Night", new DateTimeOffset(2026, 9, 13, 1, 0, 0, TimeSpan.Zero), new DateTime(2026, 9, 12, 20, 0, 0),
                 90, "Voice", "events", null, Projected: true),
-        ]);
+        ],
+        EarliestMonth: new DateTime(2024, 8, 1),
+        LatestMonth: new DateTime(2028, 8, 1));
 
     private RoutingHandler UseApi()
     {

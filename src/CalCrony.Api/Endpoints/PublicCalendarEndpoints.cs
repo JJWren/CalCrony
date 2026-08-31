@@ -17,10 +17,6 @@ public static partial class PublicCalendarEndpoints
     /// <summary>Web-app path prefix the slug hangs off.</summary>
     public const string PathPrefix = "/c/";
 
-    /// <summary>How far from the current month the anonymous view may wander — bounds the
-    /// per-request schedule stepping and stops the route doubling as a bulk history export.</summary>
-    private const int MaxMonthsFromNow = 24;
-
     /// <summary>Slugs are 128 random bits as lowercase hex; anything else 404s without a lookup.</summary>
     [GeneratedRegex("^[0-9a-f]{32}$")]
     private static partial Regex SlugShape();
@@ -136,10 +132,10 @@ public static partial class PublicCalendarEndpoints
         var today = now.InZone(zone).Date;
         var y = year ?? today.Year;
         var m = month ?? today.Month;
-        if (m is < 1 or > 12 || Math.Abs(((y - today.Year) * 12) + (m - today.Month)) > MaxMonthsFromNow)
+        if (!PublicCalendarBuilder.IsMonthInRange(y, m, today))
         {
             return Results.BadRequest(new ErrorResponse(
-                $"Pick a month within {MaxMonthsFromNow / 12} years of today (month 1-12)."));
+                $"Pick a month within {PublicCalendarBuilder.MaxMonthsFromNow / 12} years of today (month 1-12)."));
         }
 
         var (windowStart, windowEnd) = PublicCalendarBuilder.MonthWindow(zone, y, m);
@@ -158,8 +154,11 @@ public static partial class PublicCalendarEndpoints
             .Where(c => channelIds.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
 
-        // Shareable, not discoverable — the web page carries the same directive for crawlers.
+        // Shareable, not discoverable — the web page carries the same directive for crawlers. And
+        // never cached: the slug is a revocable credential, so a disabled or regenerated link must
+        // not keep answering from an HTTP cache.
         context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        context.Response.Headers.CacheControl = "no-store";
         return Results.Ok(PublicCalendarBuilder.Build(guild.Name, zone, y, m, events, series, channelNames, now));
     }
 

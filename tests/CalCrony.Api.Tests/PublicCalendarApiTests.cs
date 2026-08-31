@@ -98,6 +98,7 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         var response = await anonymous.GetAsync(MonthUrl(slug, ev.StartsAtUtc));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("noindex, nofollow", response.Headers.GetValues("X-Robots-Tag").Single());
+        Assert.True(response.Headers.CacheControl!.NoStore); // the slug is revocable — never cache
 
         var json = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("secret sauce", json); // descriptions stay private
@@ -108,6 +109,7 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
             json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
         Assert.Equal("Test Guild", calendar.GuildName);
         Assert.Equal("UTC", calendar.TimeZone);
+        Assert.True(calendar.EarliestMonth < calendar.LatestMonth);
         var entry = Assert.Single(calendar.Events, e => e.Title == "Council of Elrond");
         Assert.Equal("The keep", entry.Location);
         Assert.Equal($"https://discord.com/channels/{guildId}/{ChannelId}/424242", entry.DiscordUrl);
@@ -160,6 +162,9 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         var farFuture = DateTimeOffset.UtcNow.AddYears(3);
         Assert.Equal(HttpStatusCode.BadRequest, (await anonymous.GetAsync(MonthUrl(slug, farFuture))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await anonymous.GetAsync($"/public/calendars/{slug}?year=2026&month=13")).StatusCode);
+        // Crafted years must be rejected outright, never wrap into range and 500 in the window math.
+        Assert.Equal(HttpStatusCode.BadRequest, (await anonymous.GetAsync($"/public/calendars/{slug}?year={int.MaxValue}&month=1")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await anonymous.GetAsync($"/public/calendars/{slug}?year={int.MinValue}&month=12")).StatusCode);
     }
 
     // ---------- helpers ----------

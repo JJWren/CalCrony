@@ -20,9 +20,10 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         var guild = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
         var user = await api.GetUserSettingsAsync((long)Context.User.Id);
         var publicCalendar = await api.GetPublicCalendarAsync((long)Context.Guild.Id);
-        if (!guild.Success || !user.Success)
+        if (!guild.Success || !user.Success || !publicCalendar.Success)
         {
-            await FollowupAsync($"❌ {guild.Error ?? user.Error}", ephemeral: true);
+            // Never guess a privacy-sensitive setting: a failed read is an error, not "off".
+            await FollowupAsync($"❌ {guild.Error ?? user.Error ?? publicCalendar.Error}", ephemeral: true);
             return;
         }
 
@@ -31,7 +32,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             $"**Your timezone:** {user.Value!.TimeZone ?? "(not set — server timezone is used)"}\n" +
             $"**Your DM confirmations:** {(user.Value.DmConfirmations ? "on" : "off")}\n" +
             $"**Native Discord events:** {(guild.Value.MirrorNativeEvents ? "on" : "off")}\n" +
-            $"**Public calendar:** {(publicCalendar.Value?.Enabled == true ? "on" : "off")}",
+            $"**Public calendar:** {(publicCalendar.Value!.Enabled ? "on" : "off")}",
             ephemeral: true);
     }
 

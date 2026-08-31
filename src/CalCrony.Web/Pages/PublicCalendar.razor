@@ -18,7 +18,7 @@
 {
     <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
 }
-else if (calendar is null)
+else if (inactive)
 {
     <p class="meta-mono text-uppercase mb-2">Public calendar</p>
     <h1 class="h3">This calendar link isn't active</h1>
@@ -27,18 +27,32 @@ else if (calendar is null)
         manager for the current one.
     </p>
 }
+else if (calendar is null)
+{
+    @* A rejected request (e.g. a hand-edited ?m= outside the served range) or an outage — the
+       link itself may be perfectly valid, so this never claims it was revoked. *@
+    <p class="meta-mono text-uppercase mb-2">Public calendar</p>
+    <h1 class="h3">Couldn't load this calendar</h1>
+    <p class="text-body-secondary" style="max-width:52ch">@loadError</p>
+    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="GoToCurrentAsync">Show this month</button>
+}
 else
 {
     <p class="meta-mono text-uppercase mb-2">Public calendar</p>
     <h1 class="h3">@Heading</h1>
 
     <div class="d-flex flex-wrap align-items-center gap-2 my-3">
-        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(-1)" aria-label="Previous month">‹</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(-1)" aria-label="Previous month" disabled="@AtEarliest">‹</button>
         <span class="fw-bold text-center" style="min-width:12ch" aria-live="polite">@MonthLabel</span>
-        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(1)" aria-label="Next month">›</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(1)" aria-label="Next month" disabled="@AtLatest">›</button>
         <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToCurrentAsync">This month</button>
         <span class="meta-mono ms-auto">times in @calendar.TimeZone</span>
     </div>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-warning py-2 small">@loadError</div>
+    }
 
     @if (calendar.Events.Count == 0)
     {
@@ -62,17 +76,24 @@ else
     @* Wider screens: the month grid, Sunday-first. *@
     <div class="d-none d-md-block">
         <div class="pub-cal-grid" role="grid" aria-label="@MonthLabel">
-            @foreach (var name in DayNames)
+            <div class="pub-cal-row" role="row">
+                @foreach (var name in DayNames)
+                {
+                    <div class="pub-cal-dow meta-mono text-uppercase" role="columnheader">@name</div>
+                }
+            </div>
+            @for (var week = 0; week < cells.Count; week += 7)
             {
-                <div class="pub-cal-dow meta-mono text-uppercase" role="columnheader">@name</div>
-            }
-            @foreach (var cell in cells)
-            {
-                <div class="pub-cal-cell @(cell.InMonth ? null : "outside")" role="gridcell">
-                    <div class="pub-cal-day meta-mono">@cell.Date.Day</div>
-                    @foreach (var ev in cell.Events)
+                <div class="pub-cal-row" role="row">
+                    @foreach (var cell in cells.Skip(week).Take(7))
                     {
-                        @Chip(ev)
+                        <div class="pub-cal-cell @(cell.InMonth ? null : "outside")" role="gridcell">
+                            <div class="pub-cal-day meta-mono">@cell.Date.Day</div>
+                            @foreach (var ev in cell.Events)
+                            {
+                                @Chip(ev)
+                            }
+                        </div>
                     }
                 </div>
             }
@@ -96,8 +117,16 @@ else
     private static readonly string[] DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     private bool loading = true;
+    private bool inactive;
+    private string? loadError;
     private PublicCalendarDto? calendar;
     private List<DayCell> cells = [];
+
+    private DateTime ShownMonth => calendar is null ? DateTime.MinValue : new DateTime(calendar.Year, calendar.Month, 1);
+
+    private bool AtEarliest => calendar is not null && ShownMonth <= calendar.EarliestMonth;
+
+    private bool AtLatest => calendar is not null && ShownMonth >= calendar.LatestMonth;
 
     private string Heading => calendar?.GuildName is { Length: > 0 } name ? name : "Server calendar";
 
@@ -110,7 +139,19 @@ else
         loading = true;
         var (year, month) = ParseMonth(MonthQuery);
         var result = await Api.GetPublicCalendarAsync(Slug, year, month);
-        calendar = result.Success ? result.Value : null;
+        // Only a 404 means the link is gone; anything else keeps whatever month is already shown
+        // (so navigation still works) and surfaces the message instead.
+        inactive = result.NotFound;
+        loadError = result.Success || result.NotFound ? null : result.Error;
+        if (result.Success)
+        {
+            calendar = result.Value;
+        }
+        else if (result.NotFound)
+        {
+            calendar = null;
+        }
+
         cells = calendar is null ? [] : BuildCells(calendar);
         loading = false;
     }

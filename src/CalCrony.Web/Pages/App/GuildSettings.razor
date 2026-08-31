@@ -94,7 +94,11 @@ else
                     Off by default. When on, anyone with the link sees this server's event titles, times, and
                     locations as a month calendar — no sign-in needed. Descriptions, RSVPs, and member names never appear there.
                 </p>
-                @if (publicCalendar is null)
+                @if (publicCalendarError is not null)
+                {
+                    <div class="alert alert-warning py-2 small mb-0">Couldn't load this setting: @publicCalendarError</div>
+                }
+                else if (publicCalendar is null)
                 {
                     <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                 }
@@ -153,6 +157,7 @@ else
     private string? mirrorMessage;
     private PublicCalendarSettingsDto? publicCalendar;
     private string? publicCalendarMessage;
+    private string? publicCalendarError;
     private string publicCopyLabel = "Copy link";
     private bool confirmRegenerate;
 
@@ -184,8 +189,10 @@ else
 
         confirmRegenerate = false;
         publicCalendarMessage = null;
+        // A failed read shows as an error, never as a fabricated "off" a manager could act on.
         var publicResult = await Api.GetPublicCalendarSettingsAsync(GuildId);
-        publicCalendar = publicResult.Success ? publicResult.Value : new PublicCalendarSettingsDto(false, null, null, null);
+        publicCalendar = publicResult.Success ? publicResult.Value : null;
+        publicCalendarError = publicResult.Success ? null : publicResult.Error ?? "unknown error";
     }
 
     private Task TogglePublicCalendarAsync(ChangeEventArgs e)

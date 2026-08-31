@@ -3,10 +3,14 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Web.Api;
 
-/// <summary>Uniform call result: Value on success, a display-ready Error otherwise.</summary>
-public record ApiResult<T>(T? Value, string? Error)
+/// <summary>Uniform call result: Value on success, a display-ready Error otherwise. Status carries
+/// the HTTP status of a failed call (null when the API was unreachable) so pages can tell a
+/// missing resource from a rejected request or an outage.</summary>
+public record ApiResult<T>(T? Value, string? Error, System.Net.HttpStatusCode? Status = null)
 {
     public bool Success => Error is null;
+
+    public bool NotFound => Status == System.Net.HttpStatusCode.NotFound;
 }
 
 /// <summary>Typed client over the CalCrony API for web pages — same ApiResult shape the bot's
@@ -379,7 +383,7 @@ public sealed class CalCronyWebApiClient(HttpClient http)
                 // Non-JSON error body; fall through to the status-code message.
             }
 
-            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.");
+            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.", response.StatusCode);
         }
     }
 }

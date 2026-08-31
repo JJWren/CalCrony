@@ -15,6 +15,10 @@ public static class PublicCalendarBuilder
     /// series can't loop unboundedly (a two-year hop is ~730 steps).</summary>
     public const int MaxStepsPerSeries = 1000;
 
+    /// <summary>How far from the server's current month the view may wander, either way — bounds
+    /// the per-request schedule stepping and stops the route doubling as a bulk history export.</summary>
+    public const int MaxMonthsFromNow = 24;
+
     /// <summary>Builds the month view.</summary>
     /// <param name="guildName">The server-name snapshot, or null.</param>
     /// <param name="zone">The server's zone — defines the month window and the local wall times.</param>
@@ -75,9 +79,23 @@ public static class PublicCalendarBuilder
             }
         }
 
+        var thisMonth = now.InZone(zone).Date.With(DateAdjusters.StartOfMonth);
         return new PublicCalendarDto(
-            guildName, zone.Id, year, month, [.. entries.OrderBy(e => e.StartsAtUtc)]);
+            guildName, zone.Id, year, month, [.. entries.OrderBy(e => e.StartsAtUtc)],
+            thisMonth.PlusMonths(-MaxMonthsFromNow).ToDateTimeUnspecified(),
+            thisMonth.PlusMonths(MaxMonthsFromNow).ToDateTimeUnspecified());
     }
+
+    /// <summary>Whether a requested month lies within <see cref="MaxMonthsFromNow"/> of the current
+    /// one. Computed in 64-bit so a crafted year can't wrap back into range and then blow up the
+    /// window math.</summary>
+    /// <param name="year">The requested year.</param>
+    /// <param name="month">The requested month (1-12).</param>
+    /// <param name="today">Today's date in the server's zone.</param>
+    /// <returns>True when the month may be served.</returns>
+    public static bool IsMonthInRange(int year, int month, LocalDate today) =>
+        month is >= 1 and <= 12
+        && Math.Abs(((long)year - today.Year) * 12 + (month - today.Month)) <= MaxMonthsFromNow;
 
     /// <summary>The [start, end) instant window of a calendar month in a zone.</summary>
     /// <param name="zone">The zone.</param>

@@ -134,6 +134,7 @@ body { min-height: 100vh; }
 
 /* Public calendar (/c/<slug>): month grid on md+, agenda below; chips link into Discord. */
 .pub-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--cc-line); border: 1px solid var(--cc-line); border-radius: .5rem; overflow: hidden; }
+.pub-cal-row { display: contents; } /* rows exist for the ARIA grid pattern; the CSS grid still lays out cells */
 .pub-cal-dow { background: var(--cc-raised); padding: .35rem .5rem; font-size: .72rem; }
 .pub-cal-cell { background: var(--cc-base); min-height: 6.5rem; padding: .35rem; min-width: 0; }
 .pub-cal-cell.outside { background: var(--cc-ground); color: var(--cc-muted); }
