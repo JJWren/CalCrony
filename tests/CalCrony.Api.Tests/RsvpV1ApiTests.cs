@@ -344,6 +344,27 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task An_absolute_cutoff_at_or_after_start_is_rejected_at_create()
+    {
+        var response = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Cutoff after start", "in 1 hour", ChannelId, RsvpCloseText: "in 2 hours"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Moving_the_start_before_an_absolute_cutoff_is_rejected_at_edit()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Start vs cutoff", "in 10 hours", ChannelId, RsvpCloseText: "in 8 hours"));
+
+        var moved = await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, WhenText: "in 4 hours"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, moved.StatusCode);
+    }
+
+    [Fact]
     public async Task Closed_rsvps_reject_puts_and_deletes_with_409()
     {
         var ev = await CreateAsync(new CreateEventRequest(
@@ -458,6 +479,23 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var afterSeriesEdit = (await secondSkip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
         Assert.Equal(["Raider", "Out"], afterSeriesEdit.Options.Select(o => o.Label));
         Assert.Equal(5, afterSeriesEdit.AttendingOption!.Capacity);
+    }
+
+    [Fact]
+    public async Task Series_scoped_absolute_cutoff_edits_dont_clear_the_relative_template()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Cutoff template", "in 3 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week), RsvpCloseText: "1h before"));
+
+        // An absolute cutoff is occurrence-only — the series' relative template must survive it.
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, Scope: EditScope.Series, RsvpCloseText: "in 1 hour"))).EnsureSuccessStatusCode();
+
+        var skip = await Client.PostAsync($"/events/{ev.Id}/skip", null);
+        skip.EnsureSuccessStatusCode();
+        var next = (await skip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+        Assert.Equal(next.StartsAtUtc.AddHours(-1), next.RsvpClosesAtUtc);
     }
 
     [Fact]

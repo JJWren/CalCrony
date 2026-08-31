@@ -1,3 +1,5 @@
+﻿using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using CalCrony.Api.Data;
@@ -113,6 +115,28 @@ public static partial class RsvpPolicy
                 return null;
             }
 
+            // Every Discord button later does `new Emoji(option.Emote)`, and one bad emote makes
+            // Discord reject the whole component payload — so the emote must actually be an emoji.
+            if (CustomEmote().IsMatch(spec.Emote.Trim()))
+            {
+                error = "Custom server emojis aren't supported on RSVP buttons — use a standard emoji.";
+                return null;
+            }
+
+            if (!IsLikelyEmoji(spec.Emote.Trim()))
+            {
+                error = $"\"{spec.Emote.Trim()}\" isn't a single standard emoji — each RSVP option needs one Unicode emoji.";
+                return null;
+            }
+
+            // Control characters would also break the 4096-char bound SerializeSpecs relies on
+            // (they escape six-to-one even with the relaxed encoder).
+            if (spec.Label.Any(char.IsControl))
+            {
+                error = "RSVP option labels can't contain control characters.";
+                return null;
+            }
+
             if (!labels.Add(spec.Label.Trim()))
             {
                 error = $"Duplicate RSVP option \"{spec.Label.Trim()}\".";
@@ -149,14 +173,25 @@ public static partial class RsvpPolicy
         })];
     }
 
+    /// <summary>Storage-only JSON (never emitted into a page), so BMP non-ASCII stays raw instead
+    /// of exploding into \uXXXX escapes. Astral-plane chars (emoji) still escape six-to-one per
+    /// UTF-16 unit — no stock encoder avoids that — which is why the column is sized for that
+    /// worst case (see the RsvpOptionsJson mapping).</summary>
+    private static readonly JsonSerializerOptions SpecStorageOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     /// <summary>Serializes an event's option rows as the spec list a series template stores —
     /// how custom options become a template field that Series-scoped edits control.</summary>
     /// <param name="options">The option rows to capture.</param>
     /// <returns>The serialized spec list for <see cref="Data.EventSeries.RsvpOptionsJson"/>.</returns>
     public static string SerializeSpecs(IEnumerable<RsvpOption> options) =>
-        JsonSerializer.Serialize(options.OrderBy(o => o.SortOrder)
-            .Select(o => new RsvpOptionSpec(o.Emote, o.Label, o.Capacity, o.IsAttending))
-            .ToList());
+        JsonSerializer.Serialize(
+            options.OrderBy(o => o.SortOrder)
+                .Select(o => new RsvpOptionSpec(o.Emote, o.Label, o.Capacity, o.IsAttending))
+                .ToList(),
+            SpecStorageOptions);
 
     /// <summary>Builds fresh option rows from a series' stored template (null = the default set).
     /// Unreadable JSON degrades to the defaults — a spawned occurrence must never fail over a
@@ -180,6 +215,55 @@ public static partial class RsvpPolicy
         {
             return Endpoints.EventEndpoints.DefaultRsvpOptions();
         }
+    }
+
+    /// <summary>Custom server emote syntax (&lt;:name:id&gt;) — recognized only to reject it with
+    /// the same wording the bot's option parser uses, so every entry point agrees.</summary>
+    [GeneratedRegex(@"^<a?:\w+:\d+>$")]
+    private static partial Regex CustomEmote();
+
+    /// <summary>Keycap emojis (#️⃣, 5⃣) are ASCII-led, so they get an exact match ahead of the
+    /// rune walk in <see cref="IsLikelyEmoji"/>.</summary>
+    [GeneratedRegex("^[0-9#*]\uFE0F?\u20E3$")]
+    private static partial Regex KeycapEmoji();
+
+    /// <summary>Whether text plausibly renders as ONE Unicode emoji: a single grapheme cluster
+    /// whose runes are all emoji-shaped — outside the BMP, in a BMP symbol category, one of the
+    /// few BMP stragglers (‼ ⁉ 〰 〽), or a joiner/variation selector riding along. Permissive at
+    /// the margins by design; what it must reject is ordinary text like "abc".</summary>
+    /// <param name="emote">The candidate emote text (pre-trimmed).</param>
+    /// <returns>True when the text looks like a single emoji.</returns>
+    public static bool IsLikelyEmoji(string emote)
+    {
+        if (KeycapEmoji().IsMatch(emote))
+        {
+            return true;
+        }
+
+        if (new StringInfo(emote).LengthInTextElements != 1)
+        {
+            return false;
+        }
+
+        var sawBase = false;
+        foreach (var rune in emote.EnumerateRunes())
+        {
+            if (rune.Value is 0x200D or 0xFE0E or 0xFE0F)
+            {
+                continue;
+            }
+
+            if (rune.Value <= 0xFFFF
+                && Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.OtherSymbol or UnicodeCategory.MathSymbol)
+                && rune.Value is not (0x203C or 0x2049 or 0x3030 or 0x303D))
+            {
+                return false;
+            }
+
+            sawBase = true;
+        }
+
+        return sawBase;
     }
 
     /// <summary>Relative cutoff text: "2h before", "90 min before start", "1 day" — a bare

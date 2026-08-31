@@ -339,12 +339,18 @@ public static class EventEndpoints
             }
 
             // A relative cutoff that lands before "now" would create the event already closed
-            // (the parser guarantees this for absolute text; relative needs the start applied).
+            // (the parser guarantees a future instant for absolute text; relative needs the
+            // start applied) — and an absolute cutoff at/after start would never close early.
             if (rsvpCloseMinutesBefore is int closeMinutes
                 && startsAt.Minus(Duration.FromMinutes(closeMinutes)) <= clock.GetCurrentInstant())
             {
                 return Results.BadRequest(new ErrorResponse(
                     "That RSVP cutoff is already in the past — the event starts too soon."));
+            }
+
+            if (rsvpClosesAt is { } absoluteClose && absoluteClose >= startsAt)
+            {
+                return Results.BadRequest(new ErrorResponse("The RSVP cutoff must be before the event starts."));
             }
         }
         var recurrence = request.Recurrence
@@ -785,11 +791,33 @@ public static class EventEndpoints
             ev.RsvpCloseMinutesBefore = closeMinutes;
             ev.RsvpClosesAt = closesAt;
             ev.RsvpCloseSynced = false;
-            if (applyToSeries)
+            if (applyToSeries && closeMinutes is not null)
             {
-                // Only the relative form is a template field; an absolute instant clears it so
-                // future occurrences don't inherit a cutoff that predates them.
+                // Only the relative form is a template field — an absolute instant is pinned to
+                // THIS occurrence, so a series-scoped absolute edit leaves the template cutoff
+                // alone (clearing it stays the explicit ClearRsvpClose operation).
                 series!.RsvpCloseMinutesBefore = closeMinutes;
+            }
+        }
+
+        // The cutoff must stay coherent with the (possibly just-edited) start. The relative form
+        // tracks the start, so it can only go wrong by resolving into the past; the absolute form
+        // is future-guaranteed at parse, so it can only go wrong by landing at/after start. A
+        // stale absolute cutoff on a start-only postpone stays legal — RSVPs simply stay closed.
+        if (staysLive
+            && (request.WhenText is not null || request.RsvpCloseText is not null)
+            && !request.ClearRsvpClose
+            && RsvpPolicy.EffectiveClose(ev) is { } editedClose)
+        {
+            if (ev.RsvpCloseMinutesBefore is not null && editedClose <= clock.GetCurrentInstant())
+            {
+                return Results.BadRequest(new ErrorResponse(
+                    "That RSVP cutoff is already in the past — the event starts too soon."));
+            }
+
+            if (editedClose >= ev.StartsAt)
+            {
+                return Results.BadRequest(new ErrorResponse("The RSVP cutoff must be before the event starts."));
             }
         }
 
@@ -827,6 +855,19 @@ public static class EventEndpoints
             {
                 AttendeeRoleSync.EnqueueRoleFanOutForOption(
                     db, ev, DeliveryType.GrantAttendeeRole, grantedRole, currentAttending, roleSyncNow);
+            }
+
+            // The RSVP and promotion paths add thread members one at a time as users land on the
+            // CURRENT attending option — so when the flag moves, users already seated on the new
+            // option are backfilled here (add-only; the enqueue dedups repeats).
+            if (newAttendingId != oldAttendingId
+                && newAttendingId is { } seatedAttending
+                && EventThreadSync.IsThreadActive(ev))
+            {
+                foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == seatedAttending && !r.Waitlisted))
+                {
+                    await EventThreadSync.EnqueueMemberAddAsync(db, ev, rsvp.UserId, clock, cancellationToken);
+                }
             }
         }
 

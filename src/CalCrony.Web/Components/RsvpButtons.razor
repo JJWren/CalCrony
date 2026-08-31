@@ -43,23 +43,42 @@ else if (MyWaitlistPosition is int position)
 
     private bool Closed => Event.RsvpsClosed(DateTimeOffset.UtcNow);
 
-    protected override void OnParametersSet()
+    protected override void OnParametersSet() => ArmCloseTimer();
+
+    // Blazor won't re-render just because the wall clock passed the cutoff — schedule one render
+    // at that instant so the buttons actually freeze on an open page. Re-armed on every parameter
+    // change (the cutoff may have moved); a cutoff beyond the hop re-arms in day-long hops so
+    // arbitrarily far cutoffs still freeze (Timer's own dueTime cap is ~49 days).
+    private static readonly TimeSpan MaxTimerHop = TimeSpan.FromDays(1);
+
+    private void ArmCloseTimer()
     {
-        // Blazor won't re-render just because the wall clock passed the cutoff — schedule one
-        // render at that instant so the buttons actually freeze on an open page. Re-armed on
-        // every parameter change (the cutoff may have moved); far-future cutoffs are skipped
-        // (Timer caps near 24.9 days, and no tab lives that long).
         closeTimer?.Dispose();
         closeTimer = null;
-        if (Event.RsvpClosesAtUtc is { } closesAt)
+        if (Event.RsvpClosesAtUtc is not { } closesAt)
         {
-            var due = closesAt - DateTimeOffset.UtcNow;
-            if (due > TimeSpan.Zero && due < TimeSpan.FromDays(14))
-            {
-                closeTimer = new System.Threading.Timer(
-                    _ => _ = InvokeAsync(StateHasChanged), null, due, System.Threading.Timeout.InfiniteTimeSpan);
-            }
+            return;
         }
+
+        var due = closesAt - DateTimeOffset.UtcNow;
+        if (due <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        closeTimer = new System.Threading.Timer(
+            _ => _ = InvokeAsync(() =>
+            {
+                if (DateTimeOffset.UtcNow >= closesAt)
+                {
+                    StateHasChanged();
+                }
+                else
+                {
+                    ArmCloseTimer();
+                }
+            }),
+            null, due < MaxTimerHop ? due : MaxTimerHop, System.Threading.Timeout.InfiniteTimeSpan);
     }
 
     public void Dispose() => closeTimer?.Dispose();

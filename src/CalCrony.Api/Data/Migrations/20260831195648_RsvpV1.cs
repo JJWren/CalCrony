@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 
 #nullable disable
@@ -34,8 +34,8 @@ namespace CalCrony.Api.Data.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "RsvpOptionsJson",
                 table: "EventSeries",
-                type: "character varying(4096)",
-                maxLength: 4096,
+                type: "character varying(10240)",
+                maxLength: 10240,
                 nullable: true);
 
             migrationBuilder.AddColumn<int>(

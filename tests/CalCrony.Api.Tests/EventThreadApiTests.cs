@@ -142,6 +142,30 @@ public class EventThreadApiTests(WebAuthFixture fixture) : IClassFixture<WebAuth
         Assert.Equal(ThreadId + 5, Assert.Single(await ArchiveDeliveriesAsync(ev.Id)).ThreadId);
     }
 
+    [Fact]
+    public async Task Moving_the_attending_flag_backfills_seated_members_into_the_thread()
+    {
+        var ev = await CreateThreadedEventAsync("Attending move backfill", ThreadId + 6);
+        var maybe = ev.Options.Single(o => o.Label == "Maybe");
+
+        // Maybe RSVPs never enqueue thread adds while Maybe isn't the attending option…
+        (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/9860", new RsvpRequest(maybe.Id))).EnsureSuccessStatusCode();
+        (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/9861", new RsvpRequest(maybe.Id))).EnsureSuccessStatusCode();
+        Assert.Empty(await ThreadDeliveriesAsync(ev.Id, DeliveryType.AddThreadMember));
+
+        // …so when the flag moves onto Maybe, its already-seated users are backfilled.
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(CreatorId, RsvpOptions:
+        [
+            new RsvpOptionSpec("✅", "Going"),
+            new RsvpOptionSpec("❌", "Not going"),
+            new RsvpOptionSpec("🤔", "Maybe", IsAttending: true),
+        ]))).EnsureSuccessStatusCode();
+
+        var adds = await ThreadDeliveriesAsync(ev.Id, DeliveryType.AddThreadMember);
+        Assert.Equal([9860L, 9861L], adds.Select(a => a.UserId).Order());
+        Assert.All(adds, a => Assert.Equal(ThreadId + 6, a.ThreadId));
+    }
+
     private static RsvpOptionDto GoingOption(EventDto ev) => ev.Options.OrderBy(o => o.SortOrder).First();
 
     private async Task<EventDto> CreateEventAsync(string title, bool wantsThread, bool recurring = false)
