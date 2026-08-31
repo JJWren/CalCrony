@@ -105,6 +105,46 @@ public class RsvpV1ComponentTests : TestContext
         Assert.Equal(5, body.RsvpOptions![0].Capacity);
     }
 
+    [Fact]
+    public void Edit_form_leaves_untouched_options_out_of_the_request()
+    {
+        var handler = UseApi();
+        var ev = SampleEvent();
+        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
+
+        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
+        cut.WaitForAssertion(() => cut.Find("#ev-title"));
+        cut.Find("#ev-title").Change("Renamed only");
+
+        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
+
+        // An unchanged editor must not resend the rows — on a Series-scoped edit that would
+        // rewrite the series template from this occurrence's options.
+        var body = JsonSerializer.Deserialize<UpdateEventRequest>(handler.LastBody!, JsonWeb)!;
+        Assert.Equal("Renamed only", body.Title);
+        Assert.Null(body.RsvpOptions);
+    }
+
+    [Fact]
+    public void Edit_form_sends_the_options_once_a_row_changes()
+    {
+        var handler = UseApi();
+        var ev = SampleEvent();
+        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
+
+        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
+        cut.WaitForAssertion(() => cut.Find("#ev-title"));
+        cut.FindAll("input[aria-label='Option label']")[1].Change("Out");
+
+        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
+
+        var body = JsonSerializer.Deserialize<UpdateEventRequest>(handler.LastBody!, JsonWeb)!;
+        Assert.NotNull(body.RsvpOptions);
+        Assert.Equal(["Going", "Out"], body.RsvpOptions!.Select(o => o.Label));
+    }
+
     private static void RouteEventPages(CapturingHandler handler, EventDto ev)
     {
         var now = DateTimeOffset.UtcNow;

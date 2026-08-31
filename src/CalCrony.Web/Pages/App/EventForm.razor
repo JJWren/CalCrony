@@ -279,6 +279,7 @@ else
     private bool clearAttendeeRole;
     private bool wantsThread;
     private List<OptionRow> optionRows = DefaultOptionRows();
+    private List<RsvpOptionSpec>? loadedOptionSpecs;
     private string rsvpClose = "";
     private bool clearRsvpClose;
     private DateTimeOffset? currentRsvpClose;
@@ -314,6 +315,11 @@ else
     }
 
     private void AddOption() => optionRows.Add(new OptionRow());
+
+    /// <summary>The submitted shape of the option rows (trimmed, so an untouched form compares
+    /// equal to what was loaded).</summary>
+    private static List<RsvpOptionSpec> ToSpecs(IEnumerable<OptionRow> rows) =>
+        [.. rows.Select(r => new RsvpOptionSpec(r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending))];
 
     private void RemoveOption(int index)
     {
@@ -423,6 +429,7 @@ else
                 Capacity = o.Capacity,
                 IsAttending = o.Id == ev.AttendingOption?.Id,
             })];
+            loadedOptionSpecs = ToSpecs(optionRows);
         }
 
         loading = false;
@@ -529,11 +536,13 @@ else
             return;
         }
 
-        // The visible rows are what gets submitted — sending an unchanged set is a no-op
-        // server-side (options match by label), so the form always sends them.
-        var optionSpecs = optionRows
-            .Select(r => new RsvpOptionSpec(r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending))
-            .ToList();
+        // Only a CHANGED option editor submits options on edit. An unchanged set is a no-op
+        // for the occurrence (options match by label) but not for a Series-scoped edit — it
+        // would rewrite the series template from this occurrence's rows, turning a one-off
+        // divergence into the template on an unrelated title edit — and a stale form must not
+        // overwrite concurrent option changes.
+        var optionSpecs = ToSpecs(optionRows);
+        var optionsChanged = loadedOptionSpecs is null || !optionSpecs.SequenceEqual(loadedOptionSpecs);
 
         // A chosen end mode with a blank input would silently create a never-ending series.
         if (!IsEdit && repeatKind != RepeatKind.None)
@@ -571,7 +580,7 @@ else
                 Scope: scope,
                 // Clearing is allowed from the web; picking a role is bot-only (no role list here).
                 ClearAttendeeRole: clearAttendeeRole,
-                RsvpOptions: optionSpecs,
+                RsvpOptions: optionsChanged ? optionSpecs : null,
                 RsvpCloseText: string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose,
                 ClearRsvpClose: clearRsvpClose));
             busy = false;
