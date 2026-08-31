@@ -25,6 +25,10 @@ public sealed class DeliveryScheduler(
     /// <returns>How many deliveries this sweep enqueued.</returns>
     public async Task<int> SweepAsync(Instant now, CancellationToken cancellationToken)
     {
+        // One transaction for the whole sweep: the RSVP-cutoff claims below are conditional
+        // UPDATEs, and they must commit together with the deliveries they justify (a claimed
+        // flag with no delivery would leave an embed never re-rendered as closed).
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var enqueued = 0;
 
         // Guilds whose upcoming-events picture changed this sweep (an event started and drops
@@ -160,7 +164,23 @@ public sealed class DeliveryScheduler(
             .ToListAsync(cancellationToken);
         foreach (var ev in closingRsvps.Where(e => RsvpPolicy.IsClosed(e, now)))
         {
-            ev.RsvpCloseSynced = true;
+            // Atomic claim: flip the one-shot flag only if the row's cutoff state is still the
+            // one this sweep judged closed. An edit that moved the cutoff in between (and reset
+            // the flag) changes one of these columns, so the claim misses, nothing is enqueued,
+            // and the next sweep re-evaluates the new deadline instead of losing it. The tracked
+            // entity is deliberately left alone so the final SaveChanges can't rewrite the flag.
+            var claimed = await db.Events
+                .Where(e => e.Id == ev.Id
+                            && !e.RsvpCloseSynced
+                            && e.StartsAt == ev.StartsAt
+                            && e.RsvpClosesAt == ev.RsvpClosesAt
+                            && e.RsvpCloseMinutesBefore == ev.RsvpCloseMinutesBefore)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.RsvpCloseSynced, true), cancellationToken);
+            if (claimed == 0)
+            {
+                continue;
+            }
+
             db.Deliveries.Add(NewDelivery(
                 DeliveryType.SyncEventMessage,
                 ev.ChannelId,
@@ -196,6 +216,7 @@ public sealed class DeliveryScheduler(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         if (enqueued > 0)
         {
             logger.LogInformation("Scheduler sweep enqueued {Count} deliveries.", enqueued);
