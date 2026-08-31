@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-07-20** · Hosted copy: [calcrony.theguywiththedogs.dev/privacy](https://calcrony.theguywiththedogs.dev/privacy)
+**Last updated: 2026-08-31** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -15,9 +15,13 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
 
 - Discord snowflake IDs: your user ID, server (guild) IDs, channel/message/thread/role IDs the
   features touch. CalCrony never sees your Discord password or token.
+- Name snapshots: your server's name and the names of the channels CalCrony posts in, recorded
+  by the bot so calendar feeds and the web app can label things. They refresh while the bot is
+  in the server and freeze at their last-known values if it's removed.
 - Content you create: event titles/descriptions/locations, poll questions and options, RSVP
   choices, reminders, notification messages, and templates.
-- Preferences: per-user and per-server timezone, DM-confirmation setting, server settings.
+- Preferences: per-user and per-server timezone, DM-confirmation setting, interface theme,
+  server settings.
 - Web sign-in (optional, Discord OAuth with `identify` + `guilds` scopes only): your username,
   display name, avatar hash, and a snapshot of which servers you're in (used to scope what the
   web app shows you). Session security data: hashed refresh tokens and short-lived login-state
