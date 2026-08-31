@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 
 <div class="app-shell @(railCollapsed ? "rail" : null)">
     <header class="app-topbar d-flex align-items-center gap-3 px-3 py-2">
@@ -22,13 +23,24 @@
         <footer class="text-center py-3 meta-mono border-top">
             CalCrony @version · <a href="https://github.com/JJWren/CalCrony" target="_blank" rel="noopener">source</a>
             · <a href="https://discord.gg/aEdYyZYgyV" target="_blank" rel="noopener">discord</a>
-            · <a href="/privacy">privacy</a> · <a href="/terms">terms</a>
+            · <a href="/privacy">privacy</a> · <a href="/terms">terms</a>@if (donateUrl is not null)
+            {<text> · </text><a href="@donateUrl" target="_blank" rel="noopener">donate</a>}
         </footer>
     </div>
 </div>
 
 @code {
     private bool railCollapsed;
+
+    // Deployment-configured tip-jar URL; unset or non-https means no link renders at all,
+    // so test stacks and self-hosted deployments stay clean by default.
+    private string? donateUrl;
+
+    protected override void OnInitialized() =>
+        donateUrl = Uri.TryCreate(Config["Donations:BuyMeACoffeeUrl"], UriKind.Absolute, out var uri)
+                    && uri.Scheme == Uri.UriSchemeHttps
+            ? uri.ToString()
+            : null;
 
     private static readonly string version =
         (typeof(MainLayout).Assembly

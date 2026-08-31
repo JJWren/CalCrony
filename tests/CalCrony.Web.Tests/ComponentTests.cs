@@ -44,6 +44,7 @@ public class ComponentTests : TestContext
         // Google OAuth verification requires a privacy-policy link on the homepage's own domain;
         // since the Landing page dropped its duplicate block, the layout footer is that link's
         // single home — this guard keeps it there.
+        UseConfig();
         ComponentFactories.AddStub<Layout.NavMenu>();
         ComponentFactories.AddStub<ThemeSync>();
         var cut = Render<Layout.MainLayout>();
@@ -52,6 +53,31 @@ public class ComponentTests : TestContext
         Assert.NotNull(cut.Find("footer a[href='/terms']"));
         Assert.NotNull(cut.Find("footer a[href='https://github.com/JJWren/CalCrony']"));
         Assert.NotNull(cut.Find("footer a[href='https://discord.gg/aEdYyZYgyV']"));
+    }
+
+    [Fact]
+    public void Layout_footer_hides_donate_when_unconfigured()
+    {
+        // Test stacks and self-hosted deployments must not render the hosted instance's tip
+        // jar; no configured URL (or a non-https one) means no donate link at all.
+        UseConfig(("Donations:BuyMeACoffeeUrl", "http://insecure.example"));
+        ComponentFactories.AddStub<Layout.NavMenu>();
+        ComponentFactories.AddStub<ThemeSync>();
+        var cut = Render<Layout.MainLayout>();
+
+        Assert.DoesNotContain("donate", cut.Find("footer").TextContent);
+    }
+
+    [Fact]
+    public void Layout_footer_shows_the_configured_donate_link()
+    {
+        UseConfig(("Donations:BuyMeACoffeeUrl", "https://buymeacoffee.com/example"));
+        ComponentFactories.AddStub<Layout.NavMenu>();
+        ComponentFactories.AddStub<ThemeSync>();
+        var cut = Render<Layout.MainLayout>();
+
+        var donate = cut.Find("footer a[href='https://buymeacoffee.com/example']");
+        Assert.Equal("donate", donate.TextContent);
     }
 
     [Fact]
