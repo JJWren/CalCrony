@@ -5,7 +5,7 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
-/// <summary>/availability — free/busy grids for a role's members or an event's Going list.</summary>
+/// <summary>/availability — free/busy grids for a role's members or an event's attending list.</summary>
 /// <param name="api">The CalCrony API client.</param>
 [RequireContext(ContextType.Guild)]
 [Group("availability", "Check group calendar availability")]
@@ -61,9 +61,10 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         await RunAndReplyAsync($"@{role.Name}", memberIds, start, end);
     }
 
-    /// <summary>Free/busy for an event's Going members over the event's own window.</summary>
+    /// <summary>Free/busy for an event's attending members (whatever that option is labelled)
+    /// over the event's own window.</summary>
     /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
-    [SlashCommand("event", "Check calendar availability for everyone RSVP'd Going to an event")]
+    [SlashCommand("event", "Check calendar availability for everyone attending an event")]
     public async Task EventAsync([Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name)
     {
         await DeferAsync(ephemeral: true);
@@ -75,21 +76,24 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
             return;
         }
 
-        // Seated attending RSVPs only — waitlisted users aren't coming (yet).
-        var userIds = ev.AttendingOption is { } going
-            ? ev.Rsvps.Where(r => r.OptionId == going.Id && !r.Waitlisted).Select(r => r.UserId).ToList()
+        // Seated attending RSVPs only — waitlisted users aren't coming (yet). The attending
+        // option carries a custom label ("Raider", "In"…), so replies name it rather than "Going".
+        var attending = ev.AttendingOption;
+        var attendingLabel = attending?.Label ?? "Going";
+        var userIds = attending is not null
+            ? ev.Rsvps.Where(r => r.OptionId == attending.Id && !r.Waitlisted).Select(r => r.UserId).ToList()
             : new List<long>();
 
         if (userIds.Count == 0)
         {
-            await FollowupAsync($"Nobody has RSVP'd Going to **{ev.Title}** yet.", ephemeral: true);
+            await FollowupAsync($"Nobody has RSVP'd **{attendingLabel}** to **{ev.Title}** yet.", ephemeral: true);
             return;
         }
 
         if (userIds.Count > MaxUsersPerQuery)
         {
             await FollowupAsync(
-                $"**{ev.Title}** has {userIds.Count} people RSVP'd Going; availability checks support at most {MaxUsersPerQuery} at a time.",
+                $"**{ev.Title}** has {userIds.Count} people RSVP'd **{attendingLabel}**; availability checks support at most {MaxUsersPerQuery} at a time.",
                 ephemeral: true);
             return;
         }

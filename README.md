@@ -68,7 +68,7 @@ flowchart LR
 | `/link` | This server's ICS subscribe URL |
 | `/calendar connect` · `status` · `disconnect` | Link/unlink your Google Calendar (works in DMs) |
 | `/availability role role when [duration]` | Free/busy grid for everyone holding a role |
-| `/availability event name` | Free/busy grid for everyone RSVP'd Going, over the event's own window |
+| `/availability event name` | Free/busy grid for everyone RSVP'd to the event's attending option ("Going" by default), over the event's own window |
 
 ## Solution layout
 

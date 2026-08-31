@@ -340,9 +340,9 @@ public static partial class RsvpPolicy
 
     /// <summary>Replaces an event's options from specs, matching by label (case-insensitive):
     /// matches update in place and keep their RSVPs, new labels append, and an option with RSVPs
-    /// cannot be removed. When the attending flag lands on a different option, the old option's
-    /// waitlist is seated (waitlisting only means something on the attending option). Mutates the
-    /// event only on success.</summary>
+    /// cannot be removed. Seating the OLD attending option's waitlist when the flag moves is the
+    /// caller's job (<see cref="SeatWaitlist"/>) so it can run AFTER the old option's role
+    /// revoke — those users never held the role. Mutates the event only on success.</summary>
     /// <param name="db">The database context (appended rows need an explicit Add — with a
     /// client-set Guid key, graph fixup alone would issue an UPDATE instead of INSERT).</param>
     /// <param name="ev">The event (Options and Rsvps loaded).</param>
@@ -372,7 +372,6 @@ public static partial class RsvpPolicy
             return false;
         }
 
-        var oldAttendingId = AttendingOption(ev.Options)?.Id;
         ev.Options.RemoveAll(existing => !byLabel.ContainsKey(existing.Label));
         foreach (var existing in ev.Options)
         {
@@ -391,18 +390,26 @@ public static partial class RsvpPolicy
             db.RsvpOptions.Add(appended); // fixup then places it into ev.Options
         }
 
-        // Attending moved: the old option's queue has nothing to wait for anymore — seat it.
-        // (No promotion pings; these users keep the choice they already made.)
-        var newAttendingId = AttendingOption(ev.Options)?.Id;
-        if (oldAttendingId is { } oldId && newAttendingId != oldAttendingId)
+        return true;
+    }
+
+    /// <summary>Seats an option's whole waitlist — for the OLD attending option once the flag has
+    /// moved off it (its queue has nothing to wait for anymore). No promotion pings: these users
+    /// keep the choice they already made. Call it after the old option's role revoke fan-out, so
+    /// the just-seated users — who never held the role — aren't swept into the revoke.</summary>
+    /// <param name="ev">The event (Rsvps loaded).</param>
+    /// <param name="optionId">The option whose queue is seated.</param>
+    /// <returns>How many RSVPs were seated.</returns>
+    public static int SeatWaitlist(Event ev, Guid optionId)
+    {
+        var seated = 0;
+        foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == optionId && r.Waitlisted))
         {
-            foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == oldId && r.Waitlisted))
-            {
-                rsvp.Waitlisted = false;
-            }
+            rsvp.Waitlisted = false;
+            seated++;
         }
 
-        return true;
+        return seated;
     }
 
     /// <summary>Promotes waitlisted users into freed attending seats, earliest first, until the

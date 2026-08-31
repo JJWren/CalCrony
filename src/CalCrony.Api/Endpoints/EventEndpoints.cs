@@ -886,6 +886,14 @@ public static class EventEndpoints
             }
         }
 
+        // The flag moved off an option: its queue has nothing to wait for anymore — seat it now,
+        // AFTER the fan-outs above, so those users (who never held the role) are not swept into
+        // the old option's revoke.
+        if (oldAttendingId is { } vacatedAttending && newAttendingId != oldAttendingId)
+        {
+            RsvpPolicy.SeatWaitlist(ev, vacatedAttending);
+        }
+
         // Raised/cleared capacity frees seats — promote in queue order (no-op when nothing waits).
         await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
 

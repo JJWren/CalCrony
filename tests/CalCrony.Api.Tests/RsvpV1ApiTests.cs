@@ -298,9 +298,12 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Empty(moved.Waitlist);
         Assert.False(moved.Rsvps.Single(r => r.UserId == 582).Waitlisted);
 
-        // Role re-sync: old-attending members revoked, new-attending members granted.
+        // Role re-sync: old-attending members revoked, new-attending members granted. The
+        // just-seated 582 never held the role (waitlisted at grant time), so no revoke for them —
+        // a revoke of a pre-existing role would strip a manual assignment.
         var revokes = await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole);
         Assert.Contains(revokes, r => r.UserId == 581);
+        Assert.DoesNotContain(revokes, r => r.UserId == 582);
         var grants = await RoleDeliveriesAsync(ev.Id, DeliveryType.GrantAttendeeRole);
         Assert.Contains(grants, g => g.UserId == 583);
     }
