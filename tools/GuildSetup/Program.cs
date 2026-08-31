@@ -164,7 +164,17 @@ async Task<RestRole> EnsureRole(string name, GuildPermissions permissions, Color
     RestRole? existing = guild.Roles.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
     if (existing is not null)
     {
-        Console.WriteLine($"  = role exists: {name}");
+        await existing.ModifyAsync(p =>
+        {
+            p.Permissions = permissions;
+            p.Hoist = hoist;
+            p.Mentionable = true;
+            if (color is { } c)
+            {
+                p.Color = c;
+            }
+        });
+        Console.WriteLine($"  = role reconciled: {name}");
         return existing;
     }
 
@@ -177,7 +187,8 @@ async Task<RestCategoryChannel> EnsureCategory(string name, int position)
 {
     if (Find(name) is RestCategoryChannel existing)
     {
-        Console.WriteLine($"  = category exists: {name}");
+        await existing.ModifyAsync(p => p.Position = position);
+        Console.WriteLine($"  = category reconciled: {name}");
         return existing;
     }
 
