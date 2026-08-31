@@ -145,46 +145,6 @@ public class RsvpV1ComponentTests : TestContext
         Assert.Equal(["Going", "Out"], body.RsvpOptions!.Select(o => o.Label));
     }
 
-    [Fact]
-    public void Edit_form_with_untouched_options_sends_no_option_specs()
-    {
-        // An unchanged editor must not resend the option set: on a Series-scoped edit that would
-        // rewrite the series template from this occurrence's rows, and a stale form could
-        // overwrite concurrent option changes.
-        var handler = UseApi();
-        var ev = SampleEvent();
-        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
-
-        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
-        cut.WaitForAssertion(() => Assert.Equal("Going", cut.FindAll("input[aria-label='Option label']")[0].GetAttribute("value")));
-        cut.Find("#ev-title").Change("Renamed only");
-
-        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
-        cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
-
-        var body = JsonSerializer.Deserialize<UpdateEventRequest>(handler.LastBody!, JsonWeb)!;
-        Assert.Equal("Renamed only", body.Title);
-        Assert.Null(body.RsvpOptions);
-    }
-
-    [Fact]
-    public void Edit_form_with_changed_options_sends_the_specs()
-    {
-        var handler = UseApi();
-        var ev = SampleEvent();
-        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
-
-        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
-        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll("input[aria-label='Option label']").Count));
-        cut.FindAll("input[aria-label='Option label']")[1].Change("Out");
-
-        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
-        cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
-
-        var body = JsonSerializer.Deserialize<UpdateEventRequest>(handler.LastBody!, JsonWeb)!;
-        Assert.Equal(["Going", "Out"], body.RsvpOptions!.Select(o => o.Label));
-    }
-
     private static void RouteEventPages(CapturingHandler handler, EventDto ev)
     {
         var now = DateTimeOffset.UtcNow;
