@@ -11,17 +11,26 @@ public class AttendeeRoleSyncTests
     private static readonly Guid NotGoing = Guid.NewGuid();
 
     [Fact]
-    public void Going_option_is_the_minimum_sort_order()
+    public void Attending_option_is_the_flagged_one_with_a_sort_order_fallback()
     {
-        List<RsvpOption> options =
+        // The IsAttending flag wins regardless of ordering…
+        List<RsvpOption> flagged =
+        [
+            new() { Id = Maybe, Emote = "🤔", Label = "Maybe", SortOrder = 2, IsAttending = true },
+            new() { Id = Going, Emote = "✅", Label = "Going", SortOrder = 0 },
+            new() { Id = NotGoing, Emote = "❌", Label = "Not going", SortOrder = 1 },
+        ];
+        Assert.Equal(Maybe, AttendeeRoleSync.AttendingOptionId(flagged));
+
+        // …and unflagged (pre-migration-shaped) data falls back to the minimum SortOrder.
+        List<RsvpOption> unflagged =
         [
             new() { Id = Maybe, Emote = "🤔", Label = "Maybe", SortOrder = 2 },
             new() { Id = Going, Emote = "✅", Label = "Going", SortOrder = 0 },
             new() { Id = NotGoing, Emote = "❌", Label = "Not going", SortOrder = 1 },
         ];
-
-        Assert.Equal(Going, AttendeeRoleSync.GoingOptionId(options));
-        Assert.Null(AttendeeRoleSync.GoingOptionId([]));
+        Assert.Equal(Going, AttendeeRoleSync.AttendingOptionId(unflagged));
+        Assert.Null(AttendeeRoleSync.AttendingOptionId([]));
     }
 
     [Theory]

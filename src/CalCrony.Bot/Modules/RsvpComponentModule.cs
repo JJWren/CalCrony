@@ -55,10 +55,16 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
         }
 
         var option = ev.Options.FirstOrDefault(o => o.Id == optionId);
-        await FollowupAsync(
-            alreadyOnOption
-                ? $"Removed your RSVP for **{ev.Title}**."
-                : $"You're marked {option?.Emote} **{option?.Label}** for **{ev.Title}** (<t:{ev.StartsAtUnix}:F>).",
-            ephemeral: true);
+        // A full attending option queues instead of seating — tell the clicker where they stand.
+        var waitlistPosition = ev.Waitlist.ToList().FindIndex(r => r.UserId == userId);
+        var confirmation = (alreadyOnOption, waitlistPosition) switch
+        {
+            (true, _) => $"Removed your RSVP for **{ev.Title}**.",
+            (false, >= 0) =>
+                $"{option?.Emote} **{option?.Label}** is full — you're **#{waitlistPosition + 1} on the waitlist** " +
+                $"for **{ev.Title}** and will be moved up automatically when a spot frees.",
+            _ => $"You're marked {option?.Emote} **{option?.Label}** for **{ev.Title}** (<t:{ev.StartsAtUnix}:F>).",
+        };
+        await FollowupAsync(confirmation, ephemeral: true);
     }
 }

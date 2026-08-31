@@ -25,6 +25,10 @@ public sealed class DeliveryScheduler(
     /// <returns>How many deliveries this sweep enqueued.</returns>
     public async Task<int> SweepAsync(Instant now, CancellationToken cancellationToken)
     {
+        // One transaction for the whole sweep: the RSVP-cutoff claims below are conditional
+        // UPDATEs, and they must commit together with the deliveries they justify (a claimed
+        // flag with no delivery would leave an embed never re-rendered as closed).
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var enqueued = 0;
 
         // Guilds whose upcoming-events picture changed this sweep (an event started and drops
@@ -149,6 +153,49 @@ public sealed class DeliveryScheduler(
             }
         }
 
+        // RSVP cutoffs that just passed: one-shot embed re-render so the buttons show disabled
+        // and the embed says closed. SQL narrows to what can be due this tick — absolute cutoffs
+        // exactly, relative ones by the four-week maximum they can precede the start — so the
+        // scan doesn't grow with every capped event months out; the exact instant check
+        // (EffectiveClose) still runs in memory.
+        var relativeHorizon = now.Plus(Duration.FromMinutes(FieldLimits.MaxMinutes));
+        var closingRsvps = await db.Events
+            .Where(e => (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started)
+                        && !e.RsvpCloseSynced
+                        && e.MessageId != null
+                        && (e.RsvpClosesAt <= now
+                            || (e.RsvpClosesAt == null
+                                && e.RsvpCloseMinutesBefore != null
+                                && e.StartsAt <= relativeHorizon)))
+            .ToListAsync(cancellationToken);
+        foreach (var ev in closingRsvps.Where(e => RsvpPolicy.IsClosed(e, now)))
+        {
+            // Atomic claim: flip the one-shot flag only if the row's cutoff state is still the
+            // one this sweep judged closed. An edit that moved the cutoff in between (and reset
+            // the flag) changes one of these columns, so the claim misses, nothing is enqueued,
+            // and the next sweep re-evaluates the new deadline instead of losing it. The tracked
+            // entity is deliberately left alone so the final SaveChanges can't rewrite the flag.
+            var claimed = await db.Events
+                .Where(e => e.Id == ev.Id
+                            && !e.RsvpCloseSynced
+                            && e.StartsAt == ev.StartsAt
+                            && e.RsvpClosesAt == ev.RsvpClosesAt
+                            && e.RsvpCloseMinutesBefore == ev.RsvpCloseMinutesBefore)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.RsvpCloseSynced, true), cancellationToken);
+            if (claimed == 0)
+            {
+                continue;
+            }
+
+            db.Deliveries.Add(NewDelivery(
+                DeliveryType.SyncEventMessage,
+                ev.ChannelId,
+                new SyncEventMessagePayload(ev.Id),
+                now,
+                now));
+            enqueued++;
+        }
+
         // Auto-close polls whose deadline passed; re-render their embeds in the closed state.
         var closingPolls = await db.Polls
             .Where(p => p.Status == PollStatus.Open && p.ClosesAt != null && p.ClosesAt <= now)
@@ -175,6 +222,7 @@ public sealed class DeliveryScheduler(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         if (enqueued > 0)
         {
             logger.LogInformation("Scheduler sweep enqueued {Count} deliveries.", enqueued);

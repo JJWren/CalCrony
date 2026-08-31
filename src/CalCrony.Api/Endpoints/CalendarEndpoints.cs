@@ -211,10 +211,12 @@ public static class CalendarEndpoints
             return denied;
         }
 
-        var going = ev.Options.FirstOrDefault(o => o.SortOrder == 0);
+        // Seated attending RSVPs only — waitlisted users aren't coming (yet).
+        var going = Services.RsvpPolicy.AttendingOption(ev.Options);
         var userIds = going is null
             ? []
-            : ev.Rsvps.Where(r => r.OptionId == going.Id).Select(r => r.UserId).Distinct().Take(MaxUsersPerQuery).ToList();
+            : ev.Rsvps.Where(r => r.OptionId == going.Id && !r.Waitlisted)
+                .Select(r => r.UserId).Distinct().Take(MaxUsersPerQuery).ToList();
 
         var start = ev.StartsAt;
         var end = ev.StartsAt + Duration.FromMinutes(ev.DurationMinutes ?? 60);

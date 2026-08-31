@@ -92,6 +92,11 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(s => s.TimeZone).HasMaxLength(64);
             e.Property(s => s.Location).HasMaxLength(FieldLimits.EventLocation);
             e.Property(s => s.ImageUrl).HasMaxLength(FieldLimits.EventImageUrl);
+            // Sized for the serialization worst case, not the typical one: System.Text.Json
+            // escapes astral-plane chars (emoji) six-to-one per UTF-16 unit even with the relaxed
+            // encoder RsvpPolicy.SerializeSpecs uses, so 10 options × two all-emoji 64-unit
+            // fields ≈ 8.4k chars. Control characters are banned at validation.
+            e.Property(s => s.RsvpOptionsJson).HasMaxLength(10240);
             e.HasIndex(s => s.GuildId);
             e.HasMany(s => s.NotificationSpecs).WithOne().HasForeignKey(n => n.SeriesId).OnDelete(DeleteBehavior.Cascade);
         });

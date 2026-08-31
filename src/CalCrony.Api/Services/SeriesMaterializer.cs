@@ -56,11 +56,14 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
             ImageUrl = series.ImageUrl,
             AttendeeRoleId = series.AttendeeRoleId,
             WantsThread = series.WantsThread,
+            RsvpCloseMinutesBefore = series.RsvpCloseMinutesBefore,
             Status = EventStatus.Scheduled,
             SeriesId = series.Id,
             Series = series,
             CreatedAt = now,
-            Options = EventEndpoints.DefaultRsvpOptions(),
+            // Options come from the series template (a real template field, like Title) — an
+            // Occurrence-scoped option edit diverges and the next spawn reverts to it.
+            Options = RsvpPolicy.OptionsFromTemplate(series.RsvpOptionsJson),
             Notifications = [.. series.NotificationSpecs.Select(spec => new EventNotification
             {
                 Id = Guid.NewGuid(),

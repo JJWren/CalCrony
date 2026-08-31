@@ -75,7 +75,7 @@ public class Event
     /// <summary>Discord Guild Scheduled Event id when mirrored; null when never mirrored.</summary>
     public long? NativeEventId { get; set; }
 
-    /// <summary>Existing Discord role granted to "Going" RSVPs and revoked at event end; null = feature off.</summary>
+    /// <summary>Existing Discord role granted to attending RSVPs and revoked at event end; null = feature off.</summary>
     public long? AttendeeRoleId { get; set; }
 
     /// <summary>Opt-in: open a discussion thread on the posted embed message.</summary>
@@ -83,6 +83,17 @@ public class Event
 
     /// <summary>The Discord thread-channel id once the bot created the thread; null until then.</summary>
     public long? ThreadId { get; set; }
+
+    /// <summary>Relative RSVP cutoff: minutes before start after which RSVPs reject changes.
+    /// Tracks start-time edits automatically. Mutually exclusive with RsvpClosesAt.</summary>
+    public int? RsvpCloseMinutesBefore { get; set; }
+
+    /// <summary>Absolute RSVP cutoff instant. Mutually exclusive with RsvpCloseMinutesBefore.</summary>
+    public Instant? RsvpClosesAt { get; set; }
+
+    /// <summary>One-shot flag: the scheduler re-rendered the embed in its closed state (buttons
+    /// disabled) after the cutoff passed. Reset when an edit moves the cutoff or the start.</summary>
+    public bool RsvpCloseSynced { get; set; }
 
     public string? Location { get; set; }
     public string? ImageUrl { get; set; }
@@ -152,6 +163,16 @@ public class EventSeries
     /// <summary>Template field: each spawned occurrence opens its own discussion thread.</summary>
     public bool WantsThread { get; set; }
 
+    /// <summary>Template field: relative RSVP cutoff copied to spawned occurrences. Absolute
+    /// cutoffs are occurrence-only (a fixed instant makes no sense across a schedule).</summary>
+    public int? RsvpCloseMinutesBefore { get; set; }
+
+    /// <summary>Template field: the RSVP option set (serialized RsvpOptionSpec list) spawned
+    /// occurrences start with; null = the default Going/Not going/Maybe set. Written at create
+    /// and by Series-scoped option/limit edits only — Occurrence-scoped option edits diverge and
+    /// the next spawn reverts to this template, matching every other template field.</summary>
+    public string? RsvpOptionsJson { get; set; }
+
     public Instant CreatedAt { get; set; }
 
     public List<SeriesNotification> NotificationSpecs { get; set; } = [];
@@ -212,15 +233,25 @@ public class RsvpOption
     public required string Label { get; set; }
     public int SortOrder { get; set; }
     public int? Capacity { get; set; }
+
+    /// <summary>Marks the option whose RSVPs count as attending — the flag that drives attendee
+    /// roles, threads, availability, counts, and the waitlist. Exactly one per event.</summary>
+    public bool IsAttending { get; set; }
 }
 
-/// <summary>A user's RSVP to one event (unique per user per event).</summary>
+/// <summary>A user's RSVP to one event (unique per user per event). CreatedAt doubles as the
+/// waitlist queue position, so it only moves when the user changes option.</summary>
 public class Rsvp
 {
     public Guid Id { get; set; }
     public Guid EventId { get; set; }
     public long UserId { get; set; }
     public Guid OptionId { get; set; }
+
+    /// <summary>True while queued past the attending option's capacity: no seat, no role, no
+    /// thread membership until promoted (in CreatedAt order) by a freed or raised capacity.</summary>
+    public bool Waitlisted { get; set; }
+
     public Instant CreatedAt { get; set; }
 }
 

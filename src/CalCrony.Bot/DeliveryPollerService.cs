@@ -219,6 +219,18 @@ public sealed class DeliveryPollerService(
             throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
         }
 
+        if (delivery.Type == DeliveryType.WaitlistPromotion)
+        {
+            // Title/label are creator-controlled text interpolated into a public message — pin
+            // the allowed mentions to just the promoted user so a crafted "@everyone" title
+            // can't turn a promotion into a mass ping.
+            var payload = JsonSerializer.Deserialize<WaitlistPromotionPayload>(delivery.PayloadJson)!;
+            await channel.SendMessageAsync(
+                FormatWaitlistPromotion(payload),
+                allowedMentions: new AllowedMentions { UserIds = [(ulong)payload.UserId] });
+            return;
+        }
+
         var text = delivery.Type switch
         {
             DeliveryType.Reminder => FormatReminder(delivery.PayloadJson),
@@ -442,6 +454,14 @@ public sealed class DeliveryPollerService(
         var payload = JsonSerializer.Deserialize<ReminderPayload>(payloadJson)!;
         return $"⏰ <@{payload.UserId}> Reminder: {payload.Text}";
     }
+
+    /// <summary>Message text for a waitlist-promotion ping. Posted in the event's channel (a DM
+    /// could be blocked; the channel ping is reliable and visible to organizers too).</summary>
+    /// <param name="payload">The promotion payload.</param>
+    /// <returns>The message text.</returns>
+    private static string FormatWaitlistPromotion(WaitlistPromotionPayload payload) =>
+        $"🎟️ <@{payload.UserId}> A spot opened up — you're now {payload.OptionEmote} " +
+        $"**{payload.OptionLabel}** for **{payload.Title}** (<t:{payload.StartsAtUnix}:F>).";
 
     /// <summary>Message text for a pre-event notification delivery.</summary>
     /// <param name="payloadJson">The serialized delivery payload.</param>

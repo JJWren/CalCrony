@@ -47,6 +47,10 @@ public enum DeliveryType
     /// <summary>Re-render a live list's posted embed (the guild's upcoming events changed).
     /// Enqueued debounced and coalesced, so a burst of changes produces one Discord edit.</summary>
     SyncLiveList = 14,
+
+    /// <summary>Tell a user they were promoted off an event's waitlist into a seat. The seat
+    /// itself was taken in the promoting transaction — this is only the ping.</summary>
+    WaitlistPromotion = 15,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -133,6 +137,17 @@ public record ArchiveThreadPayload(Guid EventId, long GuildId, long ThreadId);
 /// the handler refetches the list row so a removed list reads as done.</summary>
 /// <param name="LiveListId">The live list id.</param>
 public record SyncLiveListPayload(Guid LiveListId);
+
+/// <summary>Payload announcing a waitlist promotion in the event's channel. Self-contained
+/// (title/time/option captured at enqueue) so the ping posts even if the event changes later.</summary>
+/// <param name="EventId">The event id.</param>
+/// <param name="UserId">The promoted user's Discord id.</param>
+/// <param name="Title">The event title.</param>
+/// <param name="StartsAtUnix">Start time in Unix seconds.</param>
+/// <param name="OptionEmote">The attending option's emoji.</param>
+/// <param name="OptionLabel">The attending option's label.</param>
+public record WaitlistPromotionPayload(
+    Guid EventId, long UserId, string Title, long StartsAtUnix, string OptionEmote, string OptionLabel);
 
 /// <summary>Payload asking the bot to re-render a poll's posted embed.</summary>
 /// <param name="PollId">The poll id.</param>
