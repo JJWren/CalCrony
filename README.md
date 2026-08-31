@@ -1,6 +1,7 @@
 # CalCrony
 
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/aEdYyZYgyV)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%23FFDD00?logo=buy-me-a-coffee&logoColor=black&labelColor=%23FFDD00)](https://www.buymeacoffee.com/jmykitta)
 
 A self-hosted event & calendar suite for Discord, inspired by [sesh.fyi](https://sesh.fyi/), built in .NET 10 — a Discord bot **and** a browser app over one API.
 
