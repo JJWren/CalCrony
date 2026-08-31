@@ -312,6 +312,10 @@ public static class SeriesEndpoints
         }
 
         var next = materializer.MaterializeNext(series, now);
+
+        // The list drops the skipped occurrence and shows the replacement — one debounced rewrite.
+        await Services.LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, now, cancellationToken);
+
         try
         {
             await db.SaveChangesAsync(cancellationToken);

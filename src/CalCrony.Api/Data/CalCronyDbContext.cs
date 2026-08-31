@@ -21,6 +21,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<SeriesNotification> SeriesNotifications => Set<SeriesNotification>();
     public DbSet<EventTemplate> EventTemplates => Set<EventTemplate>();
     public DbSet<EventTemplateNotification> EventTemplateNotifications => Set<EventTemplateNotification>();
+    public DbSet<LiveList> LiveLists => Set<LiveList>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<IcsFeedToken> IcsFeedTokens => Set<IcsFeedToken>();
     public DbSet<CalendarConnection> CalendarConnections => Set<CalendarConnection>();
@@ -156,6 +157,14 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             e.Property(n => n.Message).HasMaxLength(FieldLimits.NotificationMessage);
             e.Property(n => n.Mentions).HasMaxLength(FieldLimits.NotificationMentions);
+        });
+
+        modelBuilder.Entity<LiveList>(e =>
+        {
+            // One live list per channel — the unique index backstops the endpoint's pre-check
+            // against concurrent creates.
+            e.HasIndex(l => l.ChannelId).IsUnique();
+            e.HasIndex(l => l.GuildId);
         });
 
         modelBuilder.Entity<Delivery>(e =>

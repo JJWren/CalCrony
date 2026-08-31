@@ -6,7 +6,7 @@ using NodaTime;
 namespace CalCrony.Api.Endpoints;
 
 /// <summary>Bot-only channel-name snapshot endpoints. Rows exist only for channels CalCrony
-/// references (events on the feed horizon, running series, guild default channels): the bulk
+/// references (events on the feed horizon, running series, guild default channels, live lists): the bulk
 /// sync creates rows for the bot's Ready-time reconcile, the single-name route updates existing
 /// rows only, so renames of unreferenced channels never grow the table.</summary>
 public static class ChannelEndpoints
@@ -22,7 +22,7 @@ public static class ChannelEndpoints
 
     /// <summary>Lists every channel the API currently references and wants a name snapshot for:
     /// channels of events on the feed horizon (last 30 days plus upcoming, matching what the
-    /// feed renders), of running series, and guild default channels — bot-present guilds only,
+    /// feed renders), of running series, guild default channels, and live lists — bot-present guilds only,
     /// since the bot can't resolve channels of guilds it has left.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="clock">The time source.</param>
@@ -48,8 +48,13 @@ public static class ChannelEndpoints
             .Where(g => g.DefaultChannelId != null)
             .Select(g => new { GuildId = g.Id, ChannelId = g.DefaultChannelId!.Value })
             .ToListAsync(cancellationToken);
+        var fromLiveLists = await db.LiveLists
+            .Where(l => presentGuilds.Any(g => g.Id == l.GuildId))
+            .Select(l => new { l.GuildId, l.ChannelId })
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
-        var channels = fromEvents.Concat(fromSeries).Concat(fromDefaults)
+        var channels = fromEvents.Concat(fromSeries).Concat(fromDefaults).Concat(fromLiveLists)
             .Select(c => new ReferencedChannelDto(c.GuildId, c.ChannelId))
             .Distinct()
             .ToList();

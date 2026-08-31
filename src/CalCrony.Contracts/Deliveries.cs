@@ -43,6 +43,10 @@ public enum DeliveryType
     /// <summary>Archive the event's discussion thread after the event ends / is deleted /
     /// skipped / cancelled (history stays readable).</summary>
     ArchiveThread = 13,
+
+    /// <summary>Re-render a live list's posted embed (the guild's upcoming events changed).
+    /// Enqueued debounced and coalesced, so a burst of changes produces one Discord edit.</summary>
+    SyncLiveList = 14,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -124,6 +128,11 @@ public record ThreadMemberPayload(Guid EventId, long GuildId, long ThreadId, lon
 /// <param name="GuildId">The Discord guild id.</param>
 /// <param name="ThreadId">The Discord thread-channel id.</param>
 public record ArchiveThreadPayload(Guid EventId, long GuildId, long ThreadId);
+
+/// <summary>Payload asking the bot to re-render a live list's posted embed. Only the id crosses —
+/// the handler refetches the list row so a removed list reads as done.</summary>
+/// <param name="LiveListId">The live list id.</param>
+public record SyncLiveListPayload(Guid LiveListId);
 
 /// <summary>Payload asking the bot to re-render a poll's posted embed.</summary>
 /// <param name="PollId">The poll id.</param>

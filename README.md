@@ -22,6 +22,7 @@ flowchart LR
 
 - **Events** — natural-language datetimes ("tomorrow 6pm", "in 5 hours"), rich embeds, creator/manager-only edit & delete, timezone-aware throughout (NodaTime; per-user and per-server timezones)
 - **RSVPs** — one-click buttons (✅/❌/🤔) with live-updating attendee lists on the embed
+- **Live list** — `/livelist create` posts a persistent upcoming-events embed the bot keeps current: it rewrites automatically when events are created, edited, deleted, or RSVPed, when a recurring occurrence rolls, and self-heals at bot startup; updates are debounced so busy servers don't hammer Discord. One per channel, managers only — and deleting the message simply removes the list
 - **Reminders & notifications** — one-off `/remind`, up to 5 scheduled pings per event plus an automatic start announcement, crash-safe delivery via the outbox
 - **ICS calendar feed** — per-server tokenized subscribe URL (`/link`), importable into Google/Apple/Outlook calendars; recurring events include their full schedule (RRULE), so subscribers see every future occurrence, not just the next one. The calendar is named after the server ("CalCrony · Your Server"), and each event's description carries its Discord context: the channel, a link to the event's web page, and a jump link straight to the RSVP embed in Discord (recurring series link to the server's events page instead — their live occurrence rotates)
 - **Google Calendar availability** — members link their Google Calendar via OAuth (least-privilege free/busy scope: CalCrony never sees event titles or details, and tokens are encrypted at rest); anyone can then check an on-demand, Teams-Scheduling-Assistant-style free/busy grid for a role or an event's attendees. Read-only — it never blocks creating or RSVPing.
@@ -51,6 +52,7 @@ flowchart LR
 |---|---|
 | `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring, `template` starts from a saved template, `attendee-role` grants a role to Going RSVPs, `thread` opens a discussion thread |
 | `/list [channel] [limit]` | Upcoming events |
+| `/livelist create [channel] [limit]` · `/livelist remove [channel]` | Post a persistent upcoming-events embed the bot keeps current (managers only; one per channel) · remove it — deleting the message by hand also removes the list |
 | `/edit name [fields...] [scope]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only; repeating events need `scope` (this occurrence / whole series); `attendee-role` / `clear-attendee-role` change or remove the granted role |
 | `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
 | `/series edit name [repeat repeat-every ends until count]` | Change a series' rule or end condition — editing an ended series revives it |

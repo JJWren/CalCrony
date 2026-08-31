@@ -179,12 +179,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             return;
         }
 
-        var lines = result.Value.Select(e =>
-        {
-            var going = e.Options.FirstOrDefault(o => o.SortOrder == 0);
-            var goingCount = going is null ? 0 : e.Rsvps.Count(r => r.OptionId == going.Id);
-            return $"**{e.Title}** — <t:{e.StartsAtUnix}:F> (<t:{e.StartsAtUnix}:R>) in <#{e.ChannelId}> · {goingCount} going";
-        });
+        // Same line format the live list uses, so the two surfaces read identically.
+        var lines = result.Value.Select(LiveListEmbedBuilder.FormatLine);
 
         var embed = new EmbedBuilder()
             .WithTitle("Upcoming events")
