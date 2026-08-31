@@ -19,6 +19,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       version: ${{ steps.release.outputs.version }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      html_url: ${{ steps.release.outputs.html_url }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -65,3 +66,34 @@ jobs:
           build_and_push src/CalCrony.Api/Dockerfile calcrony-api
           build_and_push src/CalCrony.Bot/Dockerfile calcrony-bot
           build_and_push src/CalCrony.Web/Dockerfile calcrony-web
+
+  # Posts the release into the community server's #announcements with a real @Release Ping
+  # mention — the GitHub-side Discord integration can't mention roles (issue #106). Lives in
+  # this workflow for the same GITHUB_TOKEN reason as publish-images, and runs after it so
+  # the ping lands once the images are actually pullable. Skips cleanly when the webhook
+  # secret is unset.
+  announce-release:
+    needs: [release-please, publish-images]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    # The Discord POST needs no repository access — don't hand it the workflow's write token.
+    permissions: {}
+    steps:
+      - name: Post release to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_URL: ${{ needs.release-please.outputs.html_url }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "DISCORD_RELEASE_WEBHOOK secret not set; skipping announcement."
+            exit 0
+          fi
+          # Role id of @Release Ping in the community server; ids are public, the webhook URL
+          # is the secret. allowed_mentions pins the ping to exactly this role.
+          role_id="1543943300132769802"
+          jq -n \
+            --arg content "<@&${role_id}> **CalCrony ${RELEASE_TAG}** just shipped — release notes: ${RELEASE_URL}" \
+            --arg role "$role_id" \
+            '{content: $content, allowed_mentions: {roles: [$role]}}' \
+          | curl -sf -X POST -H "Content-Type: application/json" -d @- "$WEBHOOK_URL"

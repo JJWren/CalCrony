@@ -80,6 +80,8 @@ tests/
   CalCrony.Api.Tests/  Parser unit tests + Testcontainers-Postgres integration tests
   CalCrony.Bot.Tests/  Embed-builder unit tests
   CalCrony.Web.Tests/  bUnit component tests
+tools/
+  GuildSetup/          Idempotent console that applies the community server's channel/role layout
 ```
 
 ## Configuration
@@ -113,6 +115,8 @@ Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/
 | `Api__BaseUrl` / `Api__ApiKey` | `http://localhost:8080` / — | How the bot reaches the API |
 | `Api__PublicBaseUrl` | falls back to `Api__BaseUrl` | Public URL used when showing the ICS feed link |
 | `Api__PollSeconds` | `15` | Outbox polling cadence |
+| `Discord__SupportServerInvite` | *(empty)* | Community-server invite shown by `/help` — must be absolute https; the line is omitted when unset, so test and self-hosted bots don't advertise the hosted server |
+| `Donations__BuyMeACoffeeUrl` | *(empty)* | Donate link shown by `/help` — must be absolute https; omitted when unset |
 
 The `/availability role` command requires the **Server Members** privileged gateway intent, enabled in the Discord Developer Portal.
 
@@ -122,6 +126,9 @@ The `/availability role` command requires the **Server Members** privileged gate
 |---|---|---|
 | `API_BASE_URL` | *(baked appsettings)* | Browser-visible URL of the API (never the compose-internal name) |
 | `DISCORD_APP_ID` | *(production app id)* | Discord application id the invite links advertise — set it in a **test environment** so the test web app invites the test bot |
+| `DONATE_URL` | *(empty)* | Tip-jar URL for the footer donate link — must be absolute https; nothing renders when unset |
+| `WEB_PUBLIC_ORIGIN` | *(baked `https://calcrony.app`)* | This deployment's browser-visible origin, substituted into `sitemap.xml`/`robots.txt` at container start so self-hosted instances advertise their own URLs |
+| `ROBOTS_MODE` | *(empty)* | `disallow` serves a disallow-all `robots.txt` — for deployments that must never be indexed (e.g. test stacks) |
 
 ## Running locally
 
