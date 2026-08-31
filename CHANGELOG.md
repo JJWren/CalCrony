@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/JJWren/CalCrony/compare/v0.26.0...v0.27.0) (2026-08-31)
+
+
+### Features
+
+* RSVP v1 — custom options, attendee limits, waitlists, close-early ([#129](https://github.com/JJWren/CalCrony/issues/129)) ([2b2fdfb](https://github.com/JJWren/CalCrony/commit/2b2fdfb1682dfa878b09109ca027a4c9585c3e98))
+
 ## [0.26.0](https://github.com/JJWren/CalCrony/compare/v0.25.1...v0.26.0) (2026-08-31)
 
 
