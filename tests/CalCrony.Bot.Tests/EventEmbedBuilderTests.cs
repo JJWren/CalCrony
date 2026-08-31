@@ -171,6 +171,17 @@ public class EventEmbedBuilderTests
         Assert.InRange(embed.Description!.Length, 1, 4096);
         Assert.EndsWith("…", embed.Description);
         Assert.Equal(10, embed.Fields.Length);
+
+        // Same fixed content with EMPTY lists and with a waitlist on top — the bound must hold
+        // regardless of how many member lists compete for the remainder.
+        var empty = EventEmbedBuilder.Build(ev with { Rsvps = [] });
+        Assert.True(empty.Length <= 6000, $"empty-list embed length {empty.Length}");
+        var queued = EventEmbedBuilder.Build(ev with
+        {
+            Rsvps = [.. rsvps, .. Enumerable.Range(0, 30).Select(i => new RsvpDto(2_000_000_000_000_000 + i, options[0].Id, Waitlisted: true))],
+        });
+        Assert.True(queued.Length <= 6000, $"waitlisted embed length {queued.Length}");
+        Assert.Equal(11, queued.Fields.Length);
         Assert.All(embed.Fields, f => Assert.InRange(f.Value.Length, 1, 1024));
         Assert.Contains("<@1000000000000000>", embed.Fields[0].Value); // members still render
     }

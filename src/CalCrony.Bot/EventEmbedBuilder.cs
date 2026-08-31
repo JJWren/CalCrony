@@ -94,12 +94,18 @@ public static class EventEmbedBuilder
         var footer = $"Event {ev.Id}";
         var namesLength = names.Values.Sum(n => n.Length) + (waitlist.Count > 0 ? waitlistName.Length : 0);
         var listCount = ev.Options.Count + (waitlist.Count > 0 ? 1 : 0);
+        // Reserve MinListBudget per list up front, so whatever the description leaves is by
+        // construction enough for every list's marker: fixedLength <= EmbedTotalBudget -
+        // listCount * MinListBudget, hence remaining / listCount >= MinListBudget, hence the
+        // final embed (fixed + listCount * listBudget) <= EmbedTotalBudget < 6000. No lower
+        // clamp is needed — or wanted, since one could only ever push past the cap.
+        var reservedForLists = listCount * MinListBudget;
         var descriptionText = Truncate(
             description.ToString(),
-            Math.Min(DescriptionLimit, EmbedTotalBudget - title.Length - footer.Length - namesLength - listCount * MinListBudget));
+            Math.Min(DescriptionLimit, EmbedTotalBudget - title.Length - footer.Length - namesLength - reservedForLists));
         var fixedLength = title.Length + descriptionText.Length + footer.Length + namesLength;
-        var listBudget = Math.Clamp(
-            (EmbedTotalBudget - fixedLength) / Math.Max(1, listCount), MinListBudget, FieldValueLimit);
+        var remaining = EmbedTotalBudget - fixedLength;
+        var listBudget = Math.Min(FieldValueLimit, remaining / Math.Max(1, listCount));
 
         var builder = new EmbedBuilder()
             .WithTitle(title)
