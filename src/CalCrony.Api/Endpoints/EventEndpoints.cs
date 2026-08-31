@@ -768,12 +768,20 @@ public static class EventEndpoints
             cappedOption.Capacity = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
         }
 
-        if (applyToSeries
-            && (request.RsvpOptions is not null || request.AttendeeLimit is not null || request.ClearAttendeeLimit))
+        if (applyToSeries && request.RsvpOptions is not null)
         {
-            // Series scope: the edited option set becomes the template future occurrences spawn
-            // from; Occurrence scope leaves the template alone (the next spawn reverts to it).
+            // Series scope with an explicit option set: it becomes the template future
+            // occurrences spawn from; Occurrence scope leaves the template alone (the next
+            // spawn reverts to it).
             series!.RsvpOptionsJson = RsvpPolicy.SerializeSpecs(ev.Options);
+        }
+        else if (applyToSeries && (request.AttendeeLimit is not null || request.ClearAttendeeLimit))
+        {
+            // Limit-only: cap the TEMPLATE's attending option rather than copying this
+            // occurrence's rows — an earlier occurrence-scoped option divergence must not ride
+            // a limit change into every future occurrence.
+            series!.RsvpOptionsJson = RsvpPolicy.WithAttendingCapacity(
+                series.RsvpOptionsJson, request.ClearAttendeeLimit ? null : request.AttendeeLimit);
         }
 
         if (request.ClearRsvpClose)

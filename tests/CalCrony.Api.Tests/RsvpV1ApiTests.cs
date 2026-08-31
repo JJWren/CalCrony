@@ -482,6 +482,31 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task Limit_only_series_edits_cap_the_template_without_promoting_occurrence_options()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Limit vs template", "in 3 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+
+        // This occurrence diverges from the (default) template…
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, Scope: EditScope.Occurrence,
+            RsvpOptions: [new RsvpOptionSpec("🎲", "One-off", IsAttending: true)])))
+            .EnsureSuccessStatusCode();
+
+        // …then a series-wide limit change must cap the template's attending option, not copy
+        // the one-off set into the series.
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, Scope: EditScope.Series, AttendeeLimit: 4))).EnsureSuccessStatusCode();
+
+        var skip = await Client.PostAsync($"/events/{ev.Id}/skip", null);
+        skip.EnsureSuccessStatusCode();
+        var next = (await skip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+        Assert.Equal(["Going", "Not going", "Maybe"], next.Options.Select(o => o.Label));
+        Assert.Equal(4, next.AttendingOption!.Capacity);
+    }
+
+    [Fact]
     public async Task Series_scoped_absolute_cutoff_edits_dont_clear_the_relative_template()
     {
         var ev = await CreateAsync(new CreateEventRequest(

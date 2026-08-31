@@ -129,8 +129,8 @@ public static partial class RsvpPolicy
                 return null;
             }
 
-            // Control characters would also break the 4096-char bound SerializeSpecs relies on
-            // (they escape six-to-one even with the relaxed encoder).
+            // Control characters would also blow the RsvpOptionsJson column bound SerializeSpecs
+            // relies on (they escape six-to-one even with the relaxed encoder).
             if (spec.Label.Any(char.IsControl))
             {
                 error = "RSVP option labels can't contain control characters.";
@@ -215,6 +215,23 @@ public static partial class RsvpPolicy
         {
             return Endpoints.EventEndpoints.DefaultRsvpOptions();
         }
+    }
+
+    /// <summary>Re-caps the attending option of a stored series template (null = the default
+    /// set) without touching its other options — how a limit-only Series-scoped edit reaches the
+    /// template.</summary>
+    /// <param name="rsvpOptionsJson">The stored spec list, or null.</param>
+    /// <param name="capacity">The new attending capacity (null clears it).</param>
+    /// <returns>The re-serialized spec list.</returns>
+    public static string WithAttendingCapacity(string? rsvpOptionsJson, int? capacity)
+    {
+        var options = OptionsFromTemplate(rsvpOptionsJson);
+        if (AttendingOption(options) is { } attending)
+        {
+            attending.Capacity = capacity;
+        }
+
+        return SerializeSpecs(options);
     }
 
     /// <summary>Custom server emote syntax (&lt;:name:id&gt;) — recognized only to reject it with
