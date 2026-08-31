@@ -66,6 +66,12 @@ services:
       DISCORD_APP_ID: ${DISCORD_APP_ID:-}
       # Tip-jar URL for the footer donate link — empty means no link renders at all.
       DONATE_URL: ${DONATE_URL:-}
+      # This deployment's browser-visible origin, substituted into sitemap.xml/robots.txt so
+      # self-hosted instances don't advertise the hosted URLs (empty = baked calcrony.app).
+      WEB_PUBLIC_ORIGIN: ${CALCRONY_WEB_ORIGIN:-}
+      # "disallow" serves a disallow-all robots.txt — for deployments that must never be
+      # indexed, e.g. test stacks.
+      ROBOTS_MODE: ${ROBOTS_MODE:-}
     ports:
       - "8082:80"
     depends_on:
