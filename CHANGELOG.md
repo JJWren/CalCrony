@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/JJWren/CalCrony/compare/v0.25.0...v0.25.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* disclose name snapshots and theme preference; point legal docs at calcrony.app ([#115](https://github.com/JJWren/CalCrony/issues/115)) ([6710c56](https://github.com/JJWren/CalCrony/commit/6710c569e9f059343b34fb2b0d4bc89252be5c43))
+
 ## [0.25.0](https://github.com/JJWren/CalCrony/compare/v0.24.0...v0.25.0) (2026-08-31)
 
 
