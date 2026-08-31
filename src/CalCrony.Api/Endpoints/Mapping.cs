@@ -65,6 +65,12 @@ public static class Mapping
         [.. series.NotificationSpecs.OrderByDescending(n => n.MinutesBefore)
             .Select(n => new SeriesNotificationDto(n.Id, n.MinutesBefore, n.Message, n.Mentions, n.ChannelId))]);
 
+    /// <summary>Projects a live list registration.</summary>
+    /// <param name="list">The live list row.</param>
+    /// <returns>The projected DTO.</returns>
+    public static LiveListDto ToDto(this LiveList list) => new(
+        list.Id, list.GuildId, list.ChannelId, list.MessageId, list.Limit, list.CreatorId);
+
     /// <summary>Resolves an IANA id to a zone, null when unknown.</summary>
     /// <param name="id">The IANA zone id.</param>
     /// <returns>The zone, or null when the id is unknown.</returns>

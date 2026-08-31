@@ -3,8 +3,10 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Bot.Api;
 
-/// <summary>Uniform call result: Value on success, a display-ready Error otherwise.</summary>
-public record ApiResult<T>(T? Value, string? Error)
+/// <summary>Uniform call result: Value on success, a display-ready Error otherwise. NotFound
+/// distinguishes a definitive 404 from transient failures, for handlers whose "gone = done,
+/// otherwise retry" contract needs the difference.</summary>
+public record ApiResult<T>(T? Value, string? Error, bool NotFound = false)
 {
     public bool Success => Error is null;
 }
@@ -128,6 +130,41 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
     public Task<ApiResult<EventDto>> DeleteRsvpAsync(Guid eventId, long userId, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.DeleteAsync($"/events/{eventId}/rsvps/{userId}", ct), ct);
+
+    /// <summary>Registers a live list the bot just posted (one per channel — 409 on a duplicate).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<LiveListDto>> CreateLiveListAsync(long guildId, CreateLiveListRequest request, CancellationToken ct = default) =>
+        SendAsync<LiveListDto>(http.PostAsJsonAsync($"/guilds/{guildId}/livelists", request, ct), ct);
+
+    /// <summary>Lists a guild's live lists (how /livelist remove finds the channel's list).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<List<LiveListDto>>> ListGuildLiveListsAsync(long guildId, CancellationToken ct = default) =>
+        SendAsync<List<LiveListDto>>(http.GetAsync($"/guilds/{guildId}/livelists", ct), ct);
+
+    /// <summary>Lists every live list in bot-present guilds (the Ready-time reconcile).</summary>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<List<LiveListDto>>> ListAllLiveListsAsync(CancellationToken ct = default) =>
+        SendAsync<List<LiveListDto>>(http.GetAsync("/livelists", ct), ct);
+
+    /// <summary>Fetches one live list (404 after it was removed).</summary>
+    /// <param name="id">The entity id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<LiveListDto>> GetLiveListAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<LiveListDto>(http.GetAsync($"/livelists/{id}", ct), ct);
+
+    /// <summary>Removes a live list's record (/livelist remove, or clearing a manually deleted one).</summary>
+    /// <param name="id">The entity id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> DeleteLiveListAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/livelists/{id}", ct), ct);
 
     /// <summary>Reads the guild's timezone and default channel.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
@@ -408,7 +445,10 @@ public sealed class CalCronyApiClient(HttpClient http)
                 // Non-JSON error body; fall through to the status-code message.
             }
 
-            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.");
+            return new ApiResult<T>(
+                default,
+                error ?? $"API error {(int)response.StatusCode}.",
+                response.StatusCode == System.Net.HttpStatusCode.NotFound);
         }
     }
 }

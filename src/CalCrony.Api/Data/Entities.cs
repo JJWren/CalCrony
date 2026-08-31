@@ -299,6 +299,24 @@ public class EventNotification
     public Guid? SeriesNotificationId { get; set; }
 }
 
+/// <summary>A persistent upcoming-events embed the bot keeps current in one channel. One per
+/// channel (unique index on ChannelId); removed via /livelist remove, or cleared by the bot when
+/// it finds the message manually deleted — never reposted (no resurrect loop). Content changes
+/// reach the bot as debounced SyncLiveList deliveries (see LiveListSync).</summary>
+public class LiveList
+{
+    public Guid Id { get; set; }
+    public long GuildId { get; set; }
+    public long ChannelId { get; set; }
+    public long MessageId { get; set; }
+
+    /// <summary>Maximum number of events the list shows (1-25).</summary>
+    public int Limit { get; set; }
+
+    public long CreatorId { get; set; }
+    public Instant CreatedAt { get; set; }
+}
+
 /// <summary>Outbox row lifecycle: pending until the bot acks, failed after repeated attempts.</summary>
 public enum DeliveryStatus
 {

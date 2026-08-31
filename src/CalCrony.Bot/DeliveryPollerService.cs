@@ -17,6 +17,7 @@ namespace CalCrony.Bot;
 /// <param name="mirror">The native scheduled-event mirror.</param>
 /// <param name="roles">The attendee-role manager.</param>
 /// <param name="threads">The event-thread manager.</param>
+/// <param name="liveLists">The live-list manager.</param>
 public sealed class DeliveryPollerService(
     DiscordSocketClient client,
     CalCronyApiClient api,
@@ -24,7 +25,8 @@ public sealed class DeliveryPollerService(
     ILogger<DeliveryPollerService> logger,
     NativeEventMirror mirror,
     AttendeeRoleManager roles,
-    EventThreadManager threads) : BackgroundService
+    EventThreadManager threads,
+    LiveListManager liveLists) : BackgroundService
 {
     /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
@@ -118,6 +120,12 @@ public sealed class DeliveryPollerService(
         if (delivery.Type == DeliveryType.DeletePollMessage)
         {
             await DeletePollMessageAsync(delivery);
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.SyncLiveList)
+        {
+            await SyncLiveListAsync(delivery);
             return;
         }
 
@@ -322,6 +330,30 @@ public sealed class DeliveryPollerService(
             m.Embed = EventEmbedBuilder.Build(ev);
             m.Components = EventEmbedBuilder.BuildComponents(ev);
         });
+    }
+
+    /// <summary>The guild's upcoming events changed — re-render its live list. A removed list
+    /// (definitive 404) counts as done; a transient API failure throws so the delivery retries
+    /// instead of silently dropping the update. The manager clears the record itself when the
+    /// message turns out deleted.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
+    /// <exception cref="InvalidOperationException">When the list fetch fails transiently — caught
+    /// by DrainAsync, which leaves the delivery pending for retry.</exception>
+    private async Task SyncLiveListAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<SyncLiveListPayload>(delivery.PayloadJson)!;
+        var result = await api.GetLiveListAsync(payload.LiveListId);
+        if (result.NotFound)
+        {
+            return;
+        }
+
+        if (!result.Success || result.Value is null)
+        {
+            throw new InvalidOperationException($"Failed to fetch live list {payload.LiveListId}: {result.Error}");
+        }
+
+        await liveLists.SyncAsync(result.Value);
     }
 
     /// <summary>A web/scheduler action changed poll data shown on the posted embed — re-render.

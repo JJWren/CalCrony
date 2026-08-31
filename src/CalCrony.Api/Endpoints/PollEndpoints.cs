@@ -561,6 +561,10 @@ public static class PollEndpoints
             JsonSerializer.Serialize(new PostEventMessagePayload(ev.Id)), now));
 
         await EnqueuePollSyncAsync(context, db, poll, clock, cancellationToken);
+
+        // The converted event is a new upcoming event — live lists rewrite.
+        await Services.LiveListSync.EnqueueSyncForGuildAsync(db, poll.GuildId, now, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/events/{ev.Id}", ev.ToDto());
     }

@@ -27,6 +27,11 @@ public sealed class DeliveryScheduler(
     {
         var enqueued = 0;
 
+        // Guilds whose upcoming-events picture changed this sweep (an event started and drops
+        // off, or a series rolled its next occurrence) — their live lists rewrite, deduped here
+        // and debounced/coalesced by LiveListSync.
+        var liveListGuilds = new HashSet<long>();
+
         // Due event notifications (fire time recomputed from the event's current start).
         var pendingNotifications = await db.EventNotifications
             .Where(n => !n.Enqueued)
@@ -73,6 +78,7 @@ public sealed class DeliveryScheduler(
                 ev.StartsAt,
                 now));
             enqueued++;
+            liveListGuilds.Add(ev.GuildId);
         }
 
         // Started → Ended once the duration (default 60 min) has elapsed; mirrored native events
@@ -138,6 +144,7 @@ public sealed class DeliveryScheduler(
                 if (materializer.MaterializeNext(series, now) is not null)
                 {
                     enqueued++;
+                    liveListGuilds.Add(series.GuildId);
                 }
             }
         }
@@ -160,6 +167,11 @@ public sealed class DeliveryScheduler(
                     now));
                 enqueued++;
             }
+        }
+
+        foreach (var guildId in liveListGuilds)
+        {
+            enqueued += await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);

@@ -14,13 +14,15 @@ namespace CalCrony.Bot;
 /// <param name="api">The CalCrony API client.</param>
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The host logger.</param>
+/// <param name="liveLists">The live-list manager.</param>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
     IServiceProvider services,
     CalCronyApiClient api,
     IConfiguration configuration,
-    ILogger<DiscordBotService> logger) : IHostedService
+    ILogger<DiscordBotService> logger,
+    LiveListManager liveLists) : IHostedService
 {
     /// <summary>Wires events, loads interaction modules, and logs the bot in.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -90,6 +92,38 @@ public sealed class DiscordBotService(
         }
 
         await ReconcileChannelNamesAsync();
+        await ReconcileLiveListsAsync();
+    }
+
+    /// <summary>Self-heals every live list at Ready (the ADR 0001 snapshot-reconcile pattern):
+    /// re-renders each recorded list message with the current events, and clears records whose
+    /// messages were deleted while the bot was offline — deleted message = list is gone.</summary>
+    private async Task ReconcileLiveListsAsync()
+    {
+        var lists = await api.ListAllLiveListsAsync();
+        if (lists is not { Success: true, Value: { } all })
+        {
+            logger.LogWarning("Live-list lookup failed: {Error}", lists.Error ?? "empty response body");
+            return;
+        }
+
+        foreach (var list in all)
+        {
+            try
+            {
+                await liveLists.SyncAsync(list);
+            }
+            catch (Exception ex)
+            {
+                // Per-list isolation; a failed one heals on its next SyncLiveList delivery.
+                logger.LogWarning(ex, "Live-list reconcile failed for list {LiveListId}.", list.Id);
+            }
+        }
+
+        if (all.Count > 0)
+        {
+            logger.LogInformation("Reconciled {Count} live lists.", all.Count);
+        }
     }
 
     /// <summary>Refreshes channel-name snapshots for every channel the API references — heals a

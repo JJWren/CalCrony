@@ -466,6 +466,10 @@ public static class EventEndpoints
             });
         }
 
+        // Live lists rewrite on every event change, both caller types — the outbox is the only
+        // path that knows which channels host one.
+        await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/events/{ev.Id}", await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
@@ -706,6 +710,7 @@ public static class EventEndpoints
         }
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
+        await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
@@ -780,6 +785,7 @@ public static class EventEndpoints
         }
 
         db.Events.Remove(ev);
+        await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, clock.GetCurrentInstant(), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
@@ -947,6 +953,7 @@ public static class EventEndpoints
         }
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
+        await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, clock.GetCurrentInstant(), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
@@ -1001,6 +1008,7 @@ public static class EventEndpoints
             }
 
             await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
+            await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, clock.GetCurrentInstant(), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
 
