@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: 💬 CalCrony community Discord
+    url: https://discord.gg/aEdYyZYgyV
+    about: Ask questions, get support, and discuss ideas before they become issues.

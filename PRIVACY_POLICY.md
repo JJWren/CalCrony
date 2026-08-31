@@ -80,4 +80,7 @@ change log.
 ## 7. Contact
 
 Privacy questions or deletion requests: open a
-[GitHub issue](https://github.com/JJWren/CalCrony/issues) on this repository.
+[GitHub issue](https://github.com/JJWren/CalCrony/issues) on this repository. General questions
+are also welcome in the [community Discord server](https://discord.gg/aEdYyZYgyV), but it is a
+public space — never post personal or account details there; anything involving your data
+belongs in a GitHub issue.

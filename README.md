@@ -1,5 +1,7 @@
 # CalCrony
 
+[![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/aEdYyZYgyV)
+
 A self-hosted event & calendar suite for Discord, inspired by [sesh.fyi](https://sesh.fyi/), built in .NET 10 — a Discord bot **and** a browser app over one API.
 
 **Architecture:** the backend is an API (`CalCrony.Api`); the Discord bot (`CalCrony.Bot`) is a pure client of that API authenticating with an `X-Api-Key` header, and the web app (`CalCrony.Web`, Blazor WebAssembly) is a second client authenticating with Discord-login JWTs. The API owns all domain logic, persistence (PostgreSQL/EF Core), scheduling, ICS generation, and both OAuth dances (Google calendar-linking and Discord web login) — it knows nothing about Discord.Net and stores Discord snowflakes as opaque IDs. Shared DTOs live in `CalCrony.Contracts`. Scheduled sends (reminders, event pings) and web→Discord embed syncs flow through an outbox: the API materializes due `Delivery` rows; the bot polls and acks each only after the Discord action succeeds.
@@ -155,6 +157,13 @@ Go-live checklist:
 7. The application's **Terms of Service** and **Privacy Policy** URLs in the Discord Developer Portal pointed at [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) and [PRIVACY_POLICY.md](PRIVACY_POLICY.md) in this repository.
 
 The running API reports its version at `GET /health`; `GET /health/ready` adds a database probe (the compose healthchecks target it).
+
+## Community
+
+The official [CalCrony Discord server](https://discord.gg/aEdYyZYgyV) is the place for support (a
+forum channel, one post per question), release announcements, feature discussion, and a playground
+channel where the production bot is live to try. Confirmed bugs still graduate to
+[GitHub issues](https://github.com/JJWren/CalCrony/issues) — the server is where they get triaged first.
 
 ## Contributing, releases & security
 
