@@ -53,7 +53,7 @@ This is CalCrony's largest gap cluster. CalCrony's RSVP options are hardcoded to
 | # | Sesh feature | Sesh source | CalCrony status |
 |---|---|---|---|
 | 3.1 | **Custom RSVP options** — "Create unique RSVP options using any emoji" (premium) | <https://sesh.fyi/manual/>; <https://sesh.fyi/premium> | **Missing** (hardcoded 3 options, `EventEndpoints.cs:112-114`). |
-| 3.2 | **RSVP attendee limits + waitlist management** (premium) | <https://sesh.fyi/premium> ("attendee limits/waitlists", "RSVP slot limits with waitlist management" on <https://sesh.fyi/>) | **Missing.** No capacity or waitlist anywhere in `CalCrony.Contracts/Events.cs`. |
+| 3.2 | **RSVP attendee limits + waitlist management** (premium) | <https://sesh.fyi/premium> ("attendee limits/waitlists", "RSVP slot limits with waitlist management" on <https://sesh.fyi/>) | **Partial foundation.** `RsvpOptionDto` already carries an optional `Capacity` (`src/CalCrony.Contracts/Events.cs:88`) and the API rejects RSVPs to a full option (`EventEndpoints.cs:894-899`) — but nothing surfaces capacity at creation/edit in either UI, and there is no waitlist. |
 | 3.3 | **Multiple RSVPs per user** — RSVP to more than one option (premium) | <https://sesh.fyi/manual/> ("Multiple RSVPs") | **Missing.** CalCrony RSVP is single-choice (switching revokes the previous choice — `RsvpComponentModule.cs`, `AttendeeRoleManager` semantics in README). |
 | 3.4 | **Close RSVPs early** — close all RSVPs a set time before the event (premium) | <https://sesh.fyi/premium> | **Missing.** |
 | 3.5 | **Role-based restrictions** — control who can RSVP to events / vote in polls (premium) | <https://sesh.fyi/> ("Role-based restrictions for RSVPs and voting"); <https://sesh.fyi/manual/> | **Missing.** CalCrony restricts *edit/delete* to creator/manager (`EventModule.cs`) but any member can RSVP/vote. |
@@ -74,7 +74,7 @@ CalCrony recurrence (`src/CalCrony.Contracts/Series.cs`): every-N Day/Week/Month
 | # | Sesh feature | Sesh source | CalCrony status |
 |---|---|---|---|
 | 5.1 | **DM reminders to RSVPed users** ("Event reminders via DM") | <https://sesh.fyi/manual/> | **Missing.** All CalCrony deliveries are channel posts through the outbox (`src/CalCrony.Bot/DeliveryPollerService.cs`); no DM sending code exists in `src/` (grep for DM channel APIs finds nothing). |
-| 5.2 | **User confirmation/warning preferences** — RSVP confirmation messages, event overlap warnings, poll vote confirmations | <https://sesh.fyi/manual/> ("User Settings") | **Missing.** CalCrony per-user settings are timezone + interface theme (`SettingsModule.cs`, `src/CalCrony.Web/Pages/App/UserSettings.razor`); no overlap detection or confirmation toggles. |
+| 5.2 | **User confirmation/warning preferences** — RSVP confirmation messages, event overlap warnings, poll vote confirmations | <https://sesh.fyi/manual/> ("User Settings") | **Partial.** A per-user `DmConfirmations` preference is already stored and editable (`SettingsModule.cs`, `src/CalCrony.Web/Pages/App/UserSettings.razor`, default on) but currently inert — no delivery code consumes it. No overlap detection or vote-confirmation toggles. |
 | 5.3 | **Separate parsing timezone vs display timezone** | <https://sesh.fyi/manual/> ("Parsing timezone selection") | **Partial.** CalCrony has one personal timezone plus a server timezone (README first-steps section); the two roles aren't independently configurable per user. |
 
 ## 6. Gaps — calendar sync / web calendar

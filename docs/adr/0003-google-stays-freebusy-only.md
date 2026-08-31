@@ -10,12 +10,16 @@ impossible rather than merely promised against.
 ## Considered Options
 
 - **Free/busy-only, permanently (chosen).** Inbound sync (importing users' Google events) is
-  declined for good. Outbound *push* (CalCrony writing its own events into a user's Google
-  calendar) reads nothing and stays a possible future opt-in, but is not planned: the tokenized
-  ICS feed already delivers CalCrony's schedule to Google/Apple/Outlook via pull.
+  declined for good. Outbound *push* into a user's existing calendars is declined too: Google
+  offers no write-only scope for them — its event-write scopes also grant event visibility — so
+  even a push that promises not to read would make reading possible, which is exactly the
+  guarantee this ADR exists to keep structural. The tokenized ICS feed already delivers
+  CalCrony's schedule to Google/Apple/Outlook via pull. Should Google's granular scopes ever
+  provide a genuinely read-free write path (e.g. app-created secondary calendars only), that
+  could be reconsidered without superseding the read ban.
 - **Two-way sync for parity with sesh.** Rejected: it requires calendar-read scope, which
-  collapses the privacy story the hosted instance markets (ADR 0002) and turns the Google
-  verification burden from a lightweight free/busy review into a restricted-scope audit.
+  collapses the privacy story the hosted instance markets (ADR 0002) and swaps the lightweight
+  free/busy consent flow for Google's heavier sensitive-scope verification burden.
 - **Inbound-only import.** Rejected for the same scope reason — reading is reading.
 
 ## Consequences

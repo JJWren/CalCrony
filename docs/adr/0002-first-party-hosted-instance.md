@@ -21,9 +21,11 @@ listing integrations) must stay configurable so a self-hoster gets a complete pr
 
 ## Consequences
 
-- Features previously judged N/A for a self-hosted project (top.gg votepoints, vote webhooks) are
-  back in scope for the hosted instance, but must be optional/config-gated so self-hosted
-  deployments are unaffected.
+- Listing integrations previously judged N/A for a self-hosted project (a top.gg presence, vote
+  webhooks as a support signal) become relevant to the hosted instance, and must be
+  optional/config-gated so self-hosted deployments are unaffected. Vote-*gated* feature perks
+  remain declined regardless — votes are a support ask, never a feature gate (see the gap
+  analysis's declined list).
 - The hosted instance stores other communities' event and attendee data, so the project needs a
   real privacy policy and ToS — both as public web pages (required by top.gg listing and Discord
   verification) and as honest descriptions of what the software stores.
