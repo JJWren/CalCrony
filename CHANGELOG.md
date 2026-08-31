@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.0](https://github.com/JJWren/CalCrony/compare/v0.25.1...v0.26.0) (2026-08-31)
+
+
+### Features
+
+* live list - auto-updating events message ([#127](https://github.com/JJWren/CalCrony/issues/127)) ([fdc8325](https://github.com/JJWren/CalCrony/commit/fdc83252ef3940e66a5bc8997cf1c9809bbe73f9))
+* yearly recurrence ([#126](https://github.com/JJWren/CalCrony/issues/126)) ([99c034e](https://github.com/JJWren/CalCrony/commit/99c034ed451df019e4149612dea3404bf1c9eaf9))
+
 ## [0.25.1](https://github.com/JJWren/CalCrony/compare/v0.25.0...v0.25.1) (2026-08-31)
 
 
