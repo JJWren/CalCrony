@@ -15,6 +15,12 @@ public static class EventEmbedBuilder
     /// <summary>Discord's cap on one embed field value.</summary>
     private const int FieldValueLimit = 1024;
 
+    /// <summary>Discord's cap on an embed title.</summary>
+    private const int TitleLimit = 256;
+
+    /// <summary>Discord's cap on an embed description.</summary>
+    private const int DescriptionLimit = 4096;
+
     /// <summary>Working cap for the whole embed — under Discord's 6000-char total with margin.</summary>
     private const int EmbedTotalBudget = 5800;
 
@@ -68,22 +74,12 @@ public static class EventEmbedBuilder
             description.AppendLine().AppendLine(ev.Description);
         }
 
-        var builder = new EmbedBuilder()
-            .WithTitle(ev.Title)
-            .WithColor(EventColor)
-            .WithDescription(description.ToString())
-            .WithFooter($"Event {ev.Id}");
-
-        if (!string.IsNullOrWhiteSpace(ev.ImageUrl))
-        {
-            builder.WithImageUrl(ev.ImageUrl);
-        }
-
-        // Member lists are the only unbounded embed content: Discord caps a field value at 1024
-        // chars and the whole embed at 6000, so every list gets an equal share of what the fixed
-        // content leaves, and entries that don't fit collapse into "+N more". Field names keep
-        // the FULL counts either way. Waitlisted RSVPs sit in their own section, not in the
-        // option's seat count.
+        // Everything is sized against Discord's caps — 256 title, 4096 description, 1024 per
+        // field value, 6000 for the whole embed — so no valid event can produce an embed Discord
+        // rejects. Field names keep the FULL counts; the description (the one fixed part that
+        // can be large: a 4096-char event description plus meta lines) absorbs the squeeze
+        // first, then the member lists share what remains. Waitlisted RSVPs sit in their own
+        // section, not in the option's seat count.
         var seated = ev.Options.ToDictionary(
             o => o.Id,
             o => ev.Rsvps.Where(r => r.OptionId == o.Id && !r.Waitlisted).Select(r => $"<@{r.UserId}>").ToList());
@@ -94,11 +90,27 @@ public static class EventEmbedBuilder
             o => o.Id,
             o => $"{o.Emote} {o.Label} ({seated[o.Id].Count}{(o.Capacity is int cap ? $"/{cap}" : "")})");
         var waitlistName = $"⏳ Waitlist ({waitlist.Count})";
-        var fixedLength = ev.Title.Length + description.Length + $"Event {ev.Id}".Length
-            + names.Values.Sum(n => n.Length) + (waitlist.Count > 0 ? waitlistName.Length : 0);
+        var title = Truncate(ev.Title, TitleLimit);
+        var footer = $"Event {ev.Id}";
+        var namesLength = names.Values.Sum(n => n.Length) + (waitlist.Count > 0 ? waitlistName.Length : 0);
         var listCount = ev.Options.Count + (waitlist.Count > 0 ? 1 : 0);
+        var descriptionText = Truncate(
+            description.ToString(),
+            Math.Min(DescriptionLimit, EmbedTotalBudget - title.Length - footer.Length - namesLength - listCount * MinListBudget));
+        var fixedLength = title.Length + descriptionText.Length + footer.Length + namesLength;
         var listBudget = Math.Clamp(
             (EmbedTotalBudget - fixedLength) / Math.Max(1, listCount), MinListBudget, FieldValueLimit);
+
+        var builder = new EmbedBuilder()
+            .WithTitle(title)
+            .WithColor(EventColor)
+            .WithDescription(descriptionText)
+            .WithFooter(footer);
+
+        if (!string.IsNullOrWhiteSpace(ev.ImageUrl))
+        {
+            builder.WithImageUrl(ev.ImageUrl);
+        }
 
         foreach (var option in ev.Options)
         {
@@ -111,6 +123,32 @@ public static class EventEmbedBuilder
         }
 
         return builder.Build();
+    }
+
+    /// <summary>Cuts text to <paramref name="budget"/> chars with a trailing ellipsis, never
+    /// splitting a surrogate pair.</summary>
+    /// <param name="text">The text to bound.</param>
+    /// <param name="budget">The character budget (values below 1 yield an empty string).</param>
+    /// <returns>The bounded text.</returns>
+    private static string Truncate(string text, int budget)
+    {
+        if (text.Length <= budget)
+        {
+            return text;
+        }
+
+        if (budget < 1)
+        {
+            return "";
+        }
+
+        var cut = budget - 1;
+        if (cut > 0 && char.IsHighSurrogate(text[cut - 1]))
+        {
+            cut--;
+        }
+
+        return text[..cut] + "…";
     }
 
     /// <summary>Renders a mention list within <paramref name="budget"/> chars: the entries that

@@ -148,6 +148,34 @@ public class EventEmbedBuilderTests
     }
 
     [Fact]
+    public void Oversized_fixed_content_is_trimmed_so_the_embed_always_fits()
+    {
+        // A max-length description plus meta lines and ten max-length option names exceed
+        // Discord's 6000 total before a single member renders — the description absorbs it.
+        var options = Enumerable.Range(0, 10)
+            .Select(i => new RsvpOptionDto(Guid.NewGuid(), "🔹", new string('x', 62) + i.ToString("00"), i, 9999, IsAttending: i == 0))
+            .ToList();
+        var rsvps = Enumerable.Range(0, 40).Select(i => new RsvpDto(1_000_000_000_000_000 + i, options[0].Id)).ToList();
+        var ev = SampleEvent() with
+        {
+            Title = new string('T', 300),
+            Description = new string('d', 4096),
+            Options = options,
+            Rsvps = rsvps,
+        };
+
+        var embed = EventEmbedBuilder.Build(ev);
+
+        Assert.True(embed.Length <= 6000, $"embed length {embed.Length}");
+        Assert.InRange(embed.Title!.Length, 1, 256);
+        Assert.InRange(embed.Description!.Length, 1, 4096);
+        Assert.EndsWith("…", embed.Description);
+        Assert.Equal(10, embed.Fields.Length);
+        Assert.All(embed.Fields, f => Assert.InRange(f.Value.Length, 1, 1024));
+        Assert.Contains("<@1000000000000000>", embed.Fields[0].Value); // members still render
+    }
+
+    [Fact]
     public void Role_note_names_the_attending_option()
     {
         var ev = WaitlistedEvent() with { AttendeeRoleId = 777 };
