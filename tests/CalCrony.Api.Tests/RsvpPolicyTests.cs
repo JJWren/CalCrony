@@ -70,7 +70,7 @@ public class RsvpPolicyTests
     [InlineData("🏳️‍🌈")] // ZWJ flag
     [InlineData("‼️")] // BMP straggler outside the symbol categories
     public void Real_emojis_pass_emote_validation(string emote) =>
-        Assert.True(RsvpPolicy.IsLikelyEmoji(emote));
+        Assert.True(EmoteText.IsLikelyEmoji(emote));
 
     [Theory]
     [InlineData("abc")] // plain text — the Discord-breaking case
@@ -80,7 +80,7 @@ public class RsvpPolicyTests
     [InlineData("✅✅")] // two emojis — buttons take exactly one
     [InlineData("✅ ok")]
     public void Text_that_is_not_one_emoji_fails_emote_validation(string emote) =>
-        Assert.False(RsvpPolicy.IsLikelyEmoji(emote));
+        Assert.False(EmoteText.IsLikelyEmoji(emote));
 
     [Fact]
     public void Non_emoji_emotes_are_rejected_when_building_options()

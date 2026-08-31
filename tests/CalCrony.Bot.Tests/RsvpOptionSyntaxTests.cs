@@ -27,6 +27,18 @@ public class RsvpOptionSyntaxTests
         Assert.Equal("In", specs[1].Label); // the marker never leaks into the label
     }
 
+    [Theory]
+    [InlineData("1️⃣ Choice", "1️⃣", "Choice")] // keycap — ASCII-led, still an emoji
+    [InlineData("‼️ Urgent", "‼️", "Urgent")] // BMP punctuation-category emoji
+    [InlineData("👨‍👩‍👧 Family", "👨‍👩‍👧", "Family")] // ZWJ sequence
+    public void Every_emoji_the_api_accepts_becomes_the_button_emoji(string input, string emote, string label)
+    {
+        Assert.True(RsvpOptionSyntax.TryParse(input, out var specs, out _));
+
+        Assert.Equal(emote, specs[0].Emote);
+        Assert.Equal(label, specs[0].Label);
+    }
+
     [Fact]
     public void Missing_emoji_gets_a_default_and_accented_labels_stay_labels()
     {

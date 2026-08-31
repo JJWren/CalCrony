@@ -380,6 +380,21 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task An_absolute_cutoff_inside_the_parsers_now_grace_is_rejected_at_create_and_edit()
+    {
+        // "in 0 minutes" resolves to now, which the parser accepts (one-minute grace) but which
+        // would create/edit the event already closed.
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Cutoff now", "in 3 hours", ChannelId, RsvpCloseText: "in 0 minutes"));
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+
+        var ev = await CreateAsync(new CreateEventRequest(CreatorId, "Cutoff now edit", "in 3 hours", ChannelId));
+        var edit = await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, RsvpCloseText: "in 0 minutes"));
+        Assert.Equal(HttpStatusCode.BadRequest, edit.StatusCode);
+    }
+
+    [Fact]
     public async Task An_absolute_cutoff_at_or_after_start_is_rejected_at_create()
     {
         var response = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(

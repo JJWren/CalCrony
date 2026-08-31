@@ -145,6 +145,26 @@ public class RsvpV1ComponentTests : TestContext
         Assert.Equal(["Going", "Out"], body.RsvpOptions!.Select(o => o.Label));
     }
 
+    [Fact]
+    public void Edit_form_clear_cutoff_wins_over_text_left_in_the_disabled_box()
+    {
+        var handler = UseApi();
+        var ev = SampleEvent(closesAt: DateTimeOffset.UtcNow.AddHours(1));
+        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
+
+        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)ev.Id));
+        cut.WaitForAssertion(() => cut.Find("#ev-rsvp-close"));
+        cut.Find("#ev-rsvp-close").Change("2h before");
+        cut.Find("#ev-clear-close").Change(true);
+
+        handler.NextJson = JsonSerializer.Serialize(ev, JsonWeb);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Save changes")).Click();
+
+        var body = JsonSerializer.Deserialize<UpdateEventRequest>(handler.LastBody!, JsonWeb)!;
+        Assert.True(body.ClearRsvpClose);
+        Assert.Null(body.RsvpCloseText);
+    }
+
     private static void RouteEventPages(CapturingHandler handler, EventDto ev)
     {
         var now = DateTimeOffset.UtcNow;

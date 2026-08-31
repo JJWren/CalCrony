@@ -18,9 +18,6 @@ public static partial class RsvpOptionSyntax
     [GeneratedRegex(@"^x(\d{1,4})$", RegexOptions.IgnoreCase)]
     private static partial Regex CapacityToken();
 
-    [GeneratedRegex(@"^<a?:\w+:\d+>$")]
-    private static partial Regex CustomEmoteToken();
-
     /// <summary>Parses the delimited option string.</summary>
     /// <param name="input">The raw <c>rsvp-options</c> value.</param>
     /// <param name="specs">The parsed specs on success.</param>
@@ -56,7 +53,7 @@ public static partial class RsvpOptionSyntax
             }
 
             var tokens = entry.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            if (tokens.Count > 0 && CustomEmoteToken().IsMatch(tokens[0]))
+            if (tokens.Count > 0 && EmoteText.IsCustomEmote(tokens[0]))
             {
                 error = "Custom server emojis aren't supported on RSVP buttons — use a standard emoji.";
                 return false;
@@ -99,20 +96,10 @@ public static partial class RsvpOptionSyntax
         return true;
     }
 
-    /// <summary>Whether a token reads as an emoji rather than label text: symbol-category runes
-    /// (✅, ⚔️) or anything outside the BMP (🤔). Accented letters stay letters.</summary>
+    /// <summary>Whether a token reads as an emoji rather than label text — the API's own
+    /// classifier, so keycaps (1️⃣) and BMP stragglers (‼️) become the button emoji here exactly
+    /// when the API would accept them. Accented words stay label text.</summary>
     /// <param name="token">The whitespace-delimited token.</param>
     /// <returns>True when the token should become the button emoji.</returns>
-    private static bool LooksLikeEmoji(string token)
-    {
-        foreach (var rune in token.EnumerateRunes())
-        {
-            var category = System.Text.Rune.GetUnicodeCategory(rune);
-            return rune.Value > 0xFFFF
-                   || category is System.Globalization.UnicodeCategory.OtherSymbol
-                       or System.Globalization.UnicodeCategory.MathSymbol;
-        }
-
-        return false;
-    }
+    private static bool LooksLikeEmoji(string token) => EmoteText.IsLikelyEmoji(token);
 }

@@ -338,19 +338,29 @@ public static class EventEndpoints
                 return Results.BadRequest(new ErrorResponse(closeError!));
             }
 
-            // A relative cutoff that lands before "now" would create the event already closed
-            // (the parser guarantees a future instant for absolute text; relative needs the
-            // start applied) — and an absolute cutoff at/after start would never close early.
+            // A cutoff that lands at/before "now" would create the event already closed: the
+            // relative form needs the start applied, and absolute text can resolve up to a minute
+            // into the past (the parser's "now-ish" grace). An absolute cutoff at/after start
+            // would never close early.
+            var createNow = clock.GetCurrentInstant();
             if (rsvpCloseMinutesBefore is int closeMinutes
-                && startsAt.Minus(Duration.FromMinutes(closeMinutes)) <= clock.GetCurrentInstant())
+                && startsAt.Minus(Duration.FromMinutes(closeMinutes)) <= createNow)
             {
                 return Results.BadRequest(new ErrorResponse(
                     "That RSVP cutoff is already in the past — the event starts too soon."));
             }
 
-            if (rsvpClosesAt is { } absoluteClose && absoluteClose >= startsAt)
+            if (rsvpClosesAt is { } absoluteClose)
             {
-                return Results.BadRequest(new ErrorResponse("The RSVP cutoff must be before the event starts."));
+                if (absoluteClose <= createNow)
+                {
+                    return Results.BadRequest(new ErrorResponse("That RSVP cutoff is already in the past."));
+                }
+
+                if (absoluteClose >= startsAt)
+                {
+                    return Results.BadRequest(new ErrorResponse("The RSVP cutoff must be before the event starts."));
+                }
             }
         }
         var recurrence = request.Recurrence
@@ -822,19 +832,22 @@ public static class EventEndpoints
             }
         }
 
-        // The cutoff must stay coherent with the (possibly just-edited) start. The relative form
-        // tracks the start, so it can only go wrong by resolving into the past; the absolute form
-        // is future-guaranteed at parse, so it can only go wrong by landing at/after start. A
+        // The cutoff must stay coherent with the (possibly just-edited) start. A newly supplied
+        // cutoff of either form must be in the future (absolute text can resolve up to a minute
+        // into the past — the parser's "now-ish" grace), a relative one must not be dragged into
+        // the past by a start move, and no cutoff may land at/after start. The one carve-out: a
         // stale absolute cutoff on a start-only postpone stays legal — RSVPs simply stay closed.
         if (staysLive
             && (request.WhenText is not null || request.RsvpCloseText is not null)
             && !request.ClearRsvpClose
             && RsvpPolicy.EffectiveClose(ev) is { } editedClose)
         {
-            if (ev.RsvpCloseMinutesBefore is not null && editedClose <= clock.GetCurrentInstant())
+            if ((request.RsvpCloseText is not null || ev.RsvpCloseMinutesBefore is not null)
+                && editedClose <= clock.GetCurrentInstant())
             {
-                return Results.BadRequest(new ErrorResponse(
-                    "That RSVP cutoff is already in the past — the event starts too soon."));
+                return Results.BadRequest(new ErrorResponse(ev.RsvpCloseMinutesBefore is not null
+                    ? "That RSVP cutoff is already in the past — the event starts too soon."
+                    : "That RSVP cutoff is already in the past."));
             }
 
             if (editedClose >= ev.StartsAt)

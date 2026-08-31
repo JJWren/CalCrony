@@ -1,6 +1,4 @@
-﻿using System.Globalization;
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using CalCrony.Api.Data;
 using CalCrony.Contracts;
@@ -137,13 +135,13 @@ public static partial class RsvpPolicy
 
             // Every Discord button later does `new Emoji(option.Emote)`, and one bad emote makes
             // Discord reject the whole component payload — so the emote must actually be an emoji.
-            if (CustomEmote().IsMatch(spec.Emote.Trim()))
+            if (EmoteText.IsCustomEmote(spec.Emote.Trim()))
             {
                 error = "Custom server emojis aren't supported on RSVP buttons — use a standard emoji.";
                 return null;
             }
 
-            if (!IsLikelyEmoji(spec.Emote.Trim()))
+            if (!EmoteText.IsLikelyEmoji(spec.Emote.Trim()))
             {
                 error = $"\"{spec.Emote.Trim()}\" isn't a single standard emoji — each RSVP option needs one Unicode emoji.";
                 return null;
@@ -252,55 +250,6 @@ public static partial class RsvpPolicy
         }
 
         return SerializeSpecs(options);
-    }
-
-    /// <summary>Custom server emote syntax (&lt;:name:id&gt;) — recognized only to reject it with
-    /// the same wording the bot's option parser uses, so every entry point agrees.</summary>
-    [GeneratedRegex(@"^<a?:\w+:\d+>$")]
-    private static partial Regex CustomEmote();
-
-    /// <summary>Keycap emojis (#️⃣, 5⃣) are ASCII-led, so they get an exact match ahead of the
-    /// rune walk in <see cref="IsLikelyEmoji"/>.</summary>
-    [GeneratedRegex("^[0-9#*]\uFE0F?\u20E3$")]
-    private static partial Regex KeycapEmoji();
-
-    /// <summary>Whether text plausibly renders as ONE Unicode emoji: a single grapheme cluster
-    /// whose runes are all emoji-shaped — outside the BMP, in a BMP symbol category, one of the
-    /// few BMP stragglers (‼ ⁉ 〰 〽), or a joiner/variation selector riding along. Permissive at
-    /// the margins by design; what it must reject is ordinary text like "abc".</summary>
-    /// <param name="emote">The candidate emote text (pre-trimmed).</param>
-    /// <returns>True when the text looks like a single emoji.</returns>
-    public static bool IsLikelyEmoji(string emote)
-    {
-        if (KeycapEmoji().IsMatch(emote))
-        {
-            return true;
-        }
-
-        if (new StringInfo(emote).LengthInTextElements != 1)
-        {
-            return false;
-        }
-
-        var sawBase = false;
-        foreach (var rune in emote.EnumerateRunes())
-        {
-            if (rune.Value is 0x200D or 0xFE0E or 0xFE0F)
-            {
-                continue;
-            }
-
-            if (rune.Value <= 0xFFFF
-                && Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.OtherSymbol or UnicodeCategory.MathSymbol)
-                && rune.Value is not (0x203C or 0x2049 or 0x3030 or 0x303D))
-            {
-                return false;
-            }
-
-            sawBase = true;
-        }
-
-        return sawBase;
     }
 
     /// <summary>Relative cutoff text: "2h before", "90 min before start", "1 day" — a bare

@@ -581,7 +581,9 @@ else
                 // Clearing is allowed from the web; picking a role is bot-only (no role list here).
                 ClearAttendeeRole: clearAttendeeRole,
                 RsvpOptions: optionsChanged ? optionSpecs : null,
-                RsvpCloseText: string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose,
+                // The disabled textbox keeps its value once "remove" is ticked — clear wins, or the
+                // API would reject the pair as contradictory.
+                RsvpCloseText: clearRsvpClose || string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose,
                 ClearRsvpClose: clearRsvpClose));
             busy = false;
             if (!result.Success || result.Value is null)
