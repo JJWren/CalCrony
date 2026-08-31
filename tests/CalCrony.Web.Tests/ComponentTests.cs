@@ -59,7 +59,18 @@ public class ComponentTests : TestContext
     public void Layout_footer_hides_donate_when_unconfigured()
     {
         // Test stacks and self-hosted deployments must not render the hosted instance's tip
-        // jar; no configured URL (or a non-https one) means no donate link at all.
+        // jar; no configured URL means no donate link at all.
+        UseConfig();
+        ComponentFactories.AddStub<Layout.NavMenu>();
+        ComponentFactories.AddStub<ThemeSync>();
+        var cut = Render<Layout.MainLayout>();
+
+        Assert.DoesNotContain("donate", cut.Find("footer").TextContent);
+    }
+
+    [Fact]
+    public void Layout_footer_hides_donate_for_non_https_urls()
+    {
         UseConfig(("Donations:BuyMeACoffeeUrl", "http://insecure.example"));
         ComponentFactories.AddStub<Layout.NavMenu>();
         ComponentFactories.AddStub<ThemeSync>();
