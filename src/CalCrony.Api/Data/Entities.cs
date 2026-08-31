@@ -102,7 +102,7 @@ public class Event
 /// <summary>A repeating event's schedule + content template. Exactly one live (Scheduled/Started)
 /// occurrence exists per non-ended series, enforced by the partial unique index
 /// IX_Events_SeriesId_Live; the scheduler materializes the next occurrence when the slot frees.
-/// Schedule math is anchor-based (never chained), so monthly clamping can't drift.
+/// Schedule math is anchor-based (never chained), so monthly/yearly clamping can't drift.
 /// Series rows are never deleted — an ended series stays as history.</summary>
 public class EventSeries
 {

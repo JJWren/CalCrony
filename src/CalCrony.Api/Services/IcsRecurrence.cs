@@ -10,8 +10,8 @@ namespace CalCrony.Api.Services;
 /// <summary>Translates a series' schedule into an RFC 5545 recurrence rule for the ICS feed.
 /// The mapping is exact against RecurrenceCalculator's semantics: clamped day-of-month rules use
 /// the BYMONTHDAY=28..d + BYSETPOS=-1 idiom (a plain BYMONTHDAY=31 would SKIP short months where
-/// our engine clamps), and a 5th-weekday anchor maps to BYDAY=-1 (a 5th weekday, when it exists,
-/// is always also the last).</summary>
+/// our engine clamps), a Feb-29 yearly anchor uses the same idiom on February, and a 5th-weekday
+/// anchor maps to BYDAY=-1 (a 5th weekday, when it exists, is always also the last).</summary>
 public static class IcsRecurrence
 {
     /// <summary>RRULE for a non-ended series, anchored on the emitted DTSTART instance.</summary>
@@ -26,6 +26,7 @@ public static class IcsRecurrence
         {
             RecurrenceUnit.Day => new RecurrencePattern(FrequencyType.Daily, series.Interval),
             RecurrenceUnit.Week => WeeklyPattern(series),
+            RecurrenceUnit.Year => YearlyPattern(series),
             _ => MonthlyPattern(series),
         };
 
@@ -79,6 +80,28 @@ public static class IcsRecurrence
             // Same nth derivation as RecurrenceCalculator; 5th → last (-1) is exact.
             var nth = (series.AnchorDate.Day + 6) / 7;
             pattern.ByDay.Add(new WeekDay(ToDayOfWeek(series.AnchorDate.DayOfWeek), nth == 5 ? -1 : nth));
+        }
+
+        return pattern;
+    }
+
+    private static RecurrencePattern YearlyPattern(EventSeries series)
+    {
+        // BYMONTH/BYMONTHDAY come from the ANCHOR, not DTSTART — a gap-projected DTSTART can sit
+        // on a clamped Feb 28 while the rule must keep aiming at Feb 29.
+        var pattern = new RecurrencePattern(FrequencyType.Yearly, series.Interval);
+        pattern.ByMonth.Add(series.AnchorDate.Month);
+        if (series.AnchorDate is { Month: 2, Day: 29 })
+        {
+            // Clamp semantics: a plain BYMONTHDAY=29 would SKIP non-leap years where our engine
+            // clamps; the last existing day of {28,29} == min(29, February's length).
+            pattern.ByMonthDay.Add(28);
+            pattern.ByMonthDay.Add(29);
+            pattern.BySetPosition.Add(-1);
+        }
+        else
+        {
+            pattern.ByMonthDay.Add(series.AnchorDate.Day);
         }
 
         return pattern;

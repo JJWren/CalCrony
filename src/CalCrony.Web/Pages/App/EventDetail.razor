@@ -155,6 +155,7 @@ else
                         <option value="@ScheduleKind.Weekly">Weekly</option>
                         <option value="@ScheduleKind.MonthlySameDate">Monthly (same date)</option>
                         <option value="@ScheduleKind.MonthlyNthWeekday">Monthly (nth weekday, e.g. 3rd Friday)</option>
+                        <option value="@ScheduleKind.Yearly">Yearly</option>
                     </select>
                 </div>
                 @if (scheduleKind == ScheduleKind.None)
@@ -377,7 +378,7 @@ else
     /// reachable pages of a fully-ended series, which is why the card lives here.</summary>
     private bool IsEndedSeries => ev is { SeriesId: not null, RecurrenceSummary: null };
 
-    private enum ScheduleKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday }
+    private enum ScheduleKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday, Yearly }
 
     private enum ScheduleEndMode { Never, Until, Count }
 
@@ -400,6 +401,7 @@ else
     {
         ScheduleKind.Daily => scheduleInterval == 1 ? "day" : "days",
         ScheduleKind.Weekly => scheduleInterval == 1 ? "week" : "weeks",
+        ScheduleKind.Yearly => scheduleInterval == 1 ? "year" : "years",
         _ => scheduleInterval == 1 ? "month" : "months",
     };
 
@@ -432,6 +434,7 @@ else
         {
             (RecurrenceUnit.Day, _) => ScheduleKind.Daily,
             (RecurrenceUnit.Week, _) => ScheduleKind.Weekly,
+            (RecurrenceUnit.Year, _) => ScheduleKind.Yearly,
             (_, MonthlyMode.NthWeekday) => ScheduleKind.MonthlyNthWeekday,
             _ => ScheduleKind.MonthlySameDate,
         };
@@ -507,6 +510,7 @@ else
             ScheduleKind.Daily => (RecurrenceUnit.Day, MonthlyMode.DayOfMonth),
             ScheduleKind.Weekly => (RecurrenceUnit.Week, MonthlyMode.DayOfMonth),
             ScheduleKind.MonthlySameDate => (RecurrenceUnit.Month, MonthlyMode.DayOfMonth),
+            ScheduleKind.Yearly => (RecurrenceUnit.Year, MonthlyMode.DayOfMonth),
             _ => (RecurrenceUnit.Month, MonthlyMode.NthWeekday),
         };
 

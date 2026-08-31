@@ -89,6 +89,7 @@ else
                     <option value="@RepeatKind.Weekly">Weekly</option>
                     <option value="@RepeatKind.MonthlySameDate">Monthly (same date)</option>
                     <option value="@RepeatKind.MonthlyNthWeekday">Monthly (nth weekday, e.g. 3rd Friday)</option>
+                    <option value="@RepeatKind.Yearly">Yearly</option>
                 </select>
             </div>
 
@@ -197,7 +198,7 @@ else
     [SupplyParameterFromQuery(Name = "template")]
     public Guid? TemplateId { get; set; }
 
-    private enum RepeatKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday }
+    private enum RepeatKind { None, Daily, Weekly, MonthlySameDate, MonthlyNthWeekday, Yearly }
 
     private enum EndMode { Never, Until, Count }
 
@@ -239,6 +240,7 @@ else
     {
         RepeatKind.Daily => repeatInterval == 1 ? "day" : "days",
         RepeatKind.Weekly => repeatInterval == 1 ? "week" : "weeks",
+        RepeatKind.Yearly => repeatInterval == 1 ? "year" : "years",
         _ => repeatInterval == 1 ? "month" : "months",
     };
 
@@ -261,6 +263,8 @@ else
                     $"{(every == "" ? "weekly" : every + "weeks")}{(local is null ? "" : $" on {local.Value.DayOfWeek}")}",
                 RepeatKind.MonthlySameDate =>
                     $"{(every == "" ? "monthly" : every + "months")}{(local is null ? "" : $" on day {local.Value.Day}")}",
+                RepeatKind.Yearly =>
+                    $"{(every == "" ? "yearly" : every + "years")}{(local is null ? "" : $" on {local.Value:MMM d}")}",
                 _ =>
                     $"{(every == "" ? "monthly" : every + "months")}{(local is null ? "" : $" on the {Nth(local.Value.Day)} {local.Value.DayOfWeek}")}",
             };
@@ -364,6 +368,7 @@ else
             null => RepeatKind.None,
             { Unit: RecurrenceUnit.Day } => RepeatKind.Daily,
             { Unit: RecurrenceUnit.Week } => RepeatKind.Weekly,
+            { Unit: RecurrenceUnit.Year } => RepeatKind.Yearly,
             { MonthlyMode: MonthlyMode.NthWeekday } => RepeatKind.MonthlyNthWeekday,
             _ => RepeatKind.MonthlySameDate,
         };
@@ -466,6 +471,7 @@ else
                 RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatInterval),
                 RepeatKind.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatInterval),
                 RepeatKind.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatInterval, MonthlyMode.NthWeekday),
+                RepeatKind.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatInterval),
                 _ => null,
             };
             var result = await Api.CreateEventAsync(GuildId, new CreateEventRequest(
