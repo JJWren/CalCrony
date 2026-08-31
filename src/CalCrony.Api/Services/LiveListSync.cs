@@ -23,7 +23,8 @@ public static class LiveListSync
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="now">The current instant.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    internal static async Task EnqueueSyncForGuildAsync(
+    /// <returns>How many sync deliveries were enqueued (coalesced ones don't count).</returns>
+    internal static async Task<int> EnqueueSyncForGuildAsync(
         CalCronyDbContext db, long guildId, Instant now, CancellationToken cancellationToken)
     {
         var lists = await db.LiveLists
@@ -32,7 +33,7 @@ public static class LiveListSync
             .ToListAsync(cancellationToken);
         if (lists.Count == 0)
         {
-            return;
+            return 0;
         }
 
         // Coalesce with pending identical syncs the bot has never been served (Attempts == 0,
@@ -55,10 +56,14 @@ public static class LiveListSync
                 .Select(d => d.PayloadJson))
             .ToHashSet();
 
+        var added = 0;
         foreach (var (payloadJson, list) in payloads.Where(p => !queued.Contains(p.Key)))
         {
             db.Deliveries.Add(NewSync(list.Id, list.ChannelId, payloadJson, now));
+            added++;
         }
+
+        return added;
     }
 
     /// <summary>Enqueues the just-registered list's first sync in the same save as its row —

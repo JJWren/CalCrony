@@ -171,7 +171,7 @@ public sealed class DeliveryScheduler(
 
         foreach (var guildId in liveListGuilds)
         {
-            await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
+            enqueued += await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);
