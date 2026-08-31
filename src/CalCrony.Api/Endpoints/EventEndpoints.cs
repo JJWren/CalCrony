@@ -628,6 +628,13 @@ public static class EventEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
+        // Option/capacity edits promote off the waitlist, so they serialize behind the same
+        // event-row lock PUT/DELETE RSVP take (before the aggregate loads) — two stale
+        // aggregates must not both promote the same queue head or double-seat a freed spot.
+        // Early returns roll back via the transaction's dispose.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockEventRowAsync(db, id, cancellationToken);
+
         var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
         {
@@ -877,6 +884,7 @@ public static class EventEndpoints
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 

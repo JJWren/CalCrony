@@ -174,7 +174,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<Delivery>(e =>
         {
-            e.Property(d => d.PayloadJson).HasMaxLength(10240);
+            e.Property(d => d.PayloadJson).HasMaxLength(8192);
             e.HasIndex(d => new { d.Status, d.DueAt });
         });
 

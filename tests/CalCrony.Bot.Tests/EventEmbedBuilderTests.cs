@@ -122,6 +122,32 @@ public class EventEmbedBuilderTests
     }
 
     [Fact]
+    public void Huge_member_lists_stay_inside_discord_limits_with_an_omitted_count()
+    {
+        // 19-char mentions: 120 seated (~2.4k chars raw) and 100 waitlisted (~2k raw) would blow
+        // Discord's 1024-per-field and 6000-total caps without the bounded renderer.
+        var going = new RsvpOptionDto(Guid.NewGuid(), "✅", "Going", 0, null, IsAttending: true);
+        var rsvps = Enumerable.Range(0, 120)
+            .Select(i => new RsvpDto(1_000_000_000_000_000 + i, going.Id))
+            .Concat(Enumerable.Range(0, 100)
+                .Select(i => new RsvpDto(2_000_000_000_000_000 + i, going.Id, Waitlisted: true)))
+            .ToList();
+        var ev = SampleEvent() with { Options = [going], Rsvps = rsvps };
+
+        var embed = EventEmbedBuilder.Build(ev);
+
+        Assert.All(embed.Fields, f => Assert.InRange(f.Value.Length, 1, 1024));
+        Assert.True(embed.Length <= 6000);
+        Assert.Contains("(120)", embed.Fields[0].Name); // full counts survive the truncation
+        Assert.EndsWith("more", embed.Fields[0].Value);
+        Assert.Equal("⏳ Waitlist (100)", embed.Fields[1].Name);
+        Assert.EndsWith("more", embed.Fields[1].Value);
+        // The first entries still render before the marker.
+        Assert.Contains("<@1000000000000000>", embed.Fields[0].Value);
+        Assert.Contains("<@2000000000000000>", embed.Fields[1].Value);
+    }
+
+    [Fact]
     public void Role_note_names_the_attending_option()
     {
         var ev = WaitlistedEvent() with { AttendeeRoleId = 777 };

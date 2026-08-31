@@ -12,6 +12,18 @@ public static class EventEmbedBuilder
     /// <summary>Discord caps buttons at five per action row.</summary>
     private const int ButtonsPerRow = 5;
 
+    /// <summary>Discord's cap on one embed field value.</summary>
+    private const int FieldValueLimit = 1024;
+
+    /// <summary>Working cap for the whole embed — under Discord's 6000-char total with margin.</summary>
+    private const int EmbedTotalBudget = 5800;
+
+    /// <summary>The floor each member list keeps: room for the "+N more" marker alone.</summary>
+    private const int MinListBudget = 12;
+
+    /// <summary>Room reserved while filling a list so the omitted-count marker always fits.</summary>
+    private const int OmittedMarkerReserve = 16;
+
     /// <summary>Builds the event embed: time, recurrence, duration, location, RSVP cutoff,
     /// description, per-option RSVP fields, and the attending option's waitlist.</summary>
     /// <param name="ev">The event.</param>
@@ -67,33 +79,83 @@ public static class EventEmbedBuilder
             builder.WithImageUrl(ev.ImageUrl);
         }
 
+        // Member lists are the only unbounded embed content: Discord caps a field value at 1024
+        // chars and the whole embed at 6000, so every list gets an equal share of what the fixed
+        // content leaves, and entries that don't fit collapse into "+N more". Field names keep
+        // the FULL counts either way. Waitlisted RSVPs sit in their own section, not in the
+        // option's seat count.
+        var seated = ev.Options.ToDictionary(
+            o => o.Id,
+            o => ev.Rsvps.Where(r => r.OptionId == o.Id && !r.Waitlisted).Select(r => $"<@{r.UserId}>").ToList());
+        var waitlist = ev.AttendingOption is { } attending
+            ? ev.Rsvps.Where(r => r.OptionId == attending.Id && r.Waitlisted).Select(r => $"<@{r.UserId}>").ToList()
+            : [];
+        var names = ev.Options.ToDictionary(
+            o => o.Id,
+            o => $"{o.Emote} {o.Label} ({seated[o.Id].Count}{(o.Capacity is int cap ? $"/{cap}" : "")})");
+        var waitlistName = $"⏳ Waitlist ({waitlist.Count})";
+        var fixedLength = ev.Title.Length + description.Length + $"Event {ev.Id}".Length
+            + names.Values.Sum(n => n.Length) + (waitlist.Count > 0 ? waitlistName.Length : 0);
+        var listCount = ev.Options.Count + (waitlist.Count > 0 ? 1 : 0);
+        var listBudget = Math.Clamp(
+            (EmbedTotalBudget - fixedLength) / Math.Max(1, listCount), MinListBudget, FieldValueLimit);
+
         foreach (var option in ev.Options)
         {
-            // Waitlisted RSVPs sit in their own section, not in the option's seat count.
-            var members = ev.Rsvps
-                .Where(r => r.OptionId == option.Id && !r.Waitlisted)
-                .Select(r => $"<@{r.UserId}>")
-                .ToList();
-            var capacity = option.Capacity is int cap ? $"/{cap}" : "";
-            builder.AddField(
-                $"{option.Emote} {option.Label} ({members.Count}{capacity})",
-                members.Count == 0 ? "—" : string.Join("\n", members),
-                inline: true);
+            builder.AddField(names[option.Id], BoundedMemberList(seated[option.Id], listBudget), inline: true);
 
-            if (option.Id == ev.AttendingOption?.Id)
+            if (option.Id == ev.AttendingOption?.Id && waitlist.Count > 0)
             {
-                var waitlist = ev.Rsvps
-                    .Where(r => r.OptionId == option.Id && r.Waitlisted)
-                    .Select(r => $"<@{r.UserId}>")
-                    .ToList();
-                if (waitlist.Count > 0)
-                {
-                    builder.AddField($"⏳ Waitlist ({waitlist.Count})", string.Join("\n", waitlist), inline: true);
-                }
+                builder.AddField(waitlistName, BoundedMemberList(waitlist, listBudget), inline: true);
             }
         }
 
         return builder.Build();
+    }
+
+    /// <summary>Renders a mention list within <paramref name="budget"/> chars: the entries that
+    /// fit, then "+N more" for the rest. An empty list renders the em-dash placeholder.</summary>
+    /// <param name="members">The rendered mentions, in display order.</param>
+    /// <param name="budget">The character budget for this list.</param>
+    /// <returns>The bounded field value.</returns>
+    private static string BoundedMemberList(List<string> members, int budget)
+    {
+        if (members.Count == 0)
+        {
+            return "—";
+        }
+
+        var text = new StringBuilder();
+        var shown = 0;
+        foreach (var member in members)
+        {
+            var length = member.Length + (shown == 0 ? 0 : 1);
+            var reserve = shown + 1 < members.Count ? OmittedMarkerReserve : 0;
+            if (text.Length + length + reserve > budget)
+            {
+                break;
+            }
+
+            if (shown > 0)
+            {
+                text.Append('\n');
+            }
+
+            text.Append(member);
+            shown++;
+        }
+
+        if (shown < members.Count)
+        {
+            if (shown > 0)
+            {
+                text.Append('\n');
+            }
+
+            text.Append($"+{members.Count - shown} more");
+        }
+
+        return text.ToString();
     }
 
     /// <summary>One RSVP button per option, five per row, all disabled once RSVPs close.</summary>
