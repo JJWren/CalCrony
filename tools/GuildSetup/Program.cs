@@ -169,10 +169,7 @@ async Task<RestRole> EnsureRole(string name, GuildPermissions permissions, Color
             p.Permissions = permissions;
             p.Hoist = hoist;
             p.Mentionable = true;
-            if (color is { } c)
-            {
-                p.Color = c;
-            }
+            p.Color = color ?? Color.Default;
         });
         Console.WriteLine($"  = role reconciled: {name}");
         return existing;
