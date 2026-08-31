@@ -764,8 +764,15 @@ public static class EventEndpoints
         else if ((request.AttendeeLimit is not null || request.ClearAttendeeLimit)
                  && RsvpPolicy.AttendingOption(ev.Options) is { } cappedOption)
         {
-            // Limit-only shorthand: set or clear the attending option's capacity in place.
-            cappedOption.Capacity = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
+            // Limit-only shorthand: set or clear the attending option's capacity in place — never
+            // below the seats already taken (same rule as an explicit option replacement).
+            var newLimit = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
+            if (RsvpPolicy.CapacityBelowSeated(ev, cappedOption, newLimit) is { } overCapacity)
+            {
+                return Results.Conflict(new ErrorResponse(overCapacity));
+            }
+
+            cappedOption.Capacity = newLimit;
         }
 
         if (applyToSeries && request.RsvpOptions is not null)

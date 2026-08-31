@@ -221,6 +221,39 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task Lowering_a_capacity_below_the_seated_count_is_a_409_on_both_edit_paths()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Shrink below seated", "in 3 hours", ChannelId, AttendeeLimit: 3));
+        var going = ev.AttendingOption!;
+        await RsvpAsync(ev.Id, 611, going.Id);
+        await RsvpAsync(ev.Id, 612, going.Id);
+        await RsvpAsync(ev.Id, 613, going.Id);
+
+        // Limit-only shorthand…
+        var viaLimit = await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, AttendeeLimit: 2));
+        Assert.Equal(HttpStatusCode.Conflict, viaLimit.StatusCode);
+
+        // …and an explicit replacement both refuse to strand seated users.
+        var viaOptions = await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, RsvpOptions:
+            [
+                new RsvpOptionSpec("✅", "Going", 2),
+                new RsvpOptionSpec("❌", "Not going"),
+                new RsvpOptionSpec("🤔", "Maybe"),
+            ]));
+        Assert.Equal(HttpStatusCode.Conflict, viaOptions.StatusCode);
+
+        // The rejected edits changed nothing; a cap equal to the seated count is fine.
+        var unchanged = (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!;
+        Assert.Equal(3, unchanged.AttendingOption!.Capacity);
+        Assert.Equal(3, unchanged.SeatedCount(going.Id));
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(CreatorId, AttendeeLimit: 3)))
+            .EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Waitlisted_users_earn_the_attendee_role_on_promotion_not_on_joining()
     {
         var ev = await CreateAsync(new CreateEventRequest(

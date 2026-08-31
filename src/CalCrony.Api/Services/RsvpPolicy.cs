@@ -57,6 +57,26 @@ public static partial class RsvpPolicy
             ? ev.StartsAt.Minus(Duration.FromMinutes(minutes))
             : null);
 
+    /// <summary>The user-facing conflict when a new capacity would sit below the seats already
+    /// taken on an option — seated users are never silently demoted to the waitlist; the editor
+    /// must raise the cap or clear RSVPs first. Null when the capacity is acceptable.</summary>
+    /// <param name="ev">The event (Rsvps loaded).</param>
+    /// <param name="option">The option being re-capped.</param>
+    /// <param name="capacity">The proposed capacity (null = unlimited).</param>
+    /// <returns>The 409 message, or null.</returns>
+    public static string? CapacityBelowSeated(Event ev, RsvpOption option, int? capacity)
+    {
+        if (capacity is not int cap)
+        {
+            return null;
+        }
+
+        var seated = SeatedCount(ev, option.Id);
+        return cap < seated
+            ? $"\"{option.Label}\" already has {seated} seated — the capacity can't go below that."
+            : null;
+    }
+
     /// <summary>Whether RSVPs are closed as of <paramref name="now"/>.</summary>
     /// <param name="ev">The event.</param>
     /// <param name="now">The current instant.</param>
@@ -370,6 +390,19 @@ public static partial class RsvpPolicy
             conflict = true;
             error = $"\"{removedInUse.Label}\" has RSVPs — keep it in the list (RSVPs follow the label).";
             return false;
+        }
+
+        // A kept option may not shrink below the seats already taken — validated for every match
+        // BEFORE any row mutates, so a rejected edit leaves the event untouched.
+        foreach (var existing in ev.Options)
+        {
+            if (byLabel.TryGetValue(existing.Label, out var replacement)
+                && CapacityBelowSeated(ev, existing, replacement.Capacity) is { } overCapacity)
+            {
+                conflict = true;
+                error = overCapacity;
+                return false;
+            }
         }
 
         ev.Options.RemoveAll(existing => !byLabel.ContainsKey(existing.Label));
