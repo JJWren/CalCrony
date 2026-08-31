@@ -317,11 +317,12 @@ else
 
     private void AddOption() => optionRows.Add(new OptionRow());
 
-    /// <summary>Each attending radio names its own row, so a screen reader can tell them apart.</summary>
+    /// <summary>Each attending radio names its own row — always by number, since labels can be
+    /// duplicated mid-edit (the API only rejects that on submit), plus the label when there is one.</summary>
     private static string AttendingRadioLabel(OptionRow row, int index) =>
         string.IsNullOrWhiteSpace(row.Label)
-            ? $"Attending option: row {index + 1}"
-            : $"Attending option: {row.Label.Trim()}";
+            ? $"Attending option {index + 1}"
+            : $"Attending option {index + 1}: {row.Label.Trim()}";
 
     /// <summary>The submitted shape of the option rows (trimmed, so an untouched form compares
     /// equal to what was loaded).</summary>

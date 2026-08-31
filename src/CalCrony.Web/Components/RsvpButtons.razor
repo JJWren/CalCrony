@@ -75,8 +75,10 @@ else if (MyWaitlistPosition is int position)
             {
                 if (DateTimeOffset.UtcNow >= closesAt)
                 {
-                    StateHasChanged();
+                    // Parent first (its own cutoff chip), then this component's buttons — the
+                    // parent's re-render doesn't reach here, since the Event parameter is unchanged.
                     await OnClosed.InvokeAsync();
+                    StateHasChanged();
                 }
                 else
                 {
