@@ -3,8 +3,10 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Bot.Api;
 
-/// <summary>Uniform call result: Value on success, a display-ready Error otherwise.</summary>
-public record ApiResult<T>(T? Value, string? Error)
+/// <summary>Uniform call result: Value on success, a display-ready Error otherwise. NotFound
+/// distinguishes a definitive 404 from transient failures, for handlers whose "gone = done,
+/// otherwise retry" contract needs the difference.</summary>
+public record ApiResult<T>(T? Value, string? Error, bool NotFound = false)
 {
     public bool Success => Error is null;
 }
@@ -443,7 +445,10 @@ public sealed class CalCronyApiClient(HttpClient http)
                 // Non-JSON error body; fall through to the status-code message.
             }
 
-            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.");
+            return new ApiResult<T>(
+                default,
+                error ?? $"API error {(int)response.StatusCode}.",
+                response.StatusCode == System.Net.HttpStatusCode.NotFound);
         }
     }
 }

@@ -103,9 +103,35 @@ public class LiveListApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task Registration_enqueues_an_initial_sync()
+    {
+        var list = await CreateLiveListAsync(9570, messageId: 999, limit: 10);
+
+        // Closes the gap between the bot's initial render and the registration commit.
+        Assert.Equal(1, await CountPendingSyncsAsync(list.Id));
+    }
+
+    [Fact]
+    public async Task Served_pending_syncs_do_not_absorb_new_changes()
+    {
+        var list = await CreateLiveListAsync(9580, messageId: 1010, limit: 10);
+        await MarkSyncsSentAsync(list.Id);
+
+        await CreateEventAsync("Early Bird");
+        Assert.Equal(1, await CountPendingSyncsAsync(list.Id));
+
+        // Simulate the bot mid-flight (fetched but not acked): a further change must enqueue a
+        // fresh row, or the in-flight render (built from pre-change data) would stay stale.
+        await MarkSyncsServedAsync(list.Id);
+        await CreateEventAsync("Late Arrival");
+        Assert.Equal(2, await CountPendingSyncsAsync(list.Id));
+    }
+
+    [Fact]
     public async Task Event_mutations_enqueue_debounced_syncs_that_coalesce_for_both_caller_types()
     {
         var list = await CreateLiveListAsync(ListChannelId, messageId: 777, limit: 10);
+        await MarkSyncsSentAsync(list.Id); // Clear the registration-time initial sync.
 
         // Bot-created event enqueues (unlike the per-event embed sync, which the bot skips).
         var ev = await CreateEventAsync("List Fodder");
@@ -117,7 +143,8 @@ public class LiveListApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
             var payload = SyncPayload(list.Id);
             var delivery = await db.Deliveries.SingleAsync(
-                d => d.Type == DeliveryType.SyncLiveList && d.PayloadJson == payload);
+                d => d.Type == DeliveryType.SyncLiveList
+                     && d.Status == DeliveryStatus.Pending && d.PayloadJson == payload);
             Assert.Equal(delivery.CreatedAt.Plus(Duration.FromSeconds(LiveListSync.DebounceSeconds)), delivery.DueAt);
         }
 
@@ -243,5 +270,16 @@ public class LiveListApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await db.Deliveries
             .Where(d => d.Type == DeliveryType.SyncLiveList && d.PayloadJson == payload)
             .ExecuteUpdateAsync(s => s.SetProperty(d => d.Status, DeliveryStatus.Sent));
+    }
+
+    private async Task MarkSyncsServedAsync(Guid listId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var payload = SyncPayload(listId);
+        await db.Deliveries
+            .Where(d => d.Type == DeliveryType.SyncLiveList
+                        && d.Status == DeliveryStatus.Pending && d.PayloadJson == payload)
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.Attempts, 1));
     }
 }

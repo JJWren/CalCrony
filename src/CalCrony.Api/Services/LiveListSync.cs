@@ -35,8 +35,10 @@ public static class LiveListSync
         {
             var payloadJson = JsonSerializer.Serialize(new SyncLiveListPayload(list.Id));
 
-            // Coalesce with a pending identical sync — saved rows and rows added earlier in this
-            // same unit of work (e.g. a sweep touching several events of one guild).
+            // Coalesce with a pending identical sync the bot has never been served (Attempts == 0,
+            // the attendee-role rule) — an in-flight row may have fetched events BEFORE this
+            // change, so folding into it would leave the embed stale. Local covers rows added
+            // earlier in this same unit of work (e.g. a sweep touching several events of one guild).
             var alreadyQueued = db.Deliveries.Local.Any(
                     d => d.Type == DeliveryType.SyncLiveList
                          && d.Status == DeliveryStatus.Pending
@@ -44,6 +46,7 @@ public static class LiveListSync
                 || await db.Deliveries.AnyAsync(
                     d => d.Type == DeliveryType.SyncLiveList
                          && d.Status == DeliveryStatus.Pending
+                         && d.Attempts == 0
                          && d.PayloadJson == payloadJson,
                     cancellationToken);
             if (alreadyQueued)
@@ -51,16 +54,29 @@ public static class LiveListSync
                 continue;
             }
 
-            db.Deliveries.Add(new Delivery
-            {
-                Id = Guid.NewGuid(),
-                Type = DeliveryType.SyncLiveList,
-                ChannelId = list.ChannelId,
-                PayloadJson = payloadJson,
-                DueAt = now.Plus(Duration.FromSeconds(DebounceSeconds)),
-                Status = DeliveryStatus.Pending,
-                CreatedAt = now,
-            });
+            db.Deliveries.Add(NewSync(list.Id, list.ChannelId, payloadJson, now));
         }
     }
+
+    /// <summary>Enqueues the just-registered list's first sync in the same save as its row —
+    /// closes the window where an event changes between the bot's initial render and the
+    /// registration commit. No coalescing: the id is brand new, nothing can be pending.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="list">The live list row being registered (caller saves).</param>
+    /// <param name="now">The current instant.</param>
+    internal static void EnqueueInitialSync(CalCronyDbContext db, LiveList list, Instant now) =>
+        db.Deliveries.Add(NewSync(
+            list.Id, list.ChannelId, JsonSerializer.Serialize(new SyncLiveListPayload(list.Id)), now));
+
+    /// <summary>One future-dated (debounced) SyncLiveList row.</summary>
+    private static Delivery NewSync(Guid listId, long channelId, string payloadJson, Instant now) => new()
+    {
+        Id = Guid.NewGuid(),
+        Type = DeliveryType.SyncLiveList,
+        ChannelId = channelId,
+        PayloadJson = payloadJson,
+        DueAt = now.Plus(Duration.FromSeconds(DebounceSeconds)),
+        Status = DeliveryStatus.Pending,
+        CreatedAt = now,
+    };
 }

@@ -27,6 +27,13 @@ public class LiveListManager(DiscordSocketClient client, CalCronyApiClient api, 
             throw new InvalidOperationException($"Failed to list events for live list {list.Id}: {events.Error}");
         }
 
+        if (client.GetGuild((ulong)list.GuildId) is null)
+        {
+            // The bot left the guild: nothing resolves from here, but the record must survive
+            // for a re-invite (Ready's presence sync marks the guild absent so ListAll skips it).
+            return;
+        }
+
         if (await client.GetChannelAsync((ulong)list.ChannelId) is not IMessageChannel channel)
         {
             // The channel is gone (deleted, or access revoked) — the message went with it.

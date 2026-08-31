@@ -333,15 +333,24 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>The guild's upcoming events changed — re-render its live list. A removed list
-    /// counts as done; the manager clears the record itself when the message turns out deleted.</summary>
+    /// (definitive 404) counts as done; a transient API failure throws so the delivery retries
+    /// instead of silently dropping the update. The manager clears the record itself when the
+    /// message turns out deleted.</summary>
     /// <param name="delivery">The outbox row to post.</param>
+    /// <exception cref="InvalidOperationException">When the list fetch fails transiently — caught
+    /// by DrainAsync, which leaves the delivery pending for retry.</exception>
     private async Task SyncLiveListAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<SyncLiveListPayload>(delivery.PayloadJson)!;
         var result = await api.GetLiveListAsync(payload.LiveListId);
-        if (!result.Success || result.Value is null)
+        if (result.NotFound)
         {
             return;
+        }
+
+        if (!result.Success || result.Value is null)
+        {
+            throw new InvalidOperationException($"Failed to fetch live list {payload.LiveListId}: {result.Error}");
         }
 
         await liveLists.SyncAsync(result.Value);

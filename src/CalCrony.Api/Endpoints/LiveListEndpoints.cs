@@ -57,6 +57,10 @@ public static class LiveListEndpoints
         };
         db.LiveLists.Add(list);
 
+        // First sync rides the same save: an event changing between the bot's initial render and
+        // this commit would otherwise see no list row and leave the fresh embed stale.
+        Services.LiveListSync.EnqueueInitialSync(db, list, list.CreatedAt);
+
         // A channel hosting a live list is referenced — snapshot its name (ADR 0001).
         await ChannelEndpoints.UpsertSnapshotAsync(
             db, request.ChannelId, guildId, request.ChannelName, cancellationToken);

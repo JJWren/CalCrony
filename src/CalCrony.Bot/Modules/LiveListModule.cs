@@ -67,8 +67,9 @@ public class LiveListModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             ephemeral: true);
     }
 
-    /// <summary>Removes a channel's live list: clears the record first (so syncs stop), then
-    /// deletes the message best-effort.</summary>
+    /// <summary>Removes a channel's live list: deletes the message first (already-gone counts as
+    /// done, other Discord failures abort with the record intact), then clears the record — if
+    /// that last step fails, the next sync sees the missing message and self-heals.</summary>
     /// <param name="channel">Target text channel (defaults to the current one).</param>
     [SlashCommand("remove", "Remove a channel's live list (managers only)")]
     [RequireUserPermission(GuildPermission.ManageGuild)]
@@ -98,13 +99,8 @@ public class LiveListModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
-        var deleted = await api.DeleteLiveListAsync(list.Id);
-        if (!deleted.Success)
-        {
-            await FollowupAsync($"❌ {deleted.Error}", ephemeral: true);
-            return;
-        }
-
+        // Message first, record second: a transient Discord failure aborts here and the record
+        // (and its updates) survive for a retry, instead of leaving a frozen embed behind.
         try
         {
             if (await targetChannel.GetMessageAsync((ulong)list.MessageId) is { } message)
@@ -112,9 +108,24 @@ public class LiveListModule(CalCronyApiClient api) : InteractionModuleBase<Socke
                 await message.DeleteAsync();
             }
         }
+        catch (Discord.Net.HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Already deleted by hand — that's the remove gesture done for us.
+        }
         catch
         {
-            // Already gone (manually deleted); fine.
+            await FollowupAsync(
+                "❌ Couldn't delete the list message (missing permission, or Discord hiccuped) — try again.",
+                ephemeral: true);
+            return;
+        }
+
+        var deleted = await api.DeleteLiveListAsync(list.Id);
+        if (!deleted.Success)
+        {
+            // The message is gone, so the next sync (or Ready reconcile) clears this record too.
+            await FollowupAsync($"❌ {deleted.Error}", ephemeral: true);
+            return;
         }
 
         await FollowupAsync($"🗑️ Removed the live list from {targetChannel.Mention}.", ephemeral: true);
