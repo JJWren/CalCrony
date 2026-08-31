@@ -44,8 +44,11 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
     /// <param name="repeatUntil">Natural-language last repeat date.</param>
     /// <param name="repeatCount">Total occurrences including the first.</param>
     /// <param name="template">Template name/fragment or picker id to start from.</param>
-    /// <param name="attendeeRole">Existing role granted to "Going" RSVPs, revoked at event end.</param>
+    /// <param name="attendeeRole">Existing role granted to attending RSVPs, revoked at event end.</param>
     /// <param name="thread">Opens a discussion thread on the event message.</param>
+    /// <param name="rsvpOptions">Custom RSVP buttons (see <see cref="RsvpOptionSyntax"/>).</param>
+    /// <param name="attendeeLimit">Cap on the attending option; extras join the waitlist.</param>
+    /// <param name="rsvpClose">RSVP cutoff — relative ("2h before") or absolute natural language.</param>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -60,10 +63,25 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
         [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
         [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null,
-        [Summary("attendee-role", "Existing role given to \"Going\" RSVPs (removed when the event ends)")] IRole? attendeeRole = null,
-        [Summary("thread", "Open a discussion thread on the event message (Going RSVPs are added)")] bool thread = false)
+        [Summary("attendee-role", "Existing role given to attending RSVPs (removed when the event ends)")] IRole? attendeeRole = null,
+        [Summary("thread", "Open a discussion thread on the event message (attending RSVPs are added)")] bool thread = false,
+        [Summary("rsvp-options", "Custom RSVP buttons, e.g. \"⚔️ Raider x10, 🛡️ Standby, ❌ Out\" — first is the attending one")] string? rsvpOptions = null,
+        [Summary("attendee-limit", "Max attendees — extra RSVPs join a waitlist and are promoted when a spot frees"), MinValue(1)] int? attendeeLimit = null,
+        [Summary("rsvp-close", "When RSVPs stop, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null)
     {
         await DeferAsync(ephemeral: true);
+
+        List<RsvpOptionSpec>? optionSpecs = null;
+        if (rsvpOptions is not null)
+        {
+            if (!RsvpOptionSyntax.TryParse(rsvpOptions, out var parsed, out var syntaxProblem))
+            {
+                await FollowupAsync($"❌ {syntaxProblem}", ephemeral: true);
+                return;
+            }
+
+            optionSpecs = parsed;
+        }
 
         var targetChannel = channel ?? Context.Channel as ITextChannel;
         if (targetChannel is null)
@@ -127,7 +145,10 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
                 recurrence, repeatUntil, repeatCount,
                 resolvedTemplate?.Id, NoRecurrence: repeat == RepeatChoice.None,
                 AttendeeRoleId: (long?)attendeeRole?.Id,
-                WantsThread: thread));
+                WantsThread: thread,
+                RsvpOptions: optionSpecs,
+                AttendeeLimit: attendeeLimit,
+                RsvpCloseText: rsvpClose));
 
         if (!result.Success || result.Value is null)
         {
@@ -148,11 +169,15 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         }
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
-        var roleNote = ev.AttendeeRoleId is null ? "" : $" · 🏷️ Going grants <@&{ev.AttendeeRoleId}>";
+        var roleNote = ev.AttendeeRoleId is null
+            ? ""
+            : $" · 🏷️ {ev.AttendingOption?.Label ?? "Going"} grants <@&{ev.AttendeeRoleId}>";
         // "opening", not "opened" — thread creation is best-effort and may still fail.
         var threadNote = ev.WantsThread ? " · 🧵 opening a discussion thread" : "";
+        var limitNote = ev.AttendingOption?.Capacity is int cap ? $" · 👥 limited to {cap} (waitlist after)" : "";
+        var closeNote = ev.RsvpCloseUnix is long closeUnix ? $" · 🔒 RSVPs close <t:{closeUnix}:f>" : "";
         await FollowupAsync(
-            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{threadNote}",
+            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{threadNote}{limitNote}{closeNote}",
             ephemeral: true);
     }
 
@@ -237,6 +262,11 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
     /// <param name="scope">Whether the change applies to this occurrence or the whole series.</param>
     /// <param name="attendeeRole">Replacement attendee role; existing grants are re-synced.</param>
     /// <param name="clearAttendeeRole">Removes the attendee role (existing grants are revoked).</param>
+    /// <param name="rsvpOptions">Replacement RSVP buttons — labels match existing options to keep their RSVPs.</param>
+    /// <param name="attendeeLimit">New cap on the attending option.</param>
+    /// <param name="clearAttendeeLimit">Removes the cap (the waitlist is seated).</param>
+    /// <param name="rsvpClose">New RSVP cutoff — relative ("2h before") or absolute.</param>
+    /// <param name="clearRsvpClose">Removes the cutoff (RSVPs reopen).</param>
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -247,16 +277,35 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         [Summary(description: "New location")] string? location = null,
         [Summary("image", "New image URL")] string? image = null,
         [Summary("scope", "Repeating events: apply to this occurrence only or the whole series")] EditScopeChoice? scope = null,
-        [Summary("attendee-role", "New role given to \"Going\" RSVPs (existing grants move over)")] IRole? attendeeRole = null,
-        [Summary("clear-attendee-role", "Remove the attendee role (grants are removed too)")] bool clearAttendeeRole = false)
+        [Summary("attendee-role", "New role given to attending RSVPs (existing grants move over)")] IRole? attendeeRole = null,
+        [Summary("clear-attendee-role", "Remove the attendee role (grants are removed too)")] bool clearAttendeeRole = false,
+        [Summary("rsvp-options", "Replacement RSVP buttons — same labels keep their RSVPs; options with RSVPs can't be dropped")] string? rsvpOptions = null,
+        [Summary("attendee-limit", "New max attendees (raising it seats waitlisted members)"), MinValue(1)] int? attendeeLimit = null,
+        [Summary("clear-attendee-limit", "Remove the attendee limit — the whole waitlist is seated")] bool clearAttendeeLimit = false,
+        [Summary("rsvp-close", "New RSVP cutoff, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
+        [Summary("clear-rsvp-close", "Remove the RSVP cutoff (RSVPs reopen)")] bool clearRsvpClose = false)
     {
         await DeferAsync(ephemeral: true);
 
         if (title is null && when is null && description is null && duration is null && location is null
-            && image is null && attendeeRole is null && !clearAttendeeRole)
+            && image is null && attendeeRole is null && !clearAttendeeRole
+            && rsvpOptions is null && attendeeLimit is null && !clearAttendeeLimit
+            && rsvpClose is null && !clearRsvpClose)
         {
             await FollowupAsync("Nothing to change — pass at least one field.", ephemeral: true);
             return;
+        }
+
+        List<RsvpOptionSpec>? optionSpecs = null;
+        if (rsvpOptions is not null)
+        {
+            if (!RsvpOptionSyntax.TryParse(rsvpOptions, out var parsed, out var syntaxProblem))
+            {
+                await FollowupAsync($"❌ {syntaxProblem}", ephemeral: true);
+                return;
+            }
+
+            optionSpecs = parsed;
         }
 
         if (attendeeRole is not null && ValidateAttendeeRole(attendeeRole) is { } roleProblem)
@@ -298,7 +347,12 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
                 _ => null,
             },
             AttendeeRoleId: (long?)attendeeRole?.Id,
-            ClearAttendeeRole: clearAttendeeRole));
+            ClearAttendeeRole: clearAttendeeRole,
+            RsvpOptions: optionSpecs,
+            AttendeeLimit: attendeeLimit,
+            ClearAttendeeLimit: clearAttendeeLimit,
+            RsvpCloseText: rsvpClose,
+            ClearRsvpClose: clearRsvpClose));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

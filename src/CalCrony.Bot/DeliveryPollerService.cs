@@ -223,6 +223,7 @@ public sealed class DeliveryPollerService(
         {
             DeliveryType.Reminder => FormatReminder(delivery.PayloadJson),
             DeliveryType.EventNotification => FormatNotification(delivery.PayloadJson),
+            DeliveryType.WaitlistPromotion => FormatWaitlistPromotion(delivery.PayloadJson),
             _ => throw new InvalidOperationException($"Unknown delivery type {delivery.Type}."),
         };
 
@@ -441,6 +442,17 @@ public sealed class DeliveryPollerService(
     {
         var payload = JsonSerializer.Deserialize<ReminderPayload>(payloadJson)!;
         return $"⏰ <@{payload.UserId}> Reminder: {payload.Text}";
+    }
+
+    /// <summary>Message text for a waitlist-promotion ping. Posted in the event's channel (a DM
+    /// could be blocked; the channel ping is reliable and visible to organizers too).</summary>
+    /// <param name="payloadJson">The serialized delivery payload.</param>
+    /// <returns>The message text.</returns>
+    private static string FormatWaitlistPromotion(string payloadJson)
+    {
+        var payload = JsonSerializer.Deserialize<WaitlistPromotionPayload>(payloadJson)!;
+        return $"🎟️ <@{payload.UserId}> A spot opened up — you're now {payload.OptionEmote} " +
+               $"**{payload.OptionLabel}** for **{payload.Title}** (<t:{payload.StartsAtUnix}:F>).";
     }
 
     /// <summary>Message text for a pre-event notification delivery.</summary>

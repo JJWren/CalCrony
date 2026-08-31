@@ -29,11 +29,17 @@ public enum EventStatus
 /// gaps, and its notification specs are always copied onto the created event.</param>
 /// <param name="NoRecurrence">Explicitly suppresses a template's repeat rule (unset does not —
 /// a template rule applies when no explicit rule is sent). Conflicts with Recurrence.</param>
-/// <param name="AttendeeRoleId">Existing Discord role granted to "Going" RSVPs and revoked when
+/// <param name="AttendeeRoleId">Existing Discord role granted to attending RSVPs and revoked when
 /// the event ends. Bot callers only — the web can't enumerate roles, so it is ignored there.</param>
-/// <param name="WantsThread">Opens a discussion thread on the posted embed message; "Going"
+/// <param name="WantsThread">Opens a discussion thread on the posted embed message; attending
 /// RSVPers are auto-added and the thread archives when the event ends. Honored for both
 /// caller types (unlike AttendeeRoleId — no Discord data is needed to say yes).</param>
+/// <param name="RsvpOptions">Custom RSVP options replacing the default Going/Not going/Maybe set
+/// (1-10 entries; exactly one may be flagged attending — none flagged means the first).</param>
+/// <param name="AttendeeLimit">Capacity for the attending option — shorthand that works with the
+/// default option set too. Conflicts with an explicit capacity on the attending spec.</param>
+/// <param name="RsvpCloseText">When RSVPs stop accepting changes: relative to start ("2h before")
+/// or a natural-language absolute time ("friday 5pm"), parsed server-side.</param>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -49,7 +55,10 @@ public record CreateEventRequest(
     Guid? TemplateId = null,
     bool NoRecurrence = false,
     long? AttendeeRoleId = null,
-    bool WantsThread = false);
+    bool WantsThread = false,
+    IReadOnlyList<RsvpOptionSpec>? RsvpOptions = null,
+    int? AttendeeLimit = null,
+    string? RsvpCloseText = null);
 
 /// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
 /// the live occurrence of a non-ended series and ignored otherwise.</summary>
@@ -66,6 +75,16 @@ public record CreateEventRequest(
 /// re-synced to the new role). Null leaves it unchanged — clear with ClearAttendeeRole.</param>
 /// <param name="ClearAttendeeRole">Removes the attendee role (existing grants are revoked).
 /// Conflicts with AttendeeRoleId.</param>
+/// <param name="RsvpOptions">Replaces the option set. Options are matched to existing ones by
+/// label (case-insensitive): matches keep their RSVPs, new labels append, and an option with
+/// RSVPs cannot be removed (409). Null leaves the options unchanged.</param>
+/// <param name="AttendeeLimit">Sets the attending option's capacity. Null leaves it unchanged —
+/// clear with ClearAttendeeLimit. Conflicts with an explicit capacity on the attending spec.</param>
+/// <param name="ClearAttendeeLimit">Removes the attending option's capacity (the whole waitlist
+/// is seated). Conflicts with AttendeeLimit.</param>
+/// <param name="RsvpCloseText">Replaces the RSVP cutoff — relative ("2h before") or absolute
+/// natural language. Null leaves it unchanged — clear with ClearRsvpClose.</param>
+/// <param name="ClearRsvpClose">Removes the RSVP cutoff. Conflicts with RsvpCloseText.</param>
 public record UpdateEventRequest(
     long EditorId,
     string? Title = null,
@@ -77,7 +96,21 @@ public record UpdateEventRequest(
     EventStatus? Status = null,
     EditScope? Scope = null,
     long? AttendeeRoleId = null,
-    bool ClearAttendeeRole = false);
+    bool ClearAttendeeRole = false,
+    IReadOnlyList<RsvpOptionSpec>? RsvpOptions = null,
+    int? AttendeeLimit = null,
+    bool ClearAttendeeLimit = false,
+    string? RsvpCloseText = null,
+    bool ClearRsvpClose = false);
+
+/// <summary>A creator-supplied RSVP option for create/edit requests; ids and sort order are
+/// assigned server-side from list position.</summary>
+/// <param name="Emote">The option emoji.</param>
+/// <param name="Label">The display label.</param>
+/// <param name="Capacity">Optional attendee cap.</param>
+/// <param name="IsAttending">Marks the option whose RSVPs count as attending (roles, threads,
+/// availability, waitlist). At most one per request; none flagged means the first.</param>
+public record RsvpOptionSpec(string Emote, string Label, int? Capacity = null, bool IsAttending = false);
 
 /// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 /// <param name="Id">The unique id.</param>
@@ -85,12 +118,15 @@ public record UpdateEventRequest(
 /// <param name="Label">The display label.</param>
 /// <param name="SortOrder">Display ordering index.</param>
 /// <param name="Capacity">Optional attendee cap.</param>
-public record RsvpOptionDto(Guid Id, string Emote, string Label, int SortOrder, int? Capacity);
+/// <param name="IsAttending">Whether this option's RSVPs count as attending.</param>
+public record RsvpOptionDto(Guid Id, string Emote, string Label, int SortOrder, int? Capacity, bool IsAttending = false);
 
 /// <summary>A user's RSVP: which option they picked.</summary>
 /// <param name="UserId">The Discord user id.</param>
 /// <param name="OptionId">The RSVP/poll option id.</param>
-public record RsvpDto(long UserId, Guid OptionId);
+/// <param name="Waitlisted">True while the user is queued past the attending option's capacity;
+/// waitlisted RSVPs don't count toward capacity, roles, threads, or availability.</param>
+public record RsvpDto(long UserId, Guid OptionId, bool Waitlisted = false);
 
 /// <summary>An event with its RSVP options and current RSVPs. RecurrenceSummary is the human-readable repeat rule, null for one-offs and ended series.</summary>
 /// <param name="Id">The unique id.</param>
@@ -111,11 +147,13 @@ public record RsvpDto(long UserId, Guid OptionId);
 /// <param name="SeriesId">The series id.</param>
 /// <param name="RecurrenceSummary">Human-readable repeat rule; null for one-offs and ended series.</param>
 /// <param name="NativeEventId">The mirrored Discord scheduled-event id, when mirrored.</param>
-/// <param name="AttendeeRoleId">The Discord role granted to "Going" RSVPs, when set.</param>
+/// <param name="AttendeeRoleId">The Discord role granted to attending RSVPs, when set.</param>
 /// <param name="WantsThread">Whether a discussion thread should open on the posted embed.</param>
 /// <param name="ThreadId">The Discord thread-channel id once the thread exists.</param>
 /// <param name="ChannelName">The channel's name snapshot, when one is stored (attached to every
 /// single-event response, never list rows); consumers must omit gracefully when null.</param>
+/// <param name="RsvpClosesAtUtc">The effective RSVP cutoff (relative cutoffs already resolved
+/// against the current start time); null when RSVPs never close early.</param>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -138,10 +176,35 @@ public record EventDto(
     long? AttendeeRoleId = null,
     bool WantsThread = false,
     long? ThreadId = null,
-    string? ChannelName = null)
+    string? ChannelName = null,
+    DateTimeOffset? RsvpClosesAtUtc = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
+
+    /// <summary>Unix seconds of the RSVP cutoff, for Discord &lt;t:...&gt; timestamps.</summary>
+    public long? RsvpCloseUnix => RsvpClosesAtUtc?.ToUnixTimeSeconds();
+
+    /// <summary>The attending option — the single source of "who is going" semantics for every
+    /// client (roles, threads, availability, counts). Falls back to the lowest SortOrder so
+    /// pre-flag data still resolves; null only when the event has no options.</summary>
+    public RsvpOptionDto? AttendingOption =>
+        Options.FirstOrDefault(o => o.IsAttending) ?? Options.OrderBy(o => o.SortOrder).FirstOrDefault();
+
+    /// <summary>Whether RSVPs are closed as of <paramref name="now"/> (cutoff reached).</summary>
+    /// <param name="now">The instant to evaluate against.</param>
+    /// <returns>True once the effective cutoff has passed.</returns>
+    public bool RsvpsClosed(DateTimeOffset now) => RsvpClosesAtUtc is { } closes && closes <= now;
+
+    /// <summary>Seated (non-waitlisted) RSVPs on one option — what capacity counts.</summary>
+    /// <param name="optionId">The RSVP option id.</param>
+    /// <returns>How many users hold a seat on the option.</returns>
+    public int SeatedCount(Guid optionId) => Rsvps.Count(r => r.OptionId == optionId && !r.Waitlisted);
+
+    /// <summary>The attending option's waitlist in promotion order (RSVP order is preserved).</summary>
+    public IReadOnlyList<RsvpDto> Waitlist => AttendingOption is { } attending
+        ? [.. Rsvps.Where(r => r.OptionId == attending.Id && r.Waitlisted)]
+        : [];
 }
 
 /// <summary>Records where the bot posted an event's embed (bot-only; only the bot knows message ids).</summary>

@@ -141,12 +141,33 @@ public sealed class DeliveryScheduler(
                 .ToHashSet();
             foreach (var series in activeSeries.Where(s => !liveSeriesIds.Contains(s.Id)))
             {
-                if (materializer.MaterializeNext(series, now) is not null)
+                if (await materializer.MaterializeNextAsync(series, now, cancellationToken) is not null)
                 {
                     enqueued++;
                     liveListGuilds.Add(series.GuildId);
                 }
             }
+        }
+
+        // RSVP cutoffs that just passed: one-shot embed re-render so the buttons show disabled
+        // and the embed says closed. Relative cutoffs resolve in memory (EffectiveClose), so the
+        // candidate set is "has a cutoff and hasn't synced yet" and the instant check runs here.
+        var closingRsvps = await db.Events
+            .Where(e => (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started)
+                        && !e.RsvpCloseSynced
+                        && (e.RsvpClosesAt != null || e.RsvpCloseMinutesBefore != null)
+                        && e.MessageId != null)
+            .ToListAsync(cancellationToken);
+        foreach (var ev in closingRsvps.Where(e => RsvpPolicy.IsClosed(e, now)))
+        {
+            ev.RsvpCloseSynced = true;
+            db.Deliveries.Add(NewDelivery(
+                DeliveryType.SyncEventMessage,
+                ev.ChannelId,
+                new SyncEventMessagePayload(ev.Id),
+                now,
+                now));
+            enqueued++;
         }
 
         // Auto-close polls whose deadline passed; re-render their embeds in the closed state.

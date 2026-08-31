@@ -2,6 +2,7 @@ using System.Text.Json;
 using CalCrony.Api.Data;
 using CalCrony.Api.Endpoints;
 using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace CalCrony.Api.Services;
@@ -17,8 +18,9 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
     /// series.NotificationSpecs loaded. Returns null when an end condition ends the series.</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>
     /// <param name="now">The current instant.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The new occurrence, or null when the series ended instead.</returns>
-    public Event? MaterializeNext(EventSeries series, Instant now)
+    public async Task<Event?> MaterializeNextAsync(EventSeries series, Instant now, CancellationToken cancellationToken)
     {
         if (series.Ended)
         {
@@ -41,6 +43,15 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
             return null;
         }
 
+        // Custom RSVP options roll forward by cloning the latest occurrence's set (fresh ids, no
+        // RSVPs) — the series row carries no options of its own. Identity resolution returns this
+        // sweep's tracked rows, so an occurrence that just ended still contributes its options.
+        var previous = await db.Events
+            .Include(e => e.Options)
+            .Where(e => e.SeriesId == series.Id)
+            .OrderByDescending(e => e.StartsAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var ev = new Event
         {
             Id = Guid.NewGuid(),
@@ -56,11 +67,14 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
             ImageUrl = series.ImageUrl,
             AttendeeRoleId = series.AttendeeRoleId,
             WantsThread = series.WantsThread,
+            RsvpCloseMinutesBefore = series.RsvpCloseMinutesBefore,
             Status = EventStatus.Scheduled,
             SeriesId = series.Id,
             Series = series,
             CreatedAt = now,
-            Options = EventEndpoints.DefaultRsvpOptions(),
+            Options = previous is { Options.Count: > 0 }
+                ? RsvpPolicy.CloneOptions(previous.Options)
+                : EventEndpoints.DefaultRsvpOptions(),
             Notifications = [.. series.NotificationSpecs.Select(spec => new EventNotification
             {
                 Id = Guid.NewGuid(),

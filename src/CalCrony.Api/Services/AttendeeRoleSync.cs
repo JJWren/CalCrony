@@ -14,30 +14,32 @@ public enum AttendeeRoleAction
     Revoke = 2,
 }
 
-/// <summary>Attendee-role outbox logic: pure decisions about when "Going" RSVPs earn or lose the
-/// event's role, plus the grant/revoke delivery enqueues. All Discord role changes flow through
-/// the outbox (types 10/11); the handlers are best-effort so ordering holds without retries.</summary>
+/// <summary>Attendee-role outbox logic: pure decisions about when attending RSVPs earn or lose
+/// the event's role, plus the grant/revoke delivery enqueues. All Discord role changes flow
+/// through the outbox (types 10/11); the handlers are best-effort so ordering holds without
+/// retries.</summary>
 public static class AttendeeRoleSync
 {
-    /// <summary>The primary "Going" option: the minimum SortOrder (today always 0). Null when the
-    /// event has no options.</summary>
+    /// <summary>The attending option's id (see <see cref="RsvpPolicy.AttendingOption"/>). Null
+    /// when the event has no options.</summary>
     /// <param name="options">The event's RSVP options.</param>
-    /// <returns>The Going option's id, or null.</returns>
-    public static Guid? GoingOptionId(IEnumerable<RsvpOption> options) =>
-        options.OrderBy(o => o.SortOrder).Select(o => (Guid?)o.Id).FirstOrDefault();
+    /// <returns>The attending option's id, or null.</returns>
+    public static Guid? AttendingOptionId(IEnumerable<RsvpOption> options) =>
+        RsvpPolicy.AttendingOption(options)?.Id;
 
-    /// <summary>Pure decision for an RSVP change: crossing onto the Going option grants, crossing
-    /// off it revokes, everything else (including Maybe↔Not going) is a no-op. Null old = fresh
-    /// RSVP; null new = un-RSVP.</summary>
-    /// <param name="oldOptionId">The option before the change, when an RSVP existed.</param>
-    /// <param name="newOptionId">The option after the change, when an RSVP remains.</param>
-    /// <param name="goingOptionId">The Going option's id.</param>
+    /// <summary>Pure decision for an RSVP change: crossing onto the attending option grants,
+    /// crossing off it revokes, everything else (Maybe↔Not going) is a no-op. Null old = fresh
+    /// RSVP; null new = un-RSVP. Callers pass null for waitlisted states too — a queued RSVP has
+    /// no seat, so it counts as "not attending" until promoted.</summary>
+    /// <param name="oldOptionId">The seated option before the change, when one existed.</param>
+    /// <param name="newOptionId">The seated option after the change, when one remains.</param>
+    /// <param name="attendingOptionId">The attending option's id.</param>
     /// <returns>The role action the change implies.</returns>
-    public static AttendeeRoleAction Decide(Guid? oldOptionId, Guid? newOptionId, Guid goingOptionId)
+    public static AttendeeRoleAction Decide(Guid? oldOptionId, Guid? newOptionId, Guid attendingOptionId)
     {
-        var wasGoing = oldOptionId == goingOptionId;
-        var isGoing = newOptionId == goingOptionId;
-        return (wasGoing, isGoing) switch
+        var wasAttending = oldOptionId == attendingOptionId;
+        var isAttending = newOptionId == attendingOptionId;
+        return (wasAttending, isAttending) switch
         {
             (false, true) => AttendeeRoleAction.Grant,
             (true, false) => AttendeeRoleAction.Revoke,
@@ -93,24 +95,35 @@ public static class AttendeeRoleSync
         AddDelivery(db, ev, type, payloadJson, clock.GetCurrentInstant());
     }
 
-    /// <summary>Fans one delivery per user currently on the Going option (no coalescing — used by
-    /// the end/delete/skip/cancel/role-change paths, which are one-shot). The role id is passed
-    /// explicitly so a role-change edit can revoke the OLD role after the entity was updated.</summary>
+    /// <summary>Fans one delivery per user seated on the attending option (waitlisted users never
+    /// got the role, so they're skipped; no coalescing — used by the end/delete/skip/cancel/
+    /// role-change paths, which are one-shot). The role id is passed explicitly so a role-change
+    /// edit can revoke the OLD role after the entity was updated.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event (Options and Rsvps loaded).</param>
     /// <param name="type">Grant or revoke.</param>
     /// <param name="roleId">The Discord role id to grant or revoke.</param>
     /// <param name="now">The current instant.</param>
-    /// <returns>How many deliveries were enqueued (one per Going RSVP).</returns>
+    /// <returns>How many deliveries were enqueued (one per seated attending RSVP).</returns>
     public static int EnqueueRoleFanOut(CalCronyDbContext db, Event ev, DeliveryType type, long roleId, Instant now)
-    {
-        if (GoingOptionId(ev.Options) is not { } goingId)
-        {
-            return 0;
-        }
+        => AttendingOptionId(ev.Options) is { } attendingId
+            ? EnqueueRoleFanOutForOption(db, ev, type, roleId, attendingId, now)
+            : 0;
 
+    /// <summary>Fan-out variant targeting an explicit option — used when the attending flag moves
+    /// between options and the OLD option's members must be revoked after the flag changed.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event (Rsvps loaded).</param>
+    /// <param name="type">Grant or revoke.</param>
+    /// <param name="roleId">The Discord role id to grant or revoke.</param>
+    /// <param name="optionId">The option whose seated RSVPs are fanned over.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>How many deliveries were enqueued.</returns>
+    public static int EnqueueRoleFanOutForOption(
+        CalCronyDbContext db, Event ev, DeliveryType type, long roleId, Guid optionId, Instant now)
+    {
         var count = 0;
-        foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == goingId))
+        foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == optionId && !r.Waitlisted))
         {
             AddDelivery(
                 db, ev, type,

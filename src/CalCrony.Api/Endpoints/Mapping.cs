@@ -25,8 +25,9 @@ public static class Mapping
         ev.Location,
         ev.ImageUrl,
         ev.Status,
-        [.. ev.Options.OrderBy(o => o.SortOrder).Select(o => new RsvpOptionDto(o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity))],
-        [.. ev.Rsvps.OrderBy(r => r.CreatedAt).Select(r => new RsvpDto(r.UserId, r.OptionId))],
+        [.. ev.Options.OrderBy(o => o.SortOrder)
+            .Select(o => new RsvpOptionDto(o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity, o.IsAttending))],
+        [.. ev.Rsvps.OrderBy(r => r.CreatedAt).Select(r => new RsvpDto(r.UserId, r.OptionId, r.Waitlisted))],
         ev.SeriesId,
         // Summary requires the Series nav loaded; ended series read as one-offs (no 🔁).
         ev.Series is { Ended: false } series ? Services.RecurrenceCalculator.Describe(series) : null,
@@ -34,7 +35,9 @@ public static class Mapping
         ev.AttendeeRoleId,
         ev.WantsThread,
         ev.ThreadId,
-        channelName);
+        channelName,
+        // Clients get the resolved cutoff instant — relative-vs-absolute is a storage detail.
+        Services.RsvpPolicy.EffectiveClose(ev)?.ToDateTimeOffset());
 
     /// <summary>Projects a series' schedule, template, progress, and notification specs.</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>

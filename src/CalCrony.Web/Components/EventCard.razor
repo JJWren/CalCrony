@@ -28,14 +28,9 @@
 @code {
     [Parameter, EditorRequired] public EventDto Event { get; set; } = default!;
 
-    private int GoingCount
-    {
-        get
-        {
-            var going = Event.Options.FirstOrDefault(o => o.SortOrder == 0);
-            return going is null ? 0 : Event.Rsvps.Count(r => r.OptionId == going.Id);
-        }
-    }
+    // Seated attending RSVPs only — the waitlist doesn't count toward "who's coming".
+    private int GoingCount =>
+        Event.AttendingOption is { } going ? Event.SeatedCount(going.Id) : 0;
 
     private void Open() => Nav.NavigateTo($"/app/events/{Event.Id}");
 

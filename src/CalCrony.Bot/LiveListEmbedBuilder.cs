@@ -27,13 +27,13 @@ public static class LiveListEmbedBuilder
             .WithFooter("Updates automatically")
             .Build();
 
-    /// <summary>One event as a list line: title, absolute + relative time, channel, Going count.</summary>
+    /// <summary>One event as a list line: title, absolute + relative time, channel, attending
+    /// count (seats only — the waitlist isn't coming yet).</summary>
     /// <param name="ev">The event.</param>
     /// <returns>The formatted line.</returns>
     public static string FormatLine(EventDto ev)
     {
-        var going = ev.Options.FirstOrDefault(o => o.SortOrder == 0);
-        var goingCount = going is null ? 0 : ev.Rsvps.Count(r => r.OptionId == going.Id);
+        var goingCount = ev.AttendingOption is { } going ? ev.SeatedCount(going.Id) : 0;
         return $"**{ev.Title}** — <t:{ev.StartsAtUnix}:F> (<t:{ev.StartsAtUnix}:R>) in <#{ev.ChannelId}> · {goingCount} going";
     }
 

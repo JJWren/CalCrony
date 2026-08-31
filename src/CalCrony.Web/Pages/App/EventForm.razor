@@ -73,6 +73,55 @@ else
             <input id="ev-image" class="form-control" maxlength="512" @bind="imageUrl" />
         </div>
 
+        <div class="mb-3">
+            <label class="form-label d-block">RSVP options</label>
+            @foreach (var (row, index) in optionRows.Select((r, i) => (r, i)))
+            {
+                <div class="d-flex gap-2 align-items-center mb-1">
+                    <input type="radio" class="form-check-input mt-0 flex-shrink-0" name="ev-attending"
+                           title="This option counts as attending" aria-label="Attending option"
+                           checked="@row.IsAttending" @onchange="() => SetAttending(index)" />
+                    <input class="form-control" style="width:4.5rem" maxlength="16"
+                           aria-label="Option emoji" @bind="row.Emote" />
+                    <input class="form-control" maxlength="64" placeholder="Label"
+                           aria-label="Option label" @bind="row.Label" />
+                    <input class="form-control" type="number" min="1" style="width:6rem" placeholder="cap"
+                           aria-label="Option capacity" @bind="row.Capacity" />
+                    <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Remove option"
+                            disabled="@(optionRows.Count == 1)" @onclick="() => RemoveOption(index)">✕</button>
+                </div>
+            }
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-1"
+                    disabled="@(optionRows.Count >= 10)" @onclick="AddOption">+ Add option</button>
+            <div class="form-text">
+                The selected radio marks the <b>attending</b> option — it drives attendee roles, threads,
+                and availability. Give it a capacity and extra RSVPs queue on a waitlist, promoted
+                automatically when a spot frees.
+                @if (IsEdit)
+                {
+                    <text>Options keep their RSVPs when the label stays the same; an option with RSVPs can't be removed.</text>
+                }
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="ev-rsvp-close">RSVPs close <span class="text-body-secondary">(optional)</span></label>
+            <input id="ev-rsvp-close" class="form-control" placeholder="2h before · friday 5pm"
+                   disabled="@clearRsvpClose" @bind="rsvpClose" />
+            @if (IsEdit && currentRsvpClose is { } closesAt)
+            {
+                <div class="form-text">Currently closes <LocalTime Utc="closesAt" /> — type a new cutoff to replace it.</div>
+                <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" id="ev-clear-close" @bind="clearRsvpClose" />
+                    <label class="form-check-label" for="ev-clear-close">Remove the cutoff (RSVPs reopen)</label>
+                </div>
+            }
+            else
+            {
+                <div class="form-text">After this, the RSVP buttons stop accepting changes.</div>
+            }
+        </div>
+
         @if (!IsEdit)
         {
             <div class="form-check mb-3">
@@ -229,9 +278,52 @@ else
     private long? attendeeRoleId;
     private bool clearAttendeeRole;
     private bool wantsThread;
+    private List<OptionRow> optionRows = DefaultOptionRows();
+    private string rsvpClose = "";
+    private bool clearRsvpClose;
+    private DateTimeOffset? currentRsvpClose;
     private List<EventTemplateDto> templates = [];
     private Guid? selectedTemplateId;
     private long? templatesLoadedForGuild;
+
+    /// <summary>One editable RSVP option row; mirrors RsvpOptionSpec but mutable for binding.</summary>
+    private sealed class OptionRow
+    {
+        public string Emote { get; set; } = "🔹";
+
+        public string Label { get; set; } = "";
+
+        public int? Capacity { get; set; }
+
+        public bool IsAttending { get; set; }
+    }
+
+    private static List<OptionRow> DefaultOptionRows() =>
+    [
+        new() { Emote = "✅", Label = "Going", IsAttending = true },
+        new() { Emote = "❌", Label = "Not going" },
+        new() { Emote = "🤔", Label = "Maybe" },
+    ];
+
+    private void SetAttending(int index)
+    {
+        foreach (var (row, i) in optionRows.Select((r, i) => (r, i)))
+        {
+            row.IsAttending = i == index;
+        }
+    }
+
+    private void AddOption() => optionRows.Add(new OptionRow());
+
+    private void RemoveOption(int index)
+    {
+        var wasAttending = optionRows[index].IsAttending;
+        optionRows.RemoveAt(index);
+        if (wasAttending && optionRows.Count > 0)
+        {
+            optionRows[0].IsAttending = true;
+        }
+    }
 
     private EventTemplateDto? SelectedTemplate =>
         templates.FirstOrDefault(t => t.Id == selectedTemplateId);
@@ -286,6 +378,8 @@ else
             // templates or a stale selection, and re-running would clobber user edits.
             templatesLoadedForGuild = GuildId;
             selectedTemplateId = null;
+            optionRows = DefaultOptionRows();
+            rsvpClose = "";
             var loaded = await Api.ListTemplatesAsync(GuildId);
             // Failure just hides the picker — templates are a convenience, not a requirement.
             templates = loaded.Success ? loaded.Value ?? [] : [];
@@ -319,6 +413,16 @@ else
             // Per-event transient state must not survive component reuse — a stale checked
             // value would silently clear the next event's role on save.
             clearAttendeeRole = false;
+            clearRsvpClose = false;
+            rsvpClose = "";
+            currentRsvpClose = ev.RsvpClosesAtUtc;
+            optionRows = [.. ev.Options.OrderBy(o => o.SortOrder).Select(o => new OptionRow
+            {
+                Emote = o.Emote,
+                Label = o.Label,
+                Capacity = o.Capacity,
+                IsAttending = o.Id == ev.AttendingOption?.Id,
+            })];
         }
 
         loading = false;
@@ -418,6 +522,19 @@ else
             return;
         }
 
+        // Friendlier than the API's 400 for the same rules (which still enforce them regardless).
+        if (optionRows.Any(r => string.IsNullOrWhiteSpace(r.Label) || string.IsNullOrWhiteSpace(r.Emote)))
+        {
+            error = "Every RSVP option needs an emoji and a label.";
+            return;
+        }
+
+        // The visible rows are what gets submitted — sending an unchanged set is a no-op
+        // server-side (options match by label), so the form always sends them.
+        var optionSpecs = optionRows
+            .Select(r => new RsvpOptionSpec(r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending))
+            .ToList();
+
         // A chosen end mode with a blank input would silently create a never-ending series.
         if (!IsEdit && repeatKind != RepeatKind.None)
         {
@@ -453,7 +570,10 @@ else
                 ImageUrl: imageUrl,
                 Scope: scope,
                 // Clearing is allowed from the web; picking a role is bot-only (no role list here).
-                ClearAttendeeRole: clearAttendeeRole));
+                ClearAttendeeRole: clearAttendeeRole,
+                RsvpOptions: optionSpecs,
+                RsvpCloseText: string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose,
+                ClearRsvpClose: clearRsvpClose));
             busy = false;
             if (!result.Success || result.Value is null)
             {
@@ -485,7 +605,9 @@ else
                 // the user cleared on a repeating template.
                 selectedTemplateId,
                 NoRecurrence: SelectedTemplate?.Recurrence is not null && repeatKind == RepeatKind.None,
-                WantsThread: wantsThread));
+                WantsThread: wantsThread,
+                RsvpOptions: optionSpecs,
+                RsvpCloseText: string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose));
             busy = false;
             if (!result.Success || result.Value is null)
             {

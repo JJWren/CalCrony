@@ -105,11 +105,12 @@ public static class EventEndpoints
         };
     }
 
-    /// <summary>The standard RSVP option set every event starts with (also used by poll conversion).</summary>
+    /// <summary>The standard RSVP option set events start with when no custom options are given
+    /// (also used by poll conversion). Going carries the attending flag.</summary>
     /// <returns>Fresh Going/Not going/Maybe option rows.</returns>
     internal static List<RsvpOption> DefaultRsvpOptions() =>
     [
-        new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", SortOrder = 0 },
+        new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", SortOrder = 0, IsAttending = true },
         new RsvpOption { Id = Guid.NewGuid(), Emote = "❌", Label = "Not going", SortOrder = 1 },
         new RsvpOption { Id = Guid.NewGuid(), Emote = "🤔", Label = "Maybe", SortOrder = 2 },
     ];
@@ -317,6 +318,35 @@ public static class EventEndpoints
         // Threads are a plain yes/no, so WantsThread is honored for BOTH caller types — the bot
         // opens the thread when it posts the embed.
         var wantsThread = request.WantsThread;
+
+        // Custom RSVP options + attendee limit (defaults apply when unspecified) and the optional
+        // RSVP cutoff — relative text becomes minutes-before (tracks time edits), absolute text
+        // parses in the same zone as the start time.
+        var options = RsvpPolicy.TryBuildOptions(request.RsvpOptions, request.AttendeeLimit, out var optionsError);
+        if (options is null)
+        {
+            return Results.BadRequest(new ErrorResponse(optionsError!));
+        }
+
+        int? rsvpCloseMinutesBefore = null;
+        Instant? rsvpClosesAt = null;
+        if (request.RsvpCloseText is not null)
+        {
+            if (!RsvpPolicy.TryParseClose(
+                    request.RsvpCloseText, zone, parser, out rsvpCloseMinutesBefore, out rsvpClosesAt, out var closeError))
+            {
+                return Results.BadRequest(new ErrorResponse(closeError!));
+            }
+
+            // A relative cutoff that lands before "now" would create the event already closed
+            // (the parser guarantees this for absolute text; relative needs the start applied).
+            if (rsvpCloseMinutesBefore is int closeMinutes
+                && startsAt.Minus(Duration.FromMinutes(closeMinutes)) <= clock.GetCurrentInstant())
+            {
+                return Results.BadRequest(new ErrorResponse(
+                    "That RSVP cutoff is already in the past — the event starts too soon."));
+            }
+        }
         var recurrence = request.Recurrence
             ?? (request.NoRecurrence || template?.RecurrenceUnit is null
                 ? null
@@ -388,6 +418,9 @@ public static class EventEndpoints
                 ImageUrl = imageUrl,
                 AttendeeRoleId = attendeeRoleId,
                 WantsThread = wantsThread,
+                // Only the relative cutoff is a template field — a fixed instant makes no sense
+                // across a schedule. Custom options roll forward by cloning the latest occurrence.
+                RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
                 CreatedAt = now,
             };
             db.EventSeries.Add(series);
@@ -408,11 +441,13 @@ public static class EventEndpoints
             ImageUrl = imageUrl,
             AttendeeRoleId = attendeeRoleId,
             WantsThread = wantsThread,
+            RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
+            RsvpClosesAt = rsvpClosesAt,
             Status = EventStatus.Scheduled,
             SeriesId = series?.Id,
             Series = series,
             CreatedAt = now,
-            Options = DefaultRsvpOptions(),
+            Options = options,
         };
         db.Events.Add(ev);
 
@@ -627,6 +662,21 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse("Choose an attendee role or clear it, not both."));
         }
 
+        if (request.AttendeeLimit is not null && request.ClearAttendeeLimit)
+        {
+            return Results.BadRequest(new ErrorResponse("Choose an attendee limit or clear it, not both."));
+        }
+
+        if (request.RsvpCloseText is not null && request.ClearRsvpClose)
+        {
+            return Results.BadRequest(new ErrorResponse("Choose an RSVP cutoff or clear it, not both."));
+        }
+
+        if (request.AttendeeLimit is < 1)
+        {
+            return Results.BadRequest(new ErrorResponse("The attendee limit must be at least 1."));
+        }
+
         if (!context.User.IsBot() && request.AttendeeRoleId is not null)
         {
             // The web can't enumerate Discord roles, so selection is bot-only; clearing is fine.
@@ -648,6 +698,8 @@ public static class EventEndpoints
             }
 
             ev.StartsAt = startsAt;
+            // A relative cutoff moved with the start — let the closed-state sync re-arm.
+            ev.RsvpCloseSynced = false;
             if (applyToSeries)
             {
                 var local = startsAt.InZone(zone).LocalDateTime;
@@ -708,6 +760,78 @@ public static class EventEndpoints
                 AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.GrantAttendeeRole, grantedRole, roleSyncNow);
             }
         }
+
+        // RSVP v1 edits — options, attendee limit, cutoff — run AFTER the role blocks above so
+        // those fan-outs saw the pre-edit attending option (the users who actually held the role).
+        var oldAttendingId = RsvpPolicy.AttendingOption(ev.Options)?.Id;
+        if (request.RsvpOptions is not null)
+        {
+            if (!RsvpPolicy.TryApplyOptionEdit(
+                    db, ev, request.RsvpOptions, request.AttendeeLimit, out var optionsConflict, out var optionsError))
+            {
+                return optionsConflict
+                    ? Results.Conflict(new ErrorResponse(optionsError!))
+                    : Results.BadRequest(new ErrorResponse(optionsError!));
+            }
+        }
+        else if ((request.AttendeeLimit is not null || request.ClearAttendeeLimit)
+                 && RsvpPolicy.AttendingOption(ev.Options) is { } cappedOption)
+        {
+            // Limit-only shorthand: set or clear the attending option's capacity in place.
+            cappedOption.Capacity = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
+        }
+
+        if (request.ClearRsvpClose)
+        {
+            ev.RsvpCloseMinutesBefore = null;
+            ev.RsvpClosesAt = null;
+            ev.RsvpCloseSynced = false;
+            if (applyToSeries)
+            {
+                series!.RsvpCloseMinutesBefore = null;
+            }
+        }
+        else if (request.RsvpCloseText is not null)
+        {
+            var closeZone = Mapping.FindZone(ev.TimeZone) ?? DateTimeZone.Utc;
+            if (!RsvpPolicy.TryParseClose(
+                    request.RsvpCloseText, closeZone, parser, out var closeMinutes, out var closesAt, out var closeError))
+            {
+                return Results.BadRequest(new ErrorResponse(closeError!));
+            }
+
+            ev.RsvpCloseMinutesBefore = closeMinutes;
+            ev.RsvpClosesAt = closesAt;
+            ev.RsvpCloseSynced = false;
+            if (applyToSeries)
+            {
+                // Only the relative form is a template field; an absolute instant clears it so
+                // future occurrences don't inherit a cutoff that predates them.
+                series!.RsvpCloseMinutesBefore = closeMinutes;
+            }
+        }
+
+        // Attending moved to another option: re-sync role semantics like a role change would —
+        // revoke everyone on the old attending option, grant everyone seated on the new one.
+        // (The old option's just-seated waitlist gets harmless no-op revokes.)
+        var newAttendingId = RsvpPolicy.AttendingOption(ev.Options)?.Id;
+        if (isLive && staysLive && newAttendingId != oldAttendingId && ev.AttendeeRoleId is { } attendingRole)
+        {
+            if (oldAttendingId is { } previousAttending)
+            {
+                AttendeeRoleSync.EnqueueRoleFanOutForOption(
+                    db, ev, DeliveryType.RevokeAttendeeRole, attendingRole, previousAttending, roleSyncNow);
+            }
+
+            if (newAttendingId is { } currentAttending)
+            {
+                AttendeeRoleSync.EnqueueRoleFanOutForOption(
+                    db, ev, DeliveryType.GrantAttendeeRole, attendingRole, currentAttending, roleSyncNow);
+            }
+        }
+
+        // Raised/cleared capacity frees seats — promote in queue order (no-op when nothing waits).
+        await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
@@ -895,13 +1019,35 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse("Unknown RSVP option for this event."));
         }
 
+        var now = clock.GetCurrentInstant();
+        if (RsvpPolicy.IsClosed(ev, now))
+        {
+            return Results.Conflict(new ErrorResponse("RSVPs for this event are closed."));
+        }
+
+        var attendingId = AttendeeRoleSync.AttendingOptionId(ev.Options);
         var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
         var oldOptionId = existing?.OptionId;
-        if (option.Capacity is int capacity &&
-            existing?.OptionId != option.Id &&
-            ev.Rsvps.Count(r => r.OptionId == option.Id) >= capacity)
+        var oldWaitlisted = existing?.Waitlisted ?? false;
+
+        // Re-clicking the current choice changes nothing — and must not move a queue position
+        // (CreatedAt doubles as the waitlist order).
+        if (existing is not null && existing.OptionId == option.Id)
         {
-            return Results.Conflict(new ErrorResponse($"\"{option.Label}\" is full."));
+            return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
+        }
+
+        // Capacity: the attending option queues past its cap (waitlist); any other full option
+        // still rejects outright — there is nothing to wait for on a decline/maybe.
+        var waitlisted = false;
+        if (option.Capacity is int capacity && RsvpPolicy.SeatedCount(ev, option.Id) >= capacity)
+        {
+            if (option.Id != attendingId)
+            {
+                return Results.Conflict(new ErrorResponse($"\"{option.Label}\" is full."));
+            }
+
+            waitlisted = true;
         }
 
         if (existing is null)
@@ -912,7 +1058,8 @@ public static class EventEndpoints
                 EventId = ev.Id,
                 UserId = userId,
                 OptionId = option.Id,
-                CreatedAt = clock.GetCurrentInstant(),
+                Waitlisted = waitlisted,
+                CreatedAt = now,
             };
             // Explicit Add: with a client-set Guid key, graph fixup alone would
             // mark this entity as existing and issue an UPDATE instead of INSERT.
@@ -922,15 +1069,20 @@ public static class EventEndpoints
         else
         {
             existing.OptionId = option.Id;
-            existing.CreatedAt = clock.GetCurrentInstant();
+            existing.Waitlisted = waitlisted;
+            existing.CreatedAt = now;
         }
 
-        // Attendee role + thread membership: crossing onto/off the Going option drives both —
+        // Attendee role + thread membership: crossing onto/off an attending SEAT drives both —
         // for BOT callers too (unlike embed sync, the bot never initiates these itself;
-        // everything rides the outbox). Thread adds are add-only: no removal on crossing off.
-        if (AttendeeRoleSync.GoingOptionId(ev.Options) is { } goingId)
+        // everything rides the outbox). Waitlisted states pass null: a queued RSVP earns the
+        // role and thread on promotion, not on joining. Thread adds are add-only.
+        if (attendingId is { } goingId)
         {
-            var decision = AttendeeRoleSync.Decide(oldOptionId, option.Id, goingId);
+            var decision = AttendeeRoleSync.Decide(
+                oldWaitlisted ? null : oldOptionId,
+                waitlisted ? null : option.Id,
+                goingId);
             if (AttendeeRoleSync.IsRoleActive(ev))
             {
                 switch (decision)
@@ -950,6 +1102,13 @@ public static class EventEndpoints
             {
                 await EventThreadSync.EnqueueMemberAddAsync(db, ev, userId, clock, cancellationToken);
             }
+        }
+
+        // Switching off an attending seat frees it — promote the first waitlisted user (the
+        // seat move and the promotion commit together; the ping rides the outbox).
+        if (!oldWaitlisted && oldOptionId == attendingId)
+        {
+            await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
         }
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
@@ -995,16 +1154,32 @@ public static class EventEndpoints
         var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
         if (existing is not null)
         {
+            // The cutoff freezes withdrawals too — "reject changes" cuts both ways, and a frozen
+            // attendee list is what a close-early creator is counting on.
+            if (RsvpPolicy.IsClosed(ev, clock.GetCurrentInstant()))
+            {
+                return Results.Conflict(new ErrorResponse("RSVPs for this event are closed."));
+            }
+
             var wasOptionId = existing.OptionId;
+            var wasSeated = !existing.Waitlisted;
             db.Rsvps.Remove(existing);
             ev.Rsvps.Remove(existing);
 
-            if (AttendeeRoleSync.IsRoleActive(ev)
-                && AttendeeRoleSync.GoingOptionId(ev.Options) is { } goingId
+            if (wasSeated
+                && AttendeeRoleSync.IsRoleActive(ev)
+                && AttendeeRoleSync.AttendingOptionId(ev.Options) is { } goingId
                 && AttendeeRoleSync.Decide(wasOptionId, null, goingId) == AttendeeRoleAction.Revoke)
             {
                 await AttendeeRoleSync.EnqueueRoleChangeAsync(
                     db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
+            }
+
+            // A vacated attending seat promotes the first waitlisted user; a waitlisted
+            // withdrawal just shortens the queue.
+            if (wasSeated && wasOptionId == AttendeeRoleSync.AttendingOptionId(ev.Options))
+            {
+                await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
             }
 
             await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);

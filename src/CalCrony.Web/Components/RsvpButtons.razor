@@ -1,16 +1,25 @@
-@* One button per RSVP option; clicking your current choice clears it (bot parity). *@
+@* One button per RSVP option; clicking your current choice clears it (bot parity). Buttons
+   freeze once the RSVP cutoff passes, and a full attending option reads as "join waitlist". *@
 <div class="d-flex flex-wrap gap-2">
     @foreach (var option in Event.Options.OrderBy(o => o.SortOrder))
     {
         var isMine = MyOptionId == option.Id;
         <button type="button"
                 class="rsvp-btn @(isMine ? "selected" : null)"
-                disabled="@busy"
+                disabled="@(busy || Closed)"
                 @onclick="() => ClickAsync(option.Id, isMine)">
-            @option.Emote @option.Label
+            @option.Emote @option.Label@(CapacityBadge(option))
         </button>
     }
 </div>
+@if (Closed)
+{
+    <div class="meta-mono mt-2">🔒 RSVPs are closed for this event.</div>
+}
+else if (MyWaitlistPosition is int position)
+{
+    <div class="meta-mono mt-2">⏳ You're #@(position + 1) on the waitlist — you'll be moved up automatically when a spot frees.</div>
+}
 @if (error is not null)
 {
     <div class="alert alert-danger mt-2 py-2">@error</div>
@@ -29,6 +38,20 @@
     private string? error;
 
     private Guid? MyOptionId => Event.Rsvps.FirstOrDefault(r => r.UserId == UserId)?.OptionId;
+
+    private bool Closed => Event.RsvpsClosed(DateTimeOffset.UtcNow);
+
+    private int? MyWaitlistPosition
+    {
+        get
+        {
+            var index = Event.Waitlist.ToList().FindIndex(r => r.UserId == UserId);
+            return index >= 0 ? index : null;
+        }
+    }
+
+    private string CapacityBadge(RsvpOptionDto option) =>
+        option.Capacity is int cap ? $" ({Event.SeatedCount(option.Id)}/{cap})" : "";
 
     private async Task ClickAsync(Guid optionId, bool isMine)
     {

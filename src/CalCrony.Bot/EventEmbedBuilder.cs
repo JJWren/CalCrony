@@ -9,10 +9,16 @@ public static class EventEmbedBuilder
 {
     private static readonly Color EventColor = new(0x57, 0xB9, 0xE2);
 
-    /// <summary>Builds the event embed: time, recurrence, duration, location, description, and per-option RSVP fields.</summary>
+    /// <summary>Discord caps buttons at five per action row.</summary>
+    private const int ButtonsPerRow = 5;
+
+    /// <summary>Builds the event embed: time, recurrence, duration, location, RSVP cutoff,
+    /// description, per-option RSVP fields, and the attending option's waitlist.</summary>
     /// <param name="ev">The event.</param>
+    /// <param name="now">The render instant (defaults to the wall clock) — decides whether the
+    /// RSVP cutoff shows as upcoming or closed.</param>
     /// <returns>The built embed.</returns>
-    public static Embed Build(EventDto ev)
+    public static Embed Build(EventDto ev, DateTimeOffset? now = null)
     {
         var description = new StringBuilder();
         description.AppendLine($"🗓️ <t:{ev.StartsAtUnix}:F> (<t:{ev.StartsAtUnix}:R>)");
@@ -33,7 +39,16 @@ public static class EventEmbedBuilder
 
         if (ev.AttendeeRoleId is long roleId)
         {
-            description.AppendLine($"🏷️ Going grants <@&{roleId}>");
+            description.AppendLine($"🏷️ {ev.AttendingOption?.Label ?? "Going"} grants <@&{roleId}>");
+        }
+
+        if (ev.RsvpCloseUnix is long closeUnix)
+        {
+            // The line reads correctly live either way (<t:R> keeps counting), but a re-render
+            // after the cutoff says it plainly.
+            description.AppendLine(ev.RsvpsClosed(now ?? DateTimeOffset.UtcNow)
+                ? "🔒 RSVPs are closed"
+                : $"🔒 RSVPs close <t:{closeUnix}:F> (<t:{closeUnix}:R>)");
         }
 
         if (!string.IsNullOrWhiteSpace(ev.Description))
@@ -54,33 +69,59 @@ public static class EventEmbedBuilder
 
         foreach (var option in ev.Options)
         {
-            var members = ev.Rsvps.Where(r => r.OptionId == option.Id).Select(r => $"<@{r.UserId}>").ToList();
+            // Waitlisted RSVPs sit in their own section, not in the option's seat count.
+            var members = ev.Rsvps
+                .Where(r => r.OptionId == option.Id && !r.Waitlisted)
+                .Select(r => $"<@{r.UserId}>")
+                .ToList();
             var capacity = option.Capacity is int cap ? $"/{cap}" : "";
             builder.AddField(
                 $"{option.Emote} {option.Label} ({members.Count}{capacity})",
                 members.Count == 0 ? "—" : string.Join("\n", members),
                 inline: true);
+
+            if (option.Id == ev.AttendingOption?.Id)
+            {
+                var waitlist = ev.Rsvps
+                    .Where(r => r.OptionId == option.Id && r.Waitlisted)
+                    .Select(r => $"<@{r.UserId}>")
+                    .ToList();
+                if (waitlist.Count > 0)
+                {
+                    builder.AddField($"⏳ Waitlist ({waitlist.Count})", string.Join("\n", waitlist), inline: true);
+                }
+            }
         }
 
         return builder.Build();
     }
 
-    /// <summary>One RSVP button per option.</summary>
+    /// <summary>One RSVP button per option, five per row, all disabled once RSVPs close.</summary>
     /// <param name="ev">The event.</param>
-    /// <returns>The RSVP button row.</returns>
-    public static MessageComponent BuildComponents(EventDto ev)
+    /// <param name="now">The render instant (defaults to the wall clock).</param>
+    /// <returns>The RSVP button rows.</returns>
+    public static MessageComponent BuildComponents(EventDto ev, DateTimeOffset? now = null)
     {
+        var closed = ev.RsvpsClosed(now ?? DateTimeOffset.UtcNow);
+        var builder = new ComponentBuilder();
         var row = new ActionRowBuilder();
         foreach (var option in ev.Options)
         {
+            if (row.Components.Count == ButtonsPerRow)
+            {
+                builder.AddRow(row);
+                row = new ActionRowBuilder();
+            }
+
             row.WithButton(
                 option.Label,
                 customId: $"rsvp:{ev.Id}:{option.Id}",
                 style: ButtonStyle.Secondary,
-                emote: new Emoji(option.Emote));
+                emote: new Emoji(option.Emote),
+                disabled: closed);
         }
 
-        return new ComponentBuilder().AddRow(row).Build();
+        return builder.AddRow(row).Build();
     }
 
     /// <summary>Human-readable duration ("90 min", "2 hr").</summary>

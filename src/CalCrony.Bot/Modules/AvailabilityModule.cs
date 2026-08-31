@@ -75,10 +75,10 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
             return;
         }
 
-        var going = ev.Options.FirstOrDefault(o => o.SortOrder == 0);
-        var userIds = going is null
-            ? new List<long>()
-            : ev.Rsvps.Where(r => r.OptionId == going.Id).Select(r => r.UserId).ToList();
+        // Seated attending RSVPs only — waitlisted users aren't coming (yet).
+        var userIds = ev.AttendingOption is { } going
+            ? ev.Rsvps.Where(r => r.OptionId == going.Id && !r.Waitlisted).Select(r => r.UserId).ToList()
+            : new List<long>();
 
         if (userIds.Count == 0)
         {
