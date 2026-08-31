@@ -2,7 +2,6 @@ using System.Text.Json;
 using CalCrony.Api.Data;
 using CalCrony.Api.Endpoints;
 using CalCrony.Contracts;
-using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace CalCrony.Api.Services;
@@ -18,9 +17,8 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
     /// series.NotificationSpecs loaded. Returns null when an end condition ends the series.</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>
     /// <param name="now">The current instant.</param>
-    /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The new occurrence, or null when the series ended instead.</returns>
-    public async Task<Event?> MaterializeNextAsync(EventSeries series, Instant now, CancellationToken cancellationToken)
+    public Event? MaterializeNext(EventSeries series, Instant now)
     {
         if (series.Ended)
         {
@@ -43,15 +41,6 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
             return null;
         }
 
-        // Custom RSVP options roll forward by cloning the latest occurrence's set (fresh ids, no
-        // RSVPs) — the series row carries no options of its own. Identity resolution returns this
-        // sweep's tracked rows, so an occurrence that just ended still contributes its options.
-        var previous = await db.Events
-            .Include(e => e.Options)
-            .Where(e => e.SeriesId == series.Id)
-            .OrderByDescending(e => e.StartsAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
         var ev = new Event
         {
             Id = Guid.NewGuid(),
@@ -72,9 +61,9 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
             SeriesId = series.Id,
             Series = series,
             CreatedAt = now,
-            Options = previous is { Options.Count: > 0 }
-                ? RsvpPolicy.CloneOptions(previous.Options)
-                : EventEndpoints.DefaultRsvpOptions(),
+            // Options come from the series template (a real template field, like Title) — an
+            // Occurrence-scoped option edit diverges and the next spawn reverts to it.
+            Options = RsvpPolicy.OptionsFromTemplate(series.RsvpOptionsJson),
             Notifications = [.. series.NotificationSpecs.Select(spec => new EventNotification
             {
                 Id = Guid.NewGuid(),

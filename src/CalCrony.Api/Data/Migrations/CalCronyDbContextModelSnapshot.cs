@@ -367,6 +367,10 @@ namespace CalCrony.Api.Data.Migrations
                     b.Property<int?>("RsvpCloseMinutesBefore")
                         .HasColumnType("integer");
 
+                    b.Property<string>("RsvpOptionsJson")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
                     b.Property<LocalTime>("StartTime")
                         .HasColumnType("time");
 

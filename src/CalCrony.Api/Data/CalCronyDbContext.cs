@@ -92,6 +92,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(s => s.TimeZone).HasMaxLength(64);
             e.Property(s => s.Location).HasMaxLength(FieldLimits.EventLocation);
             e.Property(s => s.ImageUrl).HasMaxLength(FieldLimits.EventImageUrl);
+            // 10 options × (64-char emote + 64-char label + capacity/flags) serializes well below this.
+            e.Property(s => s.RsvpOptionsJson).HasMaxLength(4096);
             e.HasIndex(s => s.GuildId);
             e.HasMany(s => s.NotificationSpecs).WithOne().HasForeignKey(n => n.SeriesId).OnDelete(DeleteBehavior.Cascade);
         });

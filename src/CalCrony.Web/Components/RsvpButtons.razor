@@ -1,5 +1,6 @@
 @* One button per RSVP option; clicking your current choice clears it (bot parity). Buttons
    freeze once the RSVP cutoff passes, and a full attending option reads as "join waitlist". *@
+@implements IDisposable
 <div class="d-flex flex-wrap gap-2">
     @foreach (var option in Event.Options.OrderBy(o => o.SortOrder))
     {
@@ -36,10 +37,32 @@ else if (MyWaitlistPosition is int position)
 
     private bool busy;
     private string? error;
+    private System.Threading.Timer? closeTimer;
 
     private Guid? MyOptionId => Event.Rsvps.FirstOrDefault(r => r.UserId == UserId)?.OptionId;
 
     private bool Closed => Event.RsvpsClosed(DateTimeOffset.UtcNow);
+
+    protected override void OnParametersSet()
+    {
+        // Blazor won't re-render just because the wall clock passed the cutoff — schedule one
+        // render at that instant so the buttons actually freeze on an open page. Re-armed on
+        // every parameter change (the cutoff may have moved); far-future cutoffs are skipped
+        // (Timer caps near 24.9 days, and no tab lives that long).
+        closeTimer?.Dispose();
+        closeTimer = null;
+        if (Event.RsvpClosesAtUtc is { } closesAt)
+        {
+            var due = closesAt - DateTimeOffset.UtcNow;
+            if (due > TimeSpan.Zero && due < TimeSpan.FromDays(14))
+            {
+                closeTimer = new System.Threading.Timer(
+                    _ => _ = InvokeAsync(StateHasChanged), null, due, System.Threading.Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    public void Dispose() => closeTimer?.Dispose();
 
     private int? MyWaitlistPosition
     {

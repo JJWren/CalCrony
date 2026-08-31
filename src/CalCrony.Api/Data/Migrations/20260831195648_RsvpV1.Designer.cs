@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    [Migration("20260831192214_RsvpV1")]
+    [Migration("20260831195648_RsvpV1")]
     partial class RsvpV1
     {
         /// <inheritdoc />
@@ -369,6 +369,10 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.Property<int?>("RsvpCloseMinutesBefore")
                         .HasColumnType("integer");
+
+                    b.Property<string>("RsvpOptionsJson")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
 
                     b.Property<LocalTime>("StartTime")
                         .HasColumnType("time");

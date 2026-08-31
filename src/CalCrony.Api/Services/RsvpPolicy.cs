@@ -149,20 +149,38 @@ public static partial class RsvpPolicy
         })];
     }
 
-    /// <summary>Clones an option row set for a new event (fresh ids, same shape) — how custom
-    /// options roll forward to the next series occurrence.</summary>
-    /// <param name="options">The option rows to clone.</param>
-    /// <returns>Fresh rows with new ids.</returns>
-    public static List<RsvpOption> CloneOptions(IEnumerable<RsvpOption> options) =>
-        [.. options.OrderBy(o => o.SortOrder).Select((o, index) => new RsvpOption
+    /// <summary>Serializes an event's option rows as the spec list a series template stores —
+    /// how custom options become a template field that Series-scoped edits control.</summary>
+    /// <param name="options">The option rows to capture.</param>
+    /// <returns>The serialized spec list for <see cref="Data.EventSeries.RsvpOptionsJson"/>.</returns>
+    public static string SerializeSpecs(IEnumerable<RsvpOption> options) =>
+        JsonSerializer.Serialize(options.OrderBy(o => o.SortOrder)
+            .Select(o => new RsvpOptionSpec(o.Emote, o.Label, o.Capacity, o.IsAttending))
+            .ToList());
+
+    /// <summary>Builds fresh option rows from a series' stored template (null = the default set).
+    /// Unreadable JSON degrades to the defaults — a spawned occurrence must never fail over a
+    /// template field.</summary>
+    /// <param name="rsvpOptionsJson">The serialized spec list, or null.</param>
+    /// <returns>Fresh option rows for a new occurrence.</returns>
+    public static List<RsvpOption> OptionsFromTemplate(string? rsvpOptionsJson)
+    {
+        if (rsvpOptionsJson is null)
         {
-            Id = Guid.NewGuid(),
-            Emote = o.Emote,
-            Label = o.Label,
-            SortOrder = index,
-            Capacity = o.Capacity,
-            IsAttending = o.IsAttending,
-        })];
+            return Endpoints.EventEndpoints.DefaultRsvpOptions();
+        }
+
+        try
+        {
+            var specs = JsonSerializer.Deserialize<List<RsvpOptionSpec>>(rsvpOptionsJson);
+            return TryBuildOptions(specs, attendeeLimit: null, out _)
+                   ?? Endpoints.EventEndpoints.DefaultRsvpOptions();
+        }
+        catch (JsonException)
+        {
+            return Endpoints.EventEndpoints.DefaultRsvpOptions();
+        }
+    }
 
     /// <summary>Relative cutoff text: "2h before", "90 min before start", "1 day" — a bare
     /// duration counts as before-start too, since a cutoff has nothing else to be relative to.</summary>

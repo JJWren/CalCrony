@@ -141,7 +141,7 @@ public sealed class DeliveryScheduler(
                 .ToHashSet();
             foreach (var series in activeSeries.Where(s => !liveSeriesIds.Contains(s.Id)))
             {
-                if (await materializer.MaterializeNextAsync(series, now, cancellationToken) is not null)
+                if (materializer.MaterializeNext(series, now) is not null)
                 {
                     enqueued++;
                     liveListGuilds.Add(series.GuildId);

@@ -167,6 +167,12 @@ public class EventSeries
     /// cutoffs are occurrence-only (a fixed instant makes no sense across a schedule).</summary>
     public int? RsvpCloseMinutesBefore { get; set; }
 
+    /// <summary>Template field: the RSVP option set (serialized RsvpOptionSpec list) spawned
+    /// occurrences start with; null = the default Going/Not going/Maybe set. Written at create
+    /// and by Series-scoped option/limit edits only — Occurrence-scoped option edits diverge and
+    /// the next spawn reverts to this template, matching every other template field.</summary>
+    public string? RsvpOptionsJson { get; set; }
+
     public Instant CreatedAt { get; set; }
 
     public List<SeriesNotification> NotificationSpecs { get; set; } = [];

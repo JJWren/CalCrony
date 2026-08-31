@@ -311,7 +311,7 @@ public static class SeriesEndpoints
             });
         }
 
-        var next = await materializer.MaterializeNextAsync(series, now, cancellationToken);
+        var next = materializer.MaterializeNext(series, now);
 
         // The list drops the skipped occurrence and shows the replacement — one debounced rewrite.
         await Services.LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, now, cancellationToken);

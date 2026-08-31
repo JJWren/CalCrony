@@ -31,6 +31,13 @@ namespace CalCrony.Api.Data.Migrations
                 type: "integer",
                 nullable: true);
 
+            migrationBuilder.AddColumn<string>(
+                name: "RsvpOptionsJson",
+                table: "EventSeries",
+                type: "character varying(4096)",
+                maxLength: 4096,
+                nullable: true);
+
             migrationBuilder.AddColumn<int>(
                 name: "RsvpCloseMinutesBefore",
                 table: "Events",
@@ -77,6 +84,10 @@ namespace CalCrony.Api.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "RsvpCloseMinutesBefore",
+                table: "EventSeries");
+
+            migrationBuilder.DropColumn(
+                name: "RsvpOptionsJson",
                 table: "EventSeries");
 
             migrationBuilder.DropColumn(

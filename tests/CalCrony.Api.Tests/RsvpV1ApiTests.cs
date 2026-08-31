@@ -425,6 +425,59 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal(next.StartsAtUtc.AddHours(-1), next.RsvpClosesAtUtc); // relative cutoff inherited
     }
 
+    [Fact]
+    public async Task Occurrence_scoped_option_edits_diverge_and_series_scoped_edits_update_the_template()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Scoped option edits", "in 3 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+
+        // Occurrence scope: this occurrence diverges; the next spawn reverts to the template.
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, Scope: EditScope.Occurrence,
+            RsvpOptions: [new RsvpOptionSpec("🎲", "One-off", IsAttending: true)])))
+            .EnsureSuccessStatusCode();
+
+        var firstSkip = await Client.PostAsync($"/events/{ev.Id}/skip", null);
+        firstSkip.EnsureSuccessStatusCode();
+        var afterOccurrenceEdit = (await firstSkip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+        Assert.Equal(["Going", "Not going", "Maybe"], afterOccurrenceEdit.Options.Select(o => o.Label));
+
+        // Series scope: the edited set becomes the template future occurrences spawn from.
+        (await Client.PatchAsJsonAsync($"/events/{afterOccurrenceEdit.Id}", new UpdateEventRequest(
+            CreatorId, Scope: EditScope.Series,
+            RsvpOptions:
+            [
+                new RsvpOptionSpec("⚔️", "Raider", 5, IsAttending: true),
+                new RsvpOptionSpec("❌", "Out"),
+            ])))
+            .EnsureSuccessStatusCode();
+
+        var secondSkip = await Client.PostAsync($"/events/{afterOccurrenceEdit.Id}/skip", null);
+        secondSkip.EnsureSuccessStatusCode();
+        var afterSeriesEdit = (await secondSkip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+        Assert.Equal(["Raider", "Out"], afterSeriesEdit.Options.Select(o => o.Label));
+        Assert.Equal(5, afterSeriesEdit.AttendingOption!.Capacity);
+    }
+
+    [Fact]
+    public async Task Concurrent_rsvps_to_the_last_seat_never_double_seat()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Race for a seat", "in 3 hours", ChannelId, AttendeeLimit: 1));
+        var going = ev.AttendingOption!;
+
+        // The per-event row lock serializes these — exactly one gets the seat, the other queues.
+        var responses = await Task.WhenAll(
+            Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/601", new RsvpRequest(going.Id)),
+            Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/602", new RsvpRequest(going.Id)));
+        Assert.All(responses, r => r.EnsureSuccessStatusCode());
+
+        var after = (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!;
+        Assert.Equal(1, after.SeatedCount(going.Id));
+        Assert.Single(after.Waitlist);
+    }
+
     // ---------- helpers ----------
 
     private async Task<EventDto> CreateAsync(CreateEventRequest request)

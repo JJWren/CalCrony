@@ -419,8 +419,12 @@ public static class EventEndpoints
                 AttendeeRoleId = attendeeRoleId,
                 WantsThread = wantsThread,
                 // Only the relative cutoff is a template field — a fixed instant makes no sense
-                // across a schedule. Custom options roll forward by cloning the latest occurrence.
+                // across a schedule. The option set (with any merged attendee limit) is captured
+                // as a template too, so spawned occurrences start from it.
                 RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
+                RsvpOptionsJson = request.RsvpOptions is null && request.AttendeeLimit is null
+                    ? null
+                    : RsvpPolicy.SerializeSpecs(options),
                 CreatedAt = now,
             };
             db.EventSeries.Add(series);
@@ -731,38 +735,8 @@ public static class EventEndpoints
             series!.AttendeeRoleId = newRole;
         }
 
-        var roleSyncNow = clock.GetCurrentInstant();
-        if (isLive && !staysLive)
-        {
-            // Cancel/end via PATCH — the previously side-effect-free path. Revoke everything
-            // under the OLD role; a same-request role change never grants on a dying event.
-            if (oldRole is { } endedRole)
-            {
-                AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, endedRole, roleSyncNow);
-            }
-
-            if (ev.ThreadId is not null)
-            {
-                EventThreadSync.EnqueueArchive(db, ev, roleSyncNow);
-            }
-        }
-        else if (isLive && newRole != oldRole)
-        {
-            // Re-sync on role change: without the old-role revoke fan-out, the end-of-event
-            // cleanup would only ever revoke the CURRENT role and the old grants would leak.
-            if (oldRole is { } previousRole)
-            {
-                AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, previousRole, roleSyncNow);
-            }
-
-            if (newRole is { } grantedRole)
-            {
-                AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.GrantAttendeeRole, grantedRole, roleSyncNow);
-            }
-        }
-
-        // RSVP v1 edits — options, attendee limit, cutoff — run AFTER the role blocks above so
-        // those fan-outs saw the pre-edit attending option (the users who actually held the role).
+        // RSVP v1 edits — options, attendee limit, cutoff — apply BEFORE the role fan-outs so
+        // one unified transition (old role/option → new role/option) can be computed afterwards.
         var oldAttendingId = RsvpPolicy.AttendingOption(ev.Options)?.Id;
         if (request.RsvpOptions is not null)
         {
@@ -779,6 +753,14 @@ public static class EventEndpoints
         {
             // Limit-only shorthand: set or clear the attending option's capacity in place.
             cappedOption.Capacity = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
+        }
+
+        if (applyToSeries
+            && (request.RsvpOptions is not null || request.AttendeeLimit is not null || request.ClearAttendeeLimit))
+        {
+            // Series scope: the edited option set becomes the template future occurrences spawn
+            // from; Occurrence scope leaves the template alone (the next spawn reverts to it).
+            series!.RsvpOptionsJson = RsvpPolicy.SerializeSpecs(ev.Options);
         }
 
         if (request.ClearRsvpClose)
@@ -811,22 +793,40 @@ public static class EventEndpoints
             }
         }
 
-        // Attending moved to another option: re-sync role semantics like a role change would —
-        // revoke everyone on the old attending option, grant everyone seated on the new one.
-        // (The old option's just-seated waitlist gets harmless no-op revokes.)
         var newAttendingId = RsvpPolicy.AttendingOption(ev.Options)?.Id;
-        if (isLive && staysLive && newAttendingId != oldAttendingId && ev.AttendeeRoleId is { } attendingRole)
+        var roleSyncNow = clock.GetCurrentInstant();
+        if (isLive && !staysLive)
         {
-            if (oldAttendingId is { } previousAttending)
+            // Cancel/end via PATCH — the previously side-effect-free path. Revoke everything
+            // under the OLD role from the PRE-EDIT attending option (its members are the ones
+            // holding it); a same-request role change never grants on a dying event.
+            if (oldRole is { } endedRole && oldAttendingId is { } endedAttending)
             {
                 AttendeeRoleSync.EnqueueRoleFanOutForOption(
-                    db, ev, DeliveryType.RevokeAttendeeRole, attendingRole, previousAttending, roleSyncNow);
+                    db, ev, DeliveryType.RevokeAttendeeRole, endedRole, endedAttending, roleSyncNow);
             }
 
-            if (newAttendingId is { } currentAttending)
+            if (ev.ThreadId is not null)
+            {
+                EventThreadSync.EnqueueArchive(db, ev, roleSyncNow);
+            }
+        }
+        else if (isLive && (newRole != oldRole || newAttendingId != oldAttendingId))
+        {
+            // One unified re-sync for role and/or attending-option changes: revoke the old role
+            // from the old attending members (who actually hold it) and grant the new role to
+            // the new attending members — never contradictory rows for the same user at the same
+            // due time. The old option's just-seated waitlist gets harmless no-op revokes.
+            if (oldRole is { } previousRole && oldAttendingId is { } previousAttending)
             {
                 AttendeeRoleSync.EnqueueRoleFanOutForOption(
-                    db, ev, DeliveryType.GrantAttendeeRole, attendingRole, currentAttending, roleSyncNow);
+                    db, ev, DeliveryType.RevokeAttendeeRole, previousRole, previousAttending, roleSyncNow);
+            }
+
+            if (newRole is { } grantedRole && newAttendingId is { } currentAttending)
+            {
+                AttendeeRoleSync.EnqueueRoleFanOutForOption(
+                    db, ev, DeliveryType.GrantAttendeeRole, grantedRole, currentAttending, roleSyncNow);
             }
         }
 
@@ -997,6 +997,13 @@ public static class EventEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
+        // Serialize RSVP mutations per event: the row lock (taken BEFORE the aggregate loads)
+        // makes concurrent capacity checks and waitlist promotions queue behind each other
+        // instead of double-seating past the cap or double-promoting one freed seat. Early
+        // returns roll back via the transaction's dispose.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockEventRowAsync(db, id, cancellationToken);
+
         var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
         {
@@ -1114,6 +1121,7 @@ public static class EventEndpoints
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, clock.GetCurrentInstant(), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
@@ -1135,6 +1143,11 @@ public static class EventEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
+        // Same per-event serialization as PutRsvp — a withdrawal promotes off the waitlist, and
+        // two concurrent withdrawals must not both promote the same queue head.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockEventRowAsync(db, id, cancellationToken);
+
         var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
         {
@@ -1185,6 +1198,7 @@ public static class EventEndpoints
             await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
             await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, clock.GetCurrentInstant(), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
 
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
@@ -1251,6 +1265,15 @@ public static class EventEndpoints
         var utc = instant.ToDateTimeOffset();
         return Results.Ok(new ParseDateTimeResponse(utc, utc.ToUnixTimeSeconds(), zone.Id));
     }
+
+    /// <summary>Takes a FOR UPDATE lock on the event row inside the ambient transaction, so
+    /// competing RSVP mutations for one event serialize (capacity checks and waitlist promotions
+    /// stay race-free). A missing event locks nothing and falls through to the 404.</summary>
+    /// <param name="db">The database context (a transaction must be open).</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    private static Task LockEventRowAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Events" WHERE "Id" = {id} FOR UPDATE""", cancellationToken);
 
     /// <summary>Loads an event with options, RSVPs, and series for DTO mapping.</summary>
     /// <param name="db">The database context.</param>
