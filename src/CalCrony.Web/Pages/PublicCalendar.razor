@@ -7,7 +7,9 @@
 @* The login-free public calendar (issue #121): one server's events as a month grid, reached only
    through the server's unguessable slug link. It shows what a passer-by should see — titles,
    times, places, a jump link into Discord — and nothing else; the API never sends descriptions,
-   RSVPs, or member names here. Shareable, not discoverable: noindex, and robots.txt disallows /c/. *@
+   RSVPs, or member names here. Shareable, not discoverable: a noindex meta here plus an
+   X-Robots-Tag header from nginx for /c/ — and robots.txt deliberately keeps /c/ crawlable,
+   because a crawler that may not fetch a page never sees either directive. *@
 
 <PageTitle>@Heading — CalCrony</PageTitle>
 <HeadContent>
@@ -117,6 +119,7 @@ else
     private static readonly string[] DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     private bool loading = true;
+    private int loadGeneration;
     private string? loadedSlug;
     private bool inactive;
     private string? loadError;
@@ -147,8 +150,16 @@ else
             loadedSlug = Slug;
         }
 
+        // Each load gets a generation stamp; a response for an older load (a slower request that
+        // finishes after navigation already started a newer one) is dropped, never applied.
+        var generation = ++loadGeneration;
         var (year, month) = ParseMonth(MonthQuery);
         var result = await Api.GetPublicCalendarAsync(Slug, year, month);
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
         // Only a 404 means the link is gone; anything else keeps whatever month is already shown
         // (so navigation still works) and surfaces the message instead.
         inactive = result.NotFound;

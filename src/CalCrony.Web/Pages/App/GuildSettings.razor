@@ -151,6 +151,7 @@ else
     private string? error;
     private string copyLabel = "Copy URL";
     private bool isManager;
+    private int loadGeneration;
     private bool busy;
     private string timezoneInput = "";
     private string? saveMessage;
@@ -169,7 +170,22 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        // Blazor reuses this component across guilds: clear per-guild state BEFORE the first
+        // await so the previous server's link (a credential) never renders under a new guild's
+        // URL, and stamp the load so a slower, older response can't overwrite a newer guild's.
+        var generation = ++loadGeneration;
+        publicCalendar = null;
+        publicCalendarError = null;
+        publicCalendarMessage = null;
+        confirmRegenerate = false;
+        feedUrl = null;
+
         var settingsResult = await Api.GetGuildSettingsAsync(GuildId);
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
         if (!settingsResult.Success)
         {
             error = settingsResult.Error;
@@ -179,19 +195,21 @@ else
         settings = settingsResult.Value;
         timezoneInput = settings?.TimeZone ?? "UTC";
         mirrorInput = settings?.MirrorNativeEvents ?? false;
-        isManager = (await Api.GetMyGuildsAsync()).Value?.Guilds
-            .Any(g => g.Id == GuildId && g.CanManage) ?? false;
-
+        var myGuilds = await Api.GetMyGuildsAsync();
         var feedResult = await Api.GetFeedTokenAsync(GuildId);
+        var publicResult = await Api.GetPublicCalendarSettingsAsync(GuildId);
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        isManager = myGuilds.Value?.Guilds.Any(g => g.Id == GuildId && g.CanManage) ?? false;
         if (feedResult.Success && feedResult.Value is not null)
         {
             feedUrl = Api.FeedUrl(feedResult.Value);
         }
 
-        confirmRegenerate = false;
-        publicCalendarMessage = null;
         // A failed read shows as an error, never as a fabricated "off" a manager could act on.
-        var publicResult = await Api.GetPublicCalendarSettingsAsync(GuildId);
         publicCalendar = publicResult.Success ? publicResult.Value : null;
         publicCalendarError = publicResult.Success ? null : publicResult.Error ?? "unknown error";
     }

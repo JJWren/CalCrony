@@ -194,6 +194,57 @@ public class PublicCalendarComponentTests : TestContext
         Assert.DoesNotContain("Raid Night", cut.Markup);
     }
 
+    [Fact]
+    public async Task A_slow_response_for_an_earlier_slug_never_overwrites_the_current_calendar()
+    {
+        var handler = UseApi();
+        var slowFirst = new TaskCompletionSource();
+        handler.Respond = req => (HttpStatusCode.OK, JsonSerializer.Serialize(
+            req.RequestUri!.AbsolutePath.EndsWith("/abc")
+                ? SampleMonth()
+                : SampleMonth() with { GuildName = "Other Guild" }, JsonWeb));
+        handler.Delay = req => req.RequestUri!.AbsolutePath.EndsWith("/abc") ? slowFirst.Task : Task.CompletedTask;
+
+        var cut = Render<PublicCalendar>(p => p.Add(x => x.Slug, "abc"));   // request A: pending
+        cut.Render(p => p.Add(x => x.Slug, "other"));                        // request B: completes first
+        cut.WaitForAssertion(() => Assert.Contains("Other Guild", cut.Markup));
+
+        slowFirst.SetResult();                                                // A finishes last…
+        await Task.Delay(50);
+        cut.WaitForAssertion(() => Assert.Contains("Other Guild", cut.Markup)); // …and is ignored
+        Assert.DoesNotContain("Test Guild", cut.Markup);
+    }
+
+    [Fact]
+    public void Settings_card_clears_the_previous_guilds_link_before_the_next_guild_loads()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var handler = UseApi();
+        var now = DateTimeOffset.UtcNow;
+        var secondGuildGate = new TaskCompletionSource();
+        handler.Respond = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/guilds/1/public-calendar" => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(true, "guild1", "/c/guild1", null), JsonWeb)),
+            "/guilds/2/public-calendar" => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(false, null, null, null), JsonWeb)),
+            var p when p.EndsWith("/settings") => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("UTC", 5), JsonWeb)),
+            "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true), new WebGuildDto(2, "H", null, true)]), JsonWeb)),
+            var p when p.EndsWith("/feed-token") => (HttpStatusCode.OK, JsonSerializer.Serialize(new FeedTokenDto("tok", "/feeds/tok.ics"), JsonWeb)),
+            _ => (HttpStatusCode.OK, "[]"),
+        };
+        handler.Delay = req => req.RequestUri!.AbsolutePath == "/guilds/2/public-calendar" ? secondGuildGate.Task : Task.CompletedTask;
+
+        var cut = Render<GuildSettings>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("/c/guild1", cut.Markup));
+
+        cut.Render(p => p.Add(x => x.GuildId, 2L)); // guild 2's public-calendar read is held open
+
+        // Guild 1's link (a credential) must be gone immediately, not after guild 2's load completes.
+        cut.WaitForAssertion(() => Assert.DoesNotContain("/c/guild1", cut.Markup));
+        secondGuildGate.SetResult();
+        cut.WaitForAssertion(() => Assert.Contains("gs-public-cal", cut.Markup));
+        Assert.DoesNotContain("/c/guild1", cut.Markup);
+    }
+
     private static PublicCalendarDto SampleMonth() =>
         new("Test Guild", "America/Chicago", 2026, 9,
         [
@@ -224,11 +275,19 @@ public class PublicCalendarComponentTests : TestContext
         public Func<HttpRequestMessage, (HttpStatusCode Status, string? Json)> Respond { get; set; } =
             _ => (HttpStatusCode.OK, "{}");
 
+        /// <summary>Optional per-request hold, so tests can control completion order.</summary>
+        public Func<HttpRequestMessage, Task>? Delay { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             if (request.Content is not null)
             {
                 LastBody = await request.Content.ReadAsStringAsync(ct);
+            }
+
+            if (Delay is not null)
+            {
+                await Delay(request);
             }
 
             var (status, json) = Respond(request);
