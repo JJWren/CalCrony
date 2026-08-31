@@ -17,8 +17,9 @@ public class LiveListManager(DiscordSocketClient client, CalCronyApiClient api, 
 {
     /// <summary>Re-renders one live list's message in place.</summary>
     /// <param name="list">The live list to sync.</param>
-    /// <exception cref="InvalidOperationException">When the events fetch fails — the delivery
-    /// handler leaves the row pending for retry (the Ready reconcile catches per list).</exception>
+    /// <exception cref="InvalidOperationException">When the events fetch or a record clear fails
+    /// transiently — the delivery handler leaves the row pending for retry (the Ready reconcile
+    /// catches per list).</exception>
     public async Task SyncAsync(LiveListDto list)
     {
         var events = await api.ListEventsAsync(list.GuildId, limit: list.Limit);
@@ -51,17 +52,18 @@ public class LiveListManager(DiscordSocketClient client, CalCronyApiClient api, 
         await message.ModifyAsync(m => m.Embed = LiveListEmbedBuilder.Build(events.Value));
     }
 
-    /// <summary>Clears a dead list's record so the API stops enqueueing syncs for it. Best-effort —
-    /// a failed delete self-heals on the next sync or Ready reconcile.</summary>
+    /// <summary>Clears a dead list's record so the API stops enqueueing syncs for it (and the
+    /// channel can host a new list). Already gone counts as done; a transient failure throws so
+    /// the sync delivery retries instead of acking with the dead record still blocking a 409.</summary>
+    /// <exception cref="InvalidOperationException">When the delete fails transiently.</exception>
     private async Task ClearRecordAsync(LiveListDto list, string reason)
     {
         logger.LogInformation(
             "Clearing live list {LiveListId} in channel {ChannelId}: {Reason}.", list.Id, list.ChannelId, reason);
         var deleted = await api.DeleteLiveListAsync(list.Id);
-        if (!deleted.Success)
+        if (!deleted.Success && !deleted.NotFound)
         {
-            logger.LogWarning(
-                "Could not clear live list {LiveListId}: {Error}", list.Id, deleted.Error);
+            throw new InvalidOperationException($"Failed to clear live list {list.Id}: {deleted.Error}");
         }
     }
 }

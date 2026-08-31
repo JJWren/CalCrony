@@ -30,30 +30,33 @@ public static class LiveListSync
             .Where(l => l.GuildId == guildId)
             .Select(l => new { l.Id, l.ChannelId })
             .ToListAsync(cancellationToken);
-
-        foreach (var list in lists)
+        if (lists.Count == 0)
         {
-            var payloadJson = JsonSerializer.Serialize(new SyncLiveListPayload(list.Id));
+            return;
+        }
 
-            // Coalesce with a pending identical sync the bot has never been served (Attempts == 0,
-            // the attendee-role rule) — an in-flight row may have fetched events BEFORE this
-            // change, so folding into it would leave the embed stale. Local covers rows added
-            // earlier in this same unit of work (e.g. a sweep touching several events of one guild).
-            var alreadyQueued = db.Deliveries.Local.Any(
-                    d => d.Type == DeliveryType.SyncLiveList
-                         && d.Status == DeliveryStatus.Pending
-                         && d.PayloadJson == payloadJson)
-                || await db.Deliveries.AnyAsync(
-                    d => d.Type == DeliveryType.SyncLiveList
-                         && d.Status == DeliveryStatus.Pending
-                         && d.Attempts == 0
-                         && d.PayloadJson == payloadJson,
-                    cancellationToken);
-            if (alreadyQueued)
-            {
-                continue;
-            }
+        // Coalesce with pending identical syncs the bot has never been served (Attempts == 0,
+        // the attendee-role rule) — an in-flight row may have fetched events BEFORE this change,
+        // so folding into it would leave the embed stale. One batched query for all the guild's
+        // lists (this runs on every event/RSVP mutation); Local covers rows added earlier in
+        // this same unit of work (e.g. a sweep touching several events of one guild).
+        var payloads = lists.ToDictionary(
+            l => JsonSerializer.Serialize(new SyncLiveListPayload(l.Id)), l => l);
+        var candidates = payloads.Keys.ToList();
+        var queued = (await db.Deliveries
+                .Where(d => d.Type == DeliveryType.SyncLiveList
+                            && d.Status == DeliveryStatus.Pending
+                            && d.Attempts == 0
+                            && candidates.Contains(d.PayloadJson))
+                .Select(d => d.PayloadJson)
+                .ToListAsync(cancellationToken))
+            .Concat(db.Deliveries.Local
+                .Where(d => d.Type == DeliveryType.SyncLiveList && d.Status == DeliveryStatus.Pending)
+                .Select(d => d.PayloadJson))
+            .ToHashSet();
 
+        foreach (var (payloadJson, list) in payloads.Where(p => !queued.Contains(p.Key)))
+        {
             db.Deliveries.Add(NewSync(list.Id, list.ChannelId, payloadJson, now));
         }
     }
