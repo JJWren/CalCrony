@@ -22,9 +22,10 @@ COPY src/CalCrony.Web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY src/CalCrony.Web/calcrony-security-headers.inc /etc/nginx/conf.d/calcrony-security-headers.inc
 # nginx's stock entrypoint runs every script in /docker-entrypoint.d before serving.
 COPY src/CalCrony.Web/docker-entrypoint.d/40-calcrony-appsettings.sh /docker-entrypoint.d/40-calcrony-appsettings.sh
+COPY src/CalCrony.Web/docker-entrypoint.d/45-calcrony-seo.sh /docker-entrypoint.d/45-calcrony-seo.sh
 COPY src/CalCrony.Web/docker-entrypoint.d/50-calcrony-csp.sh /docker-entrypoint.d/50-calcrony-csp.sh
 
 RUN rm -f /usr/share/nginx/html/appsettings.Development.json \
- && chmod +x /docker-entrypoint.d/40-calcrony-appsettings.sh /docker-entrypoint.d/50-calcrony-csp.sh
+ && chmod +x /docker-entrypoint.d/40-calcrony-appsettings.sh /docker-entrypoint.d/45-calcrony-seo.sh /docker-entrypoint.d/50-calcrony-csp.sh
 
 EXPOSE 80
