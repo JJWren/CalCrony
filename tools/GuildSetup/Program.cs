@@ -39,7 +39,7 @@ List<RestGuildChannel> channels = [.. await guild.GetChannelsAsync()];
 
 // ---- roles -----------------------------------------------------------------
 
-RestRole maintainer = await EnsureRole("Maintainer", new GuildPermissions(administrator: true), new Color(0x0B6AA8), hoist: true);
+await EnsureRole("Maintainer", new GuildPermissions(administrator: true), new Color(0x0B6AA8), hoist: true);
 await EnsureRole("Release Ping", GuildPermissions.None, color: null, hoist: false);
 
 // ---- categories ------------------------------------------------------------

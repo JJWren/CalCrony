@@ -39,7 +39,7 @@ public class ComponentTests : TestContext
     }
 
     [Fact]
-    public void Layout_footer_links_the_legal_pages_and_source()
+    public void Layout_footer_links_the_legal_pages_source_and_discord()
     {
         // Google OAuth verification requires a privacy-policy link on the homepage's own domain;
         // since the Landing page dropped its duplicate block, the layout footer is that link's
