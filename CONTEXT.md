@@ -23,3 +23,11 @@ _Avoid_: mini sidebar, collapsed nav
 **Live Occurrence**:
 The single Scheduled-or-Started event that currently represents a recurring series. Its identity (event id, Discord message) rotates every cycle, so nothing durable may point at it.
 _Avoid_: current event, active event
+
+**Community Server**:
+The public CalCrony Discord guild — support, announcements, and a playground for trying the bot. To the product it is an ordinary guild: the production bot serves it exactly like any other server it is installed in.
+_Avoid_: main server, home guild
+
+**Test Guild**:
+The private Discord guild used during development, where the bot registers slash commands guild-scoped (instant) instead of globally. Never the Community Server — pointing test registration at the public guild would leak test commands to users.
+_Avoid_: dev server, staging guild

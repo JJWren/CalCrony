@@ -51,6 +51,18 @@ public class ComponentTests : TestContext
         Assert.NotNull(cut.Find("footer a[href='/privacy']"));
         Assert.NotNull(cut.Find("footer a[href='/terms']"));
         Assert.NotNull(cut.Find("footer a[href='https://github.com/JJWren/CalCrony']"));
+        Assert.NotNull(cut.Find("footer a[href='https://discord.gg/aEdYyZYgyV']"));
+    }
+
+    [Fact]
+    public void Landing_links_the_community_server()
+    {
+        UseConfig();
+        var cut = Render<Landing>();
+
+        // The community-server invite is a pinned link like the legal/source ones —
+        // it must not drift from the permanent discord.gg invite.
+        Assert.NotNull(cut.Find("a[href='https://discord.gg/aEdYyZYgyV']"));
     }
 
     [Fact]

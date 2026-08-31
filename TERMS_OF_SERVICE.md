@@ -64,4 +64,5 @@ change log.
 ## 8. Contact
 
 Questions or issues: open a [GitHub issue](https://github.com/JJWren/CalCrony/issues) on this
-repository.
+repository. For informal questions, the
+[community Discord server](https://discord.gg/aEdYyZYgyV) also works.
