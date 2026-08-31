@@ -15,7 +15,9 @@ public static partial class RsvpOptionSyntax
     private const int MaxOptions = 10;
     private const string DefaultEmote = "🔹";
 
-    [GeneratedRegex(@"^x(\d{1,4})$", RegexOptions.IgnoreCase)]
+    /// <summary>Trailing <c>xN</c> capacity. Any digit run is a capacity token — a number too
+    /// large for the API is an error, never silently label text.</summary>
+    [GeneratedRegex(@"^x(\d+)$", RegexOptions.IgnoreCase)]
     private static partial Regex CapacityToken();
 
     /// <summary>Parses the delimited option string.</summary>
@@ -72,7 +74,16 @@ public static partial class RsvpOptionSyntax
             int? capacity = null;
             if (tokens.Count > 0 && CapacityToken().Match(tokens[^1]) is { Success: true } match)
             {
-                capacity = int.Parse(match.Groups[1].ValueSpan, System.Globalization.CultureInfo.InvariantCulture);
+                if (!int.TryParse(
+                        match.Groups[1].ValueSpan, System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsedCapacity)
+                    || parsedCapacity < 1)
+                {
+                    error = $"Capacity \"{tokens[^1]}\" must be a whole number between 1 and {int.MaxValue}.";
+                    return false;
+                }
+
+                capacity = parsedCapacity;
                 tokens.RemoveAt(tokens.Count - 1);
             }
 

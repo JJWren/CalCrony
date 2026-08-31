@@ -39,6 +39,27 @@ public class RsvpOptionSyntaxTests
         Assert.Equal(label, specs[0].Label);
     }
 
+    [Theory]
+    [InlineData("✅ Going x10000", 10000)] // more than four digits is still a capacity
+    [InlineData("✅ Going x2147483647", int.MaxValue)]
+    public void Large_capacities_parse_instead_of_becoming_label_text(string input, int expected)
+    {
+        Assert.True(RsvpOptionSyntax.TryParse(input, out var specs, out _));
+
+        Assert.Equal("Going", specs[0].Label);
+        Assert.Equal(expected, specs[0].Capacity);
+    }
+
+    [Theory]
+    [InlineData("✅ Going x99999999999")] // overflows Int32
+    [InlineData("✅ Going x0")]
+    public void Unusable_capacities_are_errors_not_labels(string input)
+    {
+        Assert.False(RsvpOptionSyntax.TryParse(input, out _, out var error));
+
+        Assert.Contains("Capacity", error);
+    }
+
     [Fact]
     public void Missing_emoji_gets_a_default_and_accented_labels_stay_labels()
     {

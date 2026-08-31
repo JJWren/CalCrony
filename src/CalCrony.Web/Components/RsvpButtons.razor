@@ -33,6 +33,10 @@ else if (MyWaitlistPosition is int position)
 
     [Parameter] public EventCallback<EventDto> OnChanged { get; set; }
 
+    /// <summary>Raised once the cutoff passes on an open page, so a parent showing its own
+    /// cutoff status (the detail page's "RSVPs close …" chip) re-renders with the buttons.</summary>
+    [Parameter] public EventCallback OnClosed { get; set; }
+
     [Inject] private CalCronyWebApiClient Api { get; set; } = default!;
 
     private bool busy;
@@ -67,11 +71,12 @@ else if (MyWaitlistPosition is int position)
         }
 
         closeTimer = new System.Threading.Timer(
-            _ => _ = InvokeAsync(() =>
+            _ => _ = InvokeAsync(async () =>
             {
                 if (DateTimeOffset.UtcNow >= closesAt)
                 {
                     StateHasChanged();
+                    await OnClosed.InvokeAsync();
                 }
                 else
                 {

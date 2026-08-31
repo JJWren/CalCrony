@@ -253,7 +253,7 @@ else
     }
 
     <h2 class="h5 mt-4 mb-2">Your RSVP</h2>
-    <RsvpButtons Event="ev" UserId="UserId" OnChanged="dto => ev = dto" />
+    <RsvpButtons Event="ev" UserId="UserId" OnChanged="dto => ev = dto" OnClosed="StateHasChanged" />
     <p class="meta-mono mt-2"><span class="status-dot status-free"></span> your choice updates the Discord embed within ~15 seconds</p>
 
     <h2 class="h5 mt-4 mb-2">Who's in</h2>
