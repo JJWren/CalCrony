@@ -76,6 +76,8 @@ jobs:
     needs: [release-please, publish-images]
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
+    # The Discord POST needs no repository access — don't hand it the workflow's write token.
+    permissions: {}
     steps:
       - name: Post release to Discord
         env:
