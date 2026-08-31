@@ -23,6 +23,7 @@ public enum SeriesRepeatChoice
     [ChoiceDisplay("weekly")] Weekly,
     [ChoiceDisplay("monthly (same date)")] MonthlySameDate,
     [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
+    [ChoiceDisplay("yearly")] Yearly,
 }
 
 /// <summary>/series — manage repeating events: edit the rule, skip, stop, and inspect.</summary>
@@ -42,7 +43,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
         [Summary("repeat", "New repeat rule — or \"doesn't repeat\" to stop the series")] SeriesRepeatChoice? repeat = null,
-        [Summary("repeat-every", "New interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int? repeatEvery = null,
+        [Summary("repeat-every", "New interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int? repeatEvery = null,
         [Summary("ends", "How the series ends — or just pass until/count directly")] SeriesEndsChoice? ends = null,
         [Summary("until", "Last date it repeats, e.g. \"Aug 30\" (implies ends: on a date)")] string? until = null,
         [Summary("count", "Total occurrences including past ones (2-500)"), MinValue(2), MaxValue(500)] int? count = null)
@@ -153,6 +154,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
             SeriesRepeatChoice.Weekly => (RecurrenceUnit.Week, MonthlyMode.DayOfMonth),
             SeriesRepeatChoice.MonthlySameDate => (RecurrenceUnit.Month, MonthlyMode.DayOfMonth),
             SeriesRepeatChoice.MonthlyNthWeekday => (RecurrenceUnit.Month, MonthlyMode.NthWeekday),
+            SeriesRepeatChoice.Yearly => (RecurrenceUnit.Year, MonthlyMode.DayOfMonth),
             _ => (null, null),
         };
         var end = ends switch

@@ -6,6 +6,7 @@ public enum RecurrenceUnit
     Day = 0,
     Week = 1,
     Month = 2,
+    Year = 3,
 }
 
 /// <summary>How monthly rules pick the day: the anchor's day-of-month (clamped to short months)
@@ -24,7 +25,7 @@ public enum EditScope
     Series = 1,
 }
 
-/// <summary>A repeat rule: every Interval units, anchored on the first occurrence; MonthlyMode applies when Unit is Month.</summary>
+/// <summary>A repeat rule: every Interval units, anchored on the first occurrence; MonthlyMode applies only when Unit is Month.</summary>
 /// <param name="Unit">The recurrence unit.</param>
 /// <param name="Interval">Every N units (1-12).</param>
 /// <param name="MonthlyMode">The monthly mode.</param>

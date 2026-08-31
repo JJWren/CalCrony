@@ -12,6 +12,7 @@ public enum RepeatChoice
     [ChoiceDisplay("weekly")] Weekly,
     [ChoiceDisplay("monthly (same date)")] MonthlySameDate,
     [ChoiceDisplay("monthly (nth weekday)")] MonthlyNthWeekday,
+    [ChoiceDisplay("yearly")] Yearly,
     [ChoiceDisplay("no repeat (ignore template repeat)")] None,
 }
 
@@ -55,7 +56,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         [Summary(description: "Where the event happens")] string? location = null,
         [Summary("image", "Image URL for the event embed")] string? image = null,
         [Summary("repeat", "Repeat this event on a schedule anchored to the first occurrence")] RepeatChoice? repeat = null,
-        [Summary("repeat-every", "Repeat interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
+        [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
         [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
         [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
         [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null,
@@ -114,6 +115,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
             RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
             RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
+            RepeatChoice.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatEvery),
             _ => null,
         };
 

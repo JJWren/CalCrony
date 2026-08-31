@@ -6,7 +6,8 @@ namespace CalCrony.Api.Services;
 
 /// <summary>Pure, anchor-based recurrence math. Every candidate slot is computed from the series
 /// anchor — never chained from a previous (possibly clamped) result — so "monthly on the 31st"
-/// clamps to Feb 28 yet returns to Mar 31 without drifting.</summary>
+/// clamps to Feb 28 yet returns to Mar 31, and "yearly on Feb 29" clamps to Feb 28 yet returns
+/// to Feb 29 in leap years, without drifting.</summary>
 public static class RecurrenceCalculator
 {
     /// <summary>First schedule date strictly after <paramref name="after"/> — except when
@@ -14,7 +15,7 @@ public static class RecurrenceCalculator
     /// schedule) is returned as-is.</summary>
     /// <param name="unit">The recurrence unit.</param>
     /// <param name="interval">Every N units (1-12).</param>
-    /// <param name="mode">The monthly mode (ignored for day/week units).</param>
+    /// <param name="mode">The monthly mode (ignored for non-month units).</param>
     /// <param name="anchor">The schedule anchor date (first occurrence).</param>
     /// <param name="after">The exclusive lower bound for the returned date.</param>
     /// <returns>The next schedule date.</returns>
@@ -37,6 +38,21 @@ public static class RecurrenceCalculator
                 while (candidate <= after)
                 {
                     candidate = candidate.PlusDays(stepDays);
+                }
+
+                return candidate;
+            }
+
+            case RecurrenceUnit.Year:
+            {
+                // PlusYears clamps per-candidate (Feb 29 → Feb 28 in non-leap years), and because
+                // we always add to the anchor the clamp never sticks — leap years get Feb 29 back.
+                var k = Math.Max(0, Period.Between(anchor, after, PeriodUnits.Years).Years / interval);
+                var candidate = anchor.PlusYears(k * interval);
+                while (candidate <= after)
+                {
+                    k++;
+                    candidate = anchor.PlusYears(k * interval);
                 }
 
                 return candidate;
@@ -107,6 +123,8 @@ public static class RecurrenceCalculator
             RecurrenceUnit.Day => series.Interval == 1 ? "daily" : $"every {series.Interval} days",
             RecurrenceUnit.Week =>
                 $"{(every is null ? "weekly" : every + "weeks")} on {series.AnchorDate.DayOfWeek}",
+            RecurrenceUnit.Year =>
+                $"{(every is null ? "yearly" : every + "years")} on {series.AnchorDate:MMM d}",
             _ when series.MonthlyMode == MonthlyMode.DayOfMonth =>
                 $"{(every is null ? "monthly" : every + "months")} on day {series.AnchorDate.Day}",
             _ =>
@@ -123,7 +141,7 @@ public static class RecurrenceCalculator
 
     /// <summary>The month-mode slot for anchor + monthsAhead: same day-of-month (clamped) or nth weekday (5th falls back to last).</summary>
     /// <param name="anchor">The schedule anchor date (first occurrence).</param>
-    /// <param name="mode">The monthly mode (ignored for day/week units).</param>
+    /// <param name="mode">The monthly mode (ignored for non-month units).</param>
     /// <param name="monthsAhead">How many months past the anchor to compute.</param>
     /// <returns>The candidate date in the target month.</returns>
     private static LocalDate MonthCandidate(LocalDate anchor, MonthlyMode mode, int monthsAhead)

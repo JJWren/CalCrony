@@ -67,6 +67,37 @@ public class IcsRecurrenceTests
     }
 
     [Fact]
+    public void Yearly_maps_frequency_interval_and_anchor_month_day()
+    {
+        var series = Series(RecurrenceUnit.Year, 2);
+        series.AnchorDate = new LocalDate(2026, 8, 31);
+
+        var pattern = IcsRecurrence.BuildPattern(series, anchorIsCounted: true);
+
+        Assert.Equal(FrequencyType.Yearly, pattern.Frequency);
+        Assert.Equal(2, pattern.Interval);
+        Assert.Equal([8], pattern.ByMonth);
+        Assert.Equal([31], pattern.ByMonthDay);
+        Assert.Empty(pattern.BySetPosition);
+    }
+
+    [Fact]
+    public void Yearly_feb_29_uses_the_clamp_idiom()
+    {
+        // RFC's plain BYMONTHDAY=29 SKIPS non-leap years; our engine clamps to Feb 28. The
+        // 28,29 + BYSETPOS=-1 idiom picks min(29, February's length) — clamp semantics exactly.
+        var series = Series(RecurrenceUnit.Year, 1);
+        series.AnchorDate = new LocalDate(2028, 2, 29);
+
+        var pattern = IcsRecurrence.BuildPattern(series, anchorIsCounted: true);
+
+        Assert.Equal(FrequencyType.Yearly, pattern.Frequency);
+        Assert.Equal([2], pattern.ByMonth);
+        Assert.Equal([28, 29], pattern.ByMonthDay);
+        Assert.Equal([-1], pattern.BySetPosition);
+    }
+
+    [Fact]
     public void Until_converts_the_inclusive_local_date_to_utc_end_of_day()
     {
         var series = Series(RecurrenceUnit.Week, 1);

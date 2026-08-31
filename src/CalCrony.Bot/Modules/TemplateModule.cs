@@ -123,7 +123,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         [Summary(description: "New location")] string? location = null,
         [Summary("image", "New image URL")] string? image = null,
         [Summary("repeat", "New repeat rule (\"no repeat\" clears it)")] RepeatChoice? repeat = null,
-        [Summary("repeat-every", "Repeat interval: every N days/weeks/months (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1)
+        [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1)
     {
         await DeferAsync(ephemeral: true);
 
@@ -160,6 +160,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
             RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
             RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
+            RepeatChoice.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatEvery),
             _ => null,
         };
 

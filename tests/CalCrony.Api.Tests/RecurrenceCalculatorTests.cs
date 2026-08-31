@@ -72,6 +72,51 @@ public class RecurrenceCalculatorTests
     }
 
     [Fact]
+    public void Yearly_steps_from_the_anchor()
+    {
+        var anchor = new LocalDate(2026, 8, 31);
+
+        Assert.Equal(new LocalDate(2027, 8, 31),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, anchor, anchor));
+
+        // Every-2-years stays on the anchor grid even from a mid-cycle "after".
+        Assert.Equal(new LocalDate(2030, 8, 31),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Year, 2, MonthlyMode.DayOfMonth, anchor, new LocalDate(2028, 9, 1)));
+    }
+
+    [Fact]
+    public void Yearly_feb_29_clamps_without_drifting()
+    {
+        var anchor = new LocalDate(2028, 2, 29); // a leap day
+
+        // Non-leap years clamp to Feb 28 (the short-month convention applied to February).
+        var y2029 = RecurrenceCalculator.NextDate(RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, anchor, anchor);
+        Assert.Equal(new LocalDate(2029, 2, 28), y2029);
+
+        var y2030 = RecurrenceCalculator.NextDate(RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, anchor, y2029);
+        Assert.Equal(new LocalDate(2030, 2, 28), y2030);
+
+        // Anchor-based math: the next leap year returns to Feb 29 instead of sticking at 28.
+        var y2032 = RecurrenceCalculator.NextDate(
+            RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, anchor, new LocalDate(2031, 2, 28));
+        Assert.Equal(new LocalDate(2032, 2, 29), y2032);
+    }
+
+    [Fact]
+    public void Yearly_next_occurrence_is_timezone_aware()
+    {
+        // Aug 31 18:00 in New York — the next occurrence resolves in the series zone (EDT, UTC-4).
+        var anchor = new LocalDate(2026, 8, 31);
+        var next = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, anchor, new LocalTime(18, 0),
+            NewYork, anchor, null, Instant.FromUtc(2026, 9, 15, 0, 0));
+
+        Assert.NotNull(next);
+        Assert.Equal(new LocalDate(2027, 8, 31), next.Value.Date);
+        Assert.Equal(Instant.FromUtc(2027, 8, 31, 22, 0), next.Value.Instant);
+    }
+
+    [Fact]
     public void Dst_gap_start_time_shifts_leniently()
     {
         // 2026-03-08 02:30 doesn't exist in America/New_York (spring forward) — lenient
@@ -119,6 +164,8 @@ public class RecurrenceCalculatorTests
     [InlineData(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, "Repeats every 2 weeks on Friday")]
     [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, "Repeats monthly on day 17")]
     [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.NthWeekday, "Repeats monthly on the 3rd Friday")]
+    [InlineData(RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, "Repeats yearly on Jul 17")]
+    [InlineData(RecurrenceUnit.Year, 2, MonthlyMode.DayOfMonth, "Repeats every 2 years on Jul 17")]
     public void Describe_covers_the_rule_matrix(RecurrenceUnit unit, int interval, MonthlyMode mode, string expected)
     {
         Assert.Equal(expected, RecurrenceCalculator.Describe(Series(unit, interval, mode)));
