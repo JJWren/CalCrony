@@ -54,11 +54,79 @@ public static class AttendeeRoleSync
     public static bool IsRoleActive(Event ev) =>
         ev.AttendeeRoleId is not null && ev.Status is EventStatus.Scheduled or EventStatus.Started;
 
+    /// <summary>The exact payload a grant/revoke for one user carries — the value the coalescing
+    /// lookups match on and the enqueued row stores.</summary>
+    /// <param name="ev">The event (AttendeeRoleId set).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <returns>The serialized <see cref="AttendeeRolePayload"/>.</returns>
+    private static string RolePayloadJson(Event ev, long userId) =>
+        JsonSerializer.Serialize(new AttendeeRolePayload(ev.Id, ev.GuildId, ev.AttendeeRoleId!.Value, userId));
+
+    /// <summary>Loads every pending grant/revoke addressed to any of <paramref name="userIds"/> on
+    /// this event's role in ONE query, so a caller enqueuing for many users at once (waitlist
+    /// promotion) coalesces against an in-memory set instead of a lookup per user. Feed the result
+    /// to <see cref="EnqueueRoleChange"/>, which keeps it in step with what it enqueues.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event (AttendeeRoleId set).</param>
+    /// <param name="userIds">The Discord user ids about to be enqueued for.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The pending grant/revoke rows for those users; the enqueue mutates it.</returns>
+    public static async Task<List<Delivery>> LoadPendingRoleChangesAsync(
+        CalCronyDbContext db, Event ev, IEnumerable<long> userIds, CancellationToken cancellationToken)
+    {
+        var payloads = userIds.Select(userId => RolePayloadJson(ev, userId)).ToList();
+        return payloads.Count == 0
+            ? []
+            : await db.Deliveries
+                .Where(d => (d.Type == DeliveryType.GrantAttendeeRole || d.Type == DeliveryType.RevokeAttendeeRole)
+                            && d.Status == DeliveryStatus.Pending
+                            && payloads.Contains(d.PayloadJson))
+                .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Enqueues one grant or revoke against an already-loaded pending set — the batch
+    /// form of <see cref="EnqueueRoleChangeAsync"/>, applying the identical coalescing rule.
+    /// <paramref name="pending"/> is updated in place (a cancelled row drops out, a new row goes
+    /// in) so repeated calls within one pass see each other's work — which the per-call query form
+    /// cannot do, since EF never queries un-saved additions.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="type">Grant or revoke.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="pending">The rows from <see cref="LoadPendingRoleChangesAsync"/>.</param>
+    /// <param name="now">The current instant.</param>
+    public static void EnqueueRoleChange(
+        CalCronyDbContext db, Event ev, DeliveryType type, long userId, List<Delivery> pending, Instant now)
+    {
+        var payloadJson = RolePayloadJson(ev, userId);
+        var opposite = type == DeliveryType.GrantAttendeeRole
+            ? DeliveryType.RevokeAttendeeRole
+            : DeliveryType.GrantAttendeeRole;
+
+        if (pending.Any(d => d.Type == type && d.PayloadJson == payloadJson))
+        {
+            return;
+        }
+
+        var cancellable = pending.FirstOrDefault(
+            d => d.Type == opposite && d.Attempts == 0 && d.PayloadJson == payloadJson);
+        if (cancellable is not null)
+        {
+            db.Deliveries.Remove(cancellable);
+            pending.Remove(cancellable);
+            return;
+        }
+
+        pending.Add(AddDelivery(db, ev, type, payloadJson, now));
+    }
+
     /// <summary>Enqueues one grant or revoke with rapid-toggle coalescing: an identical pending
     /// payload of the same type dedups; an identical pending payload of the OPPOSITE type that the
     /// bot has never been served (Attempts == 0) is deleted instead — the pair nets to a no-op.
     /// An in-flight opposite (Attempts &gt; 0) always acks first (best-effort handler), so
-    /// enqueueing normally keeps last-write-wins ordering.</summary>
+    /// enqueueing normally keeps last-write-wins ordering. Enqueuing for a whole set of users at
+    /// once? Use <see cref="LoadPendingRoleChangesAsync"/> with <see cref="EnqueueRoleChange"/> —
+    /// same rule, one lookup for the pass instead of one per user.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event.</param>
     /// <param name="type">Grant or revoke.</param>
@@ -69,30 +137,8 @@ public static class AttendeeRoleSync
         CalCronyDbContext db, Event ev, DeliveryType type, long userId, IClock clock,
         CancellationToken cancellationToken)
     {
-        var payloadJson = JsonSerializer.Serialize(
-            new AttendeeRolePayload(ev.Id, ev.GuildId, ev.AttendeeRoleId!.Value, userId));
-        var opposite = type == DeliveryType.GrantAttendeeRole
-            ? DeliveryType.RevokeAttendeeRole
-            : DeliveryType.GrantAttendeeRole;
-
-        var pending = await db.Deliveries
-            .Where(d => (d.Type == type || d.Type == opposite)
-                        && d.Status == DeliveryStatus.Pending
-                        && d.PayloadJson == payloadJson)
-            .ToListAsync(cancellationToken);
-        if (pending.Any(d => d.Type == type))
-        {
-            return;
-        }
-
-        var cancellable = pending.FirstOrDefault(d => d.Type == opposite && d.Attempts == 0);
-        if (cancellable is not null)
-        {
-            db.Deliveries.Remove(cancellable);
-            return;
-        }
-
-        AddDelivery(db, ev, type, payloadJson, clock.GetCurrentInstant());
+        var pending = await LoadPendingRoleChangesAsync(db, ev, [userId], cancellationToken);
+        EnqueueRoleChange(db, ev, type, userId, pending, clock.GetCurrentInstant());
     }
 
     /// <summary>Fans one delivery per user seated on the attending option (waitlisted users never
@@ -135,8 +181,10 @@ public static class AttendeeRoleSync
         return count;
     }
 
-    private static void AddDelivery(CalCronyDbContext db, Event ev, DeliveryType type, string payloadJson, Instant now)
-        => db.Deliveries.Add(new Delivery
+    private static Delivery AddDelivery(
+        CalCronyDbContext db, Event ev, DeliveryType type, string payloadJson, Instant now)
+    {
+        var delivery = new Delivery
         {
             Id = Guid.NewGuid(),
             Type = type,
@@ -146,5 +194,8 @@ public static class AttendeeRoleSync
             DueAt = now,
             Status = DeliveryStatus.Pending,
             CreatedAt = now,
-        });
+        };
+        db.Deliveries.Add(delivery);
+        return delivery;
+    }
 }
