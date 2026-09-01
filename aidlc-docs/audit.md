@@ -305,3 +305,10 @@
 **Context**: Delivery — sibling PR done first so #150 stays single-purpose.
 
 ---
+## Delivery — release 0.33.0 (#148) cut
+**Timestamp**: 2026-09-01T23:41:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: release-please opened #151 "chore(master): release 0.33.0" after #149 merged. Its CI and CodeQL runs sat in action_required; approved both, requested Copilot (which approved), and squash-merged #151 through the ordinary merge API as e81af51 once build-test and pr-title were green. 0.33.0 carries only #148; the §3.5 PR (#150) will cut the next release, and the Docker rollout happens once with that version.
+**Context**: Delivery — step 8.3 in progress; #150 awaiting its first Copilot round.
+
+---
