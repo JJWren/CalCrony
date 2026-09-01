@@ -533,6 +533,16 @@ public sealed class DeliveryPollerService(
     private async Task<bool> DmEventReminderAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
+
+        // A row Discord already refused (report still outstanding) goes straight to the report,
+        // WITHOUT re-claiming: a fresh claim would re-stamp the attempt time and make that old
+        // refusal look newer than a consent the user may have renewed since — the API compares
+        // the two, so the original stamp must survive.
+        if (refusedDeliveriesPendingReport.Contains(delivery.Id))
+        {
+            return await ReportRefusedAsync(delivery, payload.UserId);
+        }
+
         var claim = await api.ClaimDmReminderAsync(delivery.Id);
         if (!claim.Success || claim.Value is null)
         {
@@ -552,41 +562,45 @@ public sealed class DeliveryPollerService(
                 return false;
         }
 
-        if (!refusedDeliveriesPendingReport.Contains(delivery.Id))
+        IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
+        if (user is null)
         {
-            IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
-            if (user is null)
-            {
-                logger.LogInformation("DM reminder {DeliveryId}: user {UserId} not found; dropping.", delivery.Id, payload.UserId);
-                return true;
-            }
-
-            try
-            {
-                var dm = await user.CreateDMChannelAsync();
-                await dm.SendMessageAsync(DmReminderText.Format(payload));
-                return true;
-            }
-            catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
-            {
-                refusedDeliveriesPendingReport.Add(delivery.Id);
-            }
+            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} not found; dropping.", delivery.Id, payload.UserId);
+            return true;
         }
 
-        // Closed DMs: record the switch-off (which also withdraws the user's other queued DMs).
-        // Not recorded ⇒ not done: the row stays pending and the retry comes back here — to the
-        // report, not to Discord — until the API accepts it.
+        try
+        {
+            var dm = await user.CreateDMChannelAsync();
+            await dm.SendMessageAsync(DmReminderText.Format(payload));
+            return true;
+        }
+        catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
+        {
+            refusedDeliveriesPendingReport.Add(delivery.Id);
+        }
+
+        return await ReportRefusedAsync(delivery, payload.UserId);
+    }
+
+    /// <summary>Records a Discord refusal with the API (which switches the preference off unless the
+    /// consent was renewed after the attempt began, and withdraws the user's other queued DMs).
+    /// Not recorded ⇒ not done: the row stays pending and the retry comes back here — to the
+    /// report, not to Discord — until the API accepts it.</summary>
+    /// <param name="delivery">The refused delivery.</param>
+    /// <param name="userId">The recipient (for logging).</param>
+    /// <returns>True once the refusal is recorded (the delivery may be acknowledged).</returns>
+    private async Task<bool> ReportRefusedAsync(DeliveryDto delivery, long userId)
+    {
         var refused = await api.ReportDmRefusedAsync(delivery.Id);
         if (!refused.Success)
         {
             throw new InvalidOperationException(
-                $"User {payload.UserId} has DMs closed but the refusal could not be recorded: {refused.Error}");
+                $"User {userId} has DMs closed but the refusal could not be recorded: {refused.Error}");
         }
 
         refusedDeliveriesPendingReport.Remove(delivery.Id);
-        logger.LogInformation(
-            "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off.",
-            delivery.Id, payload.UserId);
+        logger.LogInformation("DM reminder {DeliveryId}: user {UserId} has DMs closed; refusal recorded.", delivery.Id, userId);
         return true;
     }
 
