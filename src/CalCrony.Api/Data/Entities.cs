@@ -49,6 +49,24 @@ public class UserProfile
     public string? TimeZone { get; set; }
     public bool DmConfirmations { get; set; } = true;
 
+    /// <summary>Opt-in, default OFF: also deliver reminders and start announcements for events the
+    /// user is attending by DM. Only the user can turn this on — creators and servers never can
+    /// (the hosted instance's anti-spam posture).</summary>
+    public bool DmReminders { get; set; }
+
+    /// <summary>Whether the bot has already offered the DM-reminder toggle (once, ever, after a
+    /// first attending RSVP) — the only discoverability nudge; never an unsolicited DM.</summary>
+    public bool DmRemindersOffered { get; set; }
+
+    /// <summary>When Discord last refused a DM (closed DMs / blocked bot): the preference was turned
+    /// off at that moment instead of retrying into a wall. Null when that has never happened.</summary>
+    public Instant? DmRemindersBlockedAt { get; set; }
+
+    /// <summary>When the user last explicitly turned DM reminders ON — the consent version. A
+    /// refusal reported for an attempt that began BEFORE this instant must not switch the newer
+    /// consent off. Null until the user has ever opted in.</summary>
+    public Instant? DmRemindersEnabledAt { get; set; }
+
     /// <summary>Web interface theme (a value from <see cref="InterfaceThemes.All"/>); null = the
     /// user never picked one and the web app uses its default. The dark/light face is a per-device
     /// choice and deliberately not stored.</summary>
@@ -369,6 +387,10 @@ public enum DeliveryStatus
     Pending = 0,
     Sent = 1,
     Failed = 2,
+
+    /// <summary>Withdrawn before it was served (e.g. a DM reminder whose recipient turned the
+    /// opt-in off). Never re-served; purged by retention like Sent/Failed.</summary>
+    Cancelled = 3,
 }
 
 /// <summary>Unguessable token embedded in a guild's public ICS feed URL.</summary>
@@ -391,6 +413,17 @@ public class Delivery
     public DeliveryStatus Status { get; set; }
     public int Attempts { get; set; }
     public Instant CreatedAt { get; set; }
+
+    /// <summary>When the bot claimed this row for an attempt (DM reminders only today). A claimed
+    /// row is not re-served until the claim ages out, so a crash between a failed Discord attempt
+    /// and its recorded outcome can't produce a second attempt; success or cancellation settles
+    /// the row, and a stale claim simply expires back into the pending set.</summary>
+    public Instant? ClaimedAt { get; set; }
+
+    /// <summary>The Discord user a per-person delivery (a DM reminder) is addressed to; null for
+    /// channel deliveries. Indexed, so "is another DM for this person in flight?" and "withdraw
+    /// everything queued for this person" are plain lookups rather than payload parsing.</summary>
+    public long? RecipientUserId { get; set; }
 }
 
 /// <summary>A Discord user's linked external calendar. Tokens are Data-Protection-encrypted at rest;

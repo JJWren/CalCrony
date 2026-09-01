@@ -2,6 +2,7 @@ using System.Text.Json;
 using CalCrony.Bot.Api;
 using CalCrony.Contracts;
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 
 namespace CalCrony.Bot;
@@ -71,8 +72,10 @@ public sealed class DeliveryPollerService(
         {
             try
             {
-                await PostAsync(delivery);
-                await api.AckDeliveryAsync(delivery.Id, ct);
+                if (await PostAsync(delivery))
+                {
+                    await api.AckDeliveryAsync(delivery.Id, ct);
+                }
             }
             catch (Exception ex)
             {
@@ -82,57 +85,63 @@ public sealed class DeliveryPollerService(
         }
     }
 
-    /// <summary>Dispatches one delivery to its per-type handler.</summary>
+    /// <summary>Dispatches one delivery to its per-type handler. Returns whether the delivery may be
+    /// acknowledged — false only when another attempt owns the row (see the DM claim).</summary>
     /// <param name="delivery">The outbox row to post.</param>
     /// <exception cref="InvalidOperationException">When the channel is missing, the type is unknown, or a message id fails to record — caught by DrainAsync, which leaves the delivery pending for retry.</exception>
-    private async Task PostAsync(DeliveryDto delivery)
+    private async Task<bool> PostAsync(DeliveryDto delivery)
     {
         if (delivery.Type == DeliveryType.SyncEventMessage)
         {
             await SyncEventMessageAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.PostEventMessage)
         {
             await PostEventMessageAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.DeleteEventMessage)
         {
             await DeleteEventMessageAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.SyncPollMessage)
         {
             await SyncPollMessageAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.PostPollMessage)
         {
             await PostPollMessageAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.DeletePollMessage)
         {
             await DeletePollMessageAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.SyncLiveList)
         {
             await SyncLiveListAsync(delivery);
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.EventStart)
         {
             await EventStartAsync(delivery);
-            return;
+            return true;
+        }
+
+        if (delivery.Type == DeliveryType.DmEventReminder)
+        {
+            return await DmEventReminderAsync(delivery);
         }
 
         if (delivery.Type == DeliveryType.CompleteNativeEvent)
@@ -140,7 +149,7 @@ public sealed class DeliveryPollerService(
             var payload = JsonSerializer.Deserialize<CompleteNativeEventPayload>(delivery.PayloadJson)!;
             // Best-effort by design (the helper never throws), so this always acks.
             await mirror.TryCompleteAsync(payload.GuildId, payload.NativeEventId);
-            return;
+            return true;
         }
 
         if (delivery.Type is DeliveryType.GrantAttendeeRole or DeliveryType.RevokeAttendeeRole)
@@ -156,18 +165,18 @@ public sealed class DeliveryPollerService(
             catch (JsonException ex)
             {
                 logger.LogWarning(ex, "Discarding attendee-role delivery {DeliveryId} with a malformed payload.", delivery.Id);
-                return;
+                return true;
             }
 
             if (payload is null)
             {
-                return;
+                return true;
             }
 
             await (delivery.Type == DeliveryType.GrantAttendeeRole
                 ? roles.TryGrantAsync(payload.GuildId, payload.RoleId, payload.UserId)
                 : roles.TryRevokeAsync(payload.GuildId, payload.RoleId, payload.UserId));
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.AddThreadMember)
@@ -182,7 +191,7 @@ public sealed class DeliveryPollerService(
             catch (JsonException ex)
             {
                 logger.LogWarning(ex, "Discarding thread-member delivery {DeliveryId} with a malformed payload.", delivery.Id);
-                return;
+                return true;
             }
 
             if (payload is not null)
@@ -190,7 +199,7 @@ public sealed class DeliveryPollerService(
                 await threads.TryAddMemberAsync(payload.EventId, payload.GuildId, payload.ThreadId, payload.UserId);
             }
 
-            return;
+            return true;
         }
 
         if (delivery.Type == DeliveryType.ArchiveThread)
@@ -203,7 +212,7 @@ public sealed class DeliveryPollerService(
             catch (JsonException ex)
             {
                 logger.LogWarning(ex, "Discarding thread-archive delivery {DeliveryId} with a malformed payload.", delivery.Id);
-                return;
+                return true;
             }
 
             if (payload is not null)
@@ -211,7 +220,7 @@ public sealed class DeliveryPollerService(
                 await threads.TryArchiveAsync(payload.EventId, payload.GuildId, payload.ThreadId);
             }
 
-            return;
+            return true;
         }
 
         if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
@@ -228,7 +237,7 @@ public sealed class DeliveryPollerService(
             await channel.SendMessageAsync(
                 FormatWaitlistPromotion(payload),
                 allowedMentions: new AllowedMentions { UserIds = [(ulong)payload.UserId] });
-            return;
+            return true;
         }
 
         var text = delivery.Type switch
@@ -239,6 +248,7 @@ public sealed class DeliveryPollerService(
         };
 
         await channel.SendMessageAsync(text);
+        return true;
     }
 
     /// <summary>A web-created event needs its Discord embed posted (mirrors what /create does):
@@ -494,6 +504,104 @@ public sealed class DeliveryPollerService(
         {
             await mirror.TryStartAsync(guildId, nativeId);
         }
+    }
+
+    /// <summary>Discord API error 50007, "Cannot send messages to this user": DMs disabled for the
+    /// server, or the bot blocked. Matched numerically — the enum name has moved between
+    /// Discord.Net versions.</summary>
+    private const int ClosedDmsErrorCode = 50007;
+
+    /// <summary>Deliveries Discord has already refused with 50007 whose switch-off report has not
+    /// yet been recorded by the API. Keyed by DELIVERY, not user: a marker must not outlive the
+    /// attempt that produced it, or a stale refusal could disable a consent the user renewed
+    /// later. Within this process a retry of that row goes straight to the report instead of
+    /// knocking on the closed inbox again; across a restart the API-side claim on the row (not
+    /// re-served while the claim lives) provides the same guarantee. Entries clear when the report
+    /// succeeds, or when the row turns out to be cancelled or owned elsewhere.</summary>
+    private readonly HashSet<Guid> refusedDeliveriesPendingReport = [];
+
+    /// <summary>DMs an attendee — after claiming the row with the API, which re-validates NOW that
+    /// the recipient is still opted in and still seated on the attending option (an un-RSVP, an
+    /// option switch, or a drop to the waitlist since enqueue cancels the row instead) and stamps
+    /// the claim so the row isn't re-served while this attempt is in flight. Closed DMs (Discord
+    /// 50007 — DMs disabled or the bot blocked) switch the preference off through the API, which
+    /// also withdraws the user's other queued DMs; the delivery counts as done only once that
+    /// switch-off is recorded — otherwise it propagates and the outbox retries the report (the
+    /// claim keeps the row parked meanwhile). Any other failure propagates too; an unknown user
+    /// id is dropped as done.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
+    private async Task<bool> DmEventReminderAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
+
+        // A row Discord already refused (report still outstanding) goes straight to the report,
+        // WITHOUT re-claiming: a fresh claim would re-stamp the attempt time and make that old
+        // refusal look newer than a consent the user may have renewed since — the API compares
+        // the two, so the original stamp must survive.
+        if (refusedDeliveriesPendingReport.Contains(delivery.Id))
+        {
+            return await ReportRefusedAsync(delivery, payload.UserId);
+        }
+
+        var claim = await api.ClaimDmReminderAsync(delivery.Id);
+        if (!claim.Success || claim.Value is null)
+        {
+            throw new InvalidOperationException($"Could not claim DM reminder {delivery.Id}: {claim.Error}");
+        }
+
+        switch (claim.Value.Outcome)
+        {
+            case DmReminderClaimOutcome.Cancelled:
+                refusedDeliveriesPendingReport.Remove(delivery.Id);
+                logger.LogInformation("DM reminder {DeliveryId}: user {UserId} is no longer eligible; the API cancelled it.", delivery.Id, payload.UserId);
+                return true; // acking a cancelled row is a no-op
+            case DmReminderClaimOutcome.AlreadyClaimed:
+                // Another attempt owns this row — never settle it from here.
+                refusedDeliveriesPendingReport.Remove(delivery.Id);
+                logger.LogInformation("DM reminder {DeliveryId}: already claimed elsewhere; leaving it to its owner.", delivery.Id);
+                return false;
+        }
+
+        IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
+        if (user is null)
+        {
+            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} not found; dropping.", delivery.Id, payload.UserId);
+            return true;
+        }
+
+        try
+        {
+            var dm = await user.CreateDMChannelAsync();
+            await dm.SendMessageAsync(DmReminderText.Format(payload));
+            return true;
+        }
+        catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
+        {
+            refusedDeliveriesPendingReport.Add(delivery.Id);
+        }
+
+        return await ReportRefusedAsync(delivery, payload.UserId);
+    }
+
+    /// <summary>Records a Discord refusal with the API (which switches the preference off unless the
+    /// consent was renewed after the attempt began, and withdraws the user's other queued DMs).
+    /// Not recorded ⇒ not done: the row stays pending and the retry comes back here — to the
+    /// report, not to Discord — until the API accepts it.</summary>
+    /// <param name="delivery">The refused delivery.</param>
+    /// <param name="userId">The recipient (for logging).</param>
+    /// <returns>True once the refusal is recorded (the delivery may be acknowledged).</returns>
+    private async Task<bool> ReportRefusedAsync(DeliveryDto delivery, long userId)
+    {
+        var refused = await api.ReportDmRefusedAsync(delivery.Id);
+        if (!refused.Success)
+        {
+            throw new InvalidOperationException(
+                $"User {userId} has DMs closed but the refusal could not be recorded: {refused.Error}");
+        }
+
+        refusedDeliveriesPendingReport.Remove(delivery.Id);
+        logger.LogInformation("DM reminder {DeliveryId}: user {UserId} has DMs closed; refusal recorded.", delivery.Id, userId);
+        return true;
     }
 
     /// <summary>Message text for an event-start announcement.</summary>

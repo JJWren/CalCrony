@@ -7,6 +7,7 @@ using CalCrony.Contracts;
 using CalCrony.Web.Api;
 using CalCrony.Web.Auth;
 using CalCrony.Web.Components;
+using CalCrony.Web.Pages.App;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Web.Tests;
@@ -149,6 +150,136 @@ public class ThemeComponentTests : TestContext
         // The callback is JS-invokable: an unexpected payload must be ignored, not become state.
         await cut.InvokeAsync(() => cut.Instance.OnModeChanged("banana"));
         Assert.Contains("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Light").ClassName);
+    }
+
+    [Fact]
+    public async Task Dm_reminders_toggle_is_off_by_default_and_saves_only_the_opt_in()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate"), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => cut.Find("#us-dm-reminders"));
+
+        // Off by default — the API's false renders unchecked, and the copy says who can turn it on.
+        Assert.False(cut.Find("#us-dm-reminders").HasAttribute("checked"));
+        Assert.Contains("only you can turn it on", cut.Markup);
+
+        cut.Find("#us-dm-reminders").Change(true);
+
+        cut.WaitForAssertion(() => Assert.NotNull(handler.PutBody));
+        var body = JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!;
+        Assert.True(body.DmReminders);
+        Assert.True(body.DmConfirmations); // the other settings ride along unchanged
+        Assert.Equal("UTC", body.TimeZone);
+    }
+
+    [Fact]
+    public async Task A_failed_settings_load_surfaces_the_error_instead_of_saving_defaults()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.StatusFor = req => req.RequestUri!.AbsolutePath == "/users/42/settings" && req.Method == HttpMethod.Get
+            ? HttpStatusCode.InternalServerError
+            : HttpStatusCode.OK;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.Contains("timezone") ? "[]" : null;
+
+        var cut = Render<UserSettings>();
+
+        // The page says it couldn't load, and nothing can be saved from this state: the controls
+        // are disabled and the handler refuses, so never-loaded defaults (timezone, confirmations,
+        // the DM opt-in) can't overwrite stored values.
+        cut.WaitForAssertion(() => Assert.Contains("API error 500", cut.Markup));
+        var save = cut.FindAll("button").First(b => b.TextContent.Trim() == "Save");
+        Assert.True(save.HasAttribute("disabled"));
+        Assert.True(cut.Find("#us-dm-reminders").HasAttribute("disabled"));
+
+        save.Click(); // a click that slips through anyway is refused
+        cut.WaitForAssertion(() => Assert.Contains("haven't loaded", cut.Markup));
+        Assert.Null(handler.PutBody);
+    }
+
+    [Fact]
+    public async Task A_failed_opt_out_save_snaps_the_switch_back_to_the_stored_state()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate", DmReminders: true), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+        handler.StatusFor = req => req.Method == HttpMethod.Put ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+
+        cut.Find("#us-dm-reminders").Change(false); // the opt-out PUT fails
+
+        // The switch may not claim "off" while the server still says "on".
+        cut.WaitForAssertion(() => Assert.Contains("API error 500", cut.Markup));
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+    }
+
+    [Fact]
+    public async Task Unrelated_saves_leave_the_dm_opt_in_alone_and_only_the_switch_sends_it()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate", DmReminders: true), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+
+        // A timezone save must not resend the opt-in loaded earlier (it may have changed since —
+        // an automatic switch-off after closed DMs, or a /settings change in Discord).
+        cut.Find("#us-tz").Change("America/Chicago");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(handler.PutBody));
+        Assert.Null(JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!.DmReminders);
+
+        // The switch itself is the only thing that sends an explicit value.
+        cut.Find("#us-dm-reminders").Change(false);
+        cut.WaitForAssertion(() => Assert.False(JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!.DmReminders));
+    }
+
+    [Fact]
+    public async Task When_a_failed_save_cannot_be_re_read_the_switch_is_marked_unknown_and_disabled()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        var loads = 0;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate", DmReminders: true), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+        // First GET loads fine; the PUT fails; the re-read GET fails too.
+        handler.StatusFor = req =>
+            req.Method == HttpMethod.Put ? HttpStatusCode.InternalServerError
+            : req.RequestUri!.AbsolutePath == "/users/42/settings" && ++loads > 1 ? HttpStatusCode.InternalServerError
+            : HttpStatusCode.OK;
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+
+        cut.Find("#us-dm-reminders").Change(false);
+
+        cut.WaitForAssertion(() => Assert.Contains("Current state unknown", cut.Markup));
+        Assert.True(cut.Find("#us-dm-reminders").HasAttribute("disabled"));
     }
 
     private CapturingHandler UseApi()

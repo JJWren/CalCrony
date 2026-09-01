@@ -66,5 +66,17 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             _ => $"You're marked {option?.Emote} **{option?.Label}** for **{ev.Title}** (<t:{ev.StartsAtUnix}:F>).",
         };
         await FollowupAsync(confirmation, ephemeral: true);
+
+        // The first time someone lands a SEAT on the attending option, offer DM reminders — once,
+        // ever, right here as an ephemeral prompt. Never an unsolicited DM, and the API decides
+        // whether the offer is still owed (it isn't if they already opted in elsewhere).
+        if (!alreadyOnOption && waitlistPosition < 0 && option?.IsAttending == true)
+        {
+            var offer = await api.OfferDmRemindersAsync(userId);
+            if (offer.Success && offer.Value?.Offer == true)
+            {
+                await FollowupAsync(DmReminderPrompt.Text, components: DmReminderPrompt.Buttons(), ephemeral: true);
+            }
+        }
     }
 }

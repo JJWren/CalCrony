@@ -1,6 +1,7 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Contracts;
+using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
@@ -86,8 +87,16 @@ public static class SettingsEndpoints
         }
 
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
-        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true, ValidThemeOrNull(user?.Theme)));
+        return Results.Ok(ToDto(user));
     }
+
+    /// <summary>The settings a caller sees; an absent profile reads as the defaults (DM reminders OFF).</summary>
+    private static UserSettingsDto ToDto(UserProfile? user) => new(
+        user?.TimeZone,
+        user?.DmConfirmations ?? true,
+        ValidThemeOrNull(user?.Theme),
+        user?.DmReminders ?? false,
+        user?.DmRemindersBlockedAt?.ToDateTimeOffset());
 
     /// <summary>Responses never carry a theme id clients don't know: a stored value that is no
     /// longer valid (renamed/retired theme) reads as null, i.e. the default. PUT validates on the
@@ -105,7 +114,7 @@ public static class SettingsEndpoints
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutUserSettings(
-        HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
         if (!context.User.IsBot() && context.User.WebUserId() != userId)
         {
@@ -123,6 +132,10 @@ public static class SettingsEndpoints
                 $"Unknown theme \"{settings.Theme}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
         }
 
+        // One transaction for the profile write and any queued-DM withdrawal it implies: the
+        // row lock the UPDATE takes means a concurrent re-enable (and anything the scheduler
+        // would enqueue under it) can only land after the opt-out AND its withdrawal committed.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
         if (user is null)
         {
@@ -135,7 +148,30 @@ public static class SettingsEndpoints
         // Null keeps the stored theme (see UserSettingsDto.Theme) — the bot's timezone/DM writes
         // never carry a theme and must not reset a web-chosen one.
         user.Theme = settings.Theme ?? user.Theme;
+        // Same null-keeps rule for the DM-reminder opt-in. Turning it on also consumes the
+        // one-time offer (someone who found the setting themselves is never prompted later) and
+        // clears the closed-DMs marker so they can retry after opening their DMs; turning it off
+        // withdraws anything already queued, so revoked consent can't be bypassed by the outbox.
+        var withdrawQueued = false;
+        if (settings.DmReminders is bool dmReminders)
+        {
+            withdrawQueued = user.DmReminders && !dmReminders;
+            user.DmReminders = dmReminders;
+            if (dmReminders)
+            {
+                user.DmRemindersOffered = true;
+                user.DmRemindersBlockedAt = null;
+                user.DmRemindersEnabledAt = clock.GetCurrentInstant(); // the consent version a late refusal is compared against
+            }
+        }
+
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations, ValidThemeOrNull(user.Theme)));
+        if (withdrawQueued)
+        {
+            await Services.DmReminderFanOut.CancelPendingAsync(db, userId, cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return Results.Ok(ToDto(user));
     }
 }
