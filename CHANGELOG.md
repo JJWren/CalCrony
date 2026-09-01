@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/JJWren/CalCrony/compare/v0.32.0...v0.33.0) (2026-09-01)
+
+
+### Features
+
+* name the server above the guild section tabs ([#149](https://github.com/JJWren/CalCrony/issues/149)) ([a7474b0](https://github.com/JJWren/CalCrony/commit/a7474b06b64695e5a844ae079f5321e31e41cb7b))
+
 ## [0.32.0](https://github.com/JJWren/CalCrony/compare/v0.31.1...v0.32.0) (2026-09-01)
 
 
