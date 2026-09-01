@@ -11,7 +11,8 @@ public record PublicCalendarSettingsDto(bool Enabled, string? Slug, string? Path
 /// <summary>Turns a server's public calendar on or off; <paramref name="Regenerate"/> mints a new
 /// slug while on, which revokes every previously shared link.</summary>
 /// <param name="Enabled">Whether the public calendar should be on.</param>
-/// <param name="Regenerate">Replace the slug (only meaningful when enabling an already-on calendar).</param>
+/// <param name="Regenerate">Replace the slug of an already-on calendar; rejected (409) while the
+/// calendar is off, so a "new link" can never be what turns sharing on.</param>
 public record PublicCalendarRequest(bool Enabled, bool Regenerate = false);
 
 /// <summary>One month of a server's public calendar — the login-free, read-only view. Carries

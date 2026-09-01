@@ -57,6 +57,19 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
     }
 
     [Fact]
+    public async Task Regenerating_while_off_is_rejected_and_does_not_turn_sharing_on()
+    {
+        const long guildId = 12180;
+        var response = await Client.PutAsJsonAsync(
+            $"/guilds/{guildId}/public-calendar", new PublicCalendarRequest(true, Regenerate: true));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var after = await ReadAsync<PublicCalendarSettingsDto>(await Client.GetAsync($"/guilds/{guildId}/public-calendar"));
+        Assert.False(after.Enabled);
+        Assert.Null(after.Slug);
+    }
+
+    [Fact]
     public async Task Concurrent_first_enables_agree_on_a_single_slug()
     {
         const long guildId = 12170;

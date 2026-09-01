@@ -90,6 +90,15 @@ public static partial class PublicCalendarEndpoints
         await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({guildId})", cancellationToken);
 
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
+        if (request.Enabled && request.Regenerate && guild.PublicCalendarSlug is null)
+        {
+            // "New link" replaces an active link; it must never be the thing that opts a server
+            // into anonymous sharing. Enforced here so the bot, the web app, and raw API callers
+            // all get the same rule.
+            return Results.Conflict(new ErrorResponse(
+                "The public calendar is off, so there is no link to replace — turn it on first."));
+        }
+
         if (!request.Enabled)
         {
             guild.PublicCalendarSlug = null;
