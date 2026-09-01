@@ -102,6 +102,24 @@ public class ActionLogUnitTests
     }
 
     [Fact]
+    public void Csv_keeps_sub_second_precision_so_queue_order_survives_the_export()
+    {
+        // Whole seconds stay compact; two RSVPs 250 ms apart inside one second stay distinguishable.
+        var ev = new CsvExport.EventRow(Guid.NewGuid(), "Quick", Now, "UTC", null, null, EventStatus.Scheduled, null, 5, 9);
+        IReadOnlyList<CsvExport.RsvpRow> rsvps =
+        [
+            new(ev.Id, "✅", "Going", true, 1, false, Now.Plus(Duration.FromMilliseconds(250))),
+            new(ev.Id, "✅", "Going", true, 2, false, Now.Plus(Duration.FromMilliseconds(500))),
+        ];
+
+        var lines = CsvExport.BuildEventsCsv([(ev, rsvps)]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.EndsWith(",1,false,2026-08-31T12:00:00.25Z", lines[1]);
+        Assert.EndsWith(",2,false,2026-08-31T12:00:00.5Z", lines[2]);
+        Assert.Contains(",2026-08-31T12:00:00Z,UTC,", lines[1]); // the whole-second start stays compact
+    }
+
+    [Fact]
     public void Csv_emits_one_row_per_rsvp_in_the_order_given_and_one_row_for_rsvp_less_events()
     {
         var busy = new CsvExport.EventRow(Guid.NewGuid(), "Busy", Now, "UTC", 90, "Hall, A", EventStatus.Scheduled, null, 5, 9);

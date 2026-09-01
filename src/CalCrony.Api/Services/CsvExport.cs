@@ -220,8 +220,10 @@ public static class CsvExport
         writer.Write("\r\n");
     }
 
-    /// <summary>ISO 8601 UTC to the second — what spreadsheets and scripts parse without fuss.</summary>
-    private static string FormatInstant(Instant instant) => InstantPattern.General.Format(instant);
+    /// <summary>ISO 8601 UTC at stored precision: whole seconds print as <c>…:00Z</c>, and only a
+    /// sub-second instant carries fractional digits — several RSVPs land inside one second, so
+    /// rounding would lose the queue order <c>rsvp_created_utc</c> is documented to give.</summary>
+    private static string FormatInstant(Instant instant) => InstantPattern.ExtendedIso.Format(instant);
 
     private static string FormatBool(bool value) => value ? "true" : "false";
 }

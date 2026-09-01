@@ -305,10 +305,11 @@ else
             // which aborts that read.
             exportFile = result.Value;
             var fileName = exportFile.FileName;
+            string outcome;
             try
             {
                 using var streamRef = new DotNetStreamReference(exportFile.Content, leaveOpen: true);
-                await Js.InvokeVoidAsync("calcronyDownload", token, fileName, streamRef, exportFile.ContentType);
+                outcome = await Js.InvokeAsync<string>("calcronyDownload", token, fileName, streamRef, exportFile.ContentType);
             }
             catch (Exception) when (token.IsCancellationRequested)
             {
@@ -323,7 +324,15 @@ else
                 return;
             }
 
-            exportMessage = $"⬇ Downloaded {fileName}.";
+            // "saved" streamed to a file (or, where the browser has no streaming sink, fit the
+            // bounded in-memory fallback); the other outcomes are the browser side declining.
+            exportMessage = outcome switch
+            {
+                "saved" => $"⬇ Downloaded {fileName}.",
+                "cancelled" => "Download cancelled.",
+                "too-large" => "❌ This export is too large to assemble in this browser — a Chromium browser (Chrome, Edge) can save it straight to disk.",
+                _ => "❌ The download didn't complete.",
+            };
             // The export itself is logged — show it without making the user refresh.
             await LoadPageAsync(reset: true, generation);
         }
@@ -331,14 +340,16 @@ else
         {
             // Only this export's own resources: a guild switch has already cleaned them up (and
             // may have handed the fields to a newer export).
+            // Only this export's own resources AND its own flag: a guild switch has already cleaned
+            // up (and may have handed the fields to a newer export, whose button must stay disabled
+            // when this stale one wakes up late).
             if (ReferenceEquals(exportCts, cts))
             {
                 CancelExport();
-            }
-
-            if (!disposed)
-            {
-                exporting = false;
+                if (!disposed)
+                {
+                    exporting = false;
+                }
             }
         }
     }

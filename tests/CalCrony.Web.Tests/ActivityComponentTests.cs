@@ -127,8 +127,8 @@ public class ActivityComponentTests : TestContext
             _ => GuildsJson(canManage: true),
         };
         handler.CsvBytes = [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes("event_id,title\r\n")];
-        var download = JSInterop.SetupVoid("calcronyDownload", _ => true);
-        download.SetVoidResult();
+        var download = JSInterop.Setup<string>("calcronyDownload", _ => true);
+        download.SetResult("saved");
 
         var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
@@ -256,8 +256,8 @@ public class ActivityComponentTests : TestContext
             _ => guilds,
         };
         handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
-        var download = JSInterop.SetupVoid("calcronyDownload", _ => true);
-        download.SetVoidResult();
+        var download = JSInterop.Setup<string>("calcronyDownload", _ => true);
+        download.SetResult("saved");
 
         var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
@@ -290,7 +290,7 @@ public class ActivityComponentTests : TestContext
         };
         handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
         // No result set: the JS side is "mid-read" until the test says otherwise.
-        var download = JSInterop.SetupVoid("calcronyDownload", _ => true);
+        var download = JSInterop.Setup<string>("calcronyDownload", _ => true);
 
         var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
@@ -309,7 +309,7 @@ public class ActivityComponentTests : TestContext
         // time to run: neither the old filename nor a reload may reach guild 2's page.
         try
         {
-            download.SetVoidResult();
+            download.SetResult("saved");
         }
         catch (InvalidOperationException)
         {
@@ -333,7 +333,7 @@ public class ActivityComponentTests : TestContext
             _ => GuildsJson(canManage: true),
         };
         handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
-        var download = JSInterop.SetupVoid("calcronyDownload", _ => true); // JS stays "mid-read"
+        var download = JSInterop.Setup<string>("calcronyDownload", _ => true); // JS stays "mid-read"
 
         var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
         cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
@@ -351,7 +351,7 @@ public class ActivityComponentTests : TestContext
         // request is the only observable state write it could make, and it must not happen.
         try
         {
-            download.SetVoidResult();
+            download.SetResult("saved");
         }
         catch (InvalidOperationException)
         {
@@ -360,6 +360,79 @@ public class ActivityComponentTests : TestContext
 
         await Task.Delay(250);
         Assert.Equal(actionsBefore, handler.ActionsCalls);
+    }
+
+    [Fact]
+    public async Task A_stale_export_finishing_late_does_not_re_enable_the_newer_guilds_export_button()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var guilds = JsonSerializer.Serialize(
+            new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "Mine", null, true), new WebGuildDto(2, "Also mine", null, true)]), JsonWeb);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => guilds,
+        };
+        handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
+        // One pending interop per guild, told apart by the filename each download carries.
+        var first = JSInterop.Setup<string>("calcronyDownload", inv => (string)inv.Arguments[0]! == "calcrony-events-1-20260831.csv");
+        var second = JSInterop.Setup<string>("calcronyDownload", inv => (string)inv.Arguments[0]! == "calcrony-events-2-20260831.csv");
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+        cut.WaitForAssertion(() => Assert.Single(first.Invocations));
+
+        // Switch guilds while guild 1's JS read is pending, then start guild 2's own export.
+        cut.Render(p => p.Add(x => x.GuildId, 2L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+        cut.WaitForAssertion(() => Assert.Single(second.Invocations));
+        Assert.Contains("Preparing…", cut.Markup);
+
+        // The stale export wakes up late: it must not touch the newer export's button state.
+        try
+        {
+            first.SetResult("saved");
+        }
+        catch (InvalidOperationException)
+        {
+            // bUnit already completed the invocation as cancelled — the same end state.
+        }
+
+        await Task.Delay(250);
+        Assert.Contains("Preparing…", cut.Markup);
+        Assert.DoesNotContain("Downloaded", cut.Markup);
+
+        second.SetResult("saved");
+        cut.WaitForAssertion(() => Assert.Contains("Downloaded calcrony-events-2-20260831.csv", cut.Markup));
+        Assert.DoesNotContain("Preparing…", cut.Markup);
+    }
+
+    [Theory]
+    [InlineData("cancelled", "Download cancelled.")]
+    [InlineData("too-large", "too large to assemble in this browser")]
+    public void Browser_side_download_outcomes_are_reported(string outcome, string expectedText)
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+        handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
+        var download = JSInterop.Setup<string>("calcronyDownload", _ => true);
+        download.SetResult(outcome);
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(expectedText, cut.Markup));
+        Assert.DoesNotContain("Downloaded", cut.Markup);
+        Assert.DoesNotContain("Preparing…", cut.Markup);
     }
 
     private static ActionLogEntryDto Entry(
@@ -431,7 +504,8 @@ public class ActivityComponentTests : TestContext
                 file.Content.Headers.ContentType = new MediaTypeHeaderValue("text/csv") { CharSet = "utf-8" };
                 file.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
                 {
-                    FileName = "\"calcrony-events-1-20260831.csv\"",
+                    // Named per guild so a test can tell one guild's download from another's.
+                    FileName = $"\"calcrony-events-{path.Split('/')[2]}-20260831.csv\"",
                 };
                 return file;
             }

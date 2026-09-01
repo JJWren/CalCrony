@@ -79,14 +79,51 @@ window.calcronyCopy = function (text) {
     return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
 };
 
-// Hands bytes the page fetched through the authenticated API client to the browser as a file
-// download (the CSV export). The access token lives only in memory — never a cookie or
-// storage — so a plain <a href> to the API could not carry it; Blazor fetches, then streams
-// the bytes here (a DotNetStreamReference, no Base64 detour) as a Blob behind a synthetic
-// anchor click.
+// Saves a file the page fetched through the authenticated API client (the CSV export). The
+// access token lives only in memory — never a cookie or storage — so a plain <a href> to the
+// API could not carry it; Blazor fetches and streams the body here as a DotNetStreamReference.
+// Where the browser offers a streaming sink (File System Access API: Chromium), the response is
+// piped straight to the chosen file, so memory stays flat however large the export is. Elsewhere
+// (Firefox, Safari) the only download path is a Blob, which has to be assembled in memory, so
+// that fallback is bounded: past the cap it aborts and reports "too-large" instead of exhausting
+// the tab. Returns "saved", "cancelled" (the user closed the picker), or "too-large".
 window.calcronyDownload = async function (fileName, streamRef, contentType) {
-    var buffer = await streamRef.arrayBuffer();
-    var url = URL.createObjectURL(new Blob([buffer], { type: contentType || "application/octet-stream" }));
+    var type = contentType || "application/octet-stream";
+    var readable = await streamRef.stream();
+
+    if (typeof window.showSaveFilePicker === "function") {
+        var handle = null;
+        try {
+            handle = await window.showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }]
+            });
+        } catch (e) {
+            if (e && e.name === "AbortError") { await readable.cancel(); return "cancelled"; }
+            // e.g. NotAllowedError when the user gesture expired during the fetch — fall through
+            // to the bounded in-memory path rather than fail the download.
+            handle = null;
+        }
+        if (handle) {
+            var writable = await handle.createWritable();
+            await readable.pipeTo(writable);
+            return "saved";
+        }
+    }
+
+    var limit = 256 * 1024 * 1024;
+    var parts = [];
+    var total = 0;
+    var reader = readable.getReader();
+    while (true) {
+        var next = await reader.read();
+        if (next.done) { break; }
+        total += next.value.byteLength;
+        if (total > limit) { await reader.cancel(); return "too-large"; }
+        parts.push(next.value);
+    }
+
+    var url = URL.createObjectURL(new Blob(parts, { type: type }));
     var a = document.createElement("a");
     a.href = url;
     a.download = fileName;
@@ -95,4 +132,5 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
     a.remove();
     // Revoke after the click has had a chance to start the download.
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    return "saved";
 };
