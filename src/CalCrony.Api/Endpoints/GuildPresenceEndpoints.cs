@@ -34,6 +34,14 @@ public static class GuildPresenceEndpoints
             guild.Name = name;
         }
 
+        if (!request.Present)
+        {
+            // The bot can no longer see who holds what, so the role snapshot goes with it — and
+            // keeping it would be holding member data for a server that removed us (ADR 0004).
+            await RoleSnapshotEndpoints.DropSnapshotsAsync(db, [guildId], cancellationToken);
+            guild.RolesSyncedAt = null;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
@@ -79,12 +87,20 @@ public static class GuildPresenceEndpoints
             .GroupBy(g => g.Id)
             .ToDictionary(g => g.Key, g => Truncate(g.First().Name, FieldLimits.GuildName));
         var known = await db.Guilds.ToListAsync(cancellationToken);
+        var departed = new List<long>();
         foreach (var guild in known)
         {
             guild.BotPresent = current.ContainsKey(guild.Id);
             if (current.TryGetValue(guild.Id, out var name) && name is not null)
             {
                 guild.Name = name;
+            }
+
+            if (!guild.BotPresent && guild.RolesSyncedAt is not null)
+            {
+                // Same as a single leave: no bot, no role snapshot.
+                guild.RolesSyncedAt = null;
+                departed.Add(guild.Id);
             }
         }
 
@@ -94,6 +110,7 @@ public static class GuildPresenceEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await RoleSnapshotEndpoints.DropSnapshotsAsync(db, departed, cancellationToken);
         return Results.Ok(new SyncGuildPresenceResponse(
             current.Count, known.Count(g => !g.BotPresent)));
     }

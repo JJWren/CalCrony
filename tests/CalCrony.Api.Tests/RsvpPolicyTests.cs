@@ -85,7 +85,7 @@ public class RsvpPolicyTests
     [Fact]
     public void Non_emoji_emotes_are_rejected_when_building_options()
     {
-        var built = RsvpPolicy.TryBuildOptions([new RsvpOptionSpec("abc", "Going")], null, null, out var error);
+        var built = RsvpPolicy.TryBuildOptions([new RsvpOptionSpec("abc", "Going")], null, null, null, out var error);
 
         Assert.Null(built);
         Assert.Contains("emoji", error);
@@ -94,7 +94,7 @@ public class RsvpPolicyTests
     [Fact]
     public void Custom_server_emotes_are_rejected_with_the_bot_wording()
     {
-        var built = RsvpPolicy.TryBuildOptions([new RsvpOptionSpec("<:pepe:1234>", "Going")], null, null, out var error);
+        var built = RsvpPolicy.TryBuildOptions([new RsvpOptionSpec("<:pepe:1234>", "Going")], null, null, null, out var error);
 
         Assert.Null(built);
         Assert.Contains("Custom server emojis", error);
@@ -103,7 +103,7 @@ public class RsvpPolicyTests
     [Fact]
     public void Control_characters_in_labels_are_rejected()
     {
-        var built = RsvpPolicy.TryBuildOptions([new RsvpOptionSpec("✅", "Go\u0001ing")], null, null, out var error);
+        var built = RsvpPolicy.TryBuildOptions([new RsvpOptionSpec("✅", "Go\u0001ing")], null, null, null, out var error);
 
         Assert.Null(built);
         Assert.Contains("control characters", error);

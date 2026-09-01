@@ -18,7 +18,9 @@ public sealed class RetentionService(
     /// all by creation age. Tokens live minutes-to-30-days, so anything created before the
     /// cutoff has been dead for at least two months. Server action log entries purge by their
     /// own window (Retention:ActionLogDays, default 90) so a self-hoster can keep a longer or
-    /// shorter audit trail without touching the outbox history.</summary>
+    /// shorter audit trail without touching the outbox history. Role snapshots are not
+    /// age-bounded but purpose-bounded: a guild with no live signup restriction left has no
+    /// reason to hold who-holds-which-role rows, so they go the same sweep (ADR 0004).</summary>
     /// <param name="now">The current instant.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>How many rows were purged across all tables.</returns>
@@ -43,12 +45,20 @@ public sealed class RetentionService(
             .Where(a => a.CreatedAt < actionLogCutoff)
             .ExecuteDeleteAsync(cancellationToken);
 
-        var total = deliveries + loginStates + refreshTokens + linkTokens + actionLog;
+        var liveRestrictionGuilds = (await RoleWatchList.WatchedByGuildAsync(db, cancellationToken)).Keys.ToList();
+        var staleSnapshotGuilds = await db.Guilds
+            .Where(g => g.RolesSyncedAt != null && !liveRestrictionGuilds.Contains(g.Id))
+            .Select(g => g.Id)
+            .ToListAsync(cancellationToken);
+        var roleSnapshots = await Endpoints.RoleSnapshotEndpoints.DropSnapshotsAsync(
+            db, staleSnapshotGuilds, cancellationToken);
+
+        var total = deliveries + loginStates + refreshTokens + linkTokens + actionLog + roleSnapshots;
         if (total > 0)
         {
             logger.LogInformation(
-                "Retention purge removed {Total} rows (deliveries {Deliveries}, login states {LoginStates}, refresh tokens {RefreshTokens}, link tokens {LinkTokens}, action log {ActionLog}).",
-                total, deliveries, loginStates, refreshTokens, linkTokens, actionLog);
+                "Retention purge removed {Total} rows (deliveries {Deliveries}, login states {LoginStates}, refresh tokens {RefreshTokens}, link tokens {LinkTokens}, action log {ActionLog}, role snapshots {RoleSnapshots}).",
+                total, deliveries, loginStates, refreshTokens, linkTokens, actionLog, roleSnapshots);
         }
 
         return total;

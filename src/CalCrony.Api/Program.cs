@@ -167,6 +167,7 @@ app.MapTemplateEndpoints();
 app.MapSettingsEndpoints();
 app.MapGuildPresenceEndpoints();
 app.MapChannelEndpoints();
+app.MapRoleSnapshotEndpoints();
 app.MapLiveListEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
