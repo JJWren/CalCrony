@@ -240,6 +240,72 @@ public class PerOptionRoleApiTests(ApiFixture fixture) : IClassFixture<ApiFixtur
         Assert.Equal(5, next.AttendingOption.Capacity);
     }
 
+    [Fact]
+    public async Task Clearing_while_moving_the_attending_flag_clears_the_option_the_caller_named()
+    {
+        // The clear names the role the caller was looking at — Tank's, the option attending BEFORE
+        // the edit — even though this same submission moves the flag to Healer.
+        var ev = await CreateRaidAsync("Clear and move");
+        var (tank, healer, _) = Roles(ev);
+        await RsvpAsync(ev.Id, 661, tank.Id);
+        await RsvpAsync(ev.Id, 662, healer.Id);
+        await MarkServedAsync(ev.Id, DeliveryType.GrantAttendeeRole);
+
+        var edited = await ReadAsync<EventDto>(await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, ClearAttendeeRole: true, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", 2),
+                new RsvpOptionSpec("💚", "Healer", 2, IsAttending: true, AttendeeRoleId: HealerRole),
+                new RsvpOptionSpec("⚔️", "DPS", 6, AttendeeRoleId: DpsRole),
+            ])));
+
+        Assert.Null(edited.Options.Single(o => o.Label == "Tank").AttendeeRoleId);
+        Assert.Equal(HealerRole, edited.Options.Single(o => o.Label == "Healer").AttendeeRoleId);
+
+        // Tank's holder loses the role that was actually cleared; the healer keeps theirs.
+        var revoke = Assert.Single(await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole));
+        Assert.Equal((661L, TankRole), (revoke.UserId, revoke.RoleId));
+        Assert.DoesNotContain(
+            await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole), r => r.UserId == 662);
+    }
+
+    [Fact]
+    public async Task A_clear_alongside_replacement_options_is_honoured_not_dropped()
+    {
+        var ev = await CreateRaidAsync("Clear with options");
+        await RsvpAsync(ev.Id, 671, Roles(ev).Tank.Id);
+        // Served first, so the clear produces a real revoke rather than netting the still-pending
+        // grant away (both are correct outcomes; this pins the one with a delivery to inspect).
+        await MarkServedAsync(ev.Id, DeliveryType.GrantAttendeeRole);
+
+        // Same option set, Tank's role simply left unstated plus the clear flag.
+        var edited = await ReadAsync<EventDto>(await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, ClearAttendeeRole: true, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", 2, IsAttending: true),
+                new RsvpOptionSpec("💚", "Healer", 2, AttendeeRoleId: HealerRole),
+                new RsvpOptionSpec("⚔️", "DPS", 6, AttendeeRoleId: DpsRole),
+            ])));
+
+        Assert.Null(edited.AttendingOption!.AttendeeRoleId);
+        Assert.Contains(
+            await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole),
+            r => r.UserId == 671 && r.RoleId == TankRole);
+    }
+
+    [Fact]
+    public async Task Giving_and_clearing_the_same_options_role_in_one_edit_is_rejected()
+    {
+        var ev = await CreateRaidAsync("Contradictory clear");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, ClearAttendeeRole: true, RsvpOptions:
+            [new RsvpOptionSpec("🛡️", "Tank", 2, IsAttending: true, AttendeeRoleId: HealerRole)]));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("choose one", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+    }
+
     // ---------- helpers ----------
 
     /// <summary>Tank (attending) / Healer / DPS, each with its own role — the shape §3.6 exists for.</summary>

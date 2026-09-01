@@ -159,7 +159,7 @@ public static class EventEndpoints
     /// a web caller may make, since it needs no knowledge of the role it removes.</param>
     /// <returns>The specs carrying the event's existing roles.</returns>
     private static IReadOnlyList<RsvpOptionSpec> CarryOverSpecRoles(
-        IReadOnlyList<RsvpOptionSpec> specs, Event ev, bool clearAttending)
+        IReadOnlyList<RsvpOptionSpec> specs, Event ev, string? clearedLabel)
     {
         var byLabel = new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase);
         foreach (var option in ev.Options)
@@ -167,22 +167,35 @@ public static class EventEndpoints
             byLabel[option.Label] = option.AttendeeRoleId;
         }
 
-        var attendingIndex = specs.ToList().FindIndex(spec => spec.IsAttending);
-        if (attendingIndex < 0)
-        {
-            attendingIndex = 0;
-        }
-
         return
         [
-            .. specs.Select((spec, index) => spec with
+            .. specs.Select(spec => spec with
             {
-                AttendeeRoleId = clearAttending && index == attendingIndex
+                AttendeeRoleId = MatchesLabel(spec, clearedLabel)
                     ? null
                     : byLabel.GetValueOrDefault(spec.Label?.Trim() ?? string.Empty),
             }),
         ];
     }
+
+    /// <summary>Nulls one label's role in a caller-supplied spec set — the bot states roles inline,
+    /// so nothing is carried over, but a clear flag must still be honored rather than dropped.</summary>
+    /// <param name="specs">The replacement specs.</param>
+    /// <param name="clearedLabel">The label whose role the clear names, or null for no clear.</param>
+    /// <returns>The specs, with that label's role removed.</returns>
+    private static IReadOnlyList<RsvpOptionSpec> ClearSpecRole(
+        IReadOnlyList<RsvpOptionSpec> specs, string? clearedLabel) =>
+        clearedLabel is null
+            ? specs
+            : [.. specs.Select(spec => MatchesLabel(spec, clearedLabel) ? spec with { AttendeeRoleId = null } : spec)];
+
+    /// <summary>Whether a spec is the one a clear names (label match, the same identity rule option
+    /// edits use).</summary>
+    /// <param name="spec">The spec.</param>
+    /// <param name="label">The label being cleared, or null.</param>
+    /// <returns>True when the spec carries that label.</returns>
+    private static bool MatchesLabel(RsvpOptionSpec spec, string? label) =>
+        label is not null && string.Equals(spec.Label?.Trim(), label, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Guild-read guard for web callers: bot passes, members pass, others get 403/stale.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
@@ -880,11 +893,25 @@ public static class EventEndpoints
         if (request.RsvpOptions is not null)
         {
             // A full replacement defines every option's role; AttendeeRoleId is just the shorthand
-            // for the attending one (ClearAttendeeRole is redundant here — an unset spec role is
-            // already "no role").
+            // for the attending one. ClearAttendeeRole names the role the caller was LOOKING at —
+            // the option attending BEFORE this edit — so it is matched by that option's label, not
+            // by whichever spec now carries the flag: moving the attending flag and clearing in one
+            // submission must not clear a different option's role and leave the named one granting.
+            var clearedLabel = request.ClearAttendeeRole
+                ? RsvpPolicy.AttendingOption(ev.Options)?.Label
+                : null;
+            if (clearedLabel is not null
+                && request.RsvpOptions.FirstOrDefault(spec => MatchesLabel(spec, clearedLabel)) is { AttendeeRoleId: not null })
+            {
+                // Bot callers state roles inline; asking to clear the same option in one command
+                // is contradictory, and the shorthand has the same "not both" rule.
+                return Results.BadRequest(new ErrorResponse(
+                    $"\"{clearedLabel}\" is given a role and cleared in the same edit — choose one."));
+            }
+
             var editedSpecs = context.User.IsBot()
-                ? request.RsvpOptions
-                : CarryOverSpecRoles(request.RsvpOptions, ev, request.ClearAttendeeRole);
+                ? ClearSpecRole(request.RsvpOptions, clearedLabel)
+                : CarryOverSpecRoles(request.RsvpOptions, ev, clearedLabel);
             if (!RsvpPolicy.TryApplyOptionEdit(
                     db, ev, editedSpecs, request.AttendeeLimit, roleShorthand,
                     out var optionsConflict, out var optionsError))
