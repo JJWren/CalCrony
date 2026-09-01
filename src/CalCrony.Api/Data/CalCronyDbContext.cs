@@ -77,6 +77,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(ev => ev.Location).HasMaxLength(FieldLimits.EventLocation);
             e.Property(ev => ev.ImageUrl).HasMaxLength(FieldLimits.EventImageUrl);
             e.HasIndex(ev => new { ev.GuildId, ev.StartsAt });
+            // The CSV export walks a guild's events by id; without this the keyset scans the
+            // global id index and discards other guilds' rows (every tenant's history).
+            e.HasIndex(ev => new { ev.GuildId, ev.Id }, "IX_Events_GuildId_Id");
             e.HasMany(ev => ev.Options).WithOne().HasForeignKey(o => o.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(ev => ev.Rsvps).WithOne().HasForeignKey(r => r.EventId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(ev => ev.Notifications).WithOne().HasForeignKey(n => n.EventId).OnDelete(DeleteBehavior.Cascade);
@@ -141,6 +144,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
         {
             // One RSVP per user per event in v1; multi-select is a later premium-parity feature.
             e.HasIndex(r => new { r.EventId, r.UserId }).IsUnique();
+            // The CSV export pages RSVPs by (EventId, Id); the unique index above can't serve
+            // that walk, so a crowded event would re-sort its whole RSVP set per page.
+            e.HasIndex(r => new { r.EventId, r.Id }, "IX_Rsvps_EventId_Id");
         });
 
         modelBuilder.Entity<Poll>(e =>

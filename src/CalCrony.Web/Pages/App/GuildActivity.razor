@@ -34,7 +34,11 @@
 }
 else if (error is not null)
 {
-    <div class="alert alert-danger mt-3">@error</div>
+    <div class="alert alert-danger mt-3 d-flex flex-wrap gap-2 align-items-center">
+        <span>@error</span>
+        @* A transient list failure hid every control, leaving a full reload as the only way out. *@
+        <button class="btn btn-outline-danger btn-sm ms-auto" @onclick="RetryAsync" disabled="@loading">Try again</button>
+    </div>
 }
 else if (entries is null)
 {
@@ -249,6 +253,14 @@ else
         appliedAction = action;
         appliedUserId = userId;
         return LoadPageAsync(reset: true, loadGeneration);
+    }
+
+    /// <summary>Clears the error and reloads the first page — the way out of a transient failure.</summary>
+    /// <returns>The reload task.</returns>
+    private async Task RetryAsync()
+    {
+        error = null;
+        await LoadPageAsync(reset: true, loadGeneration);
     }
 
     private Task ClearFiltersAsync()

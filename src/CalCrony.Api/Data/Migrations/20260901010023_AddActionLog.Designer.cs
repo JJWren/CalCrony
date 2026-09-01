@@ -311,6 +311,9 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.HasIndex("GuildId", "StartsAt");
 
+                    b.HasIndex("GuildId", "Id")
+                        .HasDatabaseName("IX_Events_GuildId_Id");
+
                     b.HasIndex(new[] { "SeriesId" }, "IX_Events_SeriesId");
 
                     b.HasIndex(new[] { "SeriesId" }, "IX_Events_SeriesId_Live")
@@ -781,6 +784,9 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.HasIndex("EventId", "UserId")
                         .IsUnique();
+
+                    b.HasIndex("EventId", "Id")
+                        .HasDatabaseName("IX_Rsvps_EventId_Id");
 
                     b.ToTable("Rsvps");
                 });

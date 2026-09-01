@@ -183,6 +183,38 @@ public class ActivityComponentTests : TestContext
     }
 
     [Fact]
+    public void A_transient_list_failure_can_be_retried_from_the_error_state()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var guilds = JsonSerializer.Serialize(
+            new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "Mine", null, true)]), JsonWeb);
+        var failList = true;
+        handler.StatusFor = req =>
+            failList && req.RequestUri!.AbsolutePath.EndsWith("/actions") ? HttpStatusCode.ServiceUnavailable : null;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => failList
+                ? """{"error":"Temporary failure."}"""
+                : JsonSerializer.Serialize(
+                    new ActionLogPageDto([Entry(ActionLogAction.EventCreated, "Created “Raid night”", 7, "Ash")], null),
+                    JsonWeb),
+            _ => guilds,
+        };
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Temporary failure.", cut.Markup));
+
+        // Without a retry the error branch hides every control, so the page is stuck until a
+        // full browser reload.
+        failList = false;
+        cut.FindAll("button").First(b => b.TextContent.Contains("Try again")).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Raid night", cut.Markup));
+        Assert.DoesNotContain("Temporary failure.", cut.Markup);
+    }
+
+    [Fact]
     public void Switching_to_an_unmanaged_guild_hides_the_export_button_before_the_lookup_lands()
     {
         var handler = UseApi();

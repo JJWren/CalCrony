@@ -42,11 +42,30 @@ namespace CalCrony.Api.Data.Migrations
                 table: "ActionLogEntries",
                 columns: new[] { "GuildId", "CreatedAt" },
                 descending: new[] { false, true });
+
+            // Back the CSV export's two keyset walks (events by guild+id, RSVPs by event+id).
+            migrationBuilder.CreateIndex(
+                name: "IX_Events_GuildId_Id",
+                table: "Events",
+                columns: new[] { "GuildId", "Id" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Rsvps_EventId_Id",
+                table: "Rsvps",
+                columns: new[] { "EventId", "Id" });
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropIndex(
+                name: "IX_Rsvps_EventId_Id",
+                table: "Rsvps");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Events_GuildId_Id",
+                table: "Events");
+
             migrationBuilder.DropTable(
                 name: "ActionLogEntries");
         }
