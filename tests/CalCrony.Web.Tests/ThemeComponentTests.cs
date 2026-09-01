@@ -205,6 +205,29 @@ public class ThemeComponentTests : TestContext
         Assert.Null(handler.PutBody);
     }
 
+    [Fact]
+    public async Task A_failed_opt_out_save_snaps_the_switch_back_to_the_stored_state()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate", DmReminders: true), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+        handler.StatusFor = req => req.Method == HttpMethod.Put ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+
+        cut.Find("#us-dm-reminders").Change(false); // the opt-out PUT fails
+
+        // The switch may not claim "off" while the server still says "on".
+        cut.WaitForAssertion(() => Assert.Contains("API error 500", cut.Markup));
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();

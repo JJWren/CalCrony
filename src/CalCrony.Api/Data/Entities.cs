@@ -405,6 +405,11 @@ public class Delivery
     /// and its recorded outcome can't produce a second attempt; success or cancellation settles
     /// the row, and a stale claim simply expires back into the pending set.</summary>
     public Instant? ClaimedAt { get; set; }
+
+    /// <summary>The Discord user a per-person delivery (a DM reminder) is addressed to; null for
+    /// channel deliveries. Indexed, so "is another DM for this person in flight?" and "withdraw
+    /// everything queued for this person" are plain lookups rather than payload parsing.</summary>
+    public long? RecipientUserId { get; set; }
 }
 
 /// <summary>A Discord user's linked external calendar. Tokens are Data-Protection-encrypted at rest;

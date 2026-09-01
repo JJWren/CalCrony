@@ -236,9 +236,28 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         Assert.Equal(DmReminderClaimOutcome.Claimed, await ClaimAsync(rowA.Id));
         Assert.Equal(DmReminderClaimOutcome.AlreadyClaimed, await ClaimAsync(rowB.Id));
 
-        // …and gets its turn once A has settled.
+        // …and while parked it is not served at all, so polling can't burn its attempt budget.
+        var attemptsBefore = await AttemptsAsync(rowB.Id);
+        for (var poll = 0; poll < 3; poll++)
+        {
+            var pending = await ReadAsync<List<DeliveryDto>>(await Client.GetAsync("/deliveries/pending?limit=50"));
+            Assert.DoesNotContain(pending, d => d.Id == rowB.Id || d.Id == rowA.Id);
+        }
+
+        Assert.Equal(attemptsBefore, await AttemptsAsync(rowB.Id));
+
+        // Once A has settled, B is served again and can be claimed.
         (await Client.PostAsync($"/deliveries/{rowA.Id}/ack", null)).EnsureSuccessStatusCode();
+        var served = await ReadAsync<List<DeliveryDto>>(await Client.GetAsync("/deliveries/pending?limit=50"));
+        Assert.Contains(served, d => d.Id == rowB.Id);
         Assert.Equal(DmReminderClaimOutcome.Claimed, await ClaimAsync(rowB.Id));
+    }
+
+    private async Task<int> AttemptsAsync(Guid deliveryId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        return (await db.Deliveries.SingleAsync(d => d.Id == deliveryId)).Attempts;
     }
 
     [Fact]

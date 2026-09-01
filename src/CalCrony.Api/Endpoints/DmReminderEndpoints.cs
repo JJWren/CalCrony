@@ -77,10 +77,9 @@ public static class DmReminderEndpoints
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({payload.UserId})", cancellationToken);
 
-        var userPrefix = "{\"UserId\":" + payload.UserId + ",";
         var anotherInFlight = await db.Deliveries.AnyAsync(
-            d => d.Id != id && d.Type == DeliveryType.DmEventReminder && d.Status == DeliveryStatus.Pending
-                 && d.ClaimedAt != null && d.ClaimedAt >= claimCutoff && d.PayloadJson.StartsWith(userPrefix),
+            d => d.Id != id && d.RecipientUserId == payload.UserId && d.Status == DeliveryStatus.Pending
+                 && d.ClaimedAt != null && d.ClaimedAt >= claimCutoff,
             cancellationToken);
         if (anotherInFlight)
         {

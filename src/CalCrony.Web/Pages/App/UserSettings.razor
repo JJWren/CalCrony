@@ -98,10 +98,7 @@
             return;
         }
 
-        settings = settingsResult.Value;
-        timezoneInput = settings?.TimeZone ?? "";
-        dmConfirmations = settings?.DmConfirmations ?? true;
-        dmReminders = settings?.DmReminders ?? false;
+        ApplySettings(settingsResult.Value!);
         var calendarResult = await Api.GetCalendarStatusAsync(UserId);
         if (!calendarResult.Success)
         {
@@ -130,12 +127,35 @@
         busy = false;
         if (!result.Success || result.Value is null)
         {
+            // The switch must never show a consent state the server doesn't hold: re-read what
+            // is actually stored, and if even that fails, go to an unknown (disabled) state.
             saveMessage = $"❌ {result.Error}";
+            var reload = await Api.GetUserSettingsAsync(UserId);
+            if (reload.Success && reload.Value is not null)
+            {
+                ApplySettings(reload.Value);
+            }
+            else
+            {
+                settings = null;
+                saveMessage += " — and your saved settings couldn't be re-read; reload the page.";
+            }
+
             return;
         }
 
-        settings = result.Value;
+        ApplySettings(result.Value);
         saveMessage = "✓ Saved.";
+    }
+
+    /// <summary>Makes the bound controls reflect exactly what the API holds.</summary>
+    /// <param name="loaded">The authoritative settings.</param>
+    private void ApplySettings(UserSettingsDto loaded)
+    {
+        settings = loaded;
+        timezoneInput = loaded.TimeZone ?? "";
+        dmConfirmations = loaded.DmConfirmations;
+        dmReminders = loaded.DmReminders ?? false;
     }
 
     private async Task ConnectAsync()
