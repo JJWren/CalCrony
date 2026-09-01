@@ -2,6 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject CalCronyWebApiClient Api
 @inject IJSRuntime Js
+@inject NavigationManager Nav
 
 <PageTitle>Server settings — CalCrony</PageTitle>
 
@@ -77,12 +78,65 @@ else
                 <p class="text-body-secondary small mt-1 mb-2">Subscribe from Google, Apple, or Outlook — anyone with this URL can read this server's events.</p>
                 @if (feedUrl is null)
                 {
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
                 }
                 else
                 {
                     <p class="meta-mono text-break mb-2">@feedUrl</p>
                     <button class="btn btn-outline-primary btn-sm align-self-start" @onclick="CopyAsync">@copyLabel</button>
+                }
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="card p-3 h-100">
+                <div class="fw-bold">Public calendar</div>
+                <p class="text-body-secondary small mt-1 mb-2">
+                    Off by default. When on, anyone with the link sees this server's event titles, start times,
+                    durations, locations, and channel names as a month calendar — no sign-in needed. Descriptions,
+                    RSVPs, and member names never appear there.
+                </p>
+                @if (publicCalendarError is not null)
+                {
+                    <div class="alert alert-warning py-2 small mb-0">Couldn't load this setting: @publicCalendarError</div>
+                }
+                else if (publicCalendar is null)
+                {
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
+                }
+                else
+                {
+                    @if (isManager)
+                    {
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="gs-public-cal" checked="@publicCalendar.Enabled" @onchange="TogglePublicCalendarAsync" disabled="@busy" />
+                            <label class="form-check-label small" for="gs-public-cal">Share a public calendar link</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="meta-mono mb-1">@(publicCalendar.Enabled ? "on" : "off")</p>
+                    }
+                    @if (publicCalendar.Enabled && PublicCalendarUrl is { } link)
+                    {
+                        <p class="meta-mono text-break mb-2 mt-2"><a href="@link" target="_blank" rel="noopener">@link</a></p>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <button class="btn btn-outline-primary btn-sm" @onclick="CopyPublicCalendarAsync">@publicCopyLabel</button>
+                            @if (isManager && !confirmRegenerate)
+                            {
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmRegenerate = true" disabled="@busy">New link…</button>
+                            }
+                            else if (isManager)
+                            {
+                                <span class="small">Old links stop working.</span>
+                                <button class="btn btn-danger btn-sm" @onclick="RegeneratePublicCalendarAsync" disabled="@busy">Generate new link</button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmRegenerate = false">Cancel</button>
+                            }
+                        </div>
+                    }
+                    @if (publicCalendarMessage is not null)
+                    {
+                        <div class="meta-mono mt-2">@publicCalendarMessage</div>
+                    }
                 }
             </div>
         </div>
@@ -97,15 +151,41 @@ else
     private string? error;
     private string copyLabel = "Copy URL";
     private bool isManager;
+    private int loadGeneration;
     private bool busy;
     private string timezoneInput = "";
     private string? saveMessage;
     private bool mirrorInput;
     private string? mirrorMessage;
+    private PublicCalendarSettingsDto? publicCalendar;
+    private string? publicCalendarMessage;
+    private string? publicCalendarError;
+    private string publicCopyLabel = "Copy link";
+    private bool confirmRegenerate;
+
+    // The API's absolute Url (from Web:Origin) is canonical; without one, the link is built from
+    // this app's own origin — the calendar is a web-app route, not an API one.
+    private string? PublicCalendarUrl => publicCalendar?.Url
+        ?? (publicCalendar?.Path is { } path ? Nav.ToAbsoluteUri(path.TrimStart('/')).ToString() : null);
 
     protected override async Task OnParametersSetAsync()
     {
+        // Blazor reuses this component across guilds: clear per-guild state BEFORE the first
+        // await so the previous server's link (a credential) never renders under a new guild's
+        // URL, and stamp the load so a slower, older response can't overwrite a newer guild's.
+        var generation = ++loadGeneration;
+        publicCalendar = null;
+        publicCalendarError = null;
+        publicCalendarMessage = null;
+        confirmRegenerate = false;
+        feedUrl = null;
+
         var settingsResult = await Api.GetGuildSettingsAsync(GuildId);
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
         if (!settingsResult.Success)
         {
             error = settingsResult.Error;
@@ -115,14 +195,70 @@ else
         settings = settingsResult.Value;
         timezoneInput = settings?.TimeZone ?? "UTC";
         mirrorInput = settings?.MirrorNativeEvents ?? false;
-        isManager = (await Api.GetMyGuildsAsync()).Value?.Guilds
-            .Any(g => g.Id == GuildId && g.CanManage) ?? false;
-
+        var myGuilds = await Api.GetMyGuildsAsync();
         var feedResult = await Api.GetFeedTokenAsync(GuildId);
+        var publicResult = await Api.GetPublicCalendarSettingsAsync(GuildId);
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        isManager = myGuilds.Value?.Guilds.Any(g => g.Id == GuildId && g.CanManage) ?? false;
         if (feedResult.Success && feedResult.Value is not null)
         {
             feedUrl = Api.FeedUrl(feedResult.Value);
         }
+
+        // A failed read shows as an error, never as a fabricated "off" a manager could act on.
+        publicCalendar = publicResult.Success ? publicResult.Value : null;
+        publicCalendarError = publicResult.Success ? null : publicResult.Error ?? "unknown error";
+    }
+
+    private Task TogglePublicCalendarAsync(ChangeEventArgs e)
+    {
+        var enable = e.Value is true;
+        return SavePublicCalendarAsync(new PublicCalendarRequest(enable), enable
+            ? "🔗 On — share the link below. Turn it off any time; a new link retires the old one."
+            : "🔒 Off — the old link no longer works.");
+    }
+
+    private Task RegeneratePublicCalendarAsync()
+    {
+        confirmRegenerate = false;
+        return SavePublicCalendarAsync(
+            new PublicCalendarRequest(true, Regenerate: true), "🔗 New link generated — the previous one no longer works.");
+    }
+
+    private async Task SavePublicCalendarAsync(PublicCalendarRequest request, string successMessage)
+    {
+        publicCalendarMessage = null;
+        busy = true;
+        var generation = loadGeneration;
+        var result = await Api.PutPublicCalendarAsync(GuildId, request);
+        busy = false;
+        if (generation != loadGeneration)
+        {
+            // The page moved to another guild while this was in flight: the response belongs
+            // to the old guild and its link must never be installed under the new one.
+            return;
+        }
+
+        if (!result.Success || result.Value is null)
+        {
+            publicCalendarMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        publicCalendar = result.Value;
+        publicCalendarMessage = successMessage;
+    }
+
+    private async Task CopyPublicCalendarAsync()
+    {
+        var ok = await Js.InvokeAsync<bool>("calcronyCopy", PublicCalendarUrl);
+        publicCopyLabel = ok ? "Copied ✓" : "Copy failed";
+        await Task.Delay(1500);
+        publicCopyLabel = "Copy link";
     }
 
     private async Task SaveTimezoneAsync()
@@ -136,10 +272,16 @@ else
         }
 
         busy = true;
+        var generation = loadGeneration;
         // Read-modify-write: preserve the bot-managed DefaultChannelId and the mirror flag.
         var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
             trimmed, settings?.DefaultChannelId, settings?.MirrorNativeEvents ?? false));
         busy = false;
+        if (generation != loadGeneration)
+        {
+            return; // the page moved to another guild while this was in flight
+        }
+
         if (!result.Success || result.Value is null)
         {
             saveMessage = $"❌ {result.Error}";
@@ -154,10 +296,16 @@ else
     {
         mirrorMessage = null;
         busy = true;
+        var generation = loadGeneration;
         // Read-modify-write: preserve the timezone and the bot-managed DefaultChannelId.
         var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
             settings?.TimeZone ?? "UTC", settings?.DefaultChannelId, mirrorInput));
         busy = false;
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
         if (!result.Success || result.Value is null)
         {
             mirrorMessage = $"❌ {result.Error}";

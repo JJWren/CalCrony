@@ -181,6 +181,21 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<GuildSettingsDto>> PutGuildSettingsAsync(long guildId, GuildSettingsDto settings, CancellationToken ct = default) =>
         SendAsync<GuildSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/settings", settings, ct), ct);
 
+    /// <summary>Reads the guild's public-calendar state (on/off and its link).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<PublicCalendarSettingsDto>> GetPublicCalendarAsync(long guildId, CancellationToken ct = default) =>
+        SendAsync<PublicCalendarSettingsDto>(http.GetAsync($"/guilds/{guildId}/public-calendar", ct), ct);
+
+    /// <summary>Turns the guild's public calendar on or off, or regenerates its link.</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The desired state.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<PublicCalendarSettingsDto>> PutPublicCalendarAsync(long guildId, PublicCalendarRequest request, CancellationToken ct = default) =>
+        SendAsync<PublicCalendarSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/public-calendar", request, ct), ct);
+
     /// <summary>Records a single guild presence change (bot joined or left), optionally with a
     /// guild-name snapshot (renames report present with the new name).</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>

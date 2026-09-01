@@ -53,23 +53,9 @@ public static class SettingsEndpoints
         CalCronyDbContext db,
         CancellationToken cancellationToken)
     {
-        if (!context.User.IsBot())
+        if (await EventEndpoints.GuardGuildManageAsync(context, access, guildId, cancellationToken) is { } denied)
         {
-            var userId = context.User.WebUserId();
-            var tier = userId is null
-                ? GuildAccess.None
-                : await access.CheckAsync(userId.Value, guildId, cancellationToken);
-            if (tier == GuildAccess.Stale)
-            {
-                return GuildAccessService.StaleSnapshot();
-            }
-
-            if (tier != GuildAccess.Manager)
-            {
-                return Results.Json(
-                    new ErrorResponse("Only server managers can change server settings."),
-                    statusCode: StatusCodes.Status403Forbidden);
-            }
+            return denied;
         }
 
         if (Mapping.FindZone(settings.TimeZone) is null)

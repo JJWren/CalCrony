@@ -79,15 +79,8 @@ public static class FeedEndpoints
 
         var guild = await db.Guilds.FirstOrDefaultAsync(g => g.Id == feedToken.GuildId, cancellationToken);
 
-        // A malformed Web:Origin (stray whitespace, not an http/https URL) degrades to no links
-        // rather than letting new Uri(...) throw — or a non-web scheme leak — on this anonymous
-        // endpoint.
-        var webOrigin = (configuration["Web:Origin"] ?? "").Trim().TrimEnd('/');
-        if (!Uri.TryCreate(webOrigin, UriKind.Absolute, out var originUri)
-            || (originUri.Scheme != Uri.UriSchemeHttp && originUri.Scheme != Uri.UriSchemeHttps))
-        {
-            webOrigin = "";
-        }
+        // A malformed Web:Origin degrades to no links on this anonymous endpoint (see WebOrigin).
+        var webOrigin = Services.WebOrigin.Resolve(configuration) ?? "";
 
         var guildEventsUrl = webOrigin.Length == 0 ? null : $"{webOrigin}/app/guilds/{feedToken.GuildId}/events";
 

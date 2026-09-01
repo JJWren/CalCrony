@@ -143,6 +143,36 @@ public static class EventEndpoints
         };
     }
 
+    /// <summary>Guild-manage guard for server-level settings: the bot passes (Discord-side
+    /// permission checks already happened); web callers must be a manager of the guild — members
+    /// get a 403 that says so, stale snapshots get the re-sync response.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>Null when the caller may manage the guild; otherwise the failure response.</returns>
+    internal static async Task<IResult?> GuardGuildManageAsync(
+        HttpContext context, GuildAccessService access, long guildId, CancellationToken cancellationToken)
+    {
+        if (context.User.IsBot())
+        {
+            return null;
+        }
+
+        var userId = context.User.WebUserId();
+        var tier = userId is null
+            ? GuildAccess.None
+            : await access.CheckAsync(userId.Value, guildId, cancellationToken);
+        return tier switch
+        {
+            GuildAccess.Stale => GuildAccessService.StaleSnapshot(),
+            GuildAccess.Manager => null,
+            _ => Results.Json(
+                new ErrorResponse("Only server managers can change server settings."),
+                statusCode: StatusCodes.Status403Forbidden),
+        };
+    }
+
     /// <summary>Event-read guard: like GuardGuildReadAsync but non-members get 404 so event ids
     /// can't be probed for existence.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>

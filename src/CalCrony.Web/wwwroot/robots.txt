@@ -1,4 +1,8 @@
 # The auth-gated app area and the login redirect have nothing to index; everything else is welcome.
+# Public calendars (/c/<slug>) are shareable-not-discoverable, but they are deliberately NOT
+# disallowed here: a crawler that may not fetch a page never sees its noindex, and a disallowed
+# URL can still be indexed from links. Instead nginx sends X-Robots-Tag: noindex, nofollow for
+# /c/ (and the page carries the meta), which crawlers only honour when they are allowed to fetch.
 User-agent: *
 Disallow: /app
 Disallow: /login

@@ -1,0 +1,290 @@
+@page "/c/{Slug}"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@using System.Globalization
+@inject CalCronyWebApiClient Api
+@inject NavigationManager Nav
+
+@* The login-free public calendar (issue #121): one server's events as a month grid, reached only
+   through the server's unguessable slug link. It shows what a passer-by should see — titles,
+   times, places, a jump link into Discord — and nothing else; the API never sends descriptions,
+   RSVPs, or member names here. Shareable, not discoverable: a noindex meta here plus an
+   X-Robots-Tag header from nginx for /c/ — and robots.txt deliberately keeps /c/ crawlable,
+   because a crawler that may not fetch a page never sees either directive. *@
+
+<PageTitle>@Heading — CalCrony</PageTitle>
+<HeadContent>
+    <meta name="robots" content="noindex, nofollow" />
+</HeadContent>
+
+@if (loading)
+{
+    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
+}
+else if (inactive)
+{
+    <p class="meta-mono text-uppercase mb-2">Public calendar</p>
+    <h1 class="h3">This calendar link isn't active</h1>
+    <p class="text-body-secondary" style="max-width:52ch">
+        The server may have turned its public calendar off or generated a new link. Ask a server
+        manager for the current one.
+    </p>
+}
+else if (calendar is null)
+{
+    @* A rejected request (e.g. a hand-edited ?m= outside the served range) or an outage — the
+       link itself may be perfectly valid, so this never claims it was revoked. *@
+    <p class="meta-mono text-uppercase mb-2">Public calendar</p>
+    <h1 class="h3">Couldn't load this calendar</h1>
+    <p class="text-body-secondary" style="max-width:52ch">@loadError</p>
+    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="GoToCurrentAsync">Show this month</button>
+}
+else
+{
+    <p class="meta-mono text-uppercase mb-2">Public calendar</p>
+    <h1 class="h3">@Heading</h1>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 my-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(-1)" aria-label="Previous month" disabled="@AtEarliest">‹</button>
+        <span class="fw-bold text-center" style="min-width:12ch" aria-live="polite">@MonthLabel</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => GoAsync(1)" aria-label="Next month" disabled="@AtLatest">›</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToCurrentAsync">This month</button>
+        <span class="meta-mono ms-auto">times in @calendar.TimeZone</span>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-warning py-2 small">@loadError</div>
+    }
+
+    @if (calendar.Events.Count == 0)
+    {
+        <p class="text-body-secondary">Nothing scheduled this month.</p>
+    }
+
+    @* Narrow screens: an agenda of the days that have something on. *@
+    <div class="d-md-none">
+        @foreach (var day in cells.Where(c => c.InMonth && c.Events.Count > 0))
+        {
+            <div class="mb-3">
+                <div class="meta-mono text-uppercase mb-1">@day.Date.ToString("ddd d MMM", CultureInfo.InvariantCulture)</div>
+                @foreach (var ev in day.Events)
+                {
+                    @Chip(ev, compact: false)
+                }
+            </div>
+        }
+    </div>
+
+    @* Wider screens: the month grid, Sunday-first. *@
+    <div class="d-none d-md-block">
+        <div class="pub-cal-grid" role="grid" aria-label="@MonthLabel">
+            <div class="pub-cal-row" role="row">
+                @foreach (var name in DayNames)
+                {
+                    <div class="pub-cal-dow meta-mono text-uppercase" role="columnheader">@name</div>
+                }
+            </div>
+            @for (var week = 0; week < cells.Count; week += 7)
+            {
+                <div class="pub-cal-row" role="row">
+                    @foreach (var cell in cells.Skip(week).Take(7))
+                    {
+                        <div class="pub-cal-cell @(cell.InMonth ? null : "outside")" role="gridcell">
+                            <div class="pub-cal-day meta-mono">@cell.Date.Day</div>
+                            @foreach (var ev in cell.Events)
+                            {
+                                @Chip(ev, compact: true)
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (calendar.Events.Any(e => e.Projected))
+    {
+        <p class="text-body-secondary small mt-3 mb-0">
+            Dashed entries are upcoming occurrences of repeating events that haven't been posted to Discord yet.
+        </p>
+    }
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    /// <summary>Month to show as <c>yyyy-MM</c>; absent means the server's current month.</summary>
+    [SupplyParameterFromQuery(Name = "m")] public string? MonthQuery { get; set; }
+
+    private static readonly string[] DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    private bool loading = true;
+    private int loadGeneration;
+    private string? loadedSlug;
+    private bool inactive;
+    private string? loadError;
+    private PublicCalendarDto? calendar;
+    private List<DayCell> cells = [];
+
+    private DateTime ShownMonth => calendar is null ? DateTime.MinValue : new DateTime(calendar.Year, calendar.Month, 1);
+
+    private bool AtEarliest => calendar is not null && ShownMonth <= calendar.EarliestMonth;
+
+    private bool AtLatest => calendar is not null && ShownMonth >= calendar.LatestMonth;
+
+    private string Heading => calendar?.GuildName is { Length: > 0 } name ? name : "Server calendar";
+
+    private string MonthLabel => calendar is null
+        ? ""
+        : new DateTime(calendar.Year, calendar.Month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        if (!string.Equals(Slug, loadedSlug, StringComparison.Ordinal))
+        {
+            // A different link: stale data is only ever kept across month navigation within one
+            // calendar — never shown under another slug's URL.
+            calendar = null;
+            cells = [];
+            loadedSlug = Slug;
+        }
+
+        // Each load gets a generation stamp; a response for an older load (a slower request that
+        // finishes after navigation already started a newer one) is dropped, never applied.
+        var generation = ++loadGeneration;
+        var (year, month) = ParseMonth(MonthQuery);
+        var result = await Api.GetPublicCalendarAsync(Slug, year, month);
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        // Only a 404 means the link is gone; anything else keeps whatever month is already shown
+        // (so navigation still works) and surfaces the message instead.
+        inactive = result.NotFound;
+        loadError = result.Success || result.NotFound ? null : result.Error;
+        if (result.Success)
+        {
+            calendar = result.Value;
+        }
+        else if (result.NotFound)
+        {
+            calendar = null;
+        }
+
+        cells = calendar is null ? [] : BuildCells(calendar);
+        loading = false;
+    }
+
+    /// <summary>Renders one event chip: a Discord jump link when the event has been posted, plain
+    /// text otherwise (projected occurrences have nothing to link to yet). Compact chips (the grid)
+    /// keep one line and carry the metadata as screen-reader text plus a hover title; agenda chips
+    /// show it in full — a mobile-first page must present every public field visibly, not only on
+    /// hover.</summary>
+    private RenderFragment Chip(PublicCalendarEventDto ev, bool compact) => __builder =>
+    {
+        var css = ev.Projected ? "pub-cal-chip projected" : "pub-cal-chip";
+        var time = ev.StartsAtLocal.ToString("h:mm tt", CultureInfo.InvariantCulture);
+        var meta = ChipMeta(ev);
+        var hoverTitle = !compact ? null : meta.Length == 0 ? ev.Title : $"{ev.Title} · {meta}";
+        if (ev.DiscordUrl is { } url)
+        {
+            <a class="@css" href="@url" target="_blank" rel="noopener" title="@hoverTitle">@ChipBody(ev, time, meta, compact)</a>
+        }
+        else
+        {
+            <span class="@css" title="@hoverTitle">@ChipBody(ev, time, meta, compact)</span>
+        }
+    };
+
+    private static RenderFragment ChipBody(PublicCalendarEventDto ev, string time, string meta, bool compact) => __builder =>
+    {
+        <span class="pub-cal-time">@time</span>@ev.Title
+        @if (meta.Length > 0 && compact)
+        {
+            <span class="visually-hidden"> — @meta</span>
+        }
+        else if (meta.Length > 0)
+        {
+            <span class="pub-cal-meta">@meta</span>
+        }
+    };
+
+    private static string ChipMeta(PublicCalendarEventDto ev)
+    {
+        var parts = new List<string>();
+        if (ev.DurationMinutes is int minutes)
+        {
+            parts.Add(minutes switch
+            {
+                < 60 => $"{minutes} min",
+                _ when minutes % 60 == 0 => $"{minutes / 60} hr",
+                _ => $"{minutes / 60} hr {minutes % 60} min",
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(ev.Location))
+        {
+            parts.Add(ev.Location);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ev.ChannelName))
+        {
+            parts.Add($"#{ev.ChannelName}");
+        }
+
+        if (ev.Projected)
+        {
+            parts.Add("upcoming occurrence — not posted yet");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private static (int? Year, int? Month) ParseMonth(string? query) =>
+        DateTime.TryParseExact(query, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? (parsed.Year, parsed.Month)
+            : (null, null);
+
+    private Task GoAsync(int deltaMonths)
+    {
+        if (calendar is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var target = new DateTime(calendar.Year, calendar.Month, 1).AddMonths(deltaMonths);
+        Nav.NavigateTo($"/c/{Slug}?m={target:yyyy-MM}");
+        return Task.CompletedTask;
+    }
+
+    private Task GoToCurrentAsync()
+    {
+        Nav.NavigateTo($"/c/{Slug}");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Lays the month out Sunday-first, padded with the neighbouring months' days to
+    /// whole weeks; each cell carries its events in start order.</summary>
+    private static List<DayCell> BuildCells(PublicCalendarDto month)
+    {
+        var first = new DateTime(month.Year, month.Month, 1);
+        var start = first.AddDays(-(int)first.DayOfWeek);
+        var afterLast = first.AddMonths(1);
+        var end = afterLast.AddDays((7 - (int)afterLast.DayOfWeek) % 7);
+        var byDay = month.Events
+            .GroupBy(e => e.StartsAtLocal.Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartsAtLocal).ToList());
+
+        var result = new List<DayCell>();
+        for (var day = start; day < end; day = day.AddDays(1))
+        {
+            result.Add(new DayCell(day, day.Month == month.Month, byDay.GetValueOrDefault(day) ?? []));
+        }
+
+        return result;
+    }
+
+    private sealed record DayCell(DateTime Date, bool InMonth, List<PublicCalendarEventDto> Events);
+}

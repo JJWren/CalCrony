@@ -169,6 +169,7 @@ app.MapLiveListEndpoints();
 app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
 app.MapFeedEndpoints();
+app.MapPublicCalendarEndpoints();
 app.MapCalendarEndpoints();
 app.MapOAuthEndpoints();
 app.MapAuthEndpoints();

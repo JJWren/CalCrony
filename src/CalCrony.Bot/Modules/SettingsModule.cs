@@ -19,9 +19,11 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         var guild = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
         var user = await api.GetUserSettingsAsync((long)Context.User.Id);
-        if (!guild.Success || !user.Success)
+        var publicCalendar = await api.GetPublicCalendarAsync((long)Context.Guild.Id);
+        if (!guild.Success || !user.Success || !publicCalendar.Success)
         {
-            await FollowupAsync($"❌ {guild.Error ?? user.Error}", ephemeral: true);
+            // Never guess a privacy-sensitive setting: a failed read is an error, not "off".
+            await FollowupAsync($"❌ {guild.Error ?? user.Error ?? publicCalendar.Error}", ephemeral: true);
             return;
         }
 
@@ -29,7 +31,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             $"**Server timezone:** {guild.Value!.TimeZone}\n" +
             $"**Your timezone:** {user.Value!.TimeZone ?? "(not set — server timezone is used)"}\n" +
             $"**Your DM confirmations:** {(user.Value.DmConfirmations ? "on" : "off")}\n" +
-            $"**Native Discord events:** {(guild.Value.MirrorNativeEvents ? "on" : "off")}",
+            $"**Native Discord events:** {(guild.Value.MirrorNativeEvents ? "on" : "off")}\n" +
+            $"**Public calendar:** {(publicCalendar.Value!.Enabled ? "on" : "off")}",
             ephemeral: true);
     }
 
@@ -144,4 +147,59 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
                 : $"❌ {result.Error}",
             ephemeral: true);
     }
+    /// <summary>Choices for <c>/settings public-calendar</c>.</summary>
+    public enum PublicCalendarMode
+    {
+        /// <summary>Turn the public calendar on (keeps an existing link).</summary>
+        [ChoiceDisplay("on")] On,
+
+        /// <summary>Turn it off — the link stops working.</summary>
+        [ChoiceDisplay("off")] Off,
+
+        /// <summary>Stay on but mint a new link, retiring the old one.</summary>
+        [ChoiceDisplay("new-link")] NewLink,
+    }
+
+    /// <summary>Turns the opt-in public calendar on or off, or mints a new link (managers only).
+    /// Off by default; the reply spells out exactly what a link-holder can see.</summary>
+    /// <param name="mode">on, off, or new-link (retires the old link).</param>
+    [SlashCommand("public-calendar", "Share a login-free calendar link for this server's events (managers only)")]
+    [RequireUserPermission(GuildPermission.ManageGuild)]
+    public async Task SetPublicCalendarAsync(
+        [Summary("mode", "on · off · new-link (retires the old link)")] PublicCalendarMode mode)
+    {
+        await DeferAsync(ephemeral: true);
+
+        var result = await api.PutPublicCalendarAsync(
+            (long)Context.Guild.Id,
+            new PublicCalendarRequest(Enabled: mode != PublicCalendarMode.Off, Regenerate: mode == PublicCalendarMode.NewLink));
+        if (!result.Success || result.Value is null)
+        {
+            await FollowupAsync($"❌ {result.Error}", ephemeral: true);
+            return;
+        }
+
+        if (!result.Value.Enabled)
+        {
+            await FollowupAsync("🔒 Public calendar is **off** — the old link no longer works.", ephemeral: true);
+            return;
+        }
+
+        var status = mode == PublicCalendarMode.NewLink
+            ? "🔗 Public calendar is **on** with a new link — the old one no longer works."
+            : "🔗 Public calendar is **on**.";
+        await FollowupAsync(
+            $"{status}\n{PublicCalendarLinkLine(result.Value)}\n" +
+            "Anyone with the link sees event titles, start times, durations, locations, and channel names — no sign-in, and never descriptions, RSVPs, or member names. " +
+            "`/settings public-calendar off` turns it off; `new-link` retires a leaked link.",
+            ephemeral: true);
+    }
+
+    /// <summary>The shareable link, or the web-app path with a hint when the API has no Web:Origin.</summary>
+    /// <param name="settings">The public-calendar state (enabled).</param>
+    /// <returns>The line to show.</returns>
+    private static string PublicCalendarLinkLine(PublicCalendarSettingsDto settings) =>
+        settings.Url is { } url
+            ? $"<{url}>"
+            : $"Path `{settings.Path}` on your CalCrony web app (set `Web:Origin` on the API to get a full link here).";
 }

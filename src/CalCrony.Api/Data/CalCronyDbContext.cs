@@ -46,6 +46,10 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(g => g.Id).ValueGeneratedNever();
             e.Property(g => g.TimeZone).HasMaxLength(64);
             e.Property(g => g.Name).HasMaxLength(FieldLimits.GuildName);
+            // The anonymous calendar route resolves guilds by slug; unique so a slug can never
+            // name two servers (Postgres treats NULLs as distinct, so "off" rows don't collide).
+            e.Property(g => g.PublicCalendarSlug).HasMaxLength(64);
+            e.HasIndex(g => g.PublicCalendarSlug).IsUnique();
         });
 
         modelBuilder.Entity<Channel>(e =>

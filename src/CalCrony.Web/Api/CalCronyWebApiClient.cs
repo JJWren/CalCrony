@@ -3,10 +3,14 @@ using CalCrony.Contracts;
 
 namespace CalCrony.Web.Api;
 
-/// <summary>Uniform call result: Value on success, a display-ready Error otherwise.</summary>
-public record ApiResult<T>(T? Value, string? Error)
+/// <summary>Uniform call result: Value on success, a display-ready Error otherwise. Status carries
+/// the HTTP status of a failed call (null when the API was unreachable) so pages can tell a
+/// missing resource from a rejected request or an outage.</summary>
+public record ApiResult<T>(T? Value, string? Error, System.Net.HttpStatusCode? Status = null)
 {
     public bool Success => Error is null;
+
+    public bool NotFound => Status == System.Net.HttpStatusCode.NotFound;
 }
 
 /// <summary>Typed client over the CalCrony API for web pages — same ApiResult shape the bot's
@@ -309,6 +313,34 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     public Task<ApiResult<Unit>> DeleteTemplateAsync(Guid id, CancellationToken ct = default) =>
         SendAsync<Unit>(http.DeleteAsync($"/templates/{id}", ct), ct);
 
+    /// <summary>Reads the server's public-calendar state (on/off and its link).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<PublicCalendarSettingsDto>> GetPublicCalendarSettingsAsync(long guildId, CancellationToken ct = default) =>
+        SendAsync<PublicCalendarSettingsDto>(http.GetAsync($"/guilds/{guildId}/public-calendar", ct), ct);
+
+    /// <summary>Turns the server's public calendar on or off, or regenerates its link (managers only).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The desired state.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<PublicCalendarSettingsDto>> PutPublicCalendarAsync(long guildId, PublicCalendarRequest request, CancellationToken ct = default) =>
+        SendAsync<PublicCalendarSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/public-calendar", request, ct), ct);
+
+    /// <summary>One month of a public calendar by slug — anonymous; a null year/month means the
+    /// server's current month.</summary>
+    /// <param name="slug">The calendar slug from the link.</param>
+    /// <param name="year">The month's year, or null.</param>
+    /// <param name="month">The month (1-12), or null.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<PublicCalendarDto>> GetPublicCalendarAsync(string slug, int? year = null, int? month = null, CancellationToken ct = default)
+    {
+        var query = year is int y && month is int m ? $"?year={y}&month={m}" : "";
+        return SendAsync<PublicCalendarDto>(http.GetAsync($"/public/calendars/{Uri.EscapeDataString(slug)}{query}", ct), ct);
+    }
+
     /// <summary>Absolute subscribe URL for an ICS feed token.</summary>
     /// <param name="token">The token value.</param>
     /// <returns>The absolute subscribe URL.</returns>
@@ -351,7 +383,7 @@ public sealed class CalCronyWebApiClient(HttpClient http)
                 // Non-JSON error body; fall through to the status-code message.
             }
 
-            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.");
+            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.", response.StatusCode);
         }
     }
 }
