@@ -266,6 +266,84 @@ public class SeriesComponentTests : TestContext
         Assert.Contains("Repeats daily", repeating.Markup); // title attribute carries the summary
     }
 
+    [Fact]
+    public void Create_form_weekly_day_checkboxes_preview_and_send_the_day_set()
+    {
+        var handler = UseApi();
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
+
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1));
+        cut.Find("#ev-title").Change("Raid night");
+        cut.Find("#ev-when").Change("tuesday 8pm");
+
+        // The day picker only exists for weekly rules.
+        Assert.Empty(cut.FindAll("#ev-day-tue"));
+        cut.Find("#ev-repeat").Change("Weekly");
+        cut.Find("#ev-day-tue").Change(true);
+        cut.Find("#ev-day-thu").Change(true);
+        Assert.Contains("Repeats weekly on Tue, Thu", cut.Markup);
+
+        // Interval composes with the set; the preset button swaps in the Mon–Fri wording.
+        cut.Find("#ev-interval").Change("2");
+        Assert.Contains("Repeats every 2 weeks on Tue, Thu", cut.Markup);
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Weekdays").Click();
+        Assert.True(cut.Find("#ev-day-mon").HasAttribute("checked"));
+        Assert.False(cut.Find("#ev-day-sat").HasAttribute("checked"));
+        cut.Find("#ev-interval").Change("1");
+        Assert.Contains("Repeats every weekday", cut.Markup);
+
+        // Back to Tue+Thu by unticking, then submit.
+        cut.Find("#ev-day-mon").Change(false);
+        cut.Find("#ev-day-wed").Change(false);
+        cut.Find("#ev-day-fri").Change(false);
+        handler.NextJson = JsonSerializer.Serialize(SampleEvent(recurrenceSummary: "Repeats weekly on Tue, Thu"), JsonWeb);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Create event")).Click();
+
+        var body = JsonSerializer.Deserialize<CreateEventRequest>(handler.LastBody!, JsonWeb)!;
+        Assert.Equal(RecurrenceUnit.Week, body.Recurrence!.Unit);
+        Assert.Equal(RecurrenceDays.Tuesday | RecurrenceDays.Thursday, body.Recurrence.DaysOfWeek);
+    }
+
+    [Fact]
+    public void Detail_edit_schedule_prefills_day_set_and_sends_the_edited_one()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var ev = SampleEvent(recurrenceSummary: "Repeats weekly on Tue, Thu");
+        var now = DateTimeOffset.UtcNow;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.StartsWith("/series/") =>
+                JsonSerializer.Serialize(SampleSeries(ev) with
+                {
+                    Ended = false,
+                    DaysOfWeek = RecurrenceDays.Tuesday | RecurrenceDays.Thursday,
+                }, JsonWeb),
+            var p when p.EndsWith("/availability") =>
+                JsonSerializer.Serialize(new AvailabilityResponse(now, now.AddHours(1), []), JsonWeb),
+            var p when p.EndsWith("/notifications") => "[]",
+            "/me/guilds" => JsonSerializer.Serialize(
+                new WebGuildListResponse(now, [new WebGuildDto(ev.GuildId, "G", null, true)]), JsonWeb),
+            _ => JsonSerializer.Serialize(ev, JsonWeb),
+        };
+
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        cut.WaitForAssertion(() => Assert.Contains("Edit schedule", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit schedule").Click();
+        cut.WaitForAssertion(() => cut.Find("#se-day-tue"));
+
+        Assert.True(cut.Find("#se-day-tue").HasAttribute("checked"));
+        Assert.True(cut.Find("#se-day-thu").HasAttribute("checked"));
+        Assert.False(cut.Find("#se-day-mon").HasAttribute("checked"));
+
+        cut.Find("#se-day-mon").Change(true);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Save schedule")).Click();
+
+        var body = JsonSerializer.Deserialize<UpdateSeriesRequest>(handler.PatchBody!, JsonWeb)!;
+        Assert.Equal(RecurrenceUnit.Week, body.Unit);
+        Assert.Equal(RecurrenceDays.Monday | RecurrenceDays.Tuesday | RecurrenceDays.Thursday, body.DaysOfWeek);
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();
@@ -297,7 +375,7 @@ public class SeriesComponentTests : TestContext
 
     private static SeriesDto SampleSeries(EventDto ev) => new(
         ev.SeriesId!.Value, ev.GuildId, ev.CreatorId, ev.Title,
-        RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, "UTC", "2026-07-17", "18:00",
+        RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, "UTC", "2026-07-17", "18:00",
         null, null, 2, true, null, null, 60, ev.ChannelId, null, null,
         "Repeats weekly on Friday", []);
 
