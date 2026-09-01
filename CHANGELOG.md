@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.1](https://github.com/JJWren/CalCrony/compare/v0.31.0...v0.31.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* sharpen the PNG favicon to 512px ([#145](https://github.com/JJWren/CalCrony/issues/145)) ([b514ee5](https://github.com/JJWren/CalCrony/commit/b514ee54f116f665224facd14252969a00d293a8))
+
+
+### Performance Improvements
+
+* batch role/thread delivery lookups in waitlist promotion ([#143](https://github.com/JJWren/CalCrony/issues/143)) ([07016b4](https://github.com/JJWren/CalCrony/commit/07016b4312c72591342617de626e5d251e9e8a69))
+
 ## [0.31.0](https://github.com/JJWren/CalCrony/compare/v0.30.0...v0.31.0) (2026-09-01)
 
 
