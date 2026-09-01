@@ -185,6 +185,7 @@ public static class SeriesEndpoints
             ("unit", request.Unit is not null),
             ("interval", request.Interval is not null),
             ("monthly mode", request.MonthlyMode is not null),
+            ("days of week", request.DaysOfWeek is not null),
             ("end", request.End != SeriesEndChoice.Keep),
             ("revived", revived));
         ActionLog.Record(

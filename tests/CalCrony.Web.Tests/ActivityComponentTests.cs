@@ -211,6 +211,71 @@ public class ActivityComponentTests : TestContext
         Assert.DoesNotContain("Export events (CSV)", cut.Markup);
     }
 
+    [Fact]
+    public void Load_more_pages_with_the_applied_filter_not_a_pending_edit()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var page = new ActionLogPageDto([Entry(ActionLogAction.PollCreated, "Created poll “A”", 1, "One")], "2026-08-31T12:00:00Z|abc");
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(page, JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Created poll “A”", cut.Markup));
+
+        // Apply A, then change the control to B WITHOUT applying, then load more: the next page
+        // must belong to A's result set (A + the old cursor), never B's filter with A's cursor.
+        cut.Find("#act-action").Change(nameof(ActionLogAction.PollCreated));
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+        cut.WaitForAssertion(() => Assert.Contains("action=PollCreated", handler.LastActionsQuery));
+
+        cut.Find("#act-action").Change(nameof(ActionLogAction.PollClosed));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Load more")).Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("action=PollCreated", handler.LastActionsQuery);
+            Assert.Contains("before=2026-08-31T12%3A00%3A00Z%7Cabc", handler.LastActionsQuery);
+        });
+        Assert.DoesNotContain("PollClosed", handler.LastActionsQuery);
+    }
+
+    [Fact]
+    public void Switching_guild_mid_download_disposes_the_stale_response()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var guilds = JsonSerializer.Serialize(
+            new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "Mine", null, true), new WebGuildDto(2, "Also mine", null, true)]), JsonWeb);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => guilds,
+        };
+        handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
+        var download = JSInterop.SetupVoid("calcronyDownload", _ => true);
+        download.SetVoidResult();
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+
+        // Hold guild 1's download open, move to guild 2, then let the download complete: the
+        // stale response must be closed, not handed to the browser or leaked.
+        var gate = new TaskCompletionSource();
+        handler.GateFor = req => req.RequestUri!.AbsolutePath.EndsWith("/export/events.csv") ? gate.Task : Task.CompletedTask;
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+        cut.Render(p => p.Add(x => x.GuildId, 2L));
+        gate.SetResult();
+
+        cut.WaitForAssertion(() => Assert.NotNull(handler.LastCsvContent?.HandedOut));
+        cut.WaitForAssertion(() => Assert.Throws<ObjectDisposedException>(() => handler.LastCsvContent!.HandedOut!.ReadByte()));
+        Assert.Empty(download.Invocations);
+        Assert.DoesNotContain("Downloaded", cut.Markup);
+    }
+
     private static ActionLogEntryDto Entry(
         ActionLogAction action, string summary, long actorId, string? actorName,
         ActionSource source = ActionSource.Discord, ActionTargetType targetType = ActionTargetType.Poll, Guid? targetId = null,

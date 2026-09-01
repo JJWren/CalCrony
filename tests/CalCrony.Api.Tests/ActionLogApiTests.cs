@@ -537,6 +537,23 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         }
     }
 
+    [Fact]
+    public async Task Day_set_only_series_edit_names_the_field_it_changed()
+    {
+        const long guildId = 13250;
+        var ev = await CreateEventAsync(guildId, 13251, "Gym", recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week));
+
+        var edit = await SendAsActorAsync(
+            HttpMethod.Patch, $"/series/{ev.SeriesId}", 13252,
+            new UpdateSeriesRequest(DaysOfWeek: RecurrenceDays.Monday | RecurrenceDays.Wednesday | RecurrenceDays.Friday));
+        edit.EnsureSuccessStatusCode();
+
+        var entry = (await ListAsync(guildId, query: "action=SeriesEdited")).Entries.Single();
+        Assert.Equal(13252, entry.ActorUserId);
+        Assert.Equal("Changed the schedule of “Gym” — days of week", entry.Summary);
+        Assert.Equal("""{"fields":["days of week"]}""", entry.DetailsJson);
+    }
+
     private async Task SeedGuildAsync(long guildId)
     {
         var response = await Bot.PutAsJsonAsync($"/guilds/{guildId}/settings", new GuildSettingsDto("UTC", ChannelId));

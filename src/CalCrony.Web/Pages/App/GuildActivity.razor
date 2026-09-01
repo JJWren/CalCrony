@@ -124,8 +124,13 @@ else
     private bool loading;
     private bool exporting;
     private int loadGeneration;
+    // The form fields are PENDING edits; paging uses the APPLIED pair, which only Apply/Clear
+    // change (and which reset the cursor) — otherwise "change the select, click Load more"
+    // would page a new filter with the old filter's cursor and mix two result sets.
     private string actionFilter = "";
     private string userFilter = "";
+    private ActionLogAction? appliedAction;
+    private long? appliedUserId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -142,6 +147,10 @@ else
         // guild's load would show its export button (and let it fire an unauthorized request)
         // until the lookup lands.
         isManager = false;
+        actionFilter = "";
+        userFilter = "";
+        appliedAction = null;
+        appliedUserId = null;
 
         var myGuilds = await Api.GetMyGuildsAsync();
         if (generation != loadGeneration)
@@ -170,27 +179,8 @@ else
 
     private async Task LoadPageAsync(bool reset, int generation)
     {
-        ActionLogAction? action = null;
-        if (actionFilter.Length > 0 && Enum.TryParse<ActionLogAction>(actionFilter, out var parsed))
-        {
-            action = parsed;
-        }
-
-        long? userId = null;
-        if (userFilter.Trim().Length > 0)
-        {
-            if (!long.TryParse(userFilter.Trim(), out var parsedUser))
-            {
-                filterError = "❌ Enter a numeric Discord user id.";
-                return;
-            }
-
-            userId = parsedUser;
-        }
-
-        filterError = null;
         loading = true;
-        var result = await Api.ListActionsAsync(GuildId, action, userId, reset ? null : nextCursor, PageSize);
+        var result = await Api.ListActionsAsync(GuildId, appliedAction, appliedUserId, reset ? null : nextCursor, PageSize);
         loading = false;
         if (generation != loadGeneration)
         {
@@ -215,12 +205,40 @@ else
         nextCursor = result.Value.NextCursor;
     }
 
-    private Task ApplyFiltersAsync() => LoadPageAsync(reset: true, loadGeneration);
+    private Task ApplyFiltersAsync()
+    {
+        ActionLogAction? action = null;
+        if (actionFilter.Length > 0 && Enum.TryParse<ActionLogAction>(actionFilter, out var parsed))
+        {
+            action = parsed;
+        }
+
+        long? userId = null;
+        if (userFilter.Trim().Length > 0)
+        {
+            if (!long.TryParse(userFilter.Trim(), out var parsedUser))
+            {
+                // The applied pair stays as it was — a bad edit never touches paging.
+                filterError = "❌ Enter a numeric Discord user id.";
+                return Task.CompletedTask;
+            }
+
+            userId = parsedUser;
+        }
+
+        filterError = null;
+        appliedAction = action;
+        appliedUserId = userId;
+        return LoadPageAsync(reset: true, loadGeneration);
+    }
 
     private Task ClearFiltersAsync()
     {
         actionFilter = "";
         userFilter = "";
+        appliedAction = null;
+        appliedUserId = null;
+        filterError = null;
         return LoadPageAsync(reset: true, loadGeneration);
     }
 
@@ -235,6 +253,9 @@ else
         exporting = false;
         if (generation != loadGeneration)
         {
+            // The page moved to another guild mid-download: the open response (and its body
+            // stream) belongs to the old guild and must be closed, not leaked.
+            result.Value?.Dispose();
             return;
         }
 
