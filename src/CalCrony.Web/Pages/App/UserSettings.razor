@@ -38,6 +38,10 @@
                 Off by default, and only you can turn it on — servers and event creators never can. Uses your
                 Discord DMs; if they're closed to the bot, it switches itself off.
             </p>
+            @if (consentUnknown)
+            {
+                <p class="small text-warning-emphasis mb-0 mt-1" role="status">Current state unknown — the last save failed and your saved settings couldn't be re-read. Reload the page before trusting this switch.</p>
+            }
             @if (settings?.DmRemindersBlockedAtUtc is { } blockedAt)
             {
                 <p class="meta-mono small mb-0 mt-1">Turned off automatically on @blockedAt.ToLocalTime().ToString("MMM d, h:mm tt") — your DMs were closed to the bot.</p>
@@ -87,6 +91,11 @@
     /// so a value loaded earlier can't overwrite a newer consent state — e.g. an automatic
     /// switch-off after closed DMs, or a change made from Discord meanwhile.</summary>
     private bool dmRemindersChanged;
+
+    /// <summary>True after a failed save whose authoritative re-read also failed: the bound values
+    /// may not match the server, so the controls are disabled and the DM switch says so explicitly
+    /// instead of displaying the requested value as if it were fact.</summary>
+    private bool consentUnknown;
     private string? saveMessage;
 
     private long UserId => AuthApi.Session?.UserId ?? 0;
@@ -151,6 +160,7 @@
             else
             {
                 settings = null;
+                consentUnknown = true;
                 saveMessage += " — and your saved settings couldn't be re-read; reload the page.";
             }
 
@@ -165,6 +175,7 @@
     /// <param name="loaded">The authoritative settings.</param>
     private void ApplySettings(UserSettingsDto loaded)
     {
+        consentUnknown = false;
         settings = loaded;
         timezoneInput = loaded.TimeZone ?? "";
         dmConfirmations = loaded.DmConfirmations;

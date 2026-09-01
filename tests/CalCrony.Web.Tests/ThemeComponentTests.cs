@@ -255,6 +255,33 @@ public class ThemeComponentTests : TestContext
         cut.WaitForAssertion(() => Assert.False(JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!.DmReminders));
     }
 
+    [Fact]
+    public async Task When_a_failed_save_cannot_be_re_read_the_switch_is_marked_unknown_and_disabled()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        var loads = 0;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate", DmReminders: true), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+        // First GET loads fine; the PUT fails; the re-read GET fails too.
+        handler.StatusFor = req =>
+            req.Method == HttpMethod.Put ? HttpStatusCode.InternalServerError
+            : req.RequestUri!.AbsolutePath == "/users/42/settings" && ++loads > 1 ? HttpStatusCode.InternalServerError
+            : HttpStatusCode.OK;
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+
+        cut.Find("#us-dm-reminders").Change(false);
+
+        cut.WaitForAssertion(() => Assert.Contains("Current state unknown", cut.Markup));
+        Assert.True(cut.Find("#us-dm-reminders").HasAttribute("disabled"));
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();
