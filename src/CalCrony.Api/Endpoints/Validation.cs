@@ -25,4 +25,25 @@ internal static class Validation
             ? Results.BadRequest(new ErrorResponse(
                 $"The duration must be between 1 and {FieldLimits.MaxMinutes} minutes (4 weeks)."))
             : null;
+
+    /// <summary>Day-set check for a repeat rule: the flags must name real days, and a non-empty
+    /// set only makes sense on a weekly rule (a daily/monthly/yearly rule has no week to pick
+    /// days from). None always passes.</summary>
+    /// <param name="unit">The rule's unit.</param>
+    /// <param name="days">The submitted day set.</param>
+    /// <returns>A 400 result when the set is invalid for the unit, else null.</returns>
+    public static IResult? BadRecurrenceDays(RecurrenceUnit unit, RecurrenceDays days)
+    {
+        if (!RecurrenceDaySets.IsValid(days))
+        {
+            return Results.BadRequest(new ErrorResponse("Repeat days must be a set of weekdays (Mon–Sun)."));
+        }
+
+        if (days != RecurrenceDays.None && unit != RecurrenceUnit.Week)
+        {
+            return Results.BadRequest(new ErrorResponse("Repeat days only apply to weekly repeats."));
+        }
+
+        return null;
+    }
 }

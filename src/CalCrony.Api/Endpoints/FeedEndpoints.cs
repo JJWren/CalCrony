@@ -178,7 +178,8 @@ public static class FeedEndpoints
             var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
             var next = Services.RecurrenceCalculator.NextOccurrence(
                 series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate,
-                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, now);
+                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, now,
+                series.DaysOfWeek);
             if (next is null)
             {
                 continue; // end condition about to retire the series

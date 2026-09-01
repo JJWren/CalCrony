@@ -34,7 +34,7 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
         var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
         var next = RecurrenceCalculator.NextOccurrence(
             series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate, series.StartTime,
-            zone, series.CurrentOccurrenceDate, series.UntilDate, now);
+            zone, series.CurrentOccurrenceDate, series.UntilDate, now, series.DaysOfWeek);
         if (next is null)
         {
             series.Ended = true;

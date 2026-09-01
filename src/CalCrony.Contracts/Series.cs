@@ -25,14 +25,20 @@ public enum EditScope
     Series = 1,
 }
 
-/// <summary>A repeat rule: every Interval units, anchored on the first occurrence; MonthlyMode applies only when Unit is Month.</summary>
+/// <summary>A repeat rule: every Interval units, anchored on the first occurrence; MonthlyMode
+/// applies only when Unit is Month, DaysOfWeek only when Unit is Week. A weekly rule with a day
+/// set fires on each selected weekday of every Interval-th week (weeks counted Monday-first from
+/// the anchor's week); the anchor itself is always the first occurrence even when its weekday
+/// isn't in the set, matching RFC 5545's DTSTART rule. None = the anchor's weekday only.</summary>
 /// <param name="Unit">The recurrence unit.</param>
 /// <param name="Interval">Every N units (1-12).</param>
 /// <param name="MonthlyMode">The monthly mode.</param>
+/// <param name="DaysOfWeek">The weekly day set; None keeps the anchor-weekday behaviour.</param>
 public record RecurrenceRuleDto(
     RecurrenceUnit Unit,
     int Interval = 1,
-    MonthlyMode MonthlyMode = MonthlyMode.DayOfMonth);
+    MonthlyMode MonthlyMode = MonthlyMode.DayOfMonth,
+    RecurrenceDays DaysOfWeek = RecurrenceDays.None);
 
 /// <summary>A series-template notification spec, cloned onto each materialized occurrence.</summary>
 /// <param name="Id">The unique id.</param>
@@ -53,6 +59,7 @@ public record SeriesNotificationDto(
 /// <param name="Unit">The recurrence unit.</param>
 /// <param name="Interval">Every N units (1-12).</param>
 /// <param name="MonthlyMode">The monthly mode.</param>
+/// <param name="DaysOfWeek">The weekly day set; None = the anchor's weekday only.</param>
 /// <param name="TimeZone">The IANA timezone id.</param>
 /// <param name="AnchorDate">ISO local date of the schedule anchor.</param>
 /// <param name="StartTime">The local start time of each occurrence.</param>
@@ -76,6 +83,7 @@ public record SeriesDto(
     RecurrenceUnit Unit,
     int Interval,
     MonthlyMode MonthlyMode,
+    RecurrenceDays DaysOfWeek,
     string TimeZone,
     string AnchorDate,
     string StartTime,
@@ -109,12 +117,15 @@ public enum SeriesEndChoice
 }
 
 /// <summary>Schedule-rule edit for a series: null rule fields keep current values (note a Month
-/// unit without MonthlyMode keeps the stored mode). A successful update always leaves the series
-/// active — reviving an ended one — with at least one future occurrence; edits that would leave
-/// none are rejected. Never moves the live occurrence's start time.</summary>
+/// unit without MonthlyMode keeps the stored mode; a weekly series without DaysOfWeek keeps its
+/// day set, while moving to a non-weekly unit drops it). A successful update always leaves the
+/// series active — reviving an ended one — with at least one future occurrence; edits that
+/// would leave none are rejected. Never moves the live occurrence's start time.</summary>
 /// <param name="Unit">The recurrence unit.</param>
 /// <param name="Interval">Every N units (1-12).</param>
 /// <param name="MonthlyMode">The monthly mode.</param>
+/// <param name="DaysOfWeek">Replacement weekly day set; None clears it back to the anchor's
+/// weekday. Only valid for weekly rules.</param>
 /// <param name="End">The end-condition intent.</param>
 /// <param name="RepeatUntilText">Natural-language last repeat date.</param>
 /// <param name="RepeatCount">Total occurrences including the first.</param>
@@ -122,6 +133,7 @@ public record UpdateSeriesRequest(
     RecurrenceUnit? Unit = null,
     int? Interval = null,
     MonthlyMode? MonthlyMode = null,
+    RecurrenceDays? DaysOfWeek = null,
     SeriesEndChoice End = SeriesEndChoice.Keep,
     string? RepeatUntilText = null,
     int? RepeatCount = null);

@@ -50,7 +50,21 @@ public static class IcsRecurrence
     private static RecurrencePattern WeeklyPattern(EventSeries series)
     {
         var pattern = new RecurrencePattern(FrequencyType.Weekly, series.Interval);
-        pattern.ByDay.Add(new WeekDay(ToDayOfWeek(series.AnchorDate.DayOfWeek)));
+        if (series.DaysOfWeek == RecurrenceDays.None)
+        {
+            pattern.ByDay.Add(new WeekDay(ToDayOfWeek(series.AnchorDate.DayOfWeek)));
+            return pattern;
+        }
+
+        // BYDAY lists the whole set; INTERVAL>1 then counts weeks from DTSTART's week with the
+        // default WKST=MO — exactly RecurrenceCalculator's Monday-first cadence, and DTSTART is
+        // always in an on-week (it is either the anchor or a slot the calculator produced).
+        foreach (var day in RecurrenceDaySets.Split(series.DaysOfWeek))
+        {
+            pattern.ByDay.Add(new WeekDay(RecurrenceDaySets.ToDayOfWeek(day)));
+        }
+
+        pattern.FirstDayOfWeek = DayOfWeek.Monday;
         return pattern;
     }
 
