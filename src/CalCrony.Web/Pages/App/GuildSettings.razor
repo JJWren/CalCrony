@@ -233,8 +233,16 @@ else
     {
         publicCalendarMessage = null;
         busy = true;
+        var generation = loadGeneration;
         var result = await Api.PutPublicCalendarAsync(GuildId, request);
         busy = false;
+        if (generation != loadGeneration)
+        {
+            // The page moved to another guild while this was in flight: the response belongs
+            // to the old guild and its link must never be installed under the new one.
+            return;
+        }
+
         if (!result.Success || result.Value is null)
         {
             publicCalendarMessage = $"❌ {result.Error}";
@@ -264,10 +272,16 @@ else
         }
 
         busy = true;
+        var generation = loadGeneration;
         // Read-modify-write: preserve the bot-managed DefaultChannelId and the mirror flag.
         var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
             trimmed, settings?.DefaultChannelId, settings?.MirrorNativeEvents ?? false));
         busy = false;
+        if (generation != loadGeneration)
+        {
+            return; // the page moved to another guild while this was in flight
+        }
+
         if (!result.Success || result.Value is null)
         {
             saveMessage = $"❌ {result.Error}";
@@ -282,10 +296,16 @@ else
     {
         mirrorMessage = null;
         busy = true;
+        var generation = loadGeneration;
         // Read-modify-write: preserve the timezone and the bot-managed DefaultChannelId.
         var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
             settings?.TimeZone ?? "UTC", settings?.DefaultChannelId, mirrorInput));
         busy = false;
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
         if (!result.Success || result.Value is null)
         {
             mirrorMessage = $"❌ {result.Error}";

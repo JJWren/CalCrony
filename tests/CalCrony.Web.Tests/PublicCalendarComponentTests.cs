@@ -245,6 +245,40 @@ public class PublicCalendarComponentTests : TestContext
         Assert.DoesNotContain("/c/guild1", cut.Markup);
     }
 
+    [Fact]
+    public void A_regenerate_that_finishes_after_a_guild_switch_never_installs_the_old_guilds_link()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var handler = UseApi();
+        var now = DateTimeOffset.UtcNow;
+        var putGate = new TaskCompletionSource();
+        handler.Respond = req => (req.Method == HttpMethod.Put, req.RequestUri!.AbsolutePath) switch
+        {
+            (true, "/guilds/1/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(true, "regenerated1", "/c/regenerated1", null), JsonWeb)),
+            (_, "/guilds/1/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(true, "guild1", "/c/guild1", null), JsonWeb)),
+            (_, "/guilds/2/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(false, null, null, null), JsonWeb)),
+            (_, var p) when p.EndsWith("/settings") => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("UTC", 5), JsonWeb)),
+            (_, "/me/guilds") => (HttpStatusCode.OK, JsonSerializer.Serialize(new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true), new WebGuildDto(2, "H", null, true)]), JsonWeb)),
+            (_, var p) when p.EndsWith("/feed-token") => (HttpStatusCode.OK, JsonSerializer.Serialize(new FeedTokenDto("tok", "/feeds/tok.ics"), JsonWeb)),
+            _ => (HttpStatusCode.OK, "[]"),
+        };
+        handler.Delay = req => req.Method == HttpMethod.Put ? putGate.Task : Task.CompletedTask;
+
+        var cut = Render<GuildSettings>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("/c/guild1", cut.Markup));
+
+        // Start a regenerate on guild 1 (held open), then move the page to guild 2.
+        cut.FindAll("button").First(b => b.TextContent.Contains("New link")).Click();
+        cut.FindAll("button").First(b => b.TextContent.Contains("Generate new link")).Click();
+        cut.Render(p => p.Add(x => x.GuildId, 2L));
+        cut.WaitForAssertion(() => Assert.Contains("gs-public-cal", cut.Markup));
+
+        putGate.SetResult(); // guild 1's regenerate completes late…
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("/c/regenerated1", cut.Markup)); // …and is discarded
+        Assert.DoesNotContain("/c/guild1", cut.Markup);
+    }
+
     private static PublicCalendarDto SampleMonth() =>
         new("Test Guild", "America/Chicago", 2026, 9,
         [
