@@ -49,6 +49,19 @@ public class UserProfile
     public string? TimeZone { get; set; }
     public bool DmConfirmations { get; set; } = true;
 
+    /// <summary>Opt-in, default OFF: also deliver reminders and start announcements for events the
+    /// user is attending by DM. Only the user can turn this on — creators and servers never can
+    /// (the hosted instance's anti-spam posture).</summary>
+    public bool DmReminders { get; set; }
+
+    /// <summary>Whether the bot has already offered the DM-reminder toggle (once, ever, after a
+    /// first attending RSVP) — the only discoverability nudge; never an unsolicited DM.</summary>
+    public bool DmRemindersOffered { get; set; }
+
+    /// <summary>When Discord last refused a DM (closed DMs / blocked bot): the preference was turned
+    /// off at that moment instead of retrying into a wall. Null when that has never happened.</summary>
+    public Instant? DmRemindersBlockedAt { get; set; }
+
     /// <summary>Web interface theme (a value from <see cref="InterfaceThemes.All"/>); null = the
     /// user never picked one and the web app uses its default. The dark/light face is a per-device
     /// choice and deliberately not stored.</summary>

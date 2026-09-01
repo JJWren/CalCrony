@@ -64,6 +64,8 @@ public sealed class DeliveryScheduler(
                 fireAt,
                 now));
             enqueued++;
+            enqueued += await DmReminderFanOut.EnqueueAsync(
+                db, pair.Event, pair.Notification.Message, isStart: false, fireAt, now, cancellationToken);
         }
 
         // Scheduled → Started, with a start ping.
@@ -82,6 +84,7 @@ public sealed class DeliveryScheduler(
                 ev.StartsAt,
                 now));
             enqueued++;
+            enqueued += await DmReminderFanOut.EnqueueAsync(db, ev, message: null, isStart: true, ev.StartsAt, now, cancellationToken);
             liveListGuilds.Add(ev.GuildId);
         }
 

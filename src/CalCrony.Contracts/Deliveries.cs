@@ -51,6 +51,9 @@ public enum DeliveryType
     /// <summary>Tell a user they were promoted off an event's waitlist into a seat. The seat
     /// itself was taken in the promoting transaction — this is only the ping.</summary>
     WaitlistPromotion = 15,
+
+    /// <summary>DM a user who opted in: a reminder or start announcement for an event they attend.</summary>
+    DmEventReminder = 16,
 }
 
 /// <summary>An outbox row the bot must post to Discord. PayloadJson deserializes per <see cref="Type"/>.</summary>
@@ -148,6 +151,30 @@ public record SyncLiveListPayload(Guid LiveListId);
 /// <param name="OptionLabel">The attending option's label.</param>
 public record WaitlistPromotionPayload(
     Guid EventId, long UserId, string Title, long StartsAtUnix, string OptionEmote, string OptionLabel);
+
+/// <summary>Payload for an opt-in DM reminder. Self-contained (title, time, guild/channel/message
+/// ids, the server-name snapshot) so the DM renders even if the event row changes or dies first.</summary>
+/// <param name="UserId">The recipient.</param>
+/// <param name="EventId">The event id.</param>
+/// <param name="Title">The event title.</param>
+/// <param name="StartsAtUnix">The start instant (Unix seconds) for Discord timestamps.</param>
+/// <param name="Message">The notification's custom message, if any (null for start announcements).</param>
+/// <param name="IsStart">True for the "starting now" announcement, false for a pre-event reminder.</param>
+/// <param name="GuildId">The guild id (jump link).</param>
+/// <param name="ChannelId">The event's channel id (jump link).</param>
+/// <param name="MessageId">The event's embed message id, when posted (jump link).</param>
+/// <param name="GuildName">The server-name snapshot, or null (ADR 0001 — omit, never placeholder).</param>
+public record DmEventReminderPayload(
+    long UserId,
+    Guid EventId,
+    string Title,
+    long StartsAtUnix,
+    string? Message,
+    bool IsStart,
+    long GuildId,
+    long ChannelId,
+    long? MessageId,
+    string? GuildName);
 
 /// <summary>Payload asking the bot to re-render a poll's posted embed.</summary>
 /// <param name="PollId">The poll id.</param>

@@ -30,6 +30,18 @@
                 <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" />
                 <label class="form-check-label small" for="us-dm">DM confirmations</label>
             </div>
+            <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveSettingsAsync" />
+                <label class="form-check-label small" for="us-dm-reminders">DM me reminders and start pings for events I'm attending</label>
+            </div>
+            <p class="text-body-secondary small mb-0 mt-1">
+                Off by default, and only you can turn it on — servers and event creators never can. Uses your
+                Discord DMs; if they're closed to the bot, it switches itself off.
+            </p>
+            @if (settings?.DmRemindersBlockedAtUtc is { } blockedAt)
+            {
+                <p class="meta-mono small mb-0 mt-1">Turned off automatically on @blockedAt.ToLocalTime().ToString("MMM d, h:mm tt") — your DMs were closed to the bot.</p>
+            }
             @if (saveMessage is not null)
             {
                 <div class="meta-mono mt-2">@saveMessage</div>
@@ -68,6 +80,7 @@
     private bool busy;
     private string timezoneInput = "";
     private bool dmConfirmations = true;
+    private bool dmReminders;
     private string? saveMessage;
 
     private long UserId => AuthApi.Session?.UserId ?? 0;
@@ -80,6 +93,7 @@
         settings = settingsResult.Value;
         timezoneInput = settings?.TimeZone ?? "";
         dmConfirmations = settings?.DmConfirmations ?? true;
+        dmReminders = settings?.DmReminders ?? false;
         var calendarResult = await Api.GetCalendarStatusAsync(UserId);
         if (!calendarResult.Success)
         {
@@ -95,7 +109,8 @@
         saveMessage = null;
         busy = true;
         var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
-            string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations));
+            string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations,
+            DmReminders: dmReminders));
         busy = false;
         if (!result.Success || result.Value is null)
         {

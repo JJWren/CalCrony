@@ -228,3 +228,10 @@
 **Context**: Construction on features/121-public-web-calendar (settled build order item 3).
 
 ---
+## Construction — DM reminders (issue #123)
+**Timestamp**: 2026-09-01T00:20:00Z
+**User Input**: (continuation of "see this through to release and pick up the next issue"; #121 merged as PR #130, follow-up PR #136)
+**AI Response**: Picked up #123 (settled build order #5) in worktree feat-123-dm-reminders: UserProfile.DmReminders (default off) / DmRemindersOffered / DmRemindersBlockedAt (+ AddDmReminders migration); UserSettingsDto gains a null-keeps DmReminders and a read-only DmRemindersBlockedAtUtc; bot-only POST /users/{id}/dm-reminders/offer (conditional one-time claim, only while off) and /blocked (switch off + stamp); DmReminderFanOut mirrors each channel EventNotification/EventStart into DmEventReminder (16) outbox rows for opted-in SEATED attending RSVPers only; the poller DMs via CreateDMChannel and treats Discord 50007 as "switch the preference off, done" (never retry-spam); RsvpComponentModule offers the toggle once after a first seated attending RSVP (ephemeral prompt with Yes/No buttons → DmReminderComponentModule); /settings dm-reminders + view line; web My-settings toggle with the closed-DMs note; README/Docs/Privacy updated.
+**Context**: Construction on features/123-dm-reminders; consent model per issue: creators and servers can never force DMs.
+
+---

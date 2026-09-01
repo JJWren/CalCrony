@@ -170,6 +170,7 @@ app.MapNotificationEndpoints();
 app.MapDeliveryEndpoints();
 app.MapFeedEndpoints();
 app.MapPublicCalendarEndpoints();
+app.MapDmReminderEndpoints();
 app.MapCalendarEndpoints();
 app.MapOAuthEndpoints();
 app.MapAuthEndpoints();

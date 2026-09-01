@@ -7,6 +7,7 @@ using CalCrony.Contracts;
 using CalCrony.Web.Api;
 using CalCrony.Web.Auth;
 using CalCrony.Web.Components;
+using CalCrony.Web.Pages.App;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Web.Tests;
@@ -149,6 +150,34 @@ public class ThemeComponentTests : TestContext
         // The callback is JS-invokable: an unexpected payload must be ignored, not become state.
         await cut.InvokeAsync(() => cut.Instance.OnModeChanged("banana"));
         Assert.Contains("active", cut.FindAll("button").First(b => b.GetAttribute("title") == "Light").ClassName);
+    }
+
+    [Fact]
+    public async Task Dm_reminders_toggle_is_off_by_default_and_saves_only_the_opt_in()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate"), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => cut.Find("#us-dm-reminders"));
+
+        // Off by default — the API's false renders unchecked, and the copy says who can turn it on.
+        Assert.False(cut.Find("#us-dm-reminders").HasAttribute("checked"));
+        Assert.Contains("only you can turn it on", cut.Markup);
+
+        cut.Find("#us-dm-reminders").Change(true);
+
+        cut.WaitForAssertion(() => Assert.NotNull(handler.PutBody));
+        var body = JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!;
+        Assert.True(body.DmReminders);
+        Assert.True(body.DmConfirmations); // the other settings ride along unchanged
+        Assert.Equal("UTC", body.TimeZone);
     }
 
     private CapturingHandler UseApi()

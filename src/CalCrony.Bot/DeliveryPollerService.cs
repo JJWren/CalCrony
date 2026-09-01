@@ -2,6 +2,7 @@ using System.Text.Json;
 using CalCrony.Bot.Api;
 using CalCrony.Contracts;
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 
 namespace CalCrony.Bot;
@@ -132,6 +133,12 @@ public sealed class DeliveryPollerService(
         if (delivery.Type == DeliveryType.EventStart)
         {
             await EventStartAsync(delivery);
+            return;
+        }
+
+        if (delivery.Type == DeliveryType.DmEventReminder)
+        {
+            await DmEventReminderAsync(delivery);
             return;
         }
 
@@ -493,6 +500,40 @@ public sealed class DeliveryPollerService(
         if (payload is { GuildId: long guildId, NativeEventId: long nativeId })
         {
             await mirror.TryStartAsync(guildId, nativeId);
+        }
+    }
+
+    /// <summary>Discord API error 50007, "Cannot send messages to this user": DMs disabled for the
+    /// server, or the bot blocked. Matched numerically — the enum name has moved between
+    /// Discord.Net versions.</summary>
+    private const int ClosedDmsErrorCode = 50007;
+
+    /// <summary>DMs an opted-in attendee. Closed DMs (Discord 50007 — DMs disabled or the bot
+    /// blocked) switch the user's preference off through the API and count as done: never a retry,
+    /// never a second attempt into a wall. Any other failure propagates so the outbox retries as
+    /// usual, and an unknown user id is dropped as done.</summary>
+    /// <param name="delivery">The outbox row to post.</param>
+    private async Task DmEventReminderAsync(DeliveryDto delivery)
+    {
+        var payload = JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
+        IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
+        if (user is null)
+        {
+            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} not found; dropping.", delivery.Id, payload.UserId);
+            return;
+        }
+
+        try
+        {
+            var dm = await user.CreateDMChannelAsync();
+            await dm.SendMessageAsync(DmReminderText.Format(payload));
+        }
+        catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
+        {
+            var blocked = await api.BlockDmRemindersAsync(payload.UserId);
+            logger.LogInformation(
+                "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off ({Outcome}).",
+                delivery.Id, payload.UserId, blocked.Success ? "ok" : blocked.Error);
         }
     }
 

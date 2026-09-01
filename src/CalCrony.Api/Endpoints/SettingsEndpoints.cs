@@ -86,8 +86,16 @@ public static class SettingsEndpoints
         }
 
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
-        return Results.Ok(new UserSettingsDto(user?.TimeZone, user?.DmConfirmations ?? true, ValidThemeOrNull(user?.Theme)));
+        return Results.Ok(ToDto(user));
     }
+
+    /// <summary>The settings a caller sees; an absent profile reads as the defaults (DM reminders OFF).</summary>
+    private static UserSettingsDto ToDto(UserProfile? user) => new(
+        user?.TimeZone,
+        user?.DmConfirmations ?? true,
+        ValidThemeOrNull(user?.Theme),
+        user?.DmReminders ?? false,
+        user?.DmRemindersBlockedAt?.ToDateTimeOffset());
 
     /// <summary>Responses never carry a theme id clients don't know: a stored value that is no
     /// longer valid (renamed/retired theme) reads as null, i.e. the default. PUT validates on the
@@ -135,7 +143,18 @@ public static class SettingsEndpoints
         // Null keeps the stored theme (see UserSettingsDto.Theme) — the bot's timezone/DM writes
         // never carry a theme and must not reset a web-chosen one.
         user.Theme = settings.Theme ?? user.Theme;
+        // Same null-keeps rule for the DM-reminder opt-in; turning it back on clears the
+        // closed-DMs marker so the user can retry after opening their DMs.
+        if (settings.DmReminders is bool dmReminders)
+        {
+            user.DmReminders = dmReminders;
+            if (dmReminders)
+            {
+                user.DmRemindersBlockedAt = null;
+            }
+        }
+
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new UserSettingsDto(user.TimeZone, user.DmConfirmations, ValidThemeOrNull(user.Theme)));
+        return Results.Ok(ToDto(user));
     }
 }
