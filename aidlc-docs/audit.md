@@ -284,3 +284,10 @@
 **Context**: Construction — Code Generation Part 2; deviation recorded for the PR body.
 
 ---
+## Construction — RSVP v2 §3.5 generation: layers 1–6 built and green
+**Timestamp**: 2026-09-01T23:40:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Built in layer order on feature/125-role-restricted-signup, each layer compiled and its tests green before the next: contracts (Roles.cs, restriction fields on the event/poll records, value equality on RsvpOptionSpec so the web form's changed-options comparison stays honest); data (RsvpOption/Poll AllowedRoleIds, Guild.RolesSyncedAt, GuildRoles with a null-name tombstone, GuildMemberRoles; migration 20260901230638_AddRoleRestrictions, purely additive, Up and Down executed against postgres:17-alpine over seeded rows — the seeded event, options and poll survived both directions and the new columns came back as empty arrays); API (RoleRestriction.Evaluate, the shared RoleRestrictionGate for PutRsvp/PutVotes/AddOption, RoleSnapshotEndpoints, RoleWatchList, retention and bot-left purges, name resolution into the DTOs, create/edit rules — 472 API tests green); bot (restrict-to on /create, /edit, /poll create|time, clear-restriction on /edit, the `only:` grammar inside rsvp-options, live checks in both component modules, RoleSnapshotService with Ready reconcile, post-command sync, member-update push and role-deleted/renamed re-sync, 🔒 embed lines — 113 bot tests green); web (chips with name snapshots and id fallback, restricted buttons stay enabled and surface the API's 403/409 text, remove-only edit checkbox, poll chip and add-option hidden after a refused vote — 109 web tests green); docs (README, PRIVACY_POLICY.md and the hosted Privacy page disclose role-membership snapshots and their retention; Docs page documents restrict-to and `only:`). Plan steps 1.1–7.7 ticked. Sibling PR #149 (#148) went through two Copilot rounds: a generation stamp on the guild-name lookup and two hardened tests; zero open comments.
+**Context**: Construction — Code Generation Part 2; next: full-solution test run, PR open, Copilot loop.
+
+---

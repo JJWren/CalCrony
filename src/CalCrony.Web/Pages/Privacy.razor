@@ -5,7 +5,7 @@
 
 <p class="meta-mono text-uppercase mb-2">CalCrony</p>
 <h1 class="h3">Privacy Policy</h1>
-<p class="meta-mono">Last updated: 2026-08-31</p>
+<p class="meta-mono">Last updated: 2026-09-02</p>
 
 <div class="text-body-secondary" style="max-width:70ch">
     <p>
@@ -26,6 +26,12 @@
         <li>Name snapshots: your server's name and the names of the channels CalCrony posts in,
             recorded by the bot so calendar feeds and this web app can label things. They refresh
             while the bot is in the server and freeze at their last-known values if it's removed.</li>
+        <li>Role-membership snapshots (only when a server uses role-restricted signup): for each
+            role that a live restriction names, the role's name and which members currently hold it,
+            recorded by the bot so this web app can tell whether you may pick a restricted RSVP option
+            or vote in a restricted poll. Nothing is recorded for roles no restriction names, or for
+            members holding none of them. This is the one fact about you that the bot writes rather
+            than you handing it over yourself, which is why it is scoped this narrowly.</li>
         <li>Content you create: event titles, descriptions and locations, poll questions and options,
             RSVP choices, reminders, notification messages, and templates.</li>
         <li>Preferences: per-user and per-server timezone, DM-confirmation and DM-reminder settings
@@ -89,6 +95,9 @@
             on request.</li>
         <li><b>Operational records</b> (delivered notifications, consumed login/link tokens, expired
             session tokens) are automatically purged after <b>90 days</b>.</li>
+        <li><b>Role-membership snapshots</b> are dropped automatically when a server's last role
+            restriction ends (the event ends, the poll closes, or the restriction is removed), when a
+            restricted role is deleted in Discord, and when the bot leaves the server.</li>
         <li><b>Server activity log</b> entries record management actions by server members — creating,
             editing, deleting, or skipping events; adding or removing event reminders; changing or
             stopping a repeating event's schedule; creating, closing, converting, or deleting polls;
