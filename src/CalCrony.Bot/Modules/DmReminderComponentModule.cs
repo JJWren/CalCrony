@@ -22,18 +22,33 @@ public class DmReminderComponentModule(CalCronyApiClient api) : InteractionModul
         var current = await api.GetUserSettingsAsync(userId);
         if (!current.Success || current.Value is null)
         {
-            await ReplacePromptAsync($"❌ Couldn't load your settings: {current.Error}");
+            await KeepPromptWithErrorAsync($"Couldn't load your settings: {current.Error}");
             return;
         }
 
         // Read-modify-write so the timezone/theme/confirmation settings ride along untouched.
         var result = await api.PutUserSettingsAsync(userId, current.Value with { DmReminders = enable });
-        await ReplacePromptAsync(!result.Success
-            ? $"❌ {result.Error}"
-            : enable
-                ? "🔔 DM reminders are **on** for events you're attending. Turn them off any time with `/settings dm-reminders enabled:false`."
-                : "👍 No DMs. You can turn reminders on later with `/settings dm-reminders enabled:true`.");
+        if (!result.Success)
+        {
+            await KeepPromptWithErrorAsync(result.Error ?? "unknown error");
+            return;
+        }
+
+        await ReplacePromptAsync(enable
+            ? "🔔 DM reminders are **on** for events you're attending. Turn them off any time with `/settings dm-reminders enabled:false`."
+            : "👍 No DMs. You can turn reminders on later with `/settings dm-reminders enabled:true`.");
     }
+
+    /// <summary>A transient failure must not eat the user's only chance to answer: the offer was
+    /// already consumed when the prompt was shown, so the buttons stay until a choice is saved
+    /// (and the command is named as the fallback).</summary>
+    /// <param name="error">The failure to show.</param>
+    private Task KeepPromptWithErrorAsync(string error) =>
+        ModifyOriginalResponseAsync(m =>
+        {
+            m.Content = $"{DmReminderPrompt.Text}\n❌ {error} — try again, or use `/settings dm-reminders` any time.";
+            m.Components = DmReminderPrompt.Buttons();
+        });
 
     private Task ReplacePromptAsync(string text) =>
         ModifyOriginalResponseAsync(m =>

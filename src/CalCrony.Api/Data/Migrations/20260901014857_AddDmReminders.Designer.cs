@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    [Migration("20260901012358_AddDeliveryRecipients")]
-    partial class AddDeliveryRecipients
+    [Migration("20260901014857_AddDmReminders")]
+    partial class AddDmReminders
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -342,6 +342,9 @@ namespace CalCrony.Api.Data.Migrations
                     b.Property<LocalDate>("CurrentOccurrenceDate")
                         .HasColumnType("date");
 
+                    b.Property<int>("DaysOfWeek")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Description")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)");
@@ -445,6 +448,9 @@ namespace CalCrony.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("RecurrenceDaysOfWeek")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("RecurrenceInterval")
                         .HasColumnType("integer");
@@ -850,6 +856,9 @@ namespace CalCrony.Api.Data.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<Instant?>("DmRemindersBlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Instant?>("DmRemindersEnabledAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("DmRemindersOffered")

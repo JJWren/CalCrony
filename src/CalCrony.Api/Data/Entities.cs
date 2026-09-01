@@ -62,6 +62,11 @@ public class UserProfile
     /// off at that moment instead of retrying into a wall. Null when that has never happened.</summary>
     public Instant? DmRemindersBlockedAt { get; set; }
 
+    /// <summary>When the user last explicitly turned DM reminders ON — the consent version. A
+    /// refusal reported for an attempt that began BEFORE this instant must not switch the newer
+    /// consent off. Null until the user has ever opted in.</summary>
+    public Instant? DmRemindersEnabledAt { get; set; }
+
     /// <summary>Web interface theme (a value from <see cref="InterfaceThemes.All"/>); null = the
     /// user never picked one and the web app uses its default. The dark/light face is a per-device
     /// choice and deliberately not stored.</summary>

@@ -93,7 +93,8 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         var afterExplicit = await PendingDmRowsAsync(ev.Id);
         Assert.Equal([closedDms], afterExplicit.Select(p => p.UserId));
 
-        Assert.Equal(HttpStatusCode.NoContent, (await Client.PostAsync($"/users/{closedDms}/dm-reminders/blocked", null)).StatusCode);
+        var closedRow = (await DmRowsAsync(ev.Id)).Single(r => r.Payload.UserId == closedDms);
+        Assert.Equal(HttpStatusCode.NoContent, (await Client.PostAsync($"/deliveries/{closedRow.Id}/dm-refused", null)).StatusCode);
         Assert.Empty(await PendingDmRowsAsync(ev.Id));
     }
 
@@ -232,11 +233,16 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         async Task<DmReminderClaimOutcome> ClaimAsync(Guid id) =>
             (await ReadAsync<DmReminderClaimResponse>(await Client.PostAsync($"/deliveries/{id}/dm-claim", null))).Outcome;
 
-        // A second poller holding row B is parked while row A's attempt is in flight…
-        Assert.Equal(DmReminderClaimOutcome.Claimed, await ClaimAsync(rowA.Id));
-        Assert.Equal(DmReminderClaimOutcome.AlreadyClaimed, await ClaimAsync(rowB.Id));
+        // Two pollers claim the two rows AT THE SAME TIME: exactly one wins, the other is parked.
+        var outcomes = await Task.WhenAll(ClaimAsync(rowA.Id), ClaimAsync(rowB.Id));
+        Assert.Single(outcomes, o => o == DmReminderClaimOutcome.Claimed);
+        Assert.Single(outcomes, o => o == DmReminderClaimOutcome.AlreadyClaimed);
+        if (outcomes[0] != DmReminderClaimOutcome.Claimed)
+        {
+            (rowA, rowB) = (rowB, rowA); // continue with whichever row won
+        }
 
-        // …and while parked it is not served at all, so polling can't burn its attempt budget.
+        // While parked the loser is not served at all, so polling can't burn its attempt budget.
         var attemptsBefore = await AttemptsAsync(rowB.Id);
         for (var poll = 0; poll < 3; poll++)
         {
@@ -258,32 +264,6 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
         return (await db.Deliveries.SingleAsync(d => d.Id == deliveryId)).Attempts;
-    }
-
-    [Fact]
-    public async Task Offer_and_blocked_are_bot_only()
-    {
-        var (member, session) = await fixture.LoginAsync(12330, (GuildId, "G", false));
-        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsync($"/users/{session.UserId}/dm-reminders/offer", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsync($"/users/{session.UserId}/dm-reminders/blocked", null)).StatusCode);
-    }
-
-    [Fact]
-    public async Task Closed_dms_switch_the_preference_off_with_a_stamp_that_reenabling_clears()
-    {
-        const long userId = 12340;
-        (await Client.PutAsJsonAsync($"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true)))
-            .EnsureSuccessStatusCode();
-
-        Assert.Equal(HttpStatusCode.NoContent, (await Client.PostAsync($"/users/{userId}/dm-reminders/blocked", null)).StatusCode);
-        var blocked = await ReadAsync<UserSettingsDto>(await Client.GetAsync($"/users/{userId}/settings"));
-        Assert.False(blocked.DmReminders);
-        Assert.NotNull(blocked.DmRemindersBlockedAtUtc);
-
-        var reenabled = await ReadAsync<UserSettingsDto>(await Client.PutAsJsonAsync(
-            $"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true)));
-        Assert.True(reenabled.DmReminders);
-        Assert.Null(reenabled.DmRemindersBlockedAtUtc);
     }
 
     [Fact]
@@ -342,6 +322,82 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<DeliveryScheduler>();
         await scheduler.SweepAsync(now, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Offer_claim_and_refused_are_bot_only()
+    {
+        var (member, session) = await fixture.LoginAsync(12330, (GuildId, "G", false));
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsync($"/users/{session.UserId}/dm-reminders/offer", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsync($"/deliveries/{Guid.NewGuid()}/dm-claim", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsync($"/deliveries/{Guid.NewGuid()}/dm-refused", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_refused_dm_switches_the_preference_off_unless_consent_was_renewed_since_the_attempt()
+    {
+        const long staleConsent = 12341;
+        const long renewedConsent = 12342;
+        var rows = await SeedClaimedDmRowsAsync("Refusals", staleConsent, renewedConsent);
+
+        // The user whose consent predates the attempt: switched off, stamped, remaining rows withdrawn.
+        Assert.Equal(HttpStatusCode.NoContent, (await Client.PostAsync($"/deliveries/{rows[staleConsent]}/dm-refused", null)).StatusCode);
+        var stale = await ReadAsync<UserSettingsDto>(await Client.GetAsync($"/users/{staleConsent}/settings"));
+        Assert.False(stale.DmReminders);
+        Assert.NotNull(stale.DmRemindersBlockedAtUtc);
+
+        // The user who explicitly re-enabled AFTER the attempt began keeps the newer consent.
+        (await Client.PutAsJsonAsync($"/users/{renewedConsent}/settings", new UserSettingsDto(null, true, DmReminders: false))).EnsureSuccessStatusCode();
+        (await Client.PutAsJsonAsync($"/users/{renewedConsent}/settings", new UserSettingsDto(null, true, DmReminders: true))).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NoContent, (await Client.PostAsync($"/deliveries/{rows[renewedConsent]}/dm-refused", null)).StatusCode);
+        var renewed = await ReadAsync<UserSettingsDto>(await Client.GetAsync($"/users/{renewedConsent}/settings"));
+        Assert.True(renewed.DmReminders);
+        Assert.Null(renewed.DmRemindersBlockedAtUtc);
+
+        // Either way the refused attempt itself is settled, never retried; re-enabling clears the stamp.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            Assert.Equal(DeliveryStatus.Cancelled, (await db.Deliveries.SingleAsync(d => d.Id == rows[staleConsent])).Status);
+            Assert.Equal(DeliveryStatus.Cancelled, (await db.Deliveries.SingleAsync(d => d.Id == rows[renewedConsent])).Status);
+        }
+
+        var reenabled = await ReadAsync<UserSettingsDto>(await Client.PutAsJsonAsync(
+            $"/users/{staleConsent}/settings", new UserSettingsDto(null, true, DmReminders: true)));
+        Assert.True(reenabled.DmReminders);
+        Assert.Null(reenabled.DmRemindersBlockedAtUtc);
+    }
+
+    /// <summary>Opts the users in, seats them on one event with a due notification, sweeps, and
+    /// claims each user's DM row; returns the claimed delivery id per user.</summary>
+    private async Task<Dictionary<long, Guid>> SeedClaimedDmRowsAsync(string title, params long[] userIds)
+    {
+        foreach (var userId in userIds)
+        {
+            (await Client.PutAsJsonAsync($"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true))).EnsureSuccessStatusCode();
+        }
+
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(CreatorId, title, "in 3 hours", ChannelId));
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var going = ev.Options.OrderBy(o => o.SortOrder).First();
+        foreach (var userId in userIds)
+        {
+            (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{userId}", new RsvpRequest(going.Id))).EnsureSuccessStatusCode();
+        }
+
+        (await Client.PostAsJsonAsync($"/events/{ev.Id}/notifications", new CreateEventNotificationRequest(200, null, null))).EnsureSuccessStatusCode();
+        await SweepAsync(SystemClock.Instance.GetCurrentInstant());
+        var rows = await DmRowsAsync(ev.Id);
+        var claimed = new Dictionary<long, Guid>();
+        foreach (var userId in userIds)
+        {
+            var row = rows.Single(r => r.Payload.UserId == userId);
+            var outcome = (await ReadAsync<DmReminderClaimResponse>(await Client.PostAsync($"/deliveries/{row.Id}/dm-claim", null))).Outcome;
+            Assert.Equal(DmReminderClaimOutcome.Claimed, outcome);
+            claimed[userId] = row.Id;
+        }
+
+        return claimed;
     }
 
     private async Task<List<(Guid Id, DmEventReminderPayload Payload)>> DmRowsAsync(Guid eventId)

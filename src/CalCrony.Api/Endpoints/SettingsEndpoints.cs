@@ -1,6 +1,7 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Contracts;
+using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
@@ -113,7 +114,7 @@ public static class SettingsEndpoints
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutUserSettings(
-        HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context, long userId, UserSettingsDto settings, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
         if (!context.User.IsBot() && context.User.WebUserId() != userId)
         {
@@ -156,6 +157,7 @@ public static class SettingsEndpoints
             {
                 user.DmRemindersOffered = true;
                 user.DmRemindersBlockedAt = null;
+                user.DmRemindersEnabledAt = clock.GetCurrentInstant(); // the consent version a late refusal is compared against
             }
         }
 

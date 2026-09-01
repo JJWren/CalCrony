@@ -855,6 +855,9 @@ namespace CalCrony.Api.Data.Migrations
                     b.Property<Instant?>("DmRemindersBlockedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Instant?>("DmRemindersEnabledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("DmRemindersOffered")
                         .HasColumnType("boolean");
 

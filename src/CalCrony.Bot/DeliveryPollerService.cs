@@ -576,11 +576,11 @@ public sealed class DeliveryPollerService(
         // Closed DMs: record the switch-off (which also withdraws the user's other queued DMs).
         // Not recorded ⇒ not done: the row stays pending and the retry comes back here — to the
         // report, not to Discord — until the API accepts it.
-        var blocked = await api.BlockDmRemindersAsync(payload.UserId);
-        if (!blocked.Success)
+        var refused = await api.ReportDmRefusedAsync(delivery.Id);
+        if (!refused.Success)
         {
             throw new InvalidOperationException(
-                $"User {payload.UserId} has DMs closed but the switch-off could not be recorded: {blocked.Error}");
+                $"User {payload.UserId} has DMs closed but the refusal could not be recorded: {refused.Error}");
         }
 
         refusedDeliveriesPendingReport.Remove(delivery.Id);
