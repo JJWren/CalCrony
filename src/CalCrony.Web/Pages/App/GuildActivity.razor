@@ -366,8 +366,6 @@ else
         }
     }
 
-    /// <summary>Cancels and releases the in-flight export, if any: the HTTP call, the JS read
-    /// (by closing the stream it is reading), and the response that owns that stream.</summary>
     /// <summary>Tears down an in-flight export when the component leaves the page; continuations
     /// that wake afterwards see <c>disposed</c> and write nothing.</summary>
     public void Dispose()
@@ -377,6 +375,8 @@ else
         CancelExport();
     }
 
+    /// <summary>Cancels and releases the in-flight export, if any: the HTTP call, the JS read
+    /// (by closing the stream it is reading), and the response that owns that stream.</summary>
     private void CancelExport()
     {
         var cts = exportCts;
