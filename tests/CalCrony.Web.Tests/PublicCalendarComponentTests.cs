@@ -279,6 +279,39 @@ public class PublicCalendarComponentTests : TestContext
         Assert.DoesNotContain("/c/guild1", cut.Markup);
     }
 
+    [Fact]
+    public void Manager_controls_are_withheld_while_the_next_guild_is_still_loading()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var handler = UseApi();
+        var now = DateTimeOffset.UtcNow;
+        var guild2Gate = new TaskCompletionSource();
+        handler.Respond = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(false, null, null, null), JsonWeb)),
+            var p when p.EndsWith("/settings") => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("UTC", 5), JsonWeb)),
+            // Manager of guild 1 only.
+            "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true), new WebGuildDto(2, "H", null, false)]), JsonWeb)),
+            var p when p.EndsWith("/feed-token") => (HttpStatusCode.OK, JsonSerializer.Serialize(new FeedTokenDto("tok", "/feeds/tok.ics"), JsonWeb)),
+            _ => (HttpStatusCode.OK, "[]"),
+        };
+        handler.Delay = req => req.RequestUri!.AbsolutePath == "/guilds/2/settings" ? guild2Gate.Task : Task.CompletedTask;
+
+        var cut = Render<GuildSettings>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => cut.Find("#gs-public-cal")); // manager switch for guild 1
+
+        cut.Render(p => p.Add(x => x.GuildId, 2L)); // guild 2's first read is held open
+
+        // Guild 1's manager role must not leak into guild 2's loading window…
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#gs-public-cal")));
+        Assert.Empty(cut.FindAll("#gs-native"));
+        guild2Gate.SetResult();
+
+        // …and once guild 2 loads, the member (non-manager) view is what renders.
+        cut.WaitForAssertion(() => Assert.Contains("Read-only", cut.Markup));
+        Assert.Empty(cut.FindAll("#gs-public-cal"));
+    }
+
     private static PublicCalendarDto SampleMonth() =>
         new("Test Guild", "America/Chicago", 2026, 9,
         [
