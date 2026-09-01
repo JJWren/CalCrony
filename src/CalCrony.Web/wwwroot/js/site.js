@@ -106,7 +106,12 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
                 types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }]
             });
         } catch (e) {
-            if (e && e.name === "AbortError") { await readable.cancel(); return "cancelled"; }
+            if (e && e.name === "AbortError") {
+                // cancel() rejects if the .NET stream is already closed — the caller's finally
+                // disposes the response either way, so cleanup failure must not mask "cancelled".
+                try { await readable.cancel(); } catch (ignored) { /* already closed */ }
+                return "cancelled";
+            }
             // e.g. NotAllowedError when the user gesture expired during the fetch — fall through
             // to the bounded in-memory path rather than fail the download.
             handle = null;
@@ -136,7 +141,10 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
             var next = await reader.read();
             if (next.done) { break; }
             total += next.value.byteLength;
-            if (total > limit) { await reader.cancel(); return "too-large"; }
+            if (total > limit) {
+                try { await reader.cancel(); } catch (ignored) { /* already closed */ }
+                return "too-large";
+            }
             parts.push(next.value);
         }
     } catch (e) {
@@ -145,14 +153,26 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
         return "failed";
     }
 
-    var url = URL.createObjectURL(new Blob(parts, { type: type }));
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // Revoke after the click has had a chance to start the download.
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    return "saved";
+    // Blob allocation near the cap, createObjectURL, and the click can all throw; this helper
+    // must still resolve to an outcome so the caller reports it instead of faulting the event.
+    var url = null;
+    var a = null;
+    try {
+        url = URL.createObjectURL(new Blob(parts, { type: type }));
+        a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        a = null;
+        // Revoke after the click has had a chance to start the download.
+        var started = url;
+        setTimeout(function () { URL.revokeObjectURL(started); }, 1000);
+        return "saved";
+    } catch (e) {
+        if (a) { try { a.remove(); } catch (ignored) { /* not attached */ } }
+        if (url) { try { URL.revokeObjectURL(url); } catch (ignored) { /* already revoked */ } }
+        return "failed";
+    }
 };
