@@ -900,11 +900,16 @@ public static class EventEndpoints
             var clearedLabel = request.ClearAttendeeRole
                 ? RsvpPolicy.AttendingOption(ev.Options)?.Label
                 : null;
-            if (clearedLabel is not null
+            if (context.User.IsBot()
+                && clearedLabel is not null
                 && request.RsvpOptions.FirstOrDefault(spec => MatchesLabel(spec, clearedLabel)) is { AttendeeRoleId: not null })
             {
-                // Bot callers state roles inline; asking to clear the same option in one command
-                // is contradictory, and the shorthand has the same "not both" rule.
+                // Bot callers state roles inline, so naming one for the very option being cleared
+                // is contradictory — the same "not both" rule the shorthand has. Web callers are
+                // exempt: they cannot pick roles at all, and their form round-trips each option's
+                // stored role as hidden state, so a role arriving here is the status quo rather
+                // than an intent. CarryOverSpecRoles re-derives those from the event anyway and
+                // clears the named label regardless of what was submitted.
                 return Results.BadRequest(new ErrorResponse(
                     $"\"{clearedLabel}\" is given a role and cleared in the same edit — choose one."));
             }

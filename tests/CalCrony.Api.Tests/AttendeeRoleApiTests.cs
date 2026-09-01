@@ -52,6 +52,36 @@ public class AttendeeRoleApiTests(WebAuthFixture fixture) : IClassFixture<WebAut
     }
 
     [Fact]
+    public async Task A_web_edit_that_round_trips_roles_can_still_clear_the_attendee_role()
+    {
+        // The web form carries each option's stored AttendeeRoleId as hidden state and resubmits
+        // it whenever any option changes, so "Remove attendee role" arrives alongside the very
+        // role it means to remove. That is the status quo, not a contradiction: it must succeed.
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Web clear with options", "in 3 hours", ChannelId, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", 2, IsAttending: true, AttendeeRoleId: RoleA),
+                new RsvpOptionSpec("💚", "Healer", 2, AttendeeRoleId: RoleB),
+            ]));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+
+        var (creator, _) = await fixture.LoginAsync(CreatorId, (GuildId, "G", true));
+        var edited = await creator.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            0, ClearAttendeeRole: true, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", 4, IsAttending: true, AttendeeRoleId: RoleA),
+                new RsvpOptionSpec("💚", "Healer", 2, AttendeeRoleId: RoleB),
+            ]));
+
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        var dto = (await edited.Content.ReadFromJsonAsync<EventDto>())!;
+        Assert.Null(dto.Options.Single(o => o.Label == "Tank").AttendeeRoleId);
+        Assert.Equal(4, dto.Options.Single(o => o.Label == "Tank").Capacity);
+        Assert.Equal(RoleB, dto.Options.Single(o => o.Label == "Healer").AttendeeRoleId);
+    }
+
+    [Fact]
     public async Task A_web_option_edit_preserves_the_roles_it_cannot_show()
     {
         // The web form round-trips the whole option set, so a bot-set role has to survive an edit
