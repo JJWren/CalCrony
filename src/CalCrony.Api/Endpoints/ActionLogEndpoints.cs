@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using System.Text;
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
@@ -20,6 +22,10 @@ public static class ActionLogEndpoints
     /// <summary>Hard cap per page — the web page loads more on demand.</summary>
     public const int MaxPageSize = 100;
 
+    /// <summary>Events per round-trip while streaming the export. Bounds memory to one chunk of
+    /// projected rows (plus their RSVPs) regardless of how much history a guild has kept.</summary>
+    public const int ExportChunkSize = 200;
+
     private const string CursorSeparator = "|";
 
     /// <summary>Maps the action log and export routes.</summary>
@@ -33,7 +39,8 @@ public static class ActionLogEndpoints
     /// <summary>Lists a guild's action log newest first with keyset paging. <c>before</c> is the
     /// opaque <c>NextCursor</c> from the previous page (created-at plus id, so entries written in
     /// the same instant never repeat or vanish between pages); <c>action</c> and <c>userId</c>
-    /// filter, and a bad action name or cursor is a friendly 400.</summary>
+    /// filter, and a bad action name or cursor is a friendly 400. Each entry says whether its
+    /// target still exists, so clients only link to pages that will actually load.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
@@ -126,6 +133,15 @@ public static class ActionLogEndpoints
                 .Where(u => actorIds.Contains(u.Id) && u.Username != null)
                 .ToDictionaryAsync(u => u.Id, u => u.Username!, cancellationToken);
 
+        // Target existence is resolved now, not at write time: a "created" entry outlives its
+        // event, and only the current state says whether the event's page would 404.
+        var existing = new HashSet<Guid>();
+        existing.UnionWith(await ExistingIdsAsync(db.Events, e => e.Id, TargetIds(rows, ActionTargetType.Event), cancellationToken));
+        existing.UnionWith(await ExistingIdsAsync(db.Polls, p => p.Id, TargetIds(rows, ActionTargetType.Poll), cancellationToken));
+        existing.UnionWith(await ExistingIdsAsync(db.EventSeries, s => s.Id, TargetIds(rows, ActionTargetType.Series), cancellationToken));
+        existing.UnionWith(await ExistingIdsAsync(db.EventTemplates, t => t.Id, TargetIds(rows, ActionTargetType.Template), cancellationToken));
+        existing.UnionWith(await ExistingIdsAsync(db.LiveLists, l => l.Id, TargetIds(rows, ActionTargetType.LiveList), cancellationToken));
+
         var entries = rows.Select(r => new ActionLogEntryDto(
             r.Id,
             r.GuildId,
@@ -135,6 +151,8 @@ public static class ActionLogEndpoints
             r.Action,
             r.TargetType,
             r.TargetId,
+            // Guild-level entries target the guild itself, which is by definition still here.
+            r.TargetType == ActionTargetType.Guild || (r.TargetId is { } targetId && existing.Contains(targetId)),
             r.Summary,
             r.DetailsJson,
             r.CreatedAt.ToDateTimeOffset())).ToList();
@@ -142,10 +160,12 @@ public static class ActionLogEndpoints
         return Results.Ok(new ActionLogPageDto(entries, hasMore ? FormatCursor(rows[^1]) : null));
     }
 
-    /// <summary>Downloads every event the guild still has (retention already bounds what is
-    /// kept, so there is no separate window) with one row per RSVP — see CsvExport for the row
-    /// model. The download itself is logged: exporting attendee data is a management action a
-    /// server's other managers should be able to see.</summary>
+    /// <summary>Streams every event the guild still has (retention already bounds what is kept,
+    /// so there is no separate window) with one row per RSVP — see CsvExport for the row model.
+    /// Events are walked in <see cref="ExportChunkSize"/> keyset chunks, each chunk's RSVPs
+    /// fetched in one joined query, and rows are flushed to the response as they are written, so
+    /// memory never holds more than one chunk. The download itself is logged: exporting attendee
+    /// data is a management action a server's other managers should be able to see.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
@@ -168,26 +188,119 @@ public static class ActionLogEndpoints
             return denied;
         }
 
-        var events = await db.Events
-            .AsNoTracking()
-            .Include(e => e.Options)
-            .Include(e => e.Rsvps)
-            .Where(e => e.GuildId == guildId)
-            .OrderBy(e => e.StartsAt)
-            .ThenBy(e => e.Id)
-            .ToListAsync(cancellationToken);
-
+        // The entry commits before the first byte streams: a download that is interrupted
+        // half-way still exposed attendee data, so it is still worth recording.
         var now = clock.GetCurrentInstant();
+        var eventCount = await db.Events.CountAsync(e => e.GuildId == guildId, cancellationToken);
         ActionLog.Record(
             db, guildId, ActionLog.ActorFor(context), ActionLogAction.EventsExported, ActionTargetType.Guild, null,
-            $"Exported the events CSV ({events.Count} events)", now, new { eventCount = events.Count });
+            $"Exported the events CSV ({eventCount} events)", now, new { eventCount });
         await db.SaveChangesAsync(cancellationToken);
 
-        var bytes = CsvExport.ToUtf8WithBom(CsvExport.BuildEventsCsv(events));
         var fileName = $"calcrony-events-{guildId}-{now.InUtc().Date:yyyyMMdd}.csv";
-        // Results.File sets Content-Disposition: attachment with the file name for us.
-        return Results.File(bytes, "text/csv; charset=utf-8", fileName);
+        // Results.Stream sets Content-Disposition: attachment with the file name and hands us the
+        // response body once headers are committed; the scoped DbContext outlives the callback
+        // because result execution happens inside the request's scope.
+        return Results.Stream(
+            body => WriteExportAsync(db, guildId, body, context.RequestAborted),
+            "text/csv; charset=utf-8",
+            fileName);
     }
+
+    /// <summary>Writes the BOM, header, and every event's rows to the response body in keyset
+    /// chunks ordered by (StartsAt, Id) — the same order the file presents.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="body">The response body.</param>
+    /// <param name="cancellationToken">Cancels when the client goes away.</param>
+    private static async Task WriteExportAsync(CalCronyDbContext db, long guildId, Stream body, CancellationToken cancellationToken)
+    {
+        await body.WriteAsync(CsvExport.Utf8Bom, cancellationToken);
+
+        // Rows for one chunk are composed in memory and pushed with a single async write: a
+        // StreamWriter over the body would flush its internal buffer synchronously mid-row,
+        // which Kestrel rejects (AllowSynchronousIO is off). The BOM went out by hand above, so
+        // the encoder must not emit another.
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        using var writer = new StringWriter();
+        CsvExport.WriteHeader(writer);
+
+        async Task FlushChunkAsync()
+        {
+            var builder = writer.GetStringBuilder();
+            await body.WriteAsync(utf8.GetBytes(builder.ToString()), cancellationToken);
+            await body.FlushAsync(cancellationToken);
+            builder.Clear();
+        }
+
+        Instant? afterStart = null;
+        var afterId = Guid.Empty;
+        while (true)
+        {
+            var query = db.Events.AsNoTracking().Where(e => e.GuildId == guildId);
+            if (afterStart is { } start)
+            {
+                // Keyset on (StartsAt asc, Id asc): strictly later, or same instant with a larger
+                // id — the same total order the sort below uses, so chunks never overlap or skip.
+                query = query.Where(e => e.StartsAt > start || (e.StartsAt == start && e.Id.CompareTo(afterId) > 0));
+            }
+
+            var chunk = await query
+                .OrderBy(e => e.StartsAt)
+                .ThenBy(e => e.Id)
+                .Take(ExportChunkSize)
+                .Select(e => new CsvExport.EventRow(
+                    e.Id, e.Title, e.StartsAt, e.TimeZone, e.DurationMinutes, e.Location, e.Status, e.SeriesId, e.ChannelId, e.CreatorId))
+                .ToListAsync(cancellationToken);
+            if (chunk.Count == 0)
+            {
+                break;
+            }
+
+            // One joined query for the chunk's RSVPs (no cartesian Include): an RSVP always
+            // references one of its event's options, so the inner join drops nothing.
+            var ids = chunk.Select(e => e.Id).ToList();
+            // (The record is constructed only in the final Select — EF can't translate a
+            // constructor call that an OrderBy still has to see through.)
+            var rsvps = await db.Rsvps.AsNoTracking()
+                .Where(r => ids.Contains(r.EventId))
+                .Join(db.RsvpOptions, r => r.OptionId, o => o.Id, (r, o) => new { Rsvp = r, Option = o })
+                .OrderBy(x => x.Rsvp.CreatedAt)
+                .ThenBy(x => x.Rsvp.UserId)
+                .Select(x => new CsvExport.RsvpRow(
+                    x.Rsvp.EventId, x.Option.Emote, x.Option.Label, x.Option.IsAttending,
+                    x.Rsvp.UserId, x.Rsvp.Waitlisted, x.Rsvp.CreatedAt))
+                .ToListAsync(cancellationToken);
+            var byEvent = rsvps.ToLookup(r => r.EventId);
+
+            foreach (var ev in chunk)
+            {
+                CsvExport.WriteEvent(writer, ev, byEvent[ev.Id].ToList());
+            }
+
+            await FlushChunkAsync();
+            if (chunk.Count < ExportChunkSize)
+            {
+                break;
+            }
+
+            afterStart = chunk[^1].StartsAt;
+            afterId = chunk[^1].Id;
+        }
+
+        // A guild with no events still gets its header row.
+        await FlushChunkAsync();
+    }
+
+    /// <summary>The target ids of the rows with the given target type.</summary>
+    private static List<Guid> TargetIds(IEnumerable<ActionLogEntry> rows, ActionTargetType type) =>
+        [.. rows.Where(r => r.TargetType == type && r.TargetId is not null).Select(r => r.TargetId!.Value).Distinct()];
+
+    /// <summary>Which of the given ids still exist in a table; skips the query when there are none.</summary>
+    private static async Task<List<Guid>> ExistingIdsAsync<T>(
+        IQueryable<T> set, Expression<Func<T, Guid>> id, List<Guid> ids, CancellationToken cancellationToken)
+        where T : class =>
+        ids.Count == 0 ? [] : await set.Select(id).Where(x => ids.Contains(x)).ToListAsync(cancellationToken);
 
     /// <summary>Encodes a row's (CreatedAt, Id) as the opaque paging cursor.</summary>
     /// <param name="entry">The last entry of the page.</param>

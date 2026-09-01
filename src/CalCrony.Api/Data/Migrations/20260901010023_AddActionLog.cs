@@ -33,6 +33,11 @@ namespace CalCrony.Api.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_ActionLogEntries_CreatedAt",
+                table: "ActionLogEntries",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ActionLogEntries_GuildId_CreatedAt",
                 table: "ActionLogEntries",
                 columns: new[] { "GuildId", "CreatedAt" },

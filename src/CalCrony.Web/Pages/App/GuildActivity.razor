@@ -145,7 +145,15 @@ else
             return;
         }
 
-        isManager = myGuilds.Value?.Guilds.Any(g => g.Id == GuildId && g.CanManage) ?? false;
+        if (!myGuilds.Success || myGuilds.Value is null)
+        {
+            // An outage must read as an error, never as "you're not a manager": managerKnown
+            // stays false so the notice branch can't render off a failed lookup.
+            error = myGuilds.Error ?? "Couldn't load your servers.";
+            return;
+        }
+
+        isManager = myGuilds.Value.Guilds.Any(g => g.Id == GuildId && g.CanManage);
         managerKnown = true;
         if (!isManager)
         {
@@ -233,7 +241,11 @@ else
         }
 
         var file = result.Value;
-        await Js.InvokeVoidAsync("calcronyDownload", file.FileName, Convert.ToBase64String(file.Bytes), file.ContentType);
+        // The one byte[] the client read is streamed to JS as-is (no Base64 round-trip): a
+        // DotNetStreamReference hands the browser the bytes for its Blob directly. The JS
+        // runtime owns the reference from here — it disposes the stream once JS has read it.
+        var streamRef = new DotNetStreamReference(new MemoryStream(file.Bytes, writable: false));
+        await Js.InvokeVoidAsync("calcronyDownload", file.FileName, streamRef, file.ContentType);
         exportMessage = $"⬇ Downloaded {file.FileName}.";
         // The export itself is logged — show it without making the user refresh.
         await LoadPageAsync(reset: true, generation);
@@ -244,10 +256,11 @@ else
 
     private static string? TargetLink(ActionLogEntryDto entry) => entry switch
     {
-        // Deleted targets 404 on their page, so only live-able kinds get a link; the page handles
-        // a missing row with its own not-found message.
-        { TargetType: ActionTargetType.Event, TargetId: { } eventId, Action: not ActionLogAction.EventDeleted } => $"/app/events/{eventId}",
-        { TargetType: ActionTargetType.Poll, TargetId: { } pollId, Action: not ActionLogAction.PollDeleted } => $"/app/polls/{pollId}",
+        // The API resolves existence at read time (an older "created" entry outlives its event),
+        // so a link is offered only when the page behind it will actually load.
+        { TargetExists: false } => null,
+        { TargetType: ActionTargetType.Event, TargetId: { } eventId } => $"/app/events/{eventId}",
+        { TargetType: ActionTargetType.Poll, TargetId: { } pollId } => $"/app/polls/{pollId}",
         _ => null,
     };
 

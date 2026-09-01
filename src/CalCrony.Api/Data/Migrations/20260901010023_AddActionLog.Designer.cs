@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    [Migration("20260901003840_AddActionLog")]
+    [Migration("20260901010023_AddActionLog")]
     partial class AddActionLog
     {
         /// <inheritdoc />
@@ -63,6 +63,8 @@ namespace CalCrony.Api.Data.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
 
                     b.HasIndex("GuildId", "CreatedAt")
                         .IsDescending(false, true);
@@ -378,6 +380,9 @@ namespace CalCrony.Api.Data.Migrations
                     b.Property<LocalDate>("CurrentOccurrenceDate")
                         .HasColumnType("date");
 
+                    b.Property<int>("DaysOfWeek")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Description")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)");
@@ -481,6 +486,9 @@ namespace CalCrony.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("RecurrenceDaysOfWeek")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("RecurrenceInterval")
                         .HasColumnType("integer");

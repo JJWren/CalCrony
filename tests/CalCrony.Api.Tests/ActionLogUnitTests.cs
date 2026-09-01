@@ -5,8 +5,9 @@ using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
-/// <summary>The pure composition rules behind the action log and the CSV export: clipping,
-/// summaries, details serialization, RFC 4180 quoting, and the one-row-per-RSVP model.</summary>
+/// <summary>The pure composition rules behind the action log and the CSV export: clipping
+/// (surrogate-safe), summaries, details serialization, RFC 4180 quoting, formula
+/// neutralization, and the one-row-per-RSVP model.</summary>
 public class ActionLogUnitTests
 {
     private static readonly Instant Now = Instant.FromUtc(2026, 8, 31, 12, 0);
@@ -21,6 +22,21 @@ public class ActionLogUnitTests
         var quoted = ActionLog.Quote(new string('x', 500));
         Assert.Equal(ActionLog.MaxQuotedLength + 2, quoted.Length);
         Assert.EndsWith("…”", quoted);
+    }
+
+    [Fact]
+    public void Clip_never_splits_a_surrogate_pair()
+    {
+        // 98 chars, then an emoji (two UTF-16 units) straddling the cut at index 99, then more.
+        var text = new string('a', 98) + "😀" + new string('b', 5);
+
+        var clipped = ActionLog.Clip(text, 100);
+
+        Assert.Equal(new string('a', 98) + "…", clipped); // the emoji is dropped whole, not halved
+        Assert.DoesNotContain(clipped, c => char.IsSurrogate(c));
+
+        // A pair that fits entirely inside the budget is kept.
+        Assert.Equal("ab😀…", ActionLog.Clip("ab😀cdef", 5));
     }
 
     [Fact]
@@ -58,28 +74,45 @@ public class ActionLogUnitTests
     public void Csv_quote_follows_rfc_4180(string input, string expected) =>
         Assert.Equal(expected, CsvExport.Quote(input));
 
-    [Fact]
-    public void Csv_emits_one_row_per_rsvp_in_queue_order_and_one_row_for_rsvp_less_events()
-    {
-        var going = new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", IsAttending = true, Capacity = 1 };
-        var busy = new Event
-        {
-            Id = Guid.NewGuid(), GuildId = 1, CreatorId = 9, Title = "Busy", StartsAt = Now, TimeZone = "UTC",
-            DurationMinutes = 90, Location = "Hall, A", ChannelId = 5, Status = EventStatus.Scheduled,
-            Options = [going],
-            Rsvps =
-            [
-                new Rsvp { Id = Guid.NewGuid(), UserId = 2, OptionId = going.Id, Waitlisted = true, CreatedAt = Now.Plus(Duration.FromMinutes(5)) },
-                new Rsvp { Id = Guid.NewGuid(), UserId = 1, OptionId = going.Id, CreatedAt = Now },
-            ],
-        };
-        var quiet = new Event
-        {
-            Id = Guid.NewGuid(), GuildId = 1, CreatorId = 9, Title = "Quiet", StartsAt = Now, TimeZone = "UTC",
-            ChannelId = 5, Status = EventStatus.Ended, SeriesId = Guid.NewGuid(),
-        };
+    [Theory]
+    [InlineData("=1+1", "'=1+1")]
+    [InlineData("+cmd", "'+cmd")]
+    [InlineData("-2+3", "'-2+3")]
+    [InlineData("@SUM(A1)", "'@SUM(A1)")]
+    [InlineData("\t=1", "'\t=1")]
+    [InlineData("\r=1", "'\r=1")]
+    [InlineData("\n=1", "'\n=1")]
+    [InlineData("Raid Night", "Raid Night")]
+    [InlineData("a=b", "a=b")]
+    [InlineData("", "")]
+    public void Csv_neutralize_defuses_formula_leading_cells(string input, string expected) =>
+        Assert.Equal(expected, CsvExport.Neutralize(input));
 
-        var lines = CsvExport.BuildEventsCsv([busy, quiet]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+    [Fact]
+    public void Csv_neutralizes_member_text_cells_but_never_server_numbers()
+    {
+        // A legitimately dash-led title pays the documented price ('-5°C …); the numeric
+        // duration column is server-generated and passes through untouched.
+        var ev = new CsvExport.EventRow(Guid.NewGuid(), "-5°C night hike", Now, "UTC", 45, "=HYPERLINK(\"x\")", EventStatus.Scheduled, null, 5, 9);
+        var rsvp = new CsvExport.RsvpRow(ev.Id, "+1", "@here", true, 2, false, Now);
+
+        var line = CsvExport.BuildEventsCsv([(ev, [rsvp])]).Split("\r\n")[1];
+
+        Assert.Equal($"{ev.Id},'-5°C night hike,2026-08-31T12:00:00Z,UTC,45,\"'=HYPERLINK(\"\"x\"\")\",Scheduled,,5,9,'+1,'@here,true,2,false,2026-08-31T12:00:00Z", line);
+    }
+
+    [Fact]
+    public void Csv_emits_one_row_per_rsvp_in_the_order_given_and_one_row_for_rsvp_less_events()
+    {
+        var busy = new CsvExport.EventRow(Guid.NewGuid(), "Busy", Now, "UTC", 90, "Hall, A", EventStatus.Scheduled, null, 5, 9);
+        var quiet = new CsvExport.EventRow(Guid.NewGuid(), "Quiet", Now, "UTC", null, null, EventStatus.Ended, Guid.NewGuid(), 5, 9);
+        IReadOnlyList<CsvExport.RsvpRow> busyRsvps =
+        [
+            new(busy.Id, "✅", "Going", true, 1, false, Now),
+            new(busy.Id, "✅", "Going", true, 2, true, Now.Plus(Duration.FromMinutes(5))),
+        ];
+
+        var lines = CsvExport.BuildEventsCsv([(busy, busyRsvps), (quiet, [])]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
 
         Assert.Equal(string.Join(",", CsvExport.EventColumns), lines[0]);
         Assert.Equal($"{busy.Id},Busy,2026-08-31T12:00:00Z,UTC,90,\"Hall, A\",Scheduled,,5,9,✅,Going,true,1,false,2026-08-31T12:00:00Z", lines[1]);

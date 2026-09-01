@@ -81,13 +81,12 @@ window.calcronyCopy = function (text) {
 
 // Hands bytes the page fetched through the authenticated API client to the browser as a file
 // download (the CSV export). The access token lives only in memory — never a cookie or
-// storage — so a plain <a href> to the API could not carry it; Blazor fetches, then drops the
-// result here as a Blob behind a synthetic anchor click.
-window.calcronyDownload = function (fileName, base64, contentType) {
-    var binary = atob(base64);
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
-    var url = URL.createObjectURL(new Blob([bytes], { type: contentType || "application/octet-stream" }));
+// storage — so a plain <a href> to the API could not carry it; Blazor fetches, then streams
+// the bytes here (a DotNetStreamReference, no Base64 detour) as a Blob behind a synthetic
+// anchor click.
+window.calcronyDownload = async function (fileName, streamRef, contentType) {
+    var buffer = await streamRef.arrayBuffer();
+    var url = URL.createObjectURL(new Blob([buffer], { type: contentType || "application/octet-stream" }));
     var a = document.createElement("a");
     a.href = url;
     a.download = fileName;

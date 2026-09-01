@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using CalCrony.Api.Data;
+using CalCrony.Api.Endpoints;
 using CalCrony.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
@@ -302,6 +306,99 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         var export = Assert.Single(page.Entries);
         Assert.Equal(session.UserId, export.ActorUserId);
         Assert.Contains("2 events", export.Summary);
+    }
+
+    [Fact]
+    public async Task Entries_report_whether_their_target_still_exists_at_read_time()
+    {
+        const long guildId = 13210;
+        var ev = await CreateEventAsync(guildId, 13211, "Fleeting");
+
+        var before = await ListAsync(guildId);
+        Assert.True(Assert.Single(before.Entries).TargetExists);
+
+        (await SendAsActorAsync(HttpMethod.Delete, $"/events/{ev.Id}", 13211)).EnsureSuccessStatusCode();
+
+        // The older "created" entry outlives its event — existence is a fact about now, not
+        // about the entry's own action.
+        var after = await ListAsync(guildId);
+        Assert.Equal(2, after.Entries.Count);
+        Assert.All(after.Entries, e => Assert.False(e.TargetExists));
+        var settings = await SendAsActorAsync(HttpMethod.Put, $"/guilds/{guildId}/settings", 13211, new GuildSettingsDto("Europe/Oslo", null));
+        settings.EnsureSuccessStatusCode();
+        Assert.True((await ListAsync(guildId, query: "action=SettingsChanged")).Entries.Single().TargetExists);
+    }
+
+    [Fact]
+    public async Task Csv_export_streams_a_few_hundred_events_across_chunk_boundaries_without_loss_or_repeats()
+    {
+        const long guildId = 13220;
+        const int eventCount = ActionLogEndpoints.ExportChunkSize + 150; // crosses one chunk boundary
+        var baseStart = Instant.FromUtc(2026, 9, 1, 18, 0);
+        var seeded = new List<Event>();
+        await using (var seed = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            db.Guilds.Add(new Guild { Id = guildId });
+            for (var i = 0; i < eventCount; i++)
+            {
+                var going = new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", IsAttending = true };
+                var ev = new Event
+                {
+                    Id = Guid.NewGuid(),
+                    GuildId = guildId,
+                    CreatorId = 13221,
+                    Title = $"Bulk {i:000}",
+                    // Five events share each start instant so the keyset tiebreak on Id is exercised.
+                    StartsAt = baseStart.Plus(Duration.FromHours(i / 5)),
+                    TimeZone = "UTC",
+                    ChannelId = ChannelId,
+                    Status = EventStatus.Scheduled,
+                    CreatedAt = baseStart,
+                    Options = [going, new RsvpOption { Id = Guid.NewGuid(), Emote = "❌", Label = "Out", SortOrder = 1 }],
+                    // Every third event has two RSVPs; the rest have none.
+                    Rsvps = i % 3 == 0
+                        ?
+                        [
+                            new Rsvp { Id = Guid.NewGuid(), UserId = 20000 + i, OptionId = going.Id, CreatedAt = baseStart },
+                            new Rsvp { Id = Guid.NewGuid(), UserId = 30000 + i, OptionId = going.Id, CreatedAt = baseStart.Plus(Duration.FromMinutes(1)) },
+                        ]
+                        : [],
+                };
+                seeded.Add(ev);
+                db.Events.Add(ev);
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        var (manager, _) = await fixture.LoginAsync(13222, (guildId, "G", true));
+        var response = await manager.GetAsync($"/guilds/{guildId}/export/events.csv");
+        response.EnsureSuccessStatusCode();
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal([0xEF, 0xBB, 0xBF], bytes.Take(3));
+        var lines = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+        var expectedRows = seeded.Sum(e => Math.Max(1, e.Rsvps.Count));
+        Assert.Equal(1 + expectedRows, lines.Length);
+
+        // Every event appears exactly as often as its RSVP count (or once), in (StartsAt, Id)
+        // order — no chunk boundary dropped or repeated anything.
+        var rowsByEvent = lines.Skip(1).GroupBy(l => Guid.Parse(l[..36])).ToDictionary(g => g.Key, g => g.ToList());
+        Assert.Equal(eventCount, rowsByEvent.Count);
+        foreach (var ev in seeded)
+        {
+            var rows = rowsByEvent[ev.Id];
+            Assert.Equal(Math.Max(1, ev.Rsvps.Count), rows.Count);
+            foreach (var rsvp in ev.Rsvps)
+            {
+                Assert.Contains(rows, r => r.Contains($",✅,Going,true,{rsvp.UserId},false,"));
+            }
+        }
+
+        var expectedOrder = seeded.OrderBy(e => e.StartsAt).ThenBy(e => e.Id).Select(e => e.Id).ToList();
+        Assert.Equal(expectedOrder, lines.Skip(1).Select(l => Guid.Parse(l[..36])).Distinct().ToList());
+        Assert.Contains($"{eventCount} events", (await ListAsync(guildId, client: manager, query: "action=EventsExported")).Entries.Single().Summary);
     }
 
     private async Task SeedGuildAsync(long guildId)

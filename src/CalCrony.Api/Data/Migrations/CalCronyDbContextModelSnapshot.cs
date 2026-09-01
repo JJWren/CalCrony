@@ -61,6 +61,8 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("GuildId", "CreatedAt")
                         .IsDescending(false, true);
 

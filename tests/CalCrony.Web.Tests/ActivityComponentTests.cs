@@ -8,6 +8,7 @@ using CalCrony.Contracts;
 using CalCrony.Web.Api;
 using CalCrony.Web.Pages.App;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 namespace CalCrony.Web.Tests;
 
@@ -28,7 +29,9 @@ public class ActivityComponentTests : TestContext
         var page = new ActionLogPageDto(
         [
             Entry(ActionLogAction.EventEdited, "Edited “Raid” — title", 7, "Ash", ActionSource.Web, ActionTargetType.Event, eventId),
-            Entry(ActionLogAction.EventDeleted, "Deleted “Old”", 8, null, ActionSource.Discord, ActionTargetType.Event, Guid.NewGuid()),
+            // A "created" entry whose event has since been deleted: the API says the target is
+            // gone, so no link — the action alone never decides linkability.
+            Entry(ActionLogAction.EventCreated, "Created “Old”", 8, null, ActionSource.Discord, ActionTargetType.Event, Guid.NewGuid(), targetExists: false),
         ], null);
         handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
         {
@@ -136,7 +139,12 @@ public class ActivityComponentTests : TestContext
         Assert.Equal("/guilds/1/export/events.csv", handler.LastCsvPath);
         var invocation = Assert.Single(download.Invocations);
         Assert.Equal("calcrony-events-1-20260831.csv", invocation.Arguments[0]);
-        Assert.Equal(Convert.ToBase64String(handler.CsvBytes), invocation.Arguments[1]);
+        // The bytes travel as a .NET stream reference (no Base64 copy), exactly as fetched.
+        var streamRef = Assert.IsType<DotNetStreamReference>(invocation.Arguments[1]);
+        using var received = new MemoryStream();
+        streamRef.Stream.Position = 0;
+        streamRef.Stream.CopyTo(received);
+        Assert.Equal(handler.CsvBytes, received.ToArray());
         Assert.StartsWith("text/csv", (string)invocation.Arguments[2]!);
     }
 
@@ -154,10 +162,28 @@ public class ActivityComponentTests : TestContext
         Assert.DoesNotContain("Export events (CSV)", cut.Markup);
     }
 
+    [Fact]
+    public void A_failed_guild_lookup_shows_the_error_not_the_managers_only_notice()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        handler.StatusFor = req => req.RequestUri!.AbsolutePath == "/me/guilds" ? HttpStatusCode.ServiceUnavailable : null;
+        handler.JsonFor = _ => """{"error":"API is down for maintenance."}""";
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+
+        // An outage must never masquerade as "you're not a manager" — that would send a real
+        // manager away instead of telling them to retry.
+        cut.WaitForAssertion(() => Assert.Contains("API is down for maintenance.", cut.Markup));
+        Assert.DoesNotContain("Only server managers can see", cut.Markup);
+        Assert.Equal(0, handler.ActionsCalls);
+    }
+
     private static ActionLogEntryDto Entry(
         ActionLogAction action, string summary, long actorId, string? actorName,
-        ActionSource source = ActionSource.Discord, ActionTargetType targetType = ActionTargetType.Poll, Guid? targetId = null) =>
-        new(Guid.NewGuid(), 1, actorId, actorName, source, action, targetType, targetId ?? Guid.NewGuid(), summary, null, DateTimeOffset.UtcNow);
+        ActionSource source = ActionSource.Discord, ActionTargetType targetType = ActionTargetType.Poll, Guid? targetId = null,
+        bool targetExists = true) =>
+        new(Guid.NewGuid(), 1, actorId, actorName, source, action, targetType, targetId ?? Guid.NewGuid(), targetExists, summary, null, DateTimeOffset.UtcNow);
 
     private static string GuildsJson(bool canManage) => JsonSerializer.Serialize(
         new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "G", null, canManage)]), JsonWeb);
@@ -188,6 +214,9 @@ public class ActivityComponentTests : TestContext
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public Func<HttpRequestMessage, string?>? JsonFor { get; set; }
+
+        /// <summary>Overrides the status for a request (null = 200), for failure paths.</summary>
+        public Func<HttpRequestMessage, HttpStatusCode?>? StatusFor { get; set; }
 
         public string? LastActionsQuery { get; private set; }
 
@@ -222,7 +251,7 @@ public class ActivityComponentTests : TestContext
             }
 
             var json = JsonFor?.Invoke(request) ?? "{}";
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(StatusFor?.Invoke(request) ?? HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
             });

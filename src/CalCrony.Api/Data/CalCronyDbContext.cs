@@ -229,9 +229,10 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(a => a.Summary).HasMaxLength(FieldLimits.ActionSummary);
             e.Property(a => a.DetailsJson).HasMaxLength(FieldLimits.ActionDetails);
             // The activity page reads one guild newest-first with a keyset cursor; the retention
-            // purge scans by CreatedAt alone, which the same index's second column serves well
-            // enough at the purge's daily cadence.
+            // purge filters on CreatedAt alone, which the composite's second column can't serve
+            // (Postgres can't skip-scan the leading GuildId), so it gets its own index.
             e.HasIndex(a => new { a.GuildId, a.CreatedAt }).IsDescending(false, true);
+            e.HasIndex(a => a.CreatedAt);
         });
     }
 }

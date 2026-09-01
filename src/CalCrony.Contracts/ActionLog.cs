@@ -54,6 +54,8 @@ public enum ActionTargetType
 /// <param name="Action">What happened.</param>
 /// <param name="TargetType">The kind of thing the action touched.</param>
 /// <param name="TargetId">The touched row's id, when the target type has one.</param>
+/// <param name="TargetExists">Whether the target still exists at read time (an older "created"
+/// entry outlives its event) — clients link only when true. Always true for guild-level entries.</param>
 /// <param name="Summary">A short human sentence, e.g. <c>Edited "Raid Night" — title, start</c>.</param>
 /// <param name="DetailsJson">Optional machine detail (changed field names, scope), or null.</param>
 /// <param name="CreatedAtUtc">When the action happened.</param>
@@ -66,6 +68,7 @@ public record ActionLogEntryDto(
     ActionLogAction Action,
     ActionTargetType TargetType,
     Guid? TargetId,
+    bool TargetExists,
     string Summary,
     string? DetailsJson,
     DateTimeOffset CreatedAtUtc);

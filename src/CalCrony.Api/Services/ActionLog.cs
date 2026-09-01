@@ -124,14 +124,27 @@ public static class ActionLog
     public static string Quote(string? title) => $"“{Clip(title, MaxQuotedLength)}”";
 
     /// <summary>Clips text to a maximum length with a trailing ellipsis; whitespace is collapsed
-    /// to a single line so a multi-line title can't break the one-line summary.</summary>
+    /// to a single line so a multi-line title can't break the one-line summary. The cut never
+    /// splits a surrogate pair (an emoji straddling the boundary is dropped whole) — a lone
+    /// surrogate would render as garbage and fail to serialize as JSON.</summary>
     /// <param name="text">The text to clip.</param>
     /// <param name="max">The maximum length including the ellipsis.</param>
     /// <returns>The clipped text (empty for null).</returns>
     public static string Clip(string? text, int max)
     {
         var flat = string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return flat.Length <= max ? flat : flat[..(max - 1)] + "…";
+        if (flat.Length <= max)
+        {
+            return flat;
+        }
+
+        var cut = max - 1;
+        if (cut > 0 && char.IsHighSurrogate(flat[cut - 1]))
+        {
+            cut--;
+        }
+
+        return flat[..cut] + "…";
     }
 
     /// <summary>The names whose flag is set — for "which fields changed" detail lists.</summary>
