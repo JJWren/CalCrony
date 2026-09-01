@@ -95,6 +95,11 @@ body { min-height: 100vh; }
 
 .meta-mono { font-family: var(--bs-font-monospace); font-size: .72rem; color: var(--bs-secondary-color); }
 
+/* Server-context line on the guild pages (GuildHeading): the display face names the place,
+   centered above the section row so it reads as a heading for everything below it rather than
+   as another control beside the h1. */
+.guild-context { font-family: var(--calcrony-display-font); font-size: 1.05rem; line-height: 1.2; text-align: center; margin-bottom: .5rem; }
+
 /* Callouts (design system components/callouts.html): hue background at 10%, hairline border at
    30%, 12px radius, mono small-caps head in the hue; the body keeps the face's text color.
    Warning alone takes the face's gilt token — the other hues are semantic per light/dark mode. */
