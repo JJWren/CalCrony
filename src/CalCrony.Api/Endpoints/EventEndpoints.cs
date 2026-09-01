@@ -985,7 +985,16 @@ public static class EventEndpoints
             db, ev.GuildId, ActionLog.ActorFor(context, request.EditorId), ActionLogAction.EventEdited,
             ActionTargetType.Event, ev.Id,
             ActionLog.EditSummary("Edited", ev.Title, changed) + (applyToSeries ? " (whole series)" : ""),
-            roleSyncNow, new { fields = changed, scope = request.Scope?.ToString(), seriesId = ev.SeriesId });
+            // The scope logged is the one APPLIED, not the one asked for: an ended or non-series
+            // event accepts a stray Scope=Series that never governs anything, and the audit trail
+            // must not claim a series edit the endpoint did not make.
+            roleSyncNow,
+            new
+            {
+                fields = changed,
+                scope = series is null ? null : (applyToSeries ? nameof(EditScope.Series) : nameof(EditScope.Occurrence)),
+                seriesId = ev.SeriesId,
+            });
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

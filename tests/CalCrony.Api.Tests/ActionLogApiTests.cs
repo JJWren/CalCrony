@@ -538,6 +538,50 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
     }
 
     [Fact]
+    public async Task Logged_scope_is_the_one_applied_not_the_one_requested()
+    {
+        const long guildId = 13270;
+
+        // A one-off event accepts a stray Scope=Series that governs nothing: the entry must not
+        // claim a series edit, or the machine-readable audit contradicts what happened.
+        var oneOff = await CreateEventAsync(guildId, 13271, "Standalone");
+        (await SendAsActorAsync(
+            HttpMethod.Patch, $"/events/{oneOff.Id}", 13272,
+            new UpdateEventRequest(13272, Title: "Standalone II", Scope: EditScope.Series)))
+            .EnsureSuccessStatusCode();
+        (await SendAsActorAsync(
+            HttpMethod.Post, $"/events/{oneOff.Id}/notifications", 13272,
+            new CreateEventNotificationRequest(30, Scope: EditScope.Series)))
+            .EnsureSuccessStatusCode();
+
+        // Only scope-bearing entries are asserted; creation carries no scope at all.
+        var standalone = (await ListAsync(guildId, query: "action=EventEdited")).Entries;
+        Assert.All(standalone, e => Assert.Contains("\"scope\":null", e.DetailsJson));
+        Assert.DoesNotContain(standalone, e => e.Summary.Contains("whole series"));
+
+        // The same request on a live series occurrence does apply, and is logged as Series.
+        var repeating = await CreateEventAsync(
+            guildId, 13273, "Repeats", recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week));
+        (await SendAsActorAsync(
+            HttpMethod.Patch, $"/events/{repeating.Id}", 13274,
+            new UpdateEventRequest(13274, Title: "Repeats II", Scope: EditScope.Series)))
+            .EnsureSuccessStatusCode();
+
+        var applied = (await ListAsync(guildId, query: "action=EventEdited")).Entries[0];
+        Assert.Contains("\"scope\":\"Series\"", applied.DetailsJson);
+        Assert.Contains("whole series", applied.Summary);
+
+        // Occurrence scope on the same event logs Occurrence, not null.
+        (await SendAsActorAsync(
+            HttpMethod.Patch, $"/events/{repeating.Id}", 13275,
+            new UpdateEventRequest(13275, Title: "Repeats III", Scope: EditScope.Occurrence)))
+            .EnsureSuccessStatusCode();
+        Assert.Contains(
+            "\"scope\":\"Occurrence\"",
+            (await ListAsync(guildId, query: "action=EventEdited")).Entries[0].DetailsJson);
+    }
+
+    [Fact]
     public async Task Day_set_only_series_edit_names_the_field_it_changed()
     {
         const long guildId = 13250;

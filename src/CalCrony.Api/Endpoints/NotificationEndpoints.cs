@@ -146,7 +146,13 @@ public static class NotificationEndpoints
             $"Added a reminder to {ActionLog.Quote(ev.Title)} ({request.MinutesBefore} min before)"
                 + (spec is not null ? " (whole series)" : ""),
             clock.GetCurrentInstant(),
-            new { fields = new[] { "reminder added" }, scope = request.Scope?.ToString() });
+            // Effective scope: a one-off event accepts Scope=Series but creates no spec, so the
+            // entry must not claim one (see the same rule on event edits).
+            new
+            {
+                fields = new[] { "reminder added" },
+                scope = series is null ? null : (spec is not null ? nameof(EditScope.Series) : nameof(EditScope.Occurrence)),
+            });
         await db.SaveChangesAsync(cancellationToken);
 
         return Results.Created($"/events/{ev.Id}/notifications/{notification.Id}", ToDto(notification));
@@ -217,7 +223,13 @@ public static class NotificationEndpoints
             $"Removed a reminder from {ActionLog.Quote(ev.Title)} ({notification.MinutesBefore} min before)"
                 + (scope == EditScope.Series ? " (whole series)" : ""),
             clock.GetCurrentInstant(),
-            new { fields = new[] { "reminder removed" }, scope = scope?.ToString() });
+            new
+            {
+                fields = new[] { "reminder removed" },
+                scope = SeriesForScopedEdit(ev) is null
+                    ? null
+                    : (scope == EditScope.Series ? nameof(EditScope.Series) : nameof(EditScope.Occurrence)),
+            });
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
