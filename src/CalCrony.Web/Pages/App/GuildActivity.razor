@@ -1,0 +1,276 @@
+@page "/app/guilds/{GuildId:long}/activity"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CalCronyWebApiClient Api
+@inject IJSRuntime Js
+
+<PageTitle>Activity — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="/app">← My servers</a></p>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <h1 class="h3 mb-0">Activity</h1>
+        <GuildTabs GuildId="GuildId" Active="activity" />
+    </div>
+    @if (isManager)
+    {
+        <button class="btn btn-outline-primary btn-sm" @onclick="ExportAsync" disabled="@exporting">
+            @(exporting ? "Preparing…" : "⬇ Export events (CSV)")
+        </button>
+    }
+</div>
+
+@if (exportMessage is not null)
+{
+    <div class="meta-mono mt-2">@exportMessage</div>
+}
+
+@if (managerKnown && !isManager)
+{
+    <p class="text-body-secondary mt-3">
+        Only server managers can see this server's activity log and export its events — it records
+        who created, edited, or deleted things, so it stays with the people who run the server.
+    </p>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger mt-3">@error</div>
+}
+else if (entries is null)
+{
+    <div class="spinner-border text-primary mt-3" role="status"></div>
+}
+else
+{
+    <div class="card p-3 mt-3">
+        <div class="d-flex gap-2 flex-wrap align-items-end">
+            <div>
+                <label class="form-label small mb-1" for="act-action">Action</label>
+                <select id="act-action" class="form-select form-select-sm" @bind="actionFilter">
+                    <option value="">All actions</option>
+                    @foreach (var action in Enum.GetValues<ActionLogAction>())
+                    {
+                        <option value="@action">@Label(action)</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-1" for="act-user">Member id</label>
+                <input id="act-user" class="form-control form-control-sm" placeholder="Discord user id" style="width:14rem" @bind="userFilter" />
+            </div>
+            <button class="btn btn-outline-primary btn-sm" @onclick="ApplyFiltersAsync" disabled="@loading">Apply</button>
+            @if (actionFilter.Length > 0 || userFilter.Length > 0)
+            {
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearFiltersAsync" disabled="@loading">Clear</button>
+            }
+        </div>
+        @if (filterError is not null)
+        {
+            <div class="meta-mono mt-2">@filterError</div>
+        }
+    </div>
+
+    @if (entries.Count == 0)
+    {
+        <p class="text-body-secondary mt-3">Nothing logged yet — entries appear as members create, edit, and delete things, and are kept for 90 days.</p>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-2 mt-3">
+            @foreach (var entry in entries)
+            {
+                <div class="card p-2 px-3">
+                    <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                        <span class="meta-mono"><LocalTime Utc="entry.CreatedAtUtc" Format="ddd d MMM h:mm tt" /></span>
+                        <span class="fw-semibold">@ActorName(entry)</span>
+                        <span class="badge text-bg-secondary">@(entry.Source == ActionSource.Web ? "web" : "Discord")</span>
+                        <span class="badge text-bg-light">@Label(entry.Action)</span>
+                    </div>
+                    <div class="mt-1">
+                        @entry.Summary
+                        @if (TargetLink(entry) is { } link)
+                        {
+                            <a class="meta-mono ms-2" href="@link">open →</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        @if (nextCursor is not null)
+        {
+            <button class="btn btn-outline-primary btn-sm mt-3" @onclick="LoadMoreAsync" disabled="@loading">
+                @(loading ? "Loading…" : "Load more")
+            </button>
+        }
+    }
+
+    <p class="text-body-secondary small mt-3 mb-0">
+        Entries are kept for 90 days. RSVPs and votes are never logged. Names come from members' last
+        web sign-in; anyone who hasn't signed in here shows as their Discord id.
+    </p>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private const int PageSize = 50;
+
+    private List<ActionLogEntryDto>? entries;
+    private string? nextCursor;
+    private string? error;
+    private string? filterError;
+    private string? exportMessage;
+    private bool isManager;
+    private bool managerKnown;
+    private bool loading;
+    private bool exporting;
+    private int loadGeneration;
+    private string actionFilter = "";
+    private string userFilter = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Blazor reuses this component across guilds: reset per-guild state before the first
+        // await and stamp the load so a slower, older response can't overwrite a newer guild's.
+        var generation = ++loadGeneration;
+        entries = null;
+        nextCursor = null;
+        error = null;
+        filterError = null;
+        exportMessage = null;
+        managerKnown = false;
+
+        var myGuilds = await Api.GetMyGuildsAsync();
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        isManager = myGuilds.Value?.Guilds.Any(g => g.Id == GuildId && g.CanManage) ?? false;
+        managerKnown = true;
+        if (!isManager)
+        {
+            // The API would 403 anyway; skipping the call keeps the notice clean.
+            return;
+        }
+
+        await LoadPageAsync(reset: true, generation);
+    }
+
+    private async Task LoadPageAsync(bool reset, int generation)
+    {
+        ActionLogAction? action = null;
+        if (actionFilter.Length > 0 && Enum.TryParse<ActionLogAction>(actionFilter, out var parsed))
+        {
+            action = parsed;
+        }
+
+        long? userId = null;
+        if (userFilter.Trim().Length > 0)
+        {
+            if (!long.TryParse(userFilter.Trim(), out var parsedUser))
+            {
+                filterError = "❌ Enter a numeric Discord user id.";
+                return;
+            }
+
+            userId = parsedUser;
+        }
+
+        filterError = null;
+        loading = true;
+        var result = await Api.ListActionsAsync(GuildId, action, userId, reset ? null : nextCursor, PageSize);
+        loading = false;
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        if (reset || entries is null)
+        {
+            entries = [.. result.Value.Entries];
+        }
+        else
+        {
+            entries.AddRange(result.Value.Entries);
+        }
+
+        nextCursor = result.Value.NextCursor;
+    }
+
+    private Task ApplyFiltersAsync() => LoadPageAsync(reset: true, loadGeneration);
+
+    private Task ClearFiltersAsync()
+    {
+        actionFilter = "";
+        userFilter = "";
+        return LoadPageAsync(reset: true, loadGeneration);
+    }
+
+    private Task LoadMoreAsync() => LoadPageAsync(reset: false, loadGeneration);
+
+    private async Task ExportAsync()
+    {
+        exportMessage = null;
+        exporting = true;
+        var generation = loadGeneration;
+        var result = await Api.DownloadEventsCsvAsync(GuildId);
+        exporting = false;
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        if (!result.Success || result.Value is null)
+        {
+            exportMessage = $"❌ {result.Error}";
+            return;
+        }
+
+        var file = result.Value;
+        await Js.InvokeVoidAsync("calcronyDownload", file.FileName, Convert.ToBase64String(file.Bytes), file.ContentType);
+        exportMessage = $"⬇ Downloaded {file.FileName}.";
+        // The export itself is logged — show it without making the user refresh.
+        await LoadPageAsync(reset: true, generation);
+    }
+
+    private static string ActorName(ActionLogEntryDto entry) =>
+        entry.ActorName ?? (entry.ActorUserId is { } id ? $"user {id}" : "unknown");
+
+    private static string? TargetLink(ActionLogEntryDto entry) => entry switch
+    {
+        // Deleted targets 404 on their page, so only live-able kinds get a link; the page handles
+        // a missing row with its own not-found message.
+        { TargetType: ActionTargetType.Event, TargetId: { } eventId, Action: not ActionLogAction.EventDeleted } => $"/app/events/{eventId}",
+        { TargetType: ActionTargetType.Poll, TargetId: { } pollId, Action: not ActionLogAction.PollDeleted } => $"/app/polls/{pollId}",
+        _ => null,
+    };
+
+    /// <summary>Human label for an action enum value.</summary>
+    private static string Label(ActionLogAction action) => action switch
+    {
+        ActionLogAction.EventCreated => "Event created",
+        ActionLogAction.EventEdited => "Event edited",
+        ActionLogAction.EventDeleted => "Event deleted",
+        ActionLogAction.EventSkipped => "Occurrence skipped",
+        ActionLogAction.SeriesEdited => "Schedule changed",
+        ActionLogAction.SeriesStopped => "Series stopped",
+        ActionLogAction.PollCreated => "Poll created",
+        ActionLogAction.PollClosed => "Poll closed",
+        ActionLogAction.PollConverted => "Poll converted",
+        ActionLogAction.PollDeleted => "Poll deleted",
+        ActionLogAction.TemplateCreated => "Template saved",
+        ActionLogAction.TemplateEdited => "Template edited",
+        ActionLogAction.TemplateDeleted => "Template deleted",
+        ActionLogAction.SettingsChanged => "Settings changed",
+        ActionLogAction.LiveListCreated => "Live list created",
+        ActionLogAction.LiveListRemoved => "Live list removed",
+        ActionLogAction.EventsExported => "Events exported",
+        _ => action.ToString(),
+    };
+}

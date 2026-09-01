@@ -78,3 +78,22 @@ window.calcronyNav = {
 window.calcronyCopy = function (text) {
     return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
 };
+
+// Hands bytes the page fetched through the authenticated API client to the browser as a file
+// download (the CSV export). The access token lives only in memory — never a cookie or
+// storage — so a plain <a href> to the API could not carry it; Blazor fetches, then drops the
+// result here as a Blob behind a synthetic anchor click.
+window.calcronyDownload = function (fileName, base64, contentType) {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+    var url = URL.createObjectURL(new Blob([bytes], { type: contentType || "application/octet-stream" }));
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke after the click has had a chance to start the download.
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+};

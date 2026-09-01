@@ -346,6 +346,74 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     /// <returns>The absolute subscribe URL.</returns>
     public string FeedUrl(FeedTokenDto token) => $"{http.BaseAddress!.ToString().TrimEnd('/')}{token.Path}";
 
+    /// <summary>One page of the server's action log, newest first (managers only).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="action">Optional action to filter by.</param>
+    /// <param name="userId">Optional actor Discord id to filter by.</param>
+    /// <param name="before">The previous page's NextCursor, for the next (older) page.</param>
+    /// <param name="limit">Maximum number of rows to return.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<ActionLogPageDto>> ListActionsAsync(
+        long guildId,
+        ActionLogAction? action = null,
+        long? userId = null,
+        string? before = null,
+        int limit = 50,
+        CancellationToken ct = default)
+    {
+        var query = new List<string> { $"limit={limit}" };
+        if (action is { } filterAction)
+        {
+            query.Add($"action={filterAction}");
+        }
+
+        if (userId is { } filterUser)
+        {
+            query.Add($"userId={filterUser}");
+        }
+
+        if (!string.IsNullOrEmpty(before))
+        {
+            query.Add($"before={Uri.EscapeDataString(before)}");
+        }
+
+        return SendAsync<ActionLogPageDto>(http.GetAsync($"/guilds/{guildId}/actions?{string.Join("&", query)}", ct), ct);
+    }
+
+    /// <summary>Downloads the server's events + RSVPs CSV (managers only). The bytes come back
+    /// through the authenticated client — the access token lives only in memory, so a plain
+    /// link to the API could never carry it — and the page hands them to the browser as a file.</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the file on success, a display-ready error otherwise.</returns>
+    public async Task<ApiResult<DownloadedFile>> DownloadEventsCsvAsync(long guildId, CancellationToken ct = default)
+    {
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.GetAsync($"/guilds/{guildId}/export/events.csv", ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            return new ApiResult<DownloadedFile>(default, $"API unreachable: {ex.Message}");
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                return await FailureAsync<DownloadedFile>(response, ct);
+            }
+
+            var disposition = response.Content.Headers.ContentDisposition;
+            var fileName = disposition?.FileNameStar ?? disposition?.FileName?.Trim('"') ?? $"calcrony-events-{guildId}.csv";
+            var contentType = response.Content.Headers.ContentType?.ToString() ?? "text/csv";
+            return new ApiResult<DownloadedFile>(
+                new DownloadedFile(fileName, contentType, await response.Content.ReadAsByteArrayAsync(ct)), null);
+        }
+    }
+
     /// <summary>Empty payload marker for calls whose success carries no body.</summary>
     public readonly record struct Unit;
 
@@ -373,17 +441,30 @@ public sealed class CalCronyWebApiClient(HttpClient http)
                 return new ApiResult<T>(await response.Content.ReadFromJsonAsync<T>(ct), null);
             }
 
-            string? error = null;
-            try
-            {
-                error = (await response.Content.ReadFromJsonAsync<ErrorResponse>(ct))?.Error;
-            }
-            catch
-            {
-                // Non-JSON error body; fall through to the status-code message.
-            }
-
-            return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.", response.StatusCode);
+            return await FailureAsync<T>(response, ct);
         }
     }
+
+    /// <summary>The uniform failure result for a non-success response: the API's error message
+    /// when the body is one, else a status-code message.</summary>
+    private static async Task<ApiResult<T>> FailureAsync<T>(HttpResponseMessage response, CancellationToken ct)
+    {
+        string? error = null;
+        try
+        {
+            error = (await response.Content.ReadFromJsonAsync<ErrorResponse>(ct))?.Error;
+        }
+        catch
+        {
+            // Non-JSON error body; fall through to the status-code message.
+        }
+
+        return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.", response.StatusCode);
+    }
 }
+
+/// <summary>A file fetched through the authenticated API client, ready to hand to the browser.</summary>
+/// <param name="FileName">The server-suggested file name.</param>
+/// <param name="ContentType">The response media type.</param>
+/// <param name="Bytes">The file contents.</param>
+public record DownloadedFile(string FileName, string ContentType, byte[] Bytes);
