@@ -132,6 +132,12 @@ else
     private ActionLogAction? appliedAction;
     private long? appliedUserId;
 
+    // The in-flight export is bound to the guild it started for: switching guilds cancels its
+    // HTTP/interop work and closes its stream, so the old file can neither finish downloading
+    // nor write its filename or a reload into the new guild's page.
+    private CancellationTokenSource? exportCts;
+    private DownloadedFile? exportFile;
+
     protected override async Task OnParametersSetAsync()
     {
         // Blazor reuses this component across guilds: reset per-guild state before the first
@@ -147,6 +153,8 @@ else
         // guild's load would show its export button (and let it fire an unauthorized request)
         // until the lookup lands.
         isManager = false;
+        exporting = false;
+        CancelExport();
         actionFilter = "";
         userFilter = "";
         appliedAction = null;
@@ -249,32 +257,87 @@ else
         exportMessage = null;
         exporting = true;
         var generation = loadGeneration;
-        var result = await Api.DownloadEventsCsvAsync(GuildId);
-        exporting = false;
-        if (generation != loadGeneration)
+        CancelExport();
+        var cts = new CancellationTokenSource();
+        exportCts = cts;
+        var token = cts.Token;
+        try
         {
-            // The page moved to another guild mid-download: the open response (and its body
-            // stream) belongs to the old guild and must be closed, not leaked.
-            result.Value?.Dispose();
-            return;
-        }
+            ApiResult<DownloadedFile> result;
+            try
+            {
+                result = await Api.DownloadEventsCsvAsync(GuildId, token);
+            }
+            catch (OperationCanceledException)
+            {
+                return; // the page moved on; CancelExport already cleaned up
+            }
 
-        if (!result.Success || result.Value is null)
+            if (generation != loadGeneration || token.IsCancellationRequested)
+            {
+                // The page moved to another guild mid-download: the open response (and its body
+                // stream) belongs to the old guild and must be closed, not leaked.
+                result.Value?.Dispose();
+                return;
+            }
+
+            if (!result.Success || result.Value is null)
+            {
+                exportMessage = $"❌ {result.Error}";
+                return;
+            }
+
+            // The live response stream goes to JS as-is: nothing is buffered on the .NET side, the
+            // browser reads it straight into the Blob. calcronyDownload awaits the read before it
+            // returns, so the response is disposed once the interop call completes (in the finally
+            // below) — or earlier by CancelExport if the guild switches while JS is still reading,
+            // which aborts that read.
+            exportFile = result.Value;
+            var fileName = exportFile.FileName;
+            try
+            {
+                using var streamRef = new DotNetStreamReference(exportFile.Content, leaveOpen: true);
+                await Js.InvokeVoidAsync("calcronyDownload", token, fileName, streamRef, exportFile.ContentType);
+            }
+            catch (Exception) when (token.IsCancellationRequested)
+            {
+                return; // the read was aborted by a guild switch
+            }
+
+            // Re-checked AFTER the interop returned: the guild may have switched while JS was
+            // reading, and neither the old filename nor a reload may touch the new page.
+            if (generation != loadGeneration || token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            exportMessage = $"⬇ Downloaded {fileName}.";
+            // The export itself is logged — show it without making the user refresh.
+            await LoadPageAsync(reset: true, generation);
+        }
+        finally
         {
-            exportMessage = $"❌ {result.Error}";
-            return;
+            // Only this export's own resources: a guild switch has already cleaned them up (and
+            // may have handed the fields to a newer export).
+            if (ReferenceEquals(exportCts, cts))
+            {
+                CancelExport();
+                exporting = false;
+            }
         }
+    }
 
-        // The live response stream goes to JS as-is: nothing is buffered on the .NET side, the
-        // browser reads it straight into the Blob. calcronyDownload awaits the read before it
-        // returns, so the response can be disposed once the interop call completes — and must
-        // not be before, hence the using spans the await.
-        using var file = result.Value;
-        using var streamRef = new DotNetStreamReference(file.Content, leaveOpen: true);
-        await Js.InvokeVoidAsync("calcronyDownload", file.FileName, streamRef, file.ContentType);
-        exportMessage = $"⬇ Downloaded {file.FileName}.";
-        // The export itself is logged — show it without making the user refresh.
-        await LoadPageAsync(reset: true, generation);
+    /// <summary>Cancels and releases the in-flight export, if any: the HTTP call, the JS read
+    /// (by closing the stream it is reading), and the response that owns that stream.</summary>
+    private void CancelExport()
+    {
+        var cts = exportCts;
+        var file = exportFile;
+        exportCts = null;
+        exportFile = null;
+        cts?.Cancel();
+        cts?.Dispose();
+        file?.Dispose();
     }
 
     private static string ActorName(ActionLogEntryDto entry) =>

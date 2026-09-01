@@ -194,10 +194,11 @@ public static class ActionLogEndpoints
         // The entry commits before the first byte streams: a download that is interrupted
         // half-way still exposed attendee data, so it is still worth recording.
         var now = clock.GetCurrentInstant();
-        var eventCount = await db.Events.CountAsync(e => e.GuildId == guildId, cancellationToken);
+        // No event count in the entry: it commits before the rows stream (see above), so a count
+        // taken now could disagree with what the file ends up containing.
         ActionLog.Record(
             db, guildId, ActionLog.ActorFor(context), ActionLogAction.EventsExported, ActionTargetType.Guild, null,
-            $"Exported the events CSV ({eventCount} events)", now);
+            "Exported the events CSV", now);
         await db.SaveChangesAsync(cancellationToken);
 
         var fileName = $"calcrony-events-{guildId}-{now.InUtc().Date:yyyyMMdd}.csv";

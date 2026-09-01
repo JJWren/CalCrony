@@ -276,6 +276,52 @@ public class ActivityComponentTests : TestContext
         Assert.DoesNotContain("Downloaded", cut.Markup);
     }
 
+    [Fact]
+    public async Task Switching_guild_while_js_reads_aborts_the_stream_and_leaks_nothing_into_the_new_guild()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var guilds = JsonSerializer.Serialize(
+            new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "Mine", null, true), new WebGuildDto(2, "Also mine", null, true)]), JsonWeb);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => guilds,
+        };
+        handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
+        // No result set: the JS side is "mid-read" until the test says otherwise.
+        var download = JSInterop.SetupVoid("calcronyDownload", _ => true);
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+        cut.WaitForAssertion(() => Assert.Single(download.Invocations));
+        var streamBeingRead = handler.LastCsvContent!.HandedOut!;
+        var actionsBefore = handler.ActionsCalls;
+
+        // Switch guilds while JS is still reading guild 1's file.
+        cut.Render(p => p.Add(x => x.GuildId, 2L));
+        cut.WaitForAssertion(() => Assert.Equal(actionsBefore + 1, handler.ActionsCalls)); // guild 2's own load
+        // The read was aborted: the stream JS was consuming is closed under it.
+        Assert.Throws<ObjectDisposedException>(() => streamBeingRead.ReadByte());
+
+        // Now let the (already-cancelled) interop call complete, and give any stray continuation
+        // time to run: neither the old filename nor a reload may reach guild 2's page.
+        try
+        {
+            download.SetVoidResult();
+        }
+        catch (InvalidOperationException)
+        {
+            // bUnit already completed the invocation as cancelled — the same end state.
+        }
+
+        await Task.Delay(250);
+        Assert.DoesNotContain("Downloaded", cut.Markup);
+        Assert.Equal(actionsBefore + 1, handler.ActionsCalls);
+        Assert.Contains("Export events (CSV)", cut.Markup); // the new guild's own button is live again
+    }
+
     private static ActionLogEntryDto Entry(
         ActionLogAction action, string summary, long actorId, string? actorName,
         ActionSource source = ActionSource.Discord, ActionTargetType targetType = ActionTargetType.Poll, Guid? targetId = null,

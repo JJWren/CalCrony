@@ -321,7 +321,7 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         var page = await ListAsync(guildId, client: manager, query: "action=EventsExported");
         var export = Assert.Single(page.Entries);
         Assert.Equal(session.UserId, export.ActorUserId);
-        Assert.Contains("2 events", export.Summary);
+        Assert.Equal("Exported the events CSV", export.Summary);
     }
 
     [Fact]
@@ -398,8 +398,8 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         var expectedRows = seeded.Sum(e => Math.Max(1, e.Rsvps.Count));
         Assert.Equal(1 + expectedRows, lines.Length);
 
-        // Every event appears exactly as often as its RSVP count (or once), in (StartsAt, Id)
-        // order — no chunk boundary dropped or repeated anything.
+        // Every event appears exactly as often as its RSVP count (or once), in event-id order —
+        // no chunk boundary dropped or repeated anything.
         var rowsByEvent = lines.Skip(1).GroupBy(l => Guid.Parse(l[..36])).ToDictionary(g => g.Key, g => g.ToList());
         Assert.Equal(eventCount, rowsByEvent.Count);
         foreach (var ev in seeded)
@@ -415,7 +415,7 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         // Output is in event-id order — the immutable keyset the walk pages by (see CsvExport).
         var expectedOrder = seeded.OrderBy(e => e.Id).Select(e => e.Id).ToList();
         Assert.Equal(expectedOrder, lines.Skip(1).Select(l => Guid.Parse(l[..36])).Distinct().ToList());
-        Assert.Contains($"{eventCount} events", (await ListAsync(guildId, client: manager, query: "action=EventsExported")).Entries.Single().Summary);
+        Assert.Equal("Exported the events CSV", (await ListAsync(guildId, client: manager, query: "action=EventsExported")).Entries.Single().Summary);
     }
 
     [Fact]

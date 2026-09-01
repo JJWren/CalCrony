@@ -437,10 +437,13 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="ct">Cancels the request.</param>
     /// <param name="body">The JSON body, when the route takes one.</param>
     /// <returns>The raw response.</returns>
-    private Task<HttpResponseMessage> SendWithActorAsync(
+    private async Task<HttpResponseMessage> SendWithActorAsync(
         HttpMethod method, string url, long? actorId, CancellationToken ct, object? body = null)
     {
-        var request = new HttpRequestMessage(method, url);
+        // The default (buffered) send has consumed the request by the time SendAsync returns, so
+        // the request and its JsonContent can be released here — disposing the response later
+        // would not release them.
+        using var request = new HttpRequestMessage(method, url);
         if (body is not null)
         {
             request.Content = JsonContent.Create(body, body.GetType());
@@ -451,7 +454,7 @@ public sealed class CalCronyApiClient(HttpClient http)
             request.Headers.Add(ActionLogHeaders.ActorUserId, id.ToString(CultureInfo.InvariantCulture));
         }
 
-        return http.SendAsync(request, ct);
+        return await http.SendAsync(request, ct);
     }
 
     private static async Task<ApiResult<T>> SendAsync<T>(Task<HttpResponseMessage> sending, CancellationToken ct)
