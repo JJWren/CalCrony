@@ -90,6 +90,14 @@
     private async Task LoadAsync()
     {
         var settingsResult = await Api.GetUserSettingsAsync(UserId);
+        if (!settingsResult.Success)
+        {
+            // Nothing below may act on defaults that were never loaded (a save would silently
+            // rewrite a stored opt-in) — surface the failure instead.
+            error = settingsResult.Error;
+            return;
+        }
+
         settings = settingsResult.Value;
         timezoneInput = settings?.TimeZone ?? "";
         dmConfirmations = settings?.DmConfirmations ?? true;
@@ -110,7 +118,8 @@
         busy = true;
         var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
             string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations,
-            DmReminders: dmReminders));
+            // Null = keep: never send an explicit value for a preference that hasn't been loaded.
+            DmReminders: settings is null ? null : dmReminders));
         busy = false;
         if (!result.Success || result.Value is null)
         {

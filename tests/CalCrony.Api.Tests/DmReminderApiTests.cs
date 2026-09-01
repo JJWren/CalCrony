@@ -172,17 +172,18 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
                 .ExecuteUpdateAsync(s => s.SetProperty(r => r.Waitlisted, true));
         }
 
-        async Task<bool> ClaimAsync(long userId)
+        async Task<DmReminderClaimOutcome> ClaimAsync(long userId)
         {
             var row = rows.Single(r => r.Payload.UserId == userId);
             var response = await Client.PostAsync($"/deliveries/{row.Id}/dm-claim", null);
-            return (await ReadAsync<DmReminderClaimResponse>(response)).Eligible;
+            return (await ReadAsync<DmReminderClaimResponse>(response)).Outcome;
         }
 
-        Assert.False(await ClaimAsync(unRsvped));
-        Assert.False(await ClaimAsync(waitlistedLater));
-        Assert.False(await ClaimAsync(optedOutLater));
-        Assert.True(await ClaimAsync(stillSeated));
+        Assert.Equal(DmReminderClaimOutcome.Cancelled, await ClaimAsync(unRsvped));
+        Assert.Equal(DmReminderClaimOutcome.Cancelled, await ClaimAsync(waitlistedLater));
+        // Already withdrawn by the opt-out itself, so the claim finds it non-pending.
+        Assert.Equal(DmReminderClaimOutcome.AlreadyClaimed, await ClaimAsync(optedOutLater));
+        Assert.Equal(DmReminderClaimOutcome.Claimed, await ClaimAsync(stillSeated));
 
         // Cancelled rows stay cancelled even if the bot acks them; the claimed row is parked
         // (not re-served) while the attempt is in flight, and a second claim doesn't hand it out again.
@@ -203,7 +204,7 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
 
         var pending = await ReadAsync<List<DeliveryDto>>(await Client.GetAsync("/deliveries/pending?limit=50"));
         Assert.DoesNotContain(pending, d => rows.Select(r => r.Id).Contains(d.Id));
-        Assert.False(await ClaimAsync(stillSeated));
+        Assert.Equal(DmReminderClaimOutcome.AlreadyClaimed, await ClaimAsync(stillSeated)); // never handed out twice
     }
 
     [Fact]

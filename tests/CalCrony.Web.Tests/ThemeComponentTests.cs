@@ -180,6 +180,28 @@ public class ThemeComponentTests : TestContext
         Assert.Equal("UTC", body.TimeZone);
     }
 
+    [Fact]
+    public async Task A_failed_settings_load_surfaces_the_error_instead_of_saving_defaults()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.StatusFor = req => req.RequestUri!.AbsolutePath == "/users/42/settings" && req.Method == HttpMethod.Get
+            ? HttpStatusCode.InternalServerError
+            : HttpStatusCode.OK;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.Contains("timezone") ? "[]" : null;
+
+        var cut = Render<UserSettings>();
+
+        // The page says it couldn't load — and a save from this state must not turn a never-loaded
+        // default into an explicit write that would silently disable a stored opt-in.
+        cut.WaitForAssertion(() => Assert.Contains("API error 500", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(handler.PutBody));
+        var body = JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!;
+        Assert.Null(body.DmReminders); // null = keep whatever the account has
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();

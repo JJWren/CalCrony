@@ -261,11 +261,24 @@ public record UserSettingsDto(
 /// <param name="Offer">Whether to show the one-time opt-in prompt.</param>
 public record DmReminderOfferResponse(bool Offer);
 
-/// <summary>Answer to the bot's pre-send claim of a DM reminder: whether the recipient is still
-/// eligible (opted in AND holding a seat on the event's attending option). An ineligible row is
-/// cancelled by the API in the same step, so the bot has nothing to do for it.</summary>
-/// <param name="Eligible">Whether to send the DM.</param>
-public record DmReminderClaimResponse(bool Eligible);
+/// <summary>Outcome of the bot's pre-send claim of a DM reminder.</summary>
+public enum DmReminderClaimOutcome
+{
+    /// <summary>The recipient is still eligible and this caller now owns the attempt — send it.</summary>
+    Claimed = 0,
+
+    /// <summary>The recipient is no longer eligible (opted out, un-RSVPed, switched option, or
+    /// waitlisted) — the API cancelled the row; nothing to send, acking is a harmless no-op.</summary>
+    Cancelled = 1,
+
+    /// <summary>Another attempt already holds the row (or it is no longer pending) — do NOT
+    /// acknowledge it: the owner will settle it.</summary>
+    AlreadyClaimed = 2,
+}
+
+/// <summary>Answer to the bot's pre-send claim of a DM reminder (see <see cref="DmReminderClaimOutcome"/>).</summary>
+/// <param name="Outcome">What the claim decided.</param>
+public record DmReminderClaimResponse(DmReminderClaimOutcome Outcome);
 
 /// <summary>TimeZone (IANA id), when set, overrides the user/guild zone resolution — used where
 /// the caller must preview in a specific zone, e.g. a series' stored zone for schedule edits.</summary>

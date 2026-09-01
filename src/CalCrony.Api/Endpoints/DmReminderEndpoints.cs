@@ -50,7 +50,7 @@ public static class DmReminderEndpoints
 
         if (delivery.Status != DeliveryStatus.Pending)
         {
-            return Results.Ok(new DmReminderClaimResponse(false));
+            return Results.Ok(new DmReminderClaimResponse(DmReminderClaimOutcome.AlreadyClaimed));
         }
 
         var payload = System.Text.Json.JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
@@ -64,7 +64,7 @@ public static class DmReminderEndpoints
         {
             delivery.Status = DeliveryStatus.Cancelled;
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(new DmReminderClaimResponse(false));
+            return Results.Ok(new DmReminderClaimResponse(DmReminderClaimOutcome.Cancelled));
         }
 
         // Conditional stamp: a row another attempt already holds is not handed out twice.
@@ -74,7 +74,8 @@ public static class DmReminderEndpoints
             .Where(d => d.Id == id && d.Status == DeliveryStatus.Pending
                         && (d.ClaimedAt == null || d.ClaimedAt < claimCutoff))
             .ExecuteUpdateAsync(s => s.SetProperty(d => d.ClaimedAt, now), cancellationToken);
-        return Results.Ok(new DmReminderClaimResponse(claimed == 1));
+        return Results.Ok(new DmReminderClaimResponse(
+            claimed == 1 ? DmReminderClaimOutcome.Claimed : DmReminderClaimOutcome.AlreadyClaimed));
     }
 
     /// <summary>Claims the one-time opt-in prompt for a user: true exactly once, and only while the
