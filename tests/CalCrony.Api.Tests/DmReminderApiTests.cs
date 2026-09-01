@@ -98,6 +98,39 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
     }
 
     [Fact]
+    public async Task One_sweep_fans_out_several_due_events_in_a_single_batch()
+    {
+        const long userId = 12371;
+        (await Client.PutAsJsonAsync($"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true)))
+            .EnsureSuccessStatusCode();
+
+        var eventIds = new List<Guid>();
+        foreach (var title in new[] { "Batch A", "Batch B", "Batch C" })
+        {
+            var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(CreatorId, title, "in 3 hours", ChannelId));
+            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+            var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+            eventIds.Add(ev.Id);
+            (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{userId}", new RsvpRequest(ev.Options.OrderBy(o => o.SortOrder).First().Id))).EnsureSuccessStatusCode();
+            (await Client.PostAsJsonAsync($"/events/{ev.Id}/notifications", new CreateEventNotificationRequest(200, title, null))).EnsureSuccessStatusCode();
+        }
+
+        await SweepAsync(SystemClock.Instance.GetCurrentInstant());
+
+        // One DM per due event for the one recipient — and the batch didn't cross-wire messages.
+        var rows = new List<DmEventReminderPayload>();
+        foreach (var id in eventIds)
+        {
+            rows.AddRange(await DmDeliveriesAsync(id));
+        }
+
+        Assert.Equal(3, rows.Count);
+        Assert.All(rows, r => Assert.Equal(userId, r.UserId));
+        Assert.Equal(["Batch A", "Batch B", "Batch C"], rows.OrderBy(r => r.Title).Select(r => r.Message));
+        Assert.All(rows, r => Assert.Equal(r.Title, r.Message));
+    }
+
+    [Fact]
     public async Task Offer_and_blocked_are_bot_only()
     {
         var (member, session) = await fixture.LoginAsync(12330, (GuildId, "G", false));

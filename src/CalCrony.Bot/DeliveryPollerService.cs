@@ -508,6 +508,11 @@ public sealed class DeliveryPollerService(
     /// Discord.Net versions.</summary>
     private const int ClosedDmsErrorCode = 50007;
 
+    /// <summary>Users Discord has already told us have closed DMs, whose switch-off report has not
+    /// yet been recorded by the API. A retried row for such a user goes straight to the report
+    /// instead of knocking on the closed inbox again; entries clear once the report succeeds.</summary>
+    private readonly HashSet<long> closedDmsPendingReport = [];
+
     /// <summary>DMs an opted-in attendee — after re-checking, at send time, that the opt-in still
     /// holds (the row may predate an opt-out, or an earlier row in this batch may just have hit
     /// closed DMs). Closed DMs (Discord 50007 — DMs disabled or the bot blocked) switch the
@@ -531,33 +536,41 @@ public sealed class DeliveryPollerService(
             return;
         }
 
-        IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
-        if (user is null)
+        if (!closedDmsPendingReport.Contains(payload.UserId))
         {
-            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} not found; dropping.", delivery.Id, payload.UserId);
-            return;
-        }
-
-        try
-        {
-            var dm = await user.CreateDMChannelAsync();
-            await dm.SendMessageAsync(DmReminderText.Format(payload));
-        }
-        catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
-        {
-            var blocked = await api.BlockDmRemindersAsync(payload.UserId);
-            if (!blocked.Success)
+            IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
+            if (user is null)
             {
-                // Not recorded ⇒ not done: leave the row pending so the outbox retries the
-                // switch-off rather than acking a DM that will keep failing for every later row.
-                throw new InvalidOperationException(
-                    $"User {payload.UserId} has DMs closed but the switch-off could not be recorded: {blocked.Error}");
+                logger.LogInformation("DM reminder {DeliveryId}: user {UserId} not found; dropping.", delivery.Id, payload.UserId);
+                return;
             }
 
-            logger.LogInformation(
-                "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off.",
-                delivery.Id, payload.UserId);
+            try
+            {
+                var dm = await user.CreateDMChannelAsync();
+                await dm.SendMessageAsync(DmReminderText.Format(payload));
+                return;
+            }
+            catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
+            {
+                closedDmsPendingReport.Add(payload.UserId);
+            }
         }
+
+        // Closed DMs: record the switch-off (which also withdraws the user's other queued DMs).
+        // Not recorded ⇒ not done: the row stays pending and the retry comes back here — to the
+        // report, not to Discord — until the API accepts it.
+        var blocked = await api.BlockDmRemindersAsync(payload.UserId);
+        if (!blocked.Success)
+        {
+            throw new InvalidOperationException(
+                $"User {payload.UserId} has DMs closed but the switch-off could not be recorded: {blocked.Error}");
+        }
+
+        closedDmsPendingReport.Remove(payload.UserId);
+        logger.LogInformation(
+            "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off.",
+            delivery.Id, payload.UserId);
     }
 
     /// <summary>Message text for an event-start announcement.</summary>

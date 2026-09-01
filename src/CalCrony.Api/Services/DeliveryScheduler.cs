@@ -35,6 +35,9 @@ public sealed class DeliveryScheduler(
         // off, or a series rolled its next occurrence) — their live lists rewrite, deduped here
         // and debounced/coalesced by LiveListSync.
         var liveListGuilds = new HashSet<long>();
+        // Channel posts that may need opt-in DM mirrors — collected across the loops below and
+        // fanned out in ONE batched pass, so a large sweep costs three extra queries, not 2-3 per item.
+        var dmItems = new List<DmReminderFanOut.Item>();
 
         // Due event notifications (fire time recomputed from the event's current start).
         var pendingNotifications = await db.EventNotifications
@@ -64,8 +67,7 @@ public sealed class DeliveryScheduler(
                 fireAt,
                 now));
             enqueued++;
-            enqueued += await DmReminderFanOut.EnqueueAsync(
-                db, pair.Event, pair.Notification.Message, isStart: false, fireAt, now, cancellationToken);
+            dmItems.Add(new DmReminderFanOut.Item(pair.Event, pair.Notification.Message, IsStart: false, fireAt));
         }
 
         // Scheduled → Started, with a start ping.
@@ -84,9 +86,11 @@ public sealed class DeliveryScheduler(
                 ev.StartsAt,
                 now));
             enqueued++;
-            enqueued += await DmReminderFanOut.EnqueueAsync(db, ev, message: null, isStart: true, ev.StartsAt, now, cancellationToken);
+            dmItems.Add(new DmReminderFanOut.Item(ev, Message: null, IsStart: true, ev.StartsAt));
             liveListGuilds.Add(ev.GuildId);
         }
+
+        enqueued += await DmReminderFanOut.EnqueueAsync(db, dmItems, now, cancellationToken);
 
         // Started → Ended once the duration (default 60 min) has elapsed; mirrored native events
         // get a completion delivery and attendee roles are revoked from every Going RSVP
