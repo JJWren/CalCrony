@@ -15,6 +15,7 @@ namespace CalCrony.Bot;
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The host logger.</param>
 /// <param name="liveLists">The live-list manager.</param>
+/// <param name="roleSnapshots">The role-snapshot pusher.</param>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
@@ -22,7 +23,8 @@ public sealed class DiscordBotService(
     CalCronyApiClient api,
     IConfiguration configuration,
     ILogger<DiscordBotService> logger,
-    LiveListManager liveLists) : IHostedService
+    LiveListManager liveLists,
+    RoleSnapshotService roleSnapshots) : IHostedService
 {
     /// <summary>Wires events, loads interaction modules, and logs the bot in.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -36,6 +38,11 @@ public sealed class DiscordBotService(
         client.LeftGuild += OnLeftGuildAsync;
         client.GuildUpdated += OnGuildUpdatedAsync;
         client.ChannelUpdated += OnChannelUpdatedAsync;
+        // Role snapshots (ADR 0004): a member's watched-role delta, a watched role deleted or
+        // renamed — each keeps the API's snapshot current between full syncs.
+        client.GuildMemberUpdated += roleSnapshots.OnMemberUpdatedAsync;
+        client.RoleDeleted += roleSnapshots.OnRoleDeletedAsync;
+        client.RoleUpdated += roleSnapshots.OnRoleUpdatedAsync;
 
         await interactions.AddModulesAsync(typeof(DiscordBotService).Assembly, services);
 
@@ -92,6 +99,8 @@ public sealed class DiscordBotService(
         }
 
         await ReconcileChannelNamesAsync();
+        // Role snapshots last: they need the member cache, which the guild sync downloads.
+        await roleSnapshots.ReconcileAllAsync();
         await ReconcileLiveListsAsync();
     }
 

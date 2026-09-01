@@ -131,6 +131,12 @@ public static class PollEmbedBuilder
             chips.Add("➕ voters can add options");
         }
 
+        if (poll.IsRestricted)
+        {
+            // Buttons stay for everyone; a refused click explains the restriction.
+            chips.Add($"🔒 {RoleRestrictionSpec.Mentions(poll.AllowedRoles!.Select(r => r.Id))} only");
+        }
+
         var closes = poll.ClosesAtUnix is { } closesUnix ? $" · Closes <t:{closesUnix}:R>" : "";
         return $"{string.Join(" · ", chips)}{closes}";
     }

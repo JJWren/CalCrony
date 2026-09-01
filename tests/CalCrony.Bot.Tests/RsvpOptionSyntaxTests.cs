@@ -127,4 +127,49 @@ public class RsvpOptionSyntaxTests
         Assert.False(RsvpOptionSyntax.TryParse(input, out _, out var error));
         Assert.Contains(expectedFragment, error, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void An_only_clause_restricts_the_option_and_never_collides_with_the_grant_mention()
+    {
+        // "<@&11>" before `only:` GRANTS Tank; "<@&99>" after it RESTRICTS who may pick Tank.
+        Assert.True(RsvpOptionSyntax.TryParse("🛡️ Tank x2 <@&11> only: <@&99>, ❌ Out", out var specs, out var error));
+
+        Assert.Null(error);
+        Assert.Equal(("🛡️", "Tank", (int?)2, (long?)11), (specs[0].Emote, specs[0].Label, specs[0].Capacity, specs[0].AttendeeRoleId));
+        Assert.Equal([99L], specs[0].AllowedRoleIds!);
+        Assert.Null(specs[1].AllowedRoleIds);
+    }
+
+    [Theory]
+    [InlineData("🛡️ Tank only:<@&99>")]          // glued
+    [InlineData("🛡️ Tank only: <@&99>")]         // spaced
+    [InlineData("🛡️ Tank ONLY: <@&99>")]         // case-insensitive
+    [InlineData("🛡️ Tank only: <@&99> *")]       // before the attending marker
+    public void The_only_keyword_is_read_glued_or_spaced_and_never_becomes_label_text(string input)
+    {
+        Assert.True(RsvpOptionSyntax.TryParse(input, out var specs, out var error));
+
+        Assert.Null(error);
+        Assert.Equal("Tank", specs[0].Label);
+        Assert.Equal([99L], specs[0].AllowedRoleIds!);
+    }
+
+    [Fact]
+    public void Several_roles_after_only_all_restrict_and_a_label_containing_the_word_only_is_untouched()
+    {
+        Assert.True(RsvpOptionSyntax.TryParse("Tank only: <@&1> <@&2>, Members only", out var specs, out _));
+
+        Assert.Equal([1L, 2L], specs[0].AllowedRoleIds!);
+        Assert.Equal("Members only", specs[1].Label);
+        Assert.Null(specs[1].AllowedRoleIds);
+    }
+
+    [Fact]
+    public void Non_mention_text_after_only_is_an_error()
+    {
+        Assert.False(RsvpOptionSyntax.TryParse("Tank only: raiders", out _, out var error));
+
+        Assert.Contains("only:", error);
+        Assert.Contains("raiders", error);
+    }
 }

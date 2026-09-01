@@ -235,6 +235,32 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<Unit>> SetChannelNameAsync(long channelId, string name, CancellationToken ct = default) =>
         SendAsync<Unit>(http.PutAsJsonAsync($"/channels/{channelId}/name", new ChannelNameRequest(name), ct), ct);
 
+    /// <summary>Lists, per bot-present guild, the roles the API's live signup restrictions name —
+    /// what the role snapshots must cover (the Ready-time reconcile and post-command syncs).</summary>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<WatchedRolesResponse>> GetWatchedRolesAsync(CancellationToken ct = default) =>
+        SendAsync<WatchedRolesResponse>(http.GetAsync("/guilds/roles/watched", ct), ct);
+
+    /// <summary>Replaces one guild's role snapshot: every watched role as resolved (null name = the
+    /// role no longer exists) and every member holding at least one of them.</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> SyncGuildRolesAsync(long guildId, RoleSyncRequest request, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PutAsJsonAsync($"/guilds/{guildId}/roles/sync", request, ct), ct);
+
+    /// <summary>Pushes one member's current watched roles after a member update (an empty list
+    /// removes them from the snapshot).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="roleIds">The watched roles the member holds now.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> PutMemberRolesAsync(long guildId, long userId, IReadOnlyList<long> roleIds, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PutAsJsonAsync($"/guilds/{guildId}/members/{userId}/roles", new PutMemberRolesRequest(roleIds), ct), ct);
+
     /// <summary>Reads a user's personal settings.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="ct">Cancels the request.</param>

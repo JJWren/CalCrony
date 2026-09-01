@@ -27,8 +27,10 @@ public enum EditScopeChoice
 /// <param name="api">The CalCrony API client.</param>
 /// <param name="mirror">The native scheduled-event mirror.</param>
 /// <param name="threadManager">The event-thread manager.</param>
+/// <param name="roleSnapshots">The role-snapshot pusher (synced after any command that names roles).</param>
 [RequireContext(ContextType.Guild)]
-public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventThreadManager threadManager)
+public class EventModule(
+    CalCronyApiClient api, NativeEventMirror mirror, EventThreadManager threadManager, RoleSnapshotService roleSnapshots)
     : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Creates an event (optionally recurring), posts its embed, and records the message ids.</summary>
@@ -50,6 +52,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
     /// <param name="rsvpOptions">Custom RSVP buttons (see <see cref="RsvpOptionSyntax"/>).</param>
     /// <param name="attendeeLimit">Cap on the attending option; extras join the waitlist.</param>
     /// <param name="rsvpClose">RSVP cutoff — relative ("2h before") or absolute natural language.</param>
+    /// <param name="restrictTo">Role mentions limiting every RSVP option to their holders (see <see cref="RoleRestrictionSpec"/>).</param>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -69,7 +72,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         [Summary("thread", "Open a discussion thread on the event message (attending RSVPs are added)")] bool thread = false,
         [Summary("rsvp-options", "Custom RSVP buttons, e.g. \"⚔️ Raider x10, 🛡️ Standby, ❌ Out\" — first is the attending one")] string? rsvpOptions = null,
         [Summary("attendee-limit", "Max attendees — extra RSVPs join a waitlist and are promoted when a spot frees"), MinValue(1)] int? attendeeLimit = null,
-        [Summary("rsvp-close", "When RSVPs stop, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null)
+        [Summary("rsvp-close", "When RSVPs stop, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
+        [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders @Officers\"")] string? restrictTo = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -88,6 +92,12 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
                 await FollowupAsync(specRoleProblem, ephemeral: true);
                 return;
             }
+        }
+
+        if (!TryReadRestriction(restrictTo, optionSpecs, out var restrictedTo, out var restrictionProblem))
+        {
+            await FollowupAsync(restrictionProblem!, ephemeral: true);
+            return;
         }
 
         var targetChannel = channel ?? Context.Channel as ITextChannel;
@@ -153,7 +163,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
                 WantsThread: thread,
                 RsvpOptions: optionSpecs,
                 AttendeeLimit: attendeeLimit,
-                RsvpCloseText: rsvpClose));
+                RsvpCloseText: rsvpClose,
+                AllowedRoleIds: restrictedTo));
 
         if (!result.Success || result.Value is null)
         {
@@ -173,6 +184,13 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             await threadManager.TryCreateAsync(recorded.Value, message);
         }
 
+        // Discord clicks are checked live, but the web answers from the API's role snapshot — sync
+        // it now so the snapshot is authoritative before anyone can click the embed (ADR 0004).
+        if (TouchesRestrictions(restrictedTo, optionSpecs, cleared: false))
+        {
+            await roleSnapshots.SyncGuildAsync(Context.Guild);
+        }
+
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
         var roleNote = ev.RoleGrantingOptions is { Count: > 0 } roleOptions
             ? " · 🏷️ " + string.Join(
@@ -183,7 +201,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         var limitNote = ev.AttendingOption?.Capacity is int cap ? $" · 👥 limited to {cap} (waitlist after)" : "";
         var closeNote = ev.RsvpCloseUnix is long closeUnix ? $" · 🔒 RSVPs close <t:{closeUnix}:f>" : "";
         await FollowupAsync(
-            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{threadNote}{limitNote}{closeNote}",
+            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{RestrictionNote(ev)}{threadNote}{limitNote}{closeNote}",
             ephemeral: true);
     }
 
@@ -273,6 +291,8 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
     /// <param name="clearAttendeeLimit">Removes the cap (the waitlist is seated).</param>
     /// <param name="rsvpClose">New RSVP cutoff — relative ("2h before") or absolute.</param>
     /// <param name="clearRsvpClose">Removes the cutoff (RSVPs reopen).</param>
+    /// <param name="restrictTo">Role mentions replacing every option's signup restriction.</param>
+    /// <param name="clearRestriction">Removes the signup restriction from every option.</param>
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -289,14 +309,17 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         [Summary("attendee-limit", "New max attendees (raising it seats waitlisted members)"), MinValue(1)] int? attendeeLimit = null,
         [Summary("clear-attendee-limit", "Remove the attendee limit — the whole waitlist is seated")] bool clearAttendeeLimit = false,
         [Summary("rsvp-close", "New RSVP cutoff, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
-        [Summary("clear-rsvp-close", "Remove the RSVP cutoff (RSVPs reopen)")] bool clearRsvpClose = false)
+        [Summary("clear-rsvp-close", "Remove the RSVP cutoff (RSVPs reopen)")] bool clearRsvpClose = false,
+        [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders\"")] string? restrictTo = null,
+        [Summary("clear-restriction", "Remove the signup restriction from every option")] bool clearRestriction = false)
     {
         await DeferAsync(ephemeral: true);
 
         if (title is null && when is null && description is null && duration is null && location is null
             && image is null && attendeeRole is null && !clearAttendeeRole
             && rsvpOptions is null && attendeeLimit is null && !clearAttendeeLimit
-            && rsvpClose is null && !clearRsvpClose)
+            && rsvpClose is null && !clearRsvpClose
+            && restrictTo is null && !clearRestriction)
         {
             await FollowupAsync("Nothing to change — pass at least one field.", ephemeral: true);
             return;
@@ -317,6 +340,12 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
                 await FollowupAsync(specRoleProblem, ephemeral: true);
                 return;
             }
+        }
+
+        if (!TryReadRestriction(restrictTo, optionSpecs, out var restrictedTo, out var restrictionProblem))
+        {
+            await FollowupAsync(restrictionProblem!, ephemeral: true);
+            return;
         }
 
         if (attendeeRole is not null && ValidateAttendeeRole(attendeeRole) is { } roleProblem)
@@ -363,7 +392,9 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             AttendeeLimit: attendeeLimit,
             ClearAttendeeLimit: clearAttendeeLimit,
             RsvpCloseText: rsvpClose,
-            ClearRsvpClose: clearRsvpClose));
+            ClearRsvpClose: clearRsvpClose,
+            AllowedRoleIds: restrictedTo,
+            ClearAllowedRoles: clearRestriction));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);
@@ -372,8 +403,64 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
 
         await TryUpdateMessageAsync(result.Value);
         await mirror.TryUpsertAsync(result.Value);
-        await FollowupAsync($"✏️ Updated **{result.Value.Title}**.", ephemeral: true);
+        if (TouchesRestrictions(restrictedTo, optionSpecs, clearRestriction))
+        {
+            // Same reason as /create: the web's snapshot must cover any newly named role at once.
+            await roleSnapshots.SyncGuildAsync(Context.Guild);
+        }
+
+        await FollowupAsync($"✏️ Updated **{result.Value.Title}**.{RestrictionNote(result.Value)}", ephemeral: true);
     }
+
+    /// <summary>Parses the <c>restrict-to</c> mention list and pre-checks every role a restriction
+    /// names — the argument's and the <c>only:</c> ones inside <c>rsvp-options</c>. The API is the
+    /// validator of record; this turns a deleted or @everyone role into a friendly bail.</summary>
+    /// <param name="restrictTo">The raw <c>restrict-to</c> value, or null.</param>
+    /// <param name="specs">The parsed option specs, or null.</param>
+    /// <param name="restrictedTo">The event-level restriction on success, null when not given.</param>
+    /// <param name="problem">The user-facing problem on failure.</param>
+    /// <returns>True when every named role may be used.</returns>
+    private bool TryReadRestriction(
+        string? restrictTo, List<RsvpOptionSpec>? specs, out List<long>? restrictedTo, out string? problem)
+    {
+        restrictedTo = null;
+        problem = null;
+        if (restrictTo is not null)
+        {
+            if (!RoleRestrictionSpec.TryParseMentions(restrictTo, out var parsed, out var parseProblem))
+            {
+                problem = $"❌ {parseProblem}";
+                return false;
+            }
+
+            restrictedTo = parsed;
+        }
+
+        problem = RoleRestrictionCheck.Validate(Context.Guild, restrictedTo ?? [])
+            ?? (specs is null ? null : RoleRestrictionCheck.ValidateSpecs(Context.Guild, specs));
+        return problem is null;
+    }
+
+    /// <summary>Whether a command named or cleared a restriction, which is when the guild's role
+    /// snapshot must be re-synced.</summary>
+    /// <param name="restrictedTo">The event-level restriction, when given.</param>
+    /// <param name="specs">The option specs, when given.</param>
+    /// <param name="cleared">Whether the restriction was cleared.</param>
+    /// <returns>True when a sync is due.</returns>
+    private static bool TouchesRestrictions(List<long>? restrictedTo, List<RsvpOptionSpec>? specs, bool cleared) =>
+        restrictedTo is not null || cleared || (specs?.Any(s => s.AllowedRoleIds is { Count: > 0 }) ?? false);
+
+    /// <summary>The reply chip for a restriction: one when every option shares a set, else one per
+    /// restricted option; empty for an unrestricted event.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>The " · 🔒 …" chip, or "".</returns>
+    private static string RestrictionNote(EventDto ev) =>
+        ev.SharedRestriction is { } shared
+            ? $" · 🔒 limited to {RoleRestrictionSpec.Mentions(shared.Select(r => r.Id))}"
+            : ev.RestrictedOptions is { Count: > 0 } restricted
+                ? " · 🔒 " + string.Join(
+                    " · ", restricted.Select(o => $"{o.Label} limited to {RoleRestrictionSpec.Mentions(o.AllowedRoles!.Select(r => r.Id))}"))
+                : "";
 
     /// <summary>Creator-or-ManageGuild check mirroring the API guard.</summary>
     /// <param name="ev">The event.</param>

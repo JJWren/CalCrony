@@ -60,7 +60,7 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             }
         }
 
-        await SubmitVotesAsync(pollId, userId, [.. next]);
+        await SubmitVotesAsync(current.Value, userId, [.. next]);
     }
 
     /// <summary>Vote select: submits the selection verbatim as the user's full vote set.</summary>
@@ -89,7 +89,14 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             optionIds.Add(optionId);
         }
 
-        await SubmitVotesAsync(pollId, (long)Context.User.Id, optionIds);
+        var current = await api.GetPollAsync(pollId);
+        if (!current.Success || current.Value is null)
+        {
+            await FollowupAsync("This poll no longer exists.", ephemeral: true);
+            return;
+        }
+
+        await SubmitVotesAsync(current.Value, (long)Context.User.Id, optionIds);
     }
 
     // No DeferAsync here: a modal must be the interaction's INITIAL response.
@@ -98,6 +105,18 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     [ComponentInteraction("polladd:*")]
     public async Task AddOptionButtonAsync(string pollIdRaw)
     {
+        // A restricted poll refuses here, as the initial response, instead of opening the modal.
+        if (Guid.TryParse(pollIdRaw, out var pollId))
+        {
+            var current = await api.GetPollAsync(pollId);
+            if (current is { Success: true, Value: { } poll }
+                && RoleRestrictionCheck.Denied(Context.User, poll.CreatorId, poll.AllowedRoles, out var effective))
+            {
+                await RespondAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
+                return;
+            }
+        }
+
         await RespondWithModalAsync<AddPollOptionModal>($"polladdmodal:{pollIdRaw}");
     }
 
@@ -112,6 +131,15 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
         if (!Guid.TryParse(pollIdRaw, out var pollId))
         {
             await FollowupAsync("This poll no longer exists.", ephemeral: true);
+            return;
+        }
+
+        // Re-checked at submit: the modal may have been opened before the restriction applied.
+        var current = await api.GetPollAsync(pollId);
+        if (current is { Success: true, Value: { } poll }
+            && RoleRestrictionCheck.Denied(Context.User, poll.CreatorId, poll.AllowedRoles, out var effective))
+        {
+            await FollowupAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
             return;
         }
 
@@ -172,13 +200,21 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             ephemeral: true);
     }
 
-    /// <summary>Submits the vote set, re-renders the embed, and confirms ephemerally.</summary>
-    /// <param name="pollId">The poll id.</param>
+    /// <summary>Submits the vote set, re-renders the embed, and confirms ephemerally. A restricted
+    /// poll is checked live first — casting needs the role, clearing never does.</summary>
+    /// <param name="current">The poll as it stands.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="optionIds">The full vote set to store.</param>
-    private async Task SubmitVotesAsync(Guid pollId, long userId, IReadOnlyList<Guid> optionIds)
+    private async Task SubmitVotesAsync(PollDto current, long userId, IReadOnlyList<Guid> optionIds)
     {
-        var result = await api.PutPollVotesAsync(pollId, userId, new PutPollVotesRequest(optionIds));
+        if (optionIds.Count > 0
+            && RoleRestrictionCheck.Denied(Context.User, current.CreatorId, current.AllowedRoles, out var effective))
+        {
+            await FollowupAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
+            return;
+        }
+
+        var result = await api.PutPollVotesAsync(current.Id, userId, new PutPollVotesRequest(optionIds));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);
