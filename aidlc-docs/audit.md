@@ -298,3 +298,10 @@
 **Context**: Construction — Code Generation Part 2 complete pending review; step 8.2 ticked, 8.3 (Copilot loop, merge, release, rollout) next.
 
 ---
+## Delivery — #148 shipped (PR #149 merged)
+**Timestamp**: 2026-09-01T23:36:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: PR #149 "feat: name the server above the guild section tabs" went through three Copilot rounds (round 1: a generation stamp on the guild-name lookup and a gated switch test; round 2: zero new comments, four suppressed notes about the host pages' pre-existing reload behaviour, one of which — the unknown-guild test could pass on the initial empty render — was hardened anyway; round 3: approved, zero new comments). Squash-merged to master as a7474b0 via the ordinary merge API (the review decision was APPROVED); #148 auto-closed by the commit body. Plan step 8.1 ticked. release-please is running on master.
+**Context**: Delivery — sibling PR done first so #150 stays single-purpose.
+
+---

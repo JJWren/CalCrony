@@ -63,6 +63,6 @@ Steps run top to bottom; each layer builds and its tests pass before the next st
 - [x] 7.8 Full-solution `dotnet test` green before the PR opens.
 
 ## 8. Delivery
-- [ ] 8.1 Ship #148 (the `GuildHeading` sidebar change) first as its own PR (`feat: name the server above the guild section tabs`) so this PR stays single-purpose.
+- [x] 8.1 Ship #148 (the `GuildHeading` sidebar change) first as its own PR (`feat: name the server above the guild section tabs`) so this PR stays single-purpose.
 - [x] 8.2 Open the PR with the §3.6-style body: what it does, shape of the change, behaviour changes for existing servers (none expected — restrictions are opt-in), migration verification, test counts.
 - [ ] 8.3 Copilot review loop to zero comments; squash-merge; release; upgrade test then prod (pg_dump first); update the #125 checklist and `aidlc-state.md`.
