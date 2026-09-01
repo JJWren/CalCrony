@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/JJWren/CalCrony/compare/v0.28.0...v0.28.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* withhold manager controls while the next guild loads ([#136](https://github.com/JJWren/CalCrony/issues/136)) ([3a589fe](https://github.com/JJWren/CalCrony/commit/3a589fe7bb02662687009ecd7af48fab4335d1a3))
+
 ## [0.28.0](https://github.com/JJWren/CalCrony/compare/v0.27.0...v0.28.0) (2026-09-01)
 
 
