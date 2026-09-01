@@ -511,12 +511,14 @@ public sealed class DeliveryPollerService(
     /// Discord.Net versions.</summary>
     private const int ClosedDmsErrorCode = 50007;
 
-    /// <summary>Users Discord has already told us have closed DMs, whose switch-off report has not
-    /// yet been recorded by the API. Within this process a retried row for such a user goes
-    /// straight to the report instead of knocking on the closed inbox again; across a restart the
-    /// API-side claim on the row (not re-served while the claim lives) provides the same guarantee.
-    /// Entries clear once the report succeeds.</summary>
-    private readonly HashSet<long> closedDmsPendingReport = [];
+    /// <summary>Deliveries Discord has already refused with 50007 whose switch-off report has not
+    /// yet been recorded by the API. Keyed by DELIVERY, not user: a marker must not outlive the
+    /// attempt that produced it, or a stale refusal could disable a consent the user renewed
+    /// later. Within this process a retry of that row goes straight to the report instead of
+    /// knocking on the closed inbox again; across a restart the API-side claim on the row (not
+    /// re-served while the claim lives) provides the same guarantee. Entries clear when the report
+    /// succeeds, or when the row turns out to be cancelled or owned elsewhere.</summary>
+    private readonly HashSet<Guid> refusedDeliveriesPendingReport = [];
 
     /// <summary>DMs an attendee — after claiming the row with the API, which re-validates NOW that
     /// the recipient is still opted in and still seated on the attending option (an un-RSVP, an
@@ -540,15 +542,17 @@ public sealed class DeliveryPollerService(
         switch (claim.Value.Outcome)
         {
             case DmReminderClaimOutcome.Cancelled:
+                refusedDeliveriesPendingReport.Remove(delivery.Id);
                 logger.LogInformation("DM reminder {DeliveryId}: user {UserId} is no longer eligible; the API cancelled it.", delivery.Id, payload.UserId);
                 return true; // acking a cancelled row is a no-op
             case DmReminderClaimOutcome.AlreadyClaimed:
                 // Another attempt owns this row — never settle it from here.
+                refusedDeliveriesPendingReport.Remove(delivery.Id);
                 logger.LogInformation("DM reminder {DeliveryId}: already claimed elsewhere; leaving it to its owner.", delivery.Id);
                 return false;
         }
 
-        if (!closedDmsPendingReport.Contains(payload.UserId))
+        if (!refusedDeliveriesPendingReport.Contains(delivery.Id))
         {
             IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
             if (user is null)
@@ -565,7 +569,7 @@ public sealed class DeliveryPollerService(
             }
             catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
             {
-                closedDmsPendingReport.Add(payload.UserId);
+                refusedDeliveriesPendingReport.Add(delivery.Id);
             }
         }
 
@@ -579,7 +583,7 @@ public sealed class DeliveryPollerService(
                 $"User {payload.UserId} has DMs closed but the switch-off could not be recorded: {blocked.Error}");
         }
 
-        closedDmsPendingReport.Remove(payload.UserId);
+        refusedDeliveriesPendingReport.Remove(delivery.Id);
         logger.LogInformation(
             "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off.",
             delivery.Id, payload.UserId);
