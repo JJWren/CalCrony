@@ -42,6 +42,7 @@ else if (MyWaitlistPosition is int position)
     private bool busy;
     private string? error;
     private System.Threading.Timer? closeTimer;
+    private DateTimeOffset? announcedClosedFor;
 
     private Guid? MyOptionId => Event.Rsvps.FirstOrDefault(r => r.UserId == UserId)?.OptionId;
 
@@ -67,6 +68,11 @@ else if (MyWaitlistPosition is int position)
         var due = closesAt - DateTimeOffset.UtcNow;
         if (due <= TimeSpan.Zero)
         {
+            // Already closed when we got here — no timer will ever fire, so announce it now or a
+            // parent that rendered while the cutoff was still open keeps a stale "RSVPs close …"
+            // chip forever. (This component's own buttons are computed per render, so they are
+            // already correct; only the parent needs telling.)
+            AnnounceClosed(closesAt);
             return;
         }
 
@@ -77,7 +83,7 @@ else if (MyWaitlistPosition is int position)
                 {
                     // Parent first (its own cutoff chip), then this component's buttons — the
                     // parent's re-render doesn't reach here, since the Event parameter is unchanged.
-                    await OnClosed.InvokeAsync();
+                    await AnnounceClosedAsync(closesAt);
                     StateHasChanged();
                 }
                 else
@@ -86,6 +92,26 @@ else if (MyWaitlistPosition is int position)
                 }
             }),
             null, due < MaxTimerHop ? due : MaxTimerHop, System.Threading.Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>Raises <see cref="OnClosed"/> once per cutoff. The parent's re-render runs this
+    /// component's OnParametersSet again, so without the guard an already-passed cutoff would
+    /// announce itself on every render.</summary>
+    /// <param name="closesAt">The cutoff being announced.</param>
+    private void AnnounceClosed(DateTimeOffset closesAt) => _ = InvokeAsync(() => AnnounceClosedAsync(closesAt));
+
+    /// <summary>Raises <see cref="OnClosed"/> once per cutoff.</summary>
+    /// <param name="closesAt">The cutoff being announced.</param>
+    /// <returns>The parent-notification task.</returns>
+    private async Task AnnounceClosedAsync(DateTimeOffset closesAt)
+    {
+        if (announcedClosedFor == closesAt)
+        {
+            return;
+        }
+
+        announcedClosedFor = closesAt;
+        await OnClosed.InvokeAsync();
     }
 
     public void Dispose() => closeTimer?.Dispose();
