@@ -236,7 +236,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             return;
         }
 
-        var result = await api.DeleteEventAsync(ev.Id);
+        var result = await api.DeleteEventAsync(ev.Id, (long)Context.User.Id);
         if (!result.Success)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

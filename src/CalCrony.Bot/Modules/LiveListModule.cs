@@ -120,7 +120,7 @@ public class LiveListModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
-        var deleted = await api.DeleteLiveListAsync(list.Id);
+        var deleted = await api.DeleteLiveListAsync(list.Id, (long)Context.User.Id);
         if (!deleted.Success)
         {
             // The message is gone, so the next sync (or Ready reconcile) clears this record too.

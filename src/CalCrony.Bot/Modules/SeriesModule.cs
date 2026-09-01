@@ -80,7 +80,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
                 return;
             }
 
-            var stop = await api.StopSeriesAsync(seriesId);
+            var stop = await api.StopSeriesAsync(seriesId, (long)Context.User.Id);
             if (!stop.Success)
             {
                 await FollowupAsync($"❌ {stop.Error}", ephemeral: true);
@@ -193,7 +193,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
         };
 
         var result = await api.UpdateSeriesAsync(seriesId, new UpdateSeriesRequest(
-            unit, repeatEvery, mode, days, end, until, count));
+            unit, repeatEvery, mode, days, end, until, count), (long)Context.User.Id);
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);
@@ -248,7 +248,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
             return;
         }
 
-        var result = await api.SkipOccurrenceAsync(ev.Id);
+        var result = await api.SkipOccurrenceAsync(ev.Id, (long)Context.User.Id);
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);
@@ -289,7 +289,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
             return;
         }
 
-        var result = await api.StopSeriesAsync(seriesId);
+        var result = await api.StopSeriesAsync(seriesId, (long)Context.User.Id);
         if (!result.Success)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

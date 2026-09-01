@@ -1,5 +1,6 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
+using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -36,6 +37,7 @@ public static class TemplateEndpoints
     /// <param name="id">The template id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> UpdateTemplate(
@@ -44,6 +46,7 @@ public static class TemplateEndpoints
         Guid id,
         UpdateTemplateRequest request,
         CalCronyDbContext db,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         var template = await db.EventTemplates
@@ -174,6 +177,20 @@ public static class TemplateEndpoints
             template.RecurrenceDaysOfWeek = newRule.DaysOfWeek;
         }
 
+        var changed = ActionLog.Changed(
+            ("name", request.Name is not null),
+            ("title", request.Title is not null),
+            ("description", request.Description is not null),
+            ("duration", request.DurationMinutes is not null),
+            ("location", request.Location is not null),
+            ("image", request.ImageUrl is not null),
+            ("repeat rule", request.Recurrence is not null || request.ClearRecurrence),
+            ("reminders", request.Notifications is not null));
+        ActionLog.Record(
+            db, template.GuildId, ActionLog.ActorFor(context, request.EditorId), ActionLogAction.TemplateEdited,
+            ActionTargetType.Template, template.Id,
+            ActionLog.EditSummary("Edited template", template.Name, changed), clock.GetCurrentInstant(), new { fields = changed });
+
         try
         {
             await db.SaveChangesAsync(cancellationToken);
@@ -275,6 +292,11 @@ public static class TemplateEndpoints
                 })],
         };
         db.EventTemplates.Add(template);
+        ActionLog.Record(
+            db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.TemplateCreated,
+            ActionTargetType.Template, template.Id,
+            $"Saved template {ActionLog.Quote(name)} from {ActionLog.Quote(ev.Title)}",
+            template.CreatedAt, new { eventId = ev.Id });
 
         try
         {
@@ -319,10 +341,11 @@ public static class TemplateEndpoints
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="id">The template id.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> DeleteTemplate(
-        HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
+        HttpContext context, GuildAccessService access, Guid id, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
         var template = await db.EventTemplates.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         if (template is null)
@@ -338,6 +361,10 @@ public static class TemplateEndpoints
         }
 
         db.EventTemplates.Remove(template);
+        ActionLog.Record(
+            db, template.GuildId, ActionLog.ActorFor(context), ActionLogAction.TemplateDeleted,
+            ActionTargetType.Template, template.Id,
+            $"Deleted template {ActionLog.Quote(template.Name)}", clock.GetCurrentInstant());
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

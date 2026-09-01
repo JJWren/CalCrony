@@ -19,6 +19,11 @@ public static class FieldLimits
     public const int GuildName = 100;
     public const int ChannelName = 100;
 
+    // Action log rows are composed server-side, so these bound what the log sites write (titles
+    // are clipped into the summary — see ActionLog.Clip) rather than what users may send.
+    public const int ActionSummary = 256;
+    public const int ActionDetails = 2048;
+
     /// <summary>Ceiling for durations and notification lead times: 4 weeks in minutes. A larger
     /// lead time would just fire immediately today, so nonsense becomes a friendly 400 instead.</summary>
     public const int MaxMinutes = 40320;

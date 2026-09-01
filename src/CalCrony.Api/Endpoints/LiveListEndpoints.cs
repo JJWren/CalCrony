@@ -24,6 +24,7 @@ public static class LiveListEndpoints
 
     /// <summary>Registers a live list the bot just posted. One per channel: a second registration
     /// for the same channel is a 409 (the bot compensates by deleting its message).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
@@ -31,6 +32,7 @@ public static class LiveListEndpoints
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Create(
+        HttpContext context,
         long guildId,
         CreateLiveListRequest request,
         CalCronyDbContext db,
@@ -64,6 +66,12 @@ public static class LiveListEndpoints
         // A channel hosting a live list is referenced — snapshot its name (ADR 0001).
         await ChannelEndpoints.UpsertSnapshotAsync(
             db, request.ChannelId, guildId, request.ChannelName, cancellationToken);
+
+        Services.ActionLog.Record(
+            db, guildId, Services.ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.LiveListCreated,
+            ActionTargetType.LiveList, list.Id,
+            $"Created a live list (showing up to {list.Limit} events)", list.CreatedAt,
+            new { channelId = list.ChannelId });
 
         try
         {
@@ -127,11 +135,14 @@ public static class LiveListEndpoints
 
     /// <summary>Removes a live list's record — /livelist remove, or the bot clearing a list whose
     /// message it found manually deleted (deleted message = list is gone, never reposted).</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="id">The live list id.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
-    private static async Task<IResult> Delete(Guid id, CalCronyDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> Delete(
+        HttpContext context, Guid id, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
     {
         var list = await db.LiveLists.FindAsync([id], cancellationToken);
         if (list is null)
@@ -140,6 +151,13 @@ public static class LiveListEndpoints
         }
 
         db.LiveLists.Remove(list);
+        // /livelist remove names its user via the actor header; the bot's own cleanup of a
+        // hand-deleted message names nobody, and ActionLog.Record drops nameless entries — so
+        // the log shows removals people made, not the bot tidying up after them.
+        Services.ActionLog.Record(
+            db, list.GuildId, Services.ActionLog.ActorFor(context), ActionLogAction.LiveListRemoved,
+            ActionTargetType.LiveList, list.Id,
+            "Removed a live list", clock.GetCurrentInstant(), new { channelId = list.ChannelId });
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

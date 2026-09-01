@@ -64,6 +64,14 @@ and **Google** (only for the free/busy lookups you enable).
   delete it, or until the bot is removed and the operator prunes the server's data on request.
 - **Operational records** (delivered notifications, consumed login/link tokens, expired session
   tokens) are automatically purged after **90 days**.
+- **Server activity log** entries record management actions by server members — creating,
+  editing, deleting, or skipping events; adding or removing event reminders; changing or
+  stopping a repeating event's schedule; creating, closing, converting, or deleting polls;
+  saving, editing, or deleting templates; changing server settings; turning the public calendar
+  on or off or replacing its link; creating or removing live lists; and exporting the events
+  CSV — with the acting member's Discord ID, whether it came from Discord or the web app, and
+  the item's title (never its description or messages). Entries are visible only to that
+  server's managers and are automatically purged after **90 days**.
 - **Google connection**: disconnecting (`/calendar disconnect` or the web app) deletes the
   stored tokens immediately.
 - **Removal requests**: to have a server's or your own data deleted, open a

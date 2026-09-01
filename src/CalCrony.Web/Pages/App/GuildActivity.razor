@@ -1,0 +1,426 @@
+@page "/app/guilds/{GuildId:long}/activity"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject CalCronyWebApiClient Api
+@inject IJSRuntime Js
+
+<PageTitle>Activity — CalCrony</PageTitle>
+
+<p class="meta-mono text-uppercase mb-2"><a href="/app">← My servers</a></p>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <h1 class="h3 mb-0">Activity</h1>
+        <GuildTabs GuildId="GuildId" Active="activity" />
+    </div>
+    @if (isManager)
+    {
+        <button class="btn btn-outline-primary btn-sm" @onclick="ExportAsync" disabled="@exporting">
+            @(exporting ? "Preparing…" : "⬇ Export events (CSV)")
+        </button>
+    }
+</div>
+
+@if (exportMessage is not null)
+{
+    <div class="meta-mono mt-2">@exportMessage</div>
+}
+
+@if (managerKnown && !isManager)
+{
+    <p class="text-body-secondary mt-3">
+        Only server managers can see this server's activity log and export its events — it records
+        who created, edited, or deleted things, so it stays with the people who run the server.
+    </p>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger mt-3 d-flex flex-wrap gap-2 align-items-center">
+        <span>@error</span>
+        @* A transient list failure hid every control, leaving a full reload as the only way out. *@
+        <button class="btn btn-outline-danger btn-sm ms-auto" @onclick="RetryAsync" disabled="@loading">Try again</button>
+    </div>
+}
+else if (entries is null)
+{
+    <div class="spinner-border text-primary mt-3" role="status"></div>
+}
+else
+{
+    <div class="card p-3 mt-3">
+        <div class="d-flex gap-2 flex-wrap align-items-end">
+            <div>
+                <label class="form-label small mb-1" for="act-action">Action</label>
+                <select id="act-action" class="form-select form-select-sm" @bind="actionFilter">
+                    <option value="">All actions</option>
+                    @foreach (var action in Enum.GetValues<ActionLogAction>())
+                    {
+                        <option value="@action">@Label(action)</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-1" for="act-user">Member id</label>
+                <input id="act-user" class="form-control form-control-sm" placeholder="Discord user id" style="width:14rem" @bind="userFilter" />
+            </div>
+            <button class="btn btn-outline-primary btn-sm" @onclick="ApplyFiltersAsync" disabled="@loading">Apply</button>
+            @if (actionFilter.Length > 0 || userFilter.Length > 0)
+            {
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearFiltersAsync" disabled="@loading">Clear</button>
+            }
+        </div>
+        @if (filterError is not null)
+        {
+            <div class="meta-mono mt-2">@filterError</div>
+        }
+    </div>
+
+    @if (entries.Count == 0)
+    {
+        <p class="text-body-secondary mt-3">Nothing logged yet — entries appear as members create, edit, and delete things, and are kept for 90 days.</p>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-2 mt-3">
+            @foreach (var entry in entries)
+            {
+                <div class="card p-2 px-3">
+                    <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                        <span class="meta-mono"><LocalTime Utc="entry.CreatedAtUtc" Format="ddd d MMM h:mm tt" /></span>
+                        <span class="fw-semibold">@ActorName(entry)</span>
+                        <span class="badge text-bg-secondary">@(entry.Source == ActionSource.Web ? "web" : "Discord")</span>
+                        <span class="badge text-bg-light">@Label(entry.Action)</span>
+                    </div>
+                    <div class="mt-1">
+                        @entry.Summary
+                        @if (TargetLink(entry) is { } link)
+                        {
+                            <a class="meta-mono ms-2" href="@link">open →</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        @if (nextCursor is not null)
+        {
+            <button class="btn btn-outline-primary btn-sm mt-3" @onclick="LoadMoreAsync" disabled="@loading">
+                @(loading ? "Loading…" : "Load more")
+            </button>
+        }
+    }
+
+    <p class="text-body-secondary small mt-3 mb-0">
+        Entries are kept for 90 days. RSVPs and votes are never logged. Names come from members' last
+        web sign-in; anyone who hasn't signed in here shows as their Discord id.
+    </p>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private const int PageSize = 50;
+
+    private List<ActionLogEntryDto>? entries;
+    private string? nextCursor;
+    private string? error;
+    private string? filterError;
+    private string? exportMessage;
+    private bool isManager;
+    private bool managerKnown;
+    private bool loading;
+    private bool exporting;
+    private int loadGeneration;
+    // The form fields are PENDING edits; paging uses the APPLIED pair, which only Apply/Clear
+    // change (and which reset the cursor) — otherwise "change the select, click Load more"
+    // would page a new filter with the old filter's cursor and mix two result sets.
+    private string actionFilter = "";
+    private string userFilter = "";
+    private ActionLogAction? appliedAction;
+    private long? appliedUserId;
+
+    // The in-flight export is bound to the guild it started for: switching guilds cancels its
+    // HTTP/interop work and closes its stream, so the old file can neither finish downloading
+    // nor write its filename or a reload into the new guild's page.
+    private CancellationTokenSource? exportCts;
+    private DownloadedFile? exportFile;
+
+    // Navigating away disposes the component without a parameter change, so Dispose is the
+    // other place an in-flight export is torn down; late continuations check this before
+    // touching state.
+    private bool disposed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Blazor reuses this component across guilds: reset per-guild state before the first
+        // await and stamp the load so a slower, older response can't overwrite a newer guild's.
+        var generation = ++loadGeneration;
+        entries = null;
+        nextCursor = null;
+        error = null;
+        filterError = null;
+        exportMessage = null;
+        managerKnown = false;
+        // The role is per-guild state too: carrying the previous guild's "manager" into the next
+        // guild's load would show its export button (and let it fire an unauthorized request)
+        // until the lookup lands.
+        isManager = false;
+        exporting = false;
+        CancelExport();
+        actionFilter = "";
+        userFilter = "";
+        appliedAction = null;
+        appliedUserId = null;
+
+        var myGuilds = await Api.GetMyGuildsAsync();
+        if (disposed || generation != loadGeneration)
+        {
+            return;
+        }
+
+        if (!myGuilds.Success || myGuilds.Value is null)
+        {
+            // An outage must read as an error, never as "you're not a manager": managerKnown
+            // stays false so the notice branch can't render off a failed lookup.
+            error = myGuilds.Error ?? "Couldn't load your servers.";
+            return;
+        }
+
+        isManager = myGuilds.Value.Guilds.Any(g => g.Id == GuildId && g.CanManage);
+        managerKnown = true;
+        if (!isManager)
+        {
+            // The API would 403 anyway; skipping the call keeps the notice clean.
+            return;
+        }
+
+        await LoadPageAsync(reset: true, generation);
+    }
+
+    private async Task LoadPageAsync(bool reset, int generation)
+    {
+        loading = true;
+        var result = await Api.ListActionsAsync(GuildId, appliedAction, appliedUserId, reset ? null : nextCursor, PageSize);
+        if (disposed)
+        {
+            return;
+        }
+
+        loading = false;
+        if (generation != loadGeneration)
+        {
+            return;
+        }
+
+        if (!result.Success || result.Value is null)
+        {
+            error = result.Error;
+            return;
+        }
+
+        if (reset || entries is null)
+        {
+            entries = [.. result.Value.Entries];
+        }
+        else
+        {
+            entries.AddRange(result.Value.Entries);
+        }
+
+        nextCursor = result.Value.NextCursor;
+    }
+
+    private Task ApplyFiltersAsync()
+    {
+        ActionLogAction? action = null;
+        if (actionFilter.Length > 0 && Enum.TryParse<ActionLogAction>(actionFilter, out var parsed))
+        {
+            action = parsed;
+        }
+
+        long? userId = null;
+        if (userFilter.Trim().Length > 0)
+        {
+            if (!long.TryParse(userFilter.Trim(), out var parsedUser))
+            {
+                // The applied pair stays as it was — a bad edit never touches paging.
+                filterError = "❌ Enter a numeric Discord user id.";
+                return Task.CompletedTask;
+            }
+
+            userId = parsedUser;
+        }
+
+        filterError = null;
+        appliedAction = action;
+        appliedUserId = userId;
+        return LoadPageAsync(reset: true, loadGeneration);
+    }
+
+    /// <summary>Clears the error and reloads the first page — the way out of a transient failure.</summary>
+    /// <returns>The reload task.</returns>
+    private async Task RetryAsync()
+    {
+        error = null;
+        await LoadPageAsync(reset: true, loadGeneration);
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        actionFilter = "";
+        userFilter = "";
+        appliedAction = null;
+        appliedUserId = null;
+        filterError = null;
+        return LoadPageAsync(reset: true, loadGeneration);
+    }
+
+    private Task LoadMoreAsync() => LoadPageAsync(reset: false, loadGeneration);
+
+    private async Task ExportAsync()
+    {
+        exportMessage = null;
+        exporting = true;
+        var generation = loadGeneration;
+        CancelExport();
+        var cts = new CancellationTokenSource();
+        exportCts = cts;
+        var token = cts.Token;
+        try
+        {
+            ApiResult<DownloadedFile> result;
+            try
+            {
+                result = await Api.DownloadEventsCsvAsync(GuildId, token);
+            }
+            catch (OperationCanceledException)
+            {
+                return; // the page moved on; CancelExport already cleaned up
+            }
+
+            if (disposed || generation != loadGeneration || token.IsCancellationRequested)
+            {
+                // The page moved on (another guild, or away entirely) mid-download: the open
+                // response (and its body stream) must be closed, not leaked.
+                result.Value?.Dispose();
+                return;
+            }
+
+            if (!result.Success || result.Value is null)
+            {
+                exportMessage = $"❌ {result.Error}";
+                return;
+            }
+
+            // The live response stream goes to JS as-is: nothing is buffered on the .NET side, the
+            // browser reads it straight into the Blob. calcronyDownload awaits the read before it
+            // returns, so the response is disposed once the interop call completes (in the finally
+            // below) — or earlier by CancelExport if the guild switches while JS is still reading,
+            // which aborts that read.
+            exportFile = result.Value;
+            var fileName = exportFile.FileName;
+            string outcome;
+            try
+            {
+                using var streamRef = new DotNetStreamReference(exportFile.Content, leaveOpen: true);
+                outcome = await Js.InvokeAsync<string>("calcronyDownload", token, fileName, streamRef, exportFile.ContentType);
+            }
+            catch (Exception) when (token.IsCancellationRequested)
+            {
+                return; // the read was aborted by a guild switch
+            }
+
+            // Re-checked AFTER the interop returned: the guild may have switched (or the page been
+            // left) while JS was reading, and neither the old filename nor a reload may touch
+            // state after that.
+            if (disposed || generation != loadGeneration || token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            // "saved" streamed to a file (or, where the browser has no streaming sink, fit the
+            // bounded in-memory fallback); the other outcomes are the browser side declining.
+            exportMessage = outcome switch
+            {
+                "saved" => $"⬇ Downloaded {fileName}.",
+                "cancelled" => "Download cancelled.",
+                "too-large" => "❌ This export is too large to assemble in this browser — a Chromium browser (Chrome, Edge) can save it straight to disk.",
+                _ => "❌ The download didn't complete.",
+            };
+            // The export itself is logged — show it without making the user refresh.
+            await LoadPageAsync(reset: true, generation);
+        }
+        finally
+        {
+            // Only this export's own resources: a guild switch has already cleaned them up (and
+            // may have handed the fields to a newer export).
+            // Only this export's own resources AND its own flag: a guild switch has already cleaned
+            // up (and may have handed the fields to a newer export, whose button must stay disabled
+            // when this stale one wakes up late).
+            if (ReferenceEquals(exportCts, cts))
+            {
+                CancelExport();
+                if (!disposed)
+                {
+                    exporting = false;
+                }
+            }
+        }
+    }
+
+    /// <summary>Tears down an in-flight export when the component leaves the page; continuations
+    /// that wake afterwards see <c>disposed</c> and write nothing.</summary>
+    public void Dispose()
+    {
+        disposed = true;
+        loadGeneration++;
+        CancelExport();
+    }
+
+    /// <summary>Cancels and releases the in-flight export, if any: the HTTP call, the JS read
+    /// (by closing the stream it is reading), and the response that owns that stream.</summary>
+    private void CancelExport()
+    {
+        var cts = exportCts;
+        var file = exportFile;
+        exportCts = null;
+        exportFile = null;
+        cts?.Cancel();
+        cts?.Dispose();
+        file?.Dispose();
+    }
+
+    private static string ActorName(ActionLogEntryDto entry) =>
+        entry.ActorName ?? (entry.ActorUserId is { } id ? $"user {id}" : "unknown");
+
+    private static string? TargetLink(ActionLogEntryDto entry) => entry switch
+    {
+        // The API resolves existence at read time (an older "created" entry outlives its event),
+        // so a link is offered only when the page behind it will actually load.
+        { TargetExists: false } => null,
+        { TargetType: ActionTargetType.Event, TargetId: { } eventId } => $"/app/events/{eventId}",
+        { TargetType: ActionTargetType.Poll, TargetId: { } pollId } => $"/app/polls/{pollId}",
+        _ => null,
+    };
+
+    /// <summary>Human label for an action enum value.</summary>
+    private static string Label(ActionLogAction action) => action switch
+    {
+        ActionLogAction.EventCreated => "Event created",
+        ActionLogAction.EventEdited => "Event edited",
+        ActionLogAction.EventDeleted => "Event deleted",
+        ActionLogAction.EventSkipped => "Occurrence skipped",
+        ActionLogAction.SeriesEdited => "Schedule changed",
+        ActionLogAction.SeriesStopped => "Series stopped",
+        ActionLogAction.PollCreated => "Poll created",
+        ActionLogAction.PollClosed => "Poll closed",
+        ActionLogAction.PollConverted => "Poll converted",
+        ActionLogAction.PollDeleted => "Poll deleted",
+        ActionLogAction.TemplateCreated => "Template saved",
+        ActionLogAction.TemplateEdited => "Template edited",
+        ActionLogAction.TemplateDeleted => "Template deleted",
+        ActionLogAction.SettingsChanged => "Settings changed",
+        ActionLogAction.LiveListCreated => "Live list created",
+        ActionLogAction.LiveListRemoved => "Live list removed",
+        ActionLogAction.EventsExported => "Events exported",
+        _ => action.ToString(),
+    };
+}

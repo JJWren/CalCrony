@@ -67,7 +67,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
             return;
         }
 
-        var result = await api.ClosePollAsync(poll.Id);
+        var result = await api.ClosePollAsync(poll.Id, (long)Context.User.Id);
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

@@ -1,7 +1,9 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
+using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
@@ -53,6 +55,7 @@ public static class NotificationEndpoints
     /// <param name="id">The event id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> Create(
@@ -61,6 +64,7 @@ public static class NotificationEndpoints
         Guid id,
         CreateEventNotificationRequest request,
         CalCronyDbContext db,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         if (request.MinutesBefore is < 0 or > FieldLimits.MaxMinutes)
@@ -134,6 +138,21 @@ public static class NotificationEndpoints
             SeriesNotificationId = spec?.Id,
         };
         db.EventNotifications.Add(notification);
+
+        // A reminder change is an edit of the event as far as the activity log is concerned;
+        // the message text stays out of the entry (titles only).
+        ActionLog.Record(
+            db, ev.GuildId, ActionLog.ActorFor(context), ActionLogAction.EventEdited, ActionTargetType.Event, ev.Id,
+            $"Added a reminder to {ActionLog.Quote(ev.Title)} ({request.MinutesBefore} min before)"
+                + (spec is not null ? " (whole series)" : ""),
+            clock.GetCurrentInstant(),
+            // Effective scope: a one-off event accepts Scope=Series but creates no spec, so the
+            // entry must not claim one (see the same rule on event edits).
+            new
+            {
+                fields = new[] { "reminder added" },
+                scope = series is null ? null : (spec is not null ? nameof(EditScope.Series) : nameof(EditScope.Occurrence)),
+            });
         await db.SaveChangesAsync(cancellationToken);
 
         return Results.Created($"/events/{ev.Id}/notifications/{notification.Id}", ToDto(notification));
@@ -145,6 +164,7 @@ public static class NotificationEndpoints
     /// <param name="id">The event id.</param>
     /// <param name="notificationId">The notification id.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <param name="scope">Whether the change applies to this occurrence or the whole series.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
@@ -154,6 +174,7 @@ public static class NotificationEndpoints
         Guid id,
         Guid notificationId,
         CalCronyDbContext db,
+        IClock clock,
         CancellationToken cancellationToken,
         EditScope? scope = null)
     {
@@ -185,11 +206,30 @@ public static class NotificationEndpoints
 
         // Series scope also retires the linked template spec so future occurrences drop it.
         // Diverged rows (null lineage) only have the event row to remove — the template is untouched.
+        // The spec is removed through the change tracker (not ExecuteDelete) so it commits in the
+        // same SaveChanges as the reminder row and the log entry — a failed save leaves all three
+        // in place rather than a retired template with the reminder still there.
         if (scope == EditScope.Series && notification.SeriesNotificationId is { } specId)
         {
-            await db.SeriesNotifications.Where(s => s.Id == specId).ExecuteDeleteAsync(cancellationToken);
+            var spec = await db.SeriesNotifications.FirstOrDefaultAsync(s => s.Id == specId, cancellationToken);
+            if (spec is not null)
+            {
+                db.SeriesNotifications.Remove(spec);
+            }
         }
 
+        ActionLog.Record(
+            db, ev.GuildId, ActionLog.ActorFor(context), ActionLogAction.EventEdited, ActionTargetType.Event, ev.Id,
+            $"Removed a reminder from {ActionLog.Quote(ev.Title)} ({notification.MinutesBefore} min before)"
+                + (scope == EditScope.Series ? " (whole series)" : ""),
+            clock.GetCurrentInstant(),
+            new
+            {
+                fields = new[] { "reminder removed" },
+                scope = SeriesForScopedEdit(ev) is null
+                    ? null
+                    : (scope == EditScope.Series ? nameof(EditScope.Series) : nameof(EditScope.Occurrence)),
+            });
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

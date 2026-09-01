@@ -78,3 +78,101 @@ window.calcronyNav = {
 window.calcronyCopy = function (text) {
     return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
 };
+
+// Saves a file the page fetched through the authenticated API client (the CSV export). The
+// access token lives only in memory — never a cookie or storage — so a plain <a href> to the
+// API could not carry it; Blazor fetches and streams the body here as a DotNetStreamReference.
+// Where the browser offers a streaming sink (File System Access API: Chromium), the response is
+// piped straight to the chosen file, so memory stays flat however large the export is. Elsewhere
+// (Firefox, Safari) the only download path is a Blob, which has to be assembled in memory, so
+// that fallback is bounded: past the cap it aborts and reports "too-large" instead of exhausting
+// the tab. Returns "saved", "cancelled" (the user closed the picker), "too-large", or "failed"
+// (any rejection: a broken response stream, a write that could not complete) — never throws,
+// so the page can always report what happened.
+window.calcronyDownload = async function (fileName, streamRef, contentType) {
+    var type = contentType || "application/octet-stream";
+    var readable;
+    try {
+        readable = await streamRef.stream();
+    } catch (e) {
+        return "failed";
+    }
+
+    if (typeof window.showSaveFilePicker === "function") {
+        var handle = null;
+        try {
+            handle = await window.showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }]
+            });
+        } catch (e) {
+            if (e && e.name === "AbortError") {
+                // cancel() rejects if the .NET stream is already closed — the caller's finally
+                // disposes the response either way, so cleanup failure must not mask "cancelled".
+                try { await readable.cancel(); } catch (ignored) { /* already closed */ }
+                return "cancelled";
+            }
+            // e.g. NotAllowedError when the user gesture expired during the fetch — fall through
+            // to the bounded in-memory path rather than fail the download.
+            handle = null;
+        }
+        if (handle) {
+            var writable = null;
+            try {
+                writable = await handle.createWritable();
+                await readable.pipeTo(writable);
+                return "saved";
+            } catch (e) {
+                // pipeTo aborts the sink itself on a source error; abort explicitly for the
+                // other failure modes so no half-written file is left behind, then report.
+                try { if (writable) { await writable.abort(); } } catch (ignored) { /* already aborted */ }
+                try { await readable.cancel(); } catch (ignored) { /* already closed */ }
+                return "failed";
+            }
+        }
+    }
+
+    var limit = 256 * 1024 * 1024;
+    var parts = [];
+    var total = 0;
+    var reader = readable.getReader();
+    try {
+        while (true) {
+            var next = await reader.read();
+            if (next.done) { break; }
+            total += next.value.byteLength;
+            if (total > limit) {
+                try { await reader.cancel(); } catch (ignored) { /* already closed */ }
+                return "too-large";
+            }
+            parts.push(next.value);
+        }
+    } catch (e) {
+        // An interrupted response stream rejects read(); report rather than throw.
+        try { await reader.cancel(); } catch (ignored) { /* already closed */ }
+        return "failed";
+    }
+
+    // Blob allocation near the cap, createObjectURL, and the click can all throw; this helper
+    // must still resolve to an outcome so the caller reports it instead of faulting the event.
+    var url = null;
+    var a = null;
+    try {
+        url = URL.createObjectURL(new Blob(parts, { type: type }));
+        a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        a = null;
+        // Revoke after the click has had a chance to start the download.
+        var started = url;
+        setTimeout(function () { URL.revokeObjectURL(started); }, 1000);
+        return "saved";
+    } catch (e) {
+        if (a) { try { a.remove(); } catch (ignored) { /* not attached */ } }
+        if (url) { try { URL.revokeObjectURL(url); } catch (ignored) { /* already revoked */ } }
+        return "failed";
+    }
+};

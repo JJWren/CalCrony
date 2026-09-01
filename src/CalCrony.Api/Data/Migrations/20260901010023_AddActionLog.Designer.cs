@@ -3,6 +3,7 @@ using System;
 using CalCrony.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    partial class CalCronyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901010023_AddActionLog")]
+    partial class AddActionLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -204,9 +207,6 @@ namespace CalCrony.Api.Data.Migrations
                     b.Property<long>("ChannelId")
                         .HasColumnType("bigint");
 
-                    b.Property<Instant?>("ClaimedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -218,9 +218,6 @@ namespace CalCrony.Api.Data.Migrations
                         .HasMaxLength(8192)
                         .HasColumnType("character varying(8192)");
 
-                    b.Property<long?>("RecipientUserId")
-                        .HasColumnType("bigint");
-
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -228,8 +225,6 @@ namespace CalCrony.Api.Data.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("RecipientUserId");
 
                     b.HasIndex("Status", "DueAt");
 
@@ -899,18 +894,6 @@ namespace CalCrony.Api.Data.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.Property<bool>("DmConfirmations")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("DmReminders")
-                        .HasColumnType("boolean");
-
-                    b.Property<Instant?>("DmRemindersBlockedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Instant?>("DmRemindersEnabledAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("DmRemindersOffered")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Theme")

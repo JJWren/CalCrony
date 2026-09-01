@@ -168,6 +168,7 @@ public static class SeriesEndpoints
                 "These settings leave no upcoming occurrences — use stop to end the series instead."));
         }
 
+        var revived = series.Ended;
         series.Unit = unit;
         series.Interval = interval;
         series.MonthlyMode = mode;
@@ -179,6 +180,18 @@ public static class SeriesEndpoints
         }
 
         series.Ended = false;
+
+        var changed = ActionLog.Changed(
+            ("unit", request.Unit is not null),
+            ("interval", request.Interval is not null),
+            ("monthly mode", request.MonthlyMode is not null),
+            ("days of week", request.DaysOfWeek is not null),
+            ("end", request.End != SeriesEndChoice.Keep),
+            ("revived", revived));
+        ActionLog.Record(
+            db, series.GuildId, ActionLog.ActorFor(context), ActionLogAction.SeriesEdited, ActionTargetType.Series, series.Id,
+            ActionLog.EditSummary(revived ? "Revived repeating event" : "Changed the schedule of", series.Title, changed),
+            now, new { fields = changed });
 
         // The summary changed, so a posted live embed needs a re-render (web callers only; the
         // bot edits its message itself). A revived series with no live occurrence has nothing to
@@ -241,6 +254,12 @@ public static class SeriesEndpoints
                 }
             }
 
+            // Only a real stop is logged — the idempotent repeat changes nothing worth recording.
+            ActionLog.Record(
+                db, series.GuildId, ActionLog.ActorFor(context), ActionLogAction.SeriesStopped,
+                ActionTargetType.Series, series.Id,
+                $"Stopped {ActionLog.Quote(series.Title)} from repeating",
+                clock.GetCurrentInstant(), new { liveEventId });
             await db.SaveChangesAsync(cancellationToken);
         }
 
@@ -326,6 +345,11 @@ public static class SeriesEndpoints
 
         // The list drops the skipped occurrence and shows the replacement — one debounced rewrite.
         await Services.LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, now, cancellationToken);
+
+        ActionLog.Record(
+            db, ev.GuildId, ActionLog.ActorFor(context), ActionLogAction.EventSkipped, ActionTargetType.Event, ev.Id,
+            $"Skipped {ActionLog.Quote(ev.Title)}" + (next is null ? " — that was the final occurrence" : ""),
+            now, new { seriesId = series.Id, nextEventId = next?.Id });
 
         try
         {

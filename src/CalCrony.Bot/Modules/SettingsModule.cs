@@ -111,7 +111,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(timezone, current.Value.DefaultChannelId, current.Value.MirrorNativeEvents));
+            new GuildSettingsDto(timezone, current.Value.DefaultChannelId, current.Value.MirrorNativeEvents),
+            (long)Context.User.Id);
         await FollowupAsync(
             result.Success
                 ? $"🌍 Server timezone is now **{result.Value!.TimeZone}**."
@@ -138,7 +139,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(current.Value.TimeZone, (long)channel.Id, current.Value.MirrorNativeEvents));
+            new GuildSettingsDto(current.Value.TimeZone, (long)channel.Id, current.Value.MirrorNativeEvents),
+            (long)Context.User.Id);
         await FollowupAsync(
             result.Success
                 ? $"📌 Web-created events and reminders will post in {channel.Mention}."
@@ -175,7 +177,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         var result = await api.PutGuildSettingsAsync(
             (long)Context.Guild.Id,
-            new GuildSettingsDto(current.Value.TimeZone, current.Value.DefaultChannelId, enabled));
+            new GuildSettingsDto(current.Value.TimeZone, current.Value.DefaultChannelId, enabled),
+            (long)Context.User.Id);
         await FollowupAsync(
             result.Success
                 ? enabled
@@ -209,7 +212,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         var result = await api.PutPublicCalendarAsync(
             (long)Context.Guild.Id,
-            new PublicCalendarRequest(Enabled: mode != PublicCalendarMode.Off, Regenerate: mode == PublicCalendarMode.NewLink));
+            new PublicCalendarRequest(Enabled: mode != PublicCalendarMode.Off, Regenerate: mode == PublicCalendarMode.NewLink),
+            (long)Context.User.Id);
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

@@ -55,6 +55,30 @@ public class RsvpV1ComponentTests : TestContext
     }
 
     [Fact]
+    public void A_cutoff_that_passed_before_the_buttons_armed_still_tells_the_parent()
+    {
+        UseApi();
+        var closed = 0;
+        // The race CI hits: the parent rendered its chip while the cutoff was open, and by the
+        // time this component arms there is nothing left to wait for — no timer will ever fire,
+        // so the announcement has to happen here or the parent's chip stays stale forever.
+        var ev = SampleEvent(closesAt: DateTimeOffset.UtcNow.AddMilliseconds(-1));
+
+        var cut = Render<RsvpButtons>(p => p
+            .Add(x => x.Event, ev)
+            .Add(x => x.UserId, 42L)
+            .Add(x => x.OnClosed, () => closed++));
+
+        cut.WaitForAssertion(() => Assert.Equal(1, closed), TimeSpan.FromSeconds(5));
+        Assert.All(cut.FindAll("button.rsvp-btn"), b => Assert.True(b.HasAttribute("disabled")));
+
+        // A parent re-render runs OnParametersSet again; the cutoff must not re-announce.
+        cut.Render();
+        cut.Render();
+        Assert.Equal(1, closed);
+    }
+
+    [Fact]
     public void Detail_page_cutoff_chip_flips_to_closed_when_the_cutoff_passes()
     {
         var handler = UseApi();
