@@ -894,25 +894,31 @@ public static class EventEndpoints
                     : Results.BadRequest(new ErrorResponse(optionsError!));
             }
         }
-        else if ((request.AttendeeRoleId is not null || request.ClearAttendeeRole)
-                 && RsvpPolicy.AttendingOption(ev.Options) is { } rerolledOption)
+        else
         {
-            // Role-only shorthand: set or clear the attending option's role in place, mirroring
-            // the attendee-limit shorthand below.
-            rerolledOption.AttendeeRoleId = roleShorthand;
-        }
-        else if ((request.AttendeeLimit is not null || request.ClearAttendeeLimit)
-                 && RsvpPolicy.AttendingOption(ev.Options) is { } cappedOption)
-        {
-            // Limit-only shorthand: set or clear the attending option's capacity in place — never
-            // below the seats already taken (same rule as an explicit option replacement).
-            var newLimit = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
-            if (RsvpPolicy.CapacityBelowSeated(ev, cappedOption, newLimit) is { } overCapacity)
+            // The two shorthands are INDEPENDENT — `/edit attendee-role:… attendee-limit:…` must
+            // apply both, exactly as create accepts them together. They are skipped wholesale
+            // above, because a full option replacement already states every role and capacity.
+            if ((request.AttendeeRoleId is not null || request.ClearAttendeeRole)
+                && RsvpPolicy.AttendingOption(ev.Options) is { } rerolledOption)
             {
-                return Results.Conflict(new ErrorResponse(overCapacity));
+                // Role shorthand: set or clear the attending option's role in place.
+                rerolledOption.AttendeeRoleId = roleShorthand;
             }
 
-            cappedOption.Capacity = newLimit;
+            if ((request.AttendeeLimit is not null || request.ClearAttendeeLimit)
+                && RsvpPolicy.AttendingOption(ev.Options) is { } cappedOption)
+            {
+                // Limit shorthand: set or clear the attending option's capacity in place — never
+                // below the seats already taken (same rule as an explicit option replacement).
+                var newLimit = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
+                if (RsvpPolicy.CapacityBelowSeated(ev, cappedOption, newLimit) is { } overCapacity)
+                {
+                    return Results.Conflict(new ErrorResponse(overCapacity));
+                }
+
+                cappedOption.Capacity = newLimit;
+            }
         }
 
         if (applyToSeries && request.RsvpOptions is not null)
@@ -922,18 +928,22 @@ public static class EventEndpoints
             // spawn reverts to it).
             series!.RsvpOptionsJson = RsvpPolicy.SerializeSpecs(ev.Options);
         }
-        else if (applyToSeries && (request.AttendeeLimit is not null || request.ClearAttendeeLimit))
+        else if (applyToSeries)
         {
-            // Limit-only: cap the TEMPLATE's attending option rather than copying this
-            // occurrence's rows — an earlier occurrence-scoped option divergence must not ride
-            // a limit change into every future occurrence.
-            series!.RsvpOptionsJson = RsvpPolicy.WithAttendingCapacity(
-                series.RsvpOptionsJson, request.ClearAttendeeLimit ? null : request.AttendeeLimit);
-        }
-        else if (applyToSeries && (request.AttendeeRoleId is not null || request.ClearAttendeeRole))
-        {
-            // Role-only: same reasoning as the limit — re-role the TEMPLATE's attending option.
-            series!.RsvpOptionsJson = RsvpPolicy.WithAttendingRole(series.RsvpOptionsJson, roleShorthand);
+            // Same independence on the template: a combined role+limit series edit applies both,
+            // each rewriting the stored JSON in turn rather than copying this occurrence's rows —
+            // an earlier occurrence-scoped divergence must not ride a shorthand into every future
+            // occurrence.
+            if (request.AttendeeLimit is not null || request.ClearAttendeeLimit)
+            {
+                series!.RsvpOptionsJson = RsvpPolicy.WithAttendingCapacity(
+                    series.RsvpOptionsJson, request.ClearAttendeeLimit ? null : request.AttendeeLimit);
+            }
+
+            if (request.AttendeeRoleId is not null || request.ClearAttendeeRole)
+            {
+                series!.RsvpOptionsJson = RsvpPolicy.WithAttendingRole(series.RsvpOptionsJson, roleShorthand);
+            }
         }
 
         if (request.ClearRsvpClose)
@@ -1024,22 +1034,35 @@ public static class EventEndpoints
 
         // Everything the edit did to roles, as one per-user difference. A user whose role is
         // unchanged gets no delivery at all, and a swap emits exactly one revoke and one grant.
+        // The pairs are collected first and their pending rows loaded in ONE query: per-option
+        // roles make this many-roles-many-users, so a per-user lookup here would reintroduce the
+        // N-query scaling under the event's FOR UPDATE lock that #143 removed.
         var rolesAfter = SeatedRoles(ev, staysLive);
-        foreach (var (userId, heldRole) in rolesBefore)
+        var roleRevokes = rolesBefore
+            .Where(before => !rolesAfter.TryGetValue(before.Key, out var stillHeld) || stillHeld != before.Value)
+            .Select(before => (RoleId: before.Value, UserId: before.Key))
+            .ToList();
+        var roleGrants = rolesAfter
+            .Where(after => !rolesBefore.TryGetValue(after.Key, out var alreadyHeld) || alreadyHeld != after.Value)
+            .Select(after => (RoleId: after.Value, UserId: after.Key))
+            .ToList();
+        if (roleRevokes.Count > 0 || roleGrants.Count > 0)
         {
-            if (!rolesAfter.TryGetValue(userId, out var stillHeld) || stillHeld != heldRole)
-            {
-                await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                    db, ev, DeliveryType.RevokeAttendeeRole, heldRole, userId, clock, cancellationToken);
-            }
-        }
+            var pendingRoleChanges = await AttendeeRoleSync.LoadPendingRoleChangesAsync(
+                db, ev, roleRevokes.Concat(roleGrants), cancellationToken);
 
-        foreach (var (userId, earnedRole) in rolesAfter)
-        {
-            if (!rolesBefore.TryGetValue(userId, out var alreadyHeld) || alreadyHeld != earnedRole)
+            // Revokes before grants, as before: EnqueueRoleChange nets an opposite pending row
+            // away, and the netting must see the revoke first for a same-user role swap.
+            foreach (var (roleId, userId) in roleRevokes)
             {
-                await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                    db, ev, DeliveryType.GrantAttendeeRole, earnedRole, userId, clock, cancellationToken);
+                AttendeeRoleSync.EnqueueRoleChange(
+                    db, ev, DeliveryType.RevokeAttendeeRole, roleId, userId, pendingRoleChanges, roleSyncNow);
+            }
+
+            foreach (var (roleId, userId) in roleGrants)
+            {
+                AttendeeRoleSync.EnqueueRoleChange(
+                    db, ev, DeliveryType.GrantAttendeeRole, roleId, userId, pendingRoleChanges, roleSyncNow);
             }
         }
 

@@ -199,6 +199,47 @@ public class PerOptionRoleApiTests(ApiFixture fixture) : IClassFixture<ApiFixtur
             template.OrderBy(o => o.SortOrder).Select(o => (o.Label, o.AttendeeRoleId)));
     }
 
+    [Fact]
+    public async Task A_combined_role_and_limit_edit_applies_both_not_just_the_role()
+    {
+        // The two shorthands are independent settings; create takes them together, so edit must
+        // too. They used to sit in one if/else-if chain, where the role branch swallowed the limit.
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Both shorthands", "in 3 hours", ChannelId,
+            AttendeeRoleId: TankRole, AttendeeLimit: 2));
+
+        var edited = await ReadAsync<EventDto>(await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, AttendeeRoleId: HealerRole, AttendeeLimit: 5)));
+
+        Assert.Equal(HealerRole, edited.AttendingOption!.AttendeeRoleId);
+        Assert.Equal(5, edited.AttendingOption.Capacity);
+
+        // Clearing both at once is the same story in reverse.
+        var cleared = await ReadAsync<EventDto>(await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, ClearAttendeeRole: true, ClearAttendeeLimit: true)));
+        Assert.Null(cleared.AttendingOption!.AttendeeRoleId);
+        Assert.Null(cleared.AttendingOption.Capacity);
+    }
+
+    [Fact]
+    public async Task A_combined_series_scoped_role_and_limit_edit_updates_both_on_the_template()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Both on the template", "in 3 hours", ChannelId,
+            AttendeeRoleId: TankRole, AttendeeLimit: 2,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, Scope: EditScope.Series, AttendeeRoleId: HealerRole, AttendeeLimit: 5)))
+            .EnsureSuccessStatusCode();
+
+        var skip = await Client.PostAsync($"/events/{ev.Id}/skip", null);
+        skip.EnsureSuccessStatusCode();
+        var next = (await skip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+        Assert.Equal(HealerRole, next.AttendingOption!.AttendeeRoleId);
+        Assert.Equal(5, next.AttendingOption.Capacity);
+    }
+
     // ---------- helpers ----------
 
     /// <summary>Tank (attending) / Healer / DPS, each with its own role — the shape §3.6 exists for.</summary>

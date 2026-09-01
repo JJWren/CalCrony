@@ -30,6 +30,58 @@ public class RsvpPromotionQueryCountTests(SqlCountingApiFixture fixture) : IClas
         Assert.Equal(small, large);
     }
 
+    /// <summary>The per-option role diff batch-loads its coalescing state once too. Re-roling an
+    /// option is many-roles-many-users — every seated member of that option swaps role — so a
+    /// per-user lookup here would reintroduce exactly what the promotion path stopped doing, and
+    /// under the event's FOR UPDATE lock. Two identically shaped re-roles, 2 seated vs 6, must
+    /// cost the same.</summary>
+    [Fact]
+    public async Task Role_diff_lookups_dont_grow_with_the_number_of_re_roled_members()
+    {
+        var small = await CountRerollLookupsAsync("Re-role two", 900_000, seated: 2);
+        var large = await CountRerollLookupsAsync("Re-role six", 910_000, seated: 6);
+
+        Assert.True(small > 0, "the counting interceptor never saw an outbox lookup");
+        Assert.Equal(small, large);
+    }
+
+    /// <summary>Seats <paramref name="seated"/> users on a role-bearing option, then counts the
+    /// outbox lookups the edit that re-roles that option issues (revoke old + grant new, for
+    /// every seated member).</summary>
+    /// <param name="title">The event title.</param>
+    /// <param name="firstUserId">The first of the contiguous user ids to RSVP.</param>
+    /// <param name="seated">How many users hold the option's role before the re-role.</param>
+    /// <returns>The number of Deliveries SELECTs the re-role issued.</returns>
+    private async Task<int> CountRerollLookupsAsync(string title, long firstUserId, int seated)
+    {
+        const long OldRole = 994100;
+        const long NewRole = 994200;
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, title, "in 3 hours", ChannelId,
+            RsvpOptions: [new RsvpOptionSpec("🛡️", "Raider", IsAttending: true, AttendeeRoleId: OldRole)]));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var raider = ev.AttendingOption!;
+
+        for (var i = 0; i < seated; i++)
+        {
+            (await Client.PutAsJsonAsync(
+                    $"/events/{ev.Id}/rsvps/{firstUserId + i}", new RsvpRequest(raider.Id)))
+                .EnsureSuccessStatusCode();
+        }
+
+        fixture.Counter.Start();
+        var rerolled = await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, RsvpOptions:
+            [new RsvpOptionSpec("🛡️", "Raider", IsAttending: true, AttendeeRoleId: NewRole)]));
+        var lookups = fixture.Counter.Stop();
+
+        rerolled.EnsureSuccessStatusCode();
+        var dto = (await rerolled.Content.ReadFromJsonAsync<EventDto>())!;
+        Assert.Equal(NewRole, dto.AttendingOption!.AttendeeRoleId); // the counted request really re-roled
+        return lookups;
+    }
+
     /// <summary>Builds a role- and thread-bearing event with one seat taken and
     /// <paramref name="queued"/> users waiting, then counts the outbox lookups the limit raise
     /// that seats the whole queue issues.</summary>

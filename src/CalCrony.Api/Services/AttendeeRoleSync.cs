@@ -86,11 +86,26 @@ public static class AttendeeRoleSync
     /// <param name="userIds">The Discord user ids about to be enqueued for.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The pending grant/revoke rows for those users; the enqueue mutates it.</returns>
-    public static async Task<List<Delivery>> LoadPendingRoleChangesAsync(
+    public static Task<List<Delivery>> LoadPendingRoleChangesAsync(
         CalCronyDbContext db, Event ev, long roleId, IEnumerable<long> userIds,
+        CancellationToken cancellationToken) =>
+        LoadPendingRoleChangesAsync(
+            db, ev, userIds.Select(userId => (roleId, userId)), cancellationToken);
+
+    /// <summary>The many-roles form: one lookup covering an arbitrary set of (role, user) changes.
+    /// Per-option roles make the role vary within a single pass — an edit can revoke Tank from one
+    /// user while granting Healer to another — so the diff loads every payload it may need at once
+    /// rather than one query per user (the scaling problem #143 removed).</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="changes">The (role, user) pairs about to be enqueued.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The pending grant/revoke rows for those payloads.</returns>
+    public static async Task<List<Delivery>> LoadPendingRoleChangesAsync(
+        CalCronyDbContext db, Event ev, IEnumerable<(long RoleId, long UserId)> changes,
         CancellationToken cancellationToken)
     {
-        var payloads = userIds.Select(userId => RolePayloadJson(ev, roleId, userId)).ToList();
+        var payloads = changes.Select(c => RolePayloadJson(ev, c.RoleId, c.UserId)).Distinct().ToList();
         return payloads.Count == 0
             ? []
             : await db.Deliveries
