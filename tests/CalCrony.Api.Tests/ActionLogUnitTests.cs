@@ -64,6 +64,13 @@ public class ActionLogUnitTests
         Assert.Null(ActionLog.Compose(7, actor, ActionLogAction.EventDeleted, ActionTargetType.Event, null, "x", Now).DetailsJson);
     }
 
+    [Fact]
+    public void Snowflakes_are_text_literal_formulas_that_survive_excel()
+    {
+        Assert.Equal("=\"1234567890123456789\"", CsvExport.Snowflake(1234567890123456789));
+        Assert.Equal("\"=\"\"1234567890123456789\"\"\"", CsvExport.Quote(CsvExport.Snowflake(1234567890123456789)));
+    }
+
     [Theory]
     [InlineData("plain", "plain")]
     [InlineData("", "")]
@@ -93,12 +100,14 @@ public class ActionLogUnitTests
     {
         // A legitimately dash-led title pays the documented price ('-5°C …); the numeric
         // duration column is server-generated and passes through untouched.
-        var ev = new CsvExport.EventRow(Guid.NewGuid(), "-5°C night hike", Now, "UTC", 45, "=HYPERLINK(\"x\")", EventStatus.Scheduled, null, 5, 9);
-        var rsvp = new CsvExport.RsvpRow(ev.Id, "+1", "@here", true, 2, false, Now);
+        // Real-sized Discord snowflakes: past Excel's 15 significant digits, so the numeric form
+        // would round them — they must come out as text-literal formulas.
+        var ev = new CsvExport.EventRow(Guid.NewGuid(), "-5°C night hike", Now, "UTC", 45, "=HYPERLINK(\"x\")", EventStatus.Scheduled, null, 1234567890123456789, 987654321098765432);
+        var rsvp = new CsvExport.RsvpRow(ev.Id, "+1", "@here", true, 555555555555555555, false, Now);
 
         var line = CsvExport.BuildEventsCsv([(ev, [rsvp])]).Split("\r\n")[1];
 
-        Assert.Equal($"{ev.Id},'-5°C night hike,2026-08-31T12:00:00Z,UTC,45,\"'=HYPERLINK(\"\"x\"\")\",Scheduled,,5,9,'+1,'@here,true,2,false,2026-08-31T12:00:00Z", line);
+        Assert.Equal($"{ev.Id},'-5°C night hike,2026-08-31T12:00:00Z,UTC,45,\"'=HYPERLINK(\"\"x\"\")\",Scheduled,,\"=\"\"1234567890123456789\"\"\",\"=\"\"987654321098765432\"\"\",'+1,'@here,true,\"=\"\"555555555555555555\"\"\",false,2026-08-31T12:00:00Z", line);
     }
 
     [Fact]
@@ -114,8 +123,8 @@ public class ActionLogUnitTests
 
         var lines = CsvExport.BuildEventsCsv([(ev, rsvps)]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
 
-        Assert.EndsWith(",1,false,2026-08-31T12:00:00.25Z", lines[1]);
-        Assert.EndsWith(",2,false,2026-08-31T12:00:00.5Z", lines[2]);
+        Assert.EndsWith("," + CsvExport.Quote(CsvExport.Snowflake(1)) + ",false,2026-08-31T12:00:00.25Z", lines[1]);
+        Assert.EndsWith("," + CsvExport.Quote(CsvExport.Snowflake(2)) + ",false,2026-08-31T12:00:00.5Z", lines[2]);
         Assert.Contains(",2026-08-31T12:00:00Z,UTC,", lines[1]); // the whole-second start stays compact
     }
 
@@ -133,9 +142,9 @@ public class ActionLogUnitTests
         var lines = CsvExport.BuildEventsCsv([(busy, busyRsvps), (quiet, [])]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
 
         Assert.Equal(string.Join(",", CsvExport.EventColumns), lines[0]);
-        Assert.Equal($"{busy.Id},Busy,2026-08-31T12:00:00Z,UTC,90,\"Hall, A\",Scheduled,,5,9,✅,Going,true,1,false,2026-08-31T12:00:00Z", lines[1]);
-        Assert.Equal($"{busy.Id},Busy,2026-08-31T12:00:00Z,UTC,90,\"Hall, A\",Scheduled,,5,9,✅,Going,true,2,true,2026-08-31T12:05:00Z", lines[2]);
-        Assert.Equal($"{quiet.Id},Quiet,2026-08-31T12:00:00Z,UTC,,,Ended,{quiet.SeriesId},5,9,,,,,,", lines[3]);
+        Assert.Equal($"{busy.Id},Busy,2026-08-31T12:00:00Z,UTC,90,\"Hall, A\",Scheduled,,\"=\"\"5\"\"\",\"=\"\"9\"\"\",✅,Going,true,\"=\"\"1\"\"\",false,2026-08-31T12:00:00Z", lines[1]);
+        Assert.Equal($"{busy.Id},Busy,2026-08-31T12:00:00Z,UTC,90,\"Hall, A\",Scheduled,,\"=\"\"5\"\"\",\"=\"\"9\"\"\",✅,Going,true,\"=\"\"2\"\"\",true,2026-08-31T12:05:00Z", lines[2]);
+        Assert.Equal($"{quiet.Id},Quiet,2026-08-31T12:00:00Z,UTC,,,Ended,{quiet.SeriesId},\"=\"\"5\"\"\",\"=\"\"9\"\"\",,,,,,", lines[3]);
         Assert.Equal(4, lines.Length);
         Assert.Equal([0xEF, 0xBB, 0xBF], CsvExport.ToUtf8WithBom("").Take(3));
     }

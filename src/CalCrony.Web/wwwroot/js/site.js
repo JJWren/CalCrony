@@ -86,10 +86,17 @@ window.calcronyCopy = function (text) {
 // piped straight to the chosen file, so memory stays flat however large the export is. Elsewhere
 // (Firefox, Safari) the only download path is a Blob, which has to be assembled in memory, so
 // that fallback is bounded: past the cap it aborts and reports "too-large" instead of exhausting
-// the tab. Returns "saved", "cancelled" (the user closed the picker), or "too-large".
+// the tab. Returns "saved", "cancelled" (the user closed the picker), "too-large", or "failed"
+// (any rejection: a broken response stream, a write that could not complete) — never throws,
+// so the page can always report what happened.
 window.calcronyDownload = async function (fileName, streamRef, contentType) {
     var type = contentType || "application/octet-stream";
-    var readable = await streamRef.stream();
+    var readable;
+    try {
+        readable = await streamRef.stream();
+    } catch (e) {
+        return "failed";
+    }
 
     if (typeof window.showSaveFilePicker === "function") {
         var handle = null;
@@ -105,9 +112,18 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
             handle = null;
         }
         if (handle) {
-            var writable = await handle.createWritable();
-            await readable.pipeTo(writable);
-            return "saved";
+            var writable = null;
+            try {
+                writable = await handle.createWritable();
+                await readable.pipeTo(writable);
+                return "saved";
+            } catch (e) {
+                // pipeTo aborts the sink itself on a source error; abort explicitly for the
+                // other failure modes so no half-written file is left behind, then report.
+                try { if (writable) { await writable.abort(); } } catch (ignored) { /* already aborted */ }
+                try { await readable.cancel(); } catch (ignored) { /* already closed */ }
+                return "failed";
+            }
         }
     }
 
@@ -115,12 +131,18 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
     var parts = [];
     var total = 0;
     var reader = readable.getReader();
-    while (true) {
-        var next = await reader.read();
-        if (next.done) { break; }
-        total += next.value.byteLength;
-        if (total > limit) { await reader.cancel(); return "too-large"; }
-        parts.push(next.value);
+    try {
+        while (true) {
+            var next = await reader.read();
+            if (next.done) { break; }
+            total += next.value.byteLength;
+            if (total > limit) { await reader.cancel(); return "too-large"; }
+            parts.push(next.value);
+        }
+    } catch (e) {
+        // An interrupted response stream rejects read(); report rather than throw.
+        try { await reader.cancel(); } catch (ignored) { /* already closed */ }
+        return "failed";
     }
 
     var url = URL.createObjectURL(new Blob(parts, { type: type }));

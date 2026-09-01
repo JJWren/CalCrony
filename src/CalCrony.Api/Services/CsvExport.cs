@@ -23,7 +23,14 @@ namespace CalCrony.Api.Services;
 /// quote (<c>'</c>) — the OWASP-recommended mitigation Excel, LibreOffice, and Google Sheets all
 /// treat as "literal text" — before quoting. A title that legitimately starts with a dash (say
 /// "-5°C night hike") therefore reads as <c>'-5°C night hike</c> in a spreadsheet; ids, numbers,
-/// timestamps, and enum names are server-generated and never touched.</para></summary>
+/// timestamps, and enum names are server-generated and never touched.</para>
+/// <para>Discord snowflakes (<c>channel_id</c>, <c>creator_id</c>, <c>rsvp_user_id</c>) are 18–19 digit
+/// integers, and a spreadsheet that reads them as numbers keeps only 15 significant digits —
+/// silently corrupting every id. They are therefore emitted as the text-literal formula
+/// <c>="123456789012345678"</c> (quoted per RFC 4180 as <c>"=""123456789012345678"""</c>), which
+/// Excel, LibreOffice, and Google Sheets all evaluate to the exact digits as text. Scripts
+/// reading the file should strip the <c>="…"</c> wrapper from those three columns; the GUID
+/// columns (event, series) are plain text already.</para></summary>
 public static class CsvExport
 {
     /// <summary>One event's columns, projected straight from the query (no navigation loads).</summary>
@@ -139,7 +146,7 @@ public static class CsvExport
             Text(rsvp.Emote),
             Text(rsvp.Label),
             FormatBool(rsvp.IsAttending),
-            rsvp.UserId.ToString(CultureInfo.InvariantCulture),
+            Snowflake(rsvp.UserId),
             FormatBool(rsvp.Waitlisted),
             FormatInstant(rsvp.CreatedAt),
         ]);
@@ -154,8 +161,8 @@ public static class CsvExport
         Text(ev.Location ?? ""),
         ev.Status.ToString(),
         ev.SeriesId?.ToString() ?? "",
-        ev.ChannelId.ToString(CultureInfo.InvariantCulture),
-        ev.CreatorId.ToString(CultureInfo.InvariantCulture),
+        Snowflake(ev.ChannelId),
+        Snowflake(ev.CreatorId),
     ];
 
     /// <summary>Renders a whole export to a string — the in-memory convenience for tests and
@@ -204,6 +211,12 @@ public static class CsvExport
 
     /// <summary>A member-controlled text cell: formula-neutralized, then quoted like any other.</summary>
     private static string Text(string field) => Neutralize(field);
+
+    /// <summary>A Discord snowflake as a text-literal formula so spreadsheets keep all 18–19
+    /// digits (see the class remarks); RFC 4180 quoting wraps it on the way out.</summary>
+    /// <param name="id">The snowflake.</param>
+    /// <returns>The <c>="digits"</c> cell text.</returns>
+    public static string Snowflake(long id) => "=\"" + id.ToString(CultureInfo.InvariantCulture) + "\"";
 
     private static void WriteRow(TextWriter writer, IReadOnlyList<string> cells)
     {

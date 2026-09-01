@@ -308,13 +308,13 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
             lines[0]);
         Assert.Equal(4, lines.Length); // header + two RSVP rows + one RSVP-less row
 
-        var seated = lines.Single(l => l.Contains(",13192,"));
+        var seated = lines.Single(l => l.Contains(Snowflake(13192)));
         Assert.StartsWith($"{raid.Id},\"Raid, \"\"Night\"\"\",", seated);
-        Assert.Contains(",⚔️,Raider,true,13192,false,", seated);
-        var waitlisted = lines.Single(l => l.Contains(",13193,"));
-        Assert.Contains(",⚔️,Raider,true,13193,true,", waitlisted);
+        Assert.Contains($",⚔️,Raider,true,{Snowflake(13192)},false,", seated);
+        var waitlisted = lines.Single(l => l.Contains(Snowflake(13193)));
+        Assert.Contains($",⚔️,Raider,true,{Snowflake(13193)},true,", waitlisted);
         var noRsvps = lines.Single(l => l.StartsWith(quiet.Id.ToString()));
-        Assert.EndsWith($",{ChannelId},13191,,,,,,", noRsvps);
+        Assert.EndsWith($",{Snowflake(ChannelId)},{Snowflake(13191)},,,,,,", noRsvps);
         Assert.Contains(",Quiet One,", noRsvps);
 
         // The download itself is a management action other managers can see.
@@ -408,7 +408,7 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
             Assert.Equal(Math.Max(1, ev.Rsvps.Count), rows.Count);
             foreach (var rsvp in ev.Rsvps)
             {
-                Assert.Contains(rows, r => r.Contains($",✅,Going,true,{rsvp.UserId},false,"));
+                Assert.Contains(rows, r => r.Contains($",✅,Going,true,{Snowflake(rsvp.UserId)},false,"));
             }
         }
 
@@ -597,11 +597,14 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         Assert.Equal(rsvpCount, crowdedRows.Count);
         // Every RSVP exactly once, in RSVP-id order (the page keyset) — no page boundary repeated
         // or dropped a member. Column 13 is rsvp_user_id; the title has no comma, so a split is safe.
-        var actualUsers = crowdedRows.Select(l => long.Parse(l.Split(',')[13])).ToList();
+        var actualUsers = crowdedRows.Select(l => long.Parse(l.Split(',')[13].Trim('"', '='))).ToList();
         Assert.Equal(crowded.Rsvps.OrderBy(r => r.Id).Select(r => r.UserId), actualUsers);
         Assert.Equal(rsvpCount, actualUsers.Distinct().Count());
         Assert.Single(lines.Skip(1), l => l.StartsWith(lonely.Id.ToString()) && l.EndsWith(",,,,,,"));
     }
+
+    /// <summary>A snowflake cell as it appears in a row: the text-literal formula, RFC 4180-quoted.</summary>
+    private static string Snowflake(long id) => $"\"=\"\"{id}\"\"\"";
 
     private async Task SeedGuildAsync(long guildId)
     {

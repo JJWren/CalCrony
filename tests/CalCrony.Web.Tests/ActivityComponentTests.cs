@@ -413,6 +413,7 @@ public class ActivityComponentTests : TestContext
     [Theory]
     [InlineData("cancelled", "Download cancelled.")]
     [InlineData("too-large", "too large to assemble in this browser")]
+    [InlineData("failed", "didn't complete")]
     public void Browser_side_download_outcomes_are_reported(string outcome, string expectedText)
     {
         var handler = UseApi();
