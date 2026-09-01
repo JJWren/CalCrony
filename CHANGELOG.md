@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/JJWren/CalCrony/compare/v0.30.0...v0.31.0) (2026-09-01)
+
+
+### Features
+
+* server action log (90-day) + CSV export ([#139](https://github.com/JJWren/CalCrony/issues/139)) ([fde71d1](https://github.com/JJWren/CalCrony/commit/fde71d1b03b38cc4c3f843aae2e3f0124628b2d9))
+
 ## [0.30.0](https://github.com/JJWren/CalCrony/compare/v0.29.0...v0.30.0) (2026-09-01)
 
 
