@@ -15,9 +15,21 @@ internal static class IcsText
     /// <param name="uid">The VEVENT UID to look up.</param>
     /// <param name="zone">The zone to express a UTC DTSTART in.</param>
     /// <returns>The DTSTART calendar date.</returns>
-    public static LocalDate DtStartDate(string ics, string uid, DateTimeZone zone)
+    public static LocalDate DtStartDate(string ics, string uid, DateTimeZone zone) =>
+        DtStartDate(Events(ics).First(b => b.Contains($"UID:{uid}")), zone);
+
+    /// <summary>The unfolded text of every VEVENT block in the calendar.</summary>
+    /// <param name="ics">The serialized calendar.</param>
+    /// <returns>One string per VEVENT (the text after its BEGIN line).</returns>
+    public static IEnumerable<string> Events(string ics) =>
+        ics.Replace("\r\n ", "").Split("BEGIN:VEVENT").Skip(1);
+
+    /// <summary>The DTSTART of one VEVENT block as a local date in <paramref name="zone"/>.</summary>
+    /// <param name="block">A VEVENT block from <see cref="Events"/>.</param>
+    /// <param name="zone">The zone to express a UTC DTSTART in.</param>
+    /// <returns>The DTSTART calendar date.</returns>
+    public static LocalDate DtStartDate(string block, DateTimeZone zone)
     {
-        var block = ics.Replace("\r\n ", "").Split("BEGIN:VEVENT").First(b => b.Contains($"UID:{uid}"));
         var line = block.Split('\n').Select(l => l.TrimEnd('\r')).First(l => l.StartsWith("DTSTART", StringComparison.Ordinal));
         var value = line[(line.LastIndexOf(':') + 1)..];
         var local = Basic.Parse(value.TrimEnd('Z')).Value;

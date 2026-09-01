@@ -75,6 +75,43 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task Occurrence_scoped_move_of_the_live_row_neither_doubles_it_nor_projects_slots_before_it()
+    {
+        const string title = "Moved Live Row";
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, title, "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var zone = DateTimeZoneProviders.Tzdb[ev.TimeZone];
+        var first = ev.StartsAtUtc.ToInstant().InZone(zone);
+        var anchor = first.Date;
+
+        // Move the live occurrence onto the NEXT nominal slot the way an Occurrence-scoped edit
+        // does: only StartsAt changes, the series cursor stays on the anchor slot.
+        await MoveLiveAsync(ev.Id, (anchor.PlusWeeks(1) + first.TimeOfDay).InZoneLeniently(zone).ToInstant());
+        var ics = await FetchFeedAsync();
+        var mine = IcsText.Events(ics).Where(b => b.Contains($"SUMMARY:{title}")).ToList();
+
+        // Exactly two VEVENTs for this series — the moved live row and the projection — and the
+        // projection starts AFTER the live row, so the moved date appears once.
+        Assert.Equal(2, mine.Count);
+        Assert.Equal(anchor.PlusWeeks(1), IcsText.DtStartDate(ics, $"{ev.Id}@calcrony", zone));
+        Assert.Equal(anchor.PlusWeeks(2), IcsText.DtStartDate(ics, $"{ev.SeriesId}@calcrony", zone));
+        Assert.Single(mine, b => IcsText.DtStartDate(b, zone) == anchor.PlusWeeks(1));
+
+        // Two slots ahead: the skipped-over nominal slot is never projected — the scheduler can't
+        // materialize it while the moved row stays live.
+        await MoveLiveAsync(ev.Id, (anchor.PlusWeeks(2) + first.TimeOfDay).InZoneLeniently(zone).ToInstant());
+        ics = await FetchFeedAsync();
+        mine = IcsText.Events(ics).Where(b => b.Contains($"SUMMARY:{title}")).ToList();
+
+        Assert.Equal(2, mine.Count);
+        Assert.Equal(anchor.PlusWeeks(2), IcsText.DtStartDate(ics, $"{ev.Id}@calcrony", zone));
+        Assert.Equal(anchor.PlusWeeks(3), IcsText.DtStartDate(ics, $"{ev.SeriesId}@calcrony", zone));
+        Assert.DoesNotContain(mine, b => IcsText.DtStartDate(b, zone) == anchor.PlusWeeks(1));
+    }
+
+    [Fact]
     public async Task Interval_edit_keeps_the_projected_series_on_the_engines_grid()
     {
         var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
@@ -250,6 +287,16 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         Assert.Contains($"🔗 Events page: https://web.test/app/guilds/{GuildId}/events", ics);
         Assert.Contains($"URL:https://web.test/app/guilds/{GuildId}/events", ics);
+    }
+
+    /// <summary>Re-times a live occurrence without touching its series — what an
+    /// Occurrence-scoped time edit does, minus the natural-language parse.</summary>
+    private async Task MoveLiveAsync(Guid eventId, Instant startsAt)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        await db.Events.Where(e => e.Id == eventId)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.StartsAt, startsAt));
     }
 
     /// <summary>Reverses RFC 5545 line folding so assertions can match full URLs.</summary>

@@ -154,6 +154,20 @@ public static class FeedEndpoints
         // edit sequence, and covers the brief gap between a skip/end and the sweep's next spawn.
         // Series VEVENTs link to the guild's events list — the live occurrence (and its Discord
         // message) rotates every cycle, so nothing durable may point at it.
+        // The live occurrence also pins the projection FLOOR. The scheduler spawns the next
+        // occurrence only once the live one ends, and an Occurrence-scoped time edit can move the
+        // live row onto (or past) later nominal slots without touching the series cursor —
+        // projecting from the cursor alone would then double the moved date and list intermediate
+        // slots that can never materialize. Projecting from the live row's end reproduces exactly
+        // what the end sweep will compute (same length default as the scheduler's), while the
+        // cursor itself stays the rule's nominal position.
+        var liveEndBySeries = events
+            .Where(e => e.SeriesId is not null && e.Status is EventStatus.Scheduled or EventStatus.Started)
+            .GroupBy(e => e.SeriesId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Max(e => e.StartsAt + NodaTime.Duration.FromMinutes(e.DurationMinutes ?? 60)));
+
         foreach (var series in runningSeries)
         {
             // NextOccurrence knows nothing about counts (the materializer enforces those), so a
@@ -164,9 +178,10 @@ public static class FeedEndpoints
             }
 
             var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
+            var floor = liveEndBySeries.TryGetValue(series.Id, out var liveEnd) && liveEnd > now ? liveEnd : now;
             var next = Services.RecurrenceCalculator.NextOccurrence(
                 series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate,
-                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, now,
+                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, floor,
                 series.DaysOfWeek);
             if (next is null)
             {

@@ -129,33 +129,13 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             return;
         }
 
-        // A day set needs an explicit weekly choice — a template's rule can't be re-shaped from
-        // here, and on any other unit the days would be silently meaningless.
-        var days = RecurrenceDays.None;
-        if (repeatDays is not null)
+        // A template's rule can't be re-shaped from here, so a day set always needs an explicit
+        // weekly choice (RepeatOptions enforces that).
+        if (RepeatOptions.TryBuildRule(repeat, repeatEvery, repeatDays, allowNoneDays: false, out var recurrence) is { } optionsProblem)
         {
-            if (repeat != RepeatChoice.Weekly)
-            {
-                await FollowupAsync("`repeat-days` only applies to `repeat: weekly`.", ephemeral: true);
-                return;
-            }
-
-            if (!RepeatDaysSyntax.TryParse(repeatDays, out days, out var daysProblem))
-            {
-                await FollowupAsync($"❌ {daysProblem}", ephemeral: true);
-                return;
-            }
+            await FollowupAsync(optionsProblem, ephemeral: true);
+            return;
         }
-
-        var recurrence = repeat switch
-        {
-            RepeatChoice.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatEvery),
-            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery, DaysOfWeek: days),
-            RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
-            RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
-            RepeatChoice.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatEvery),
-            _ => null,
-        };
 
         var result = await api.CreateEventAsync(
             (long)Context.Guild.Id,
