@@ -34,10 +34,17 @@ public class GuildHeadingTests : TestContext
         var handler = UseApi();
         // A guild the membership snapshot doesn't cover: no line at all — never the raw id.
         handler.JsonFor = _ => GuildsJson((2, "Game Night"));
+        // Hold the answer so it lands after the first render, the way a real request does — the
+        // initial render is empty too, so an assertion made before the lookup lands would pass
+        // for the wrong reason. The release forces the render that processes the answer.
+        var gate = new TaskCompletionSource();
+        handler.WaitFor = gate.Task;
 
         var cut = Render<GuildHeading>(p => p.Add(x => x.GuildId, 1L));
+        gate.SetResult();
 
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("p.guild-context")));
+        cut.WaitForState(() => handler.Responses == 1 && cut.RenderCount >= 2);
+        Assert.Empty(cut.FindAll("p.guild-context"));
         Assert.DoesNotContain("1", cut.Markup);
     }
 
@@ -110,6 +117,9 @@ public class GuildHeadingTests : TestContext
         /// <summary>When set, a request sent now waits for this task before it answers.</summary>
         public Task? WaitFor { get; set; }
 
+        /// <summary>How many requests have been answered.</summary>
+        public int Responses { get; private set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var json = JsonFor?.Invoke(request) ?? "{}";
@@ -118,6 +128,7 @@ public class GuildHeadingTests : TestContext
                 await gate;
             }
 
+            Responses++;
             return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
