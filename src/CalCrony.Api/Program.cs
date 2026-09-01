@@ -173,6 +173,7 @@ app.MapDeliveryEndpoints();
 app.MapFeedEndpoints();
 app.MapPublicCalendarEndpoints();
 app.MapActionLogEndpoints();
+app.MapDmReminderEndpoints();
 app.MapCalendarEndpoints();
 app.MapOAuthEndpoints();
 app.MapAuthEndpoints();

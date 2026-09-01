@@ -24,12 +24,28 @@
             <label class="form-label small mt-2 mb-1" for="us-tz">Pick your timezone; blank = server timezone</label>
             <div class="d-flex gap-2">
                 <TimeZonePicker Id="us-tz" @bind-Value="timezoneInput" />
-                <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@busy">Save</button>
+                <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@(busy || settings is null)">Save</button>
             </div>
             <div class="form-check form-switch mt-3">
-                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" />
+                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" disabled="@(busy || settings is null)" />
                 <label class="form-check-label small" for="us-dm">DM confirmations</label>
             </div>
+            <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveDmRemindersAsync" disabled="@(busy || settings is null)" />
+                <label class="form-check-label small" for="us-dm-reminders">DM me reminders and start pings for events I'm attending</label>
+            </div>
+            <p class="text-body-secondary small mb-0 mt-1">
+                Off by default, and only you can turn it on — servers and event creators never can. Uses your
+                Discord DMs; if they're closed to the bot, it switches itself off.
+            </p>
+            @if (consentUnknown)
+            {
+                <p class="small text-warning-emphasis mb-0 mt-1" role="status">Current state unknown — the last save failed and your saved settings couldn't be re-read. Reload the page before trusting this switch.</p>
+            }
+            @if (settings?.DmRemindersBlockedAtUtc is { } blockedAt)
+            {
+                <p class="meta-mono small mb-0 mt-1">Turned off automatically on @blockedAt.ToLocalTime().ToString("MMM d, h:mm tt") — your DMs were closed to the bot.</p>
+            }
             @if (saveMessage is not null)
             {
                 <div class="meta-mono mt-2">@saveMessage</div>
@@ -68,6 +84,18 @@
     private bool busy;
     private string timezoneInput = "";
     private bool dmConfirmations = true;
+    private bool dmReminders;
+
+    /// <summary>Whether the save in flight is the one the DM-reminders switch itself triggered.
+    /// Only then is the field sent: an unrelated save (timezone, confirmations) sends null = keep,
+    /// so a value loaded earlier can't overwrite a newer consent state — e.g. an automatic
+    /// switch-off after closed DMs, or a change made from Discord meanwhile.</summary>
+    private bool dmRemindersChanged;
+
+    /// <summary>True after a failed save whose authoritative re-read also failed: the bound values
+    /// may not match the server, so the controls are disabled and the DM switch says so explicitly
+    /// instead of displaying the requested value as if it were fact.</summary>
+    private bool consentUnknown;
     private string? saveMessage;
 
     private long UserId => AuthApi.Session?.UserId ?? 0;
@@ -77,9 +105,15 @@
     private async Task LoadAsync()
     {
         var settingsResult = await Api.GetUserSettingsAsync(UserId);
-        settings = settingsResult.Value;
-        timezoneInput = settings?.TimeZone ?? "";
-        dmConfirmations = settings?.DmConfirmations ?? true;
+        if (!settingsResult.Success)
+        {
+            // Nothing below may act on defaults that were never loaded (a save would silently
+            // rewrite a stored opt-in) — surface the failure instead.
+            error = settingsResult.Error;
+            return;
+        }
+
+        ApplySettings(settingsResult.Value!);
         var calendarResult = await Api.GetCalendarStatusAsync(UserId);
         if (!calendarResult.Success)
         {
@@ -90,21 +124,62 @@
         calendar = calendarResult.Value;
     }
 
+    private Task SaveDmRemindersAsync()
+    {
+        dmRemindersChanged = true;
+        return SaveSettingsAsync();
+    }
+
     private async Task SaveSettingsAsync()
     {
         saveMessage = null;
-        busy = true;
-        var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
-            string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations));
-        busy = false;
-        if (!result.Success || result.Value is null)
+        if (settings is null)
         {
-            saveMessage = $"❌ {result.Error}";
+            // Never write never-loaded defaults over stored values (timezone, confirmations,
+            // the DM opt-in) — the controls are disabled in this state, this is the backstop.
+            saveMessage = "❌ Your settings haven't loaded — reload the page before saving.";
             return;
         }
 
-        settings = result.Value;
+        busy = true;
+        var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
+            string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations,
+            DmReminders: dmRemindersChanged ? dmReminders : null));
+        dmRemindersChanged = false;
+        busy = false;
+        if (!result.Success || result.Value is null)
+        {
+            // The switch must never show a consent state the server doesn't hold: re-read what
+            // is actually stored, and if even that fails, go to an unknown (disabled) state.
+            saveMessage = $"❌ {result.Error}";
+            var reload = await Api.GetUserSettingsAsync(UserId);
+            if (reload.Success && reload.Value is not null)
+            {
+                ApplySettings(reload.Value);
+            }
+            else
+            {
+                settings = null;
+                consentUnknown = true;
+                saveMessage += " — and your saved settings couldn't be re-read; reload the page.";
+            }
+
+            return;
+        }
+
+        ApplySettings(result.Value);
         saveMessage = "✓ Saved.";
+    }
+
+    /// <summary>Makes the bound controls reflect exactly what the API holds.</summary>
+    /// <param name="loaded">The authoritative settings.</param>
+    private void ApplySettings(UserSettingsDto loaded)
+    {
+        consentUnknown = false;
+        settings = loaded;
+        timezoneInput = loaded.TimeZone ?? "";
+        dmConfirmations = loaded.DmConfirmations;
+        dmReminders = loaded.DmReminders ?? false;
     }
 
     private async Task ConnectAsync()

@@ -32,9 +32,46 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             $"**Your timezone:** {user.Value!.TimeZone ?? "(not set — server timezone is used)"}\n" +
             $"**Your DM confirmations:** {(user.Value.DmConfirmations ? "on" : "off")}\n" +
             $"**Native Discord events:** {(guild.Value.MirrorNativeEvents ? "on" : "off")}\n" +
-            $"**Public calendar:** {(publicCalendar.Value!.Enabled ? "on" : "off")}",
+            $"**Public calendar:** {(publicCalendar.Value!.Enabled ? "on" : "off")}\n" +
+            $"**Your DM reminders:** {(user.Value.DmReminders == true ? "on" : "off")}{DmRemindersBlockedNote(user.Value)}",
             ephemeral: true);
     }
+
+    /// <summary>Turns DM reminders for attended events on or off — a strictly personal opt-in
+    /// (default off) that nobody else can flip for you.</summary>
+    /// <param name="enabled">Whether to DM reminders and start pings for events you're attending.</param>
+    [SlashCommand("dm-reminders", "DM me reminders and start pings for events I'm attending (off by default)")]
+    public async Task SetDmRemindersAsync(
+        [Summary("enabled", "Turn DM reminders on or off")] bool enabled)
+    {
+        await DeferAsync(ephemeral: true);
+
+        var userId = (long)Context.User.Id;
+        var current = await api.GetUserSettingsAsync(userId);
+        if (!current.Success || current.Value is null)
+        {
+            await FollowupAsync($"❌ Couldn't load your settings: {current.Error}", ephemeral: true);
+            return;
+        }
+
+        // Read-modify-write: the timezone, theme, and confirmation settings ride along untouched.
+        var result = await api.PutUserSettingsAsync(userId, current.Value with { DmReminders = enabled });
+        await FollowupAsync(
+            !result.Success
+                ? $"❌ {result.Error}"
+                : enabled
+                    ? "🔔 DM reminders are **on** — reminders and start pings for events you're attending will also arrive by DM. If your DMs are closed to the bot, this switches itself off."
+                    : "🔕 DM reminders are **off**.",
+            ephemeral: true);
+    }
+
+    /// <summary>Explains an automatic switch-off (Discord refused a DM), or nothing.</summary>
+    /// <param name="settings">The user's settings.</param>
+    /// <returns>The note to append, or an empty string.</returns>
+    private static string DmRemindersBlockedNote(UserSettingsDto settings) =>
+        settings.DmRemindersBlockedAtUtc is { } blockedAt
+            ? $" (turned off <t:{blockedAt.ToUnixTimeSeconds()}:R> because your DMs were closed to the bot)"
+            : "";
 
     /// <summary>Sets the caller's personal timezone (autocomplete-picked or typed).</summary>
     /// <param name="timezone">IANA timezone id (picked from autocomplete or typed).</param>

@@ -3,6 +3,7 @@ using System;
 using CalCrony.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    partial class CalCronyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901014857_AddDmReminders")]
+    partial class AddDmReminders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,52 +25,6 @@ namespace CalCrony.Api.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("CalCrony.Api.Data.ActionLogEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Action")
-                        .HasColumnType("integer");
-
-                    b.Property<long?>("ActorUserId")
-                        .HasColumnType("bigint");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DetailsJson")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
-
-                    b.Property<long>("GuildId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Source")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Summary")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<Guid?>("TargetId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("TargetType")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("GuildId", "CreatedAt")
-                        .IsDescending(false, true);
-
-                    b.ToTable("ActionLogEntries");
-                });
 
             modelBuilder.Entity("CalCrony.Api.Data.ApiKey", b =>
                 {
@@ -315,9 +272,6 @@ namespace CalCrony.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("GuildId", "StartsAt");
-
-                    b.HasIndex("GuildId", "Id")
-                        .HasDatabaseName("IX_Events_GuildId_Id");
 
                     b.HasIndex(new[] { "SeriesId" }, "IX_Events_SeriesId");
 
@@ -789,9 +743,6 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.HasIndex("EventId", "UserId")
                         .IsUnique();
-
-                    b.HasIndex("EventId", "Id")
-                        .HasDatabaseName("IX_Rsvps_EventId_Id");
 
                     b.ToTable("Rsvps");
                 });

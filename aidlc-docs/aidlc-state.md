@@ -51,4 +51,6 @@ Milestone order: M9 series rule editing → M10 Discord native-event mirroring �
 - [x] Quick-ship batch: yearly recurrence (#126) and the auto-updating Live List (#127) — released in v0.26.0.
 - [ ] RSVP v1 (#120 / PR #129): custom options, attendee limits with waitlists, close-early — in the Copilot review loop, at Joshua's merge wall next.
 - [x] Public web calendar (#121, 2026-08-31): opt-in per server, unguessable regenerable slug (`/c/{slug}`), login-free noindex month view of concrete + projected events — PR #130 merged after 6 Copilot rounds; the round-6 summary point (manager controls during a guild switch) ships in a follow-up PR.
-- [ ] Multi-day-of-week recurrence (#122) → DM reminders (#123) → action log + CSV export (#124) → RSVP v2 (#125, backlog).
+- [x] Multi-day-of-week recurrence (#122, 2026-09-01): checkbox day sets — PR #135 merged (v0.29.0), driven by the parallel session.
+- [ ] DM reminders (#123, 2026-09-01): strict per-user opt-in (default off), one-time ephemeral offer after a first seated attending RSVP, outbox-delivered DMs with API-side claims that self-disable on closed DMs — PR #137 in the Copilot loop.
+- [ ] Action log + CSV export (#124): PR #139, parallel session → RSVP v2 (#125, backlog).

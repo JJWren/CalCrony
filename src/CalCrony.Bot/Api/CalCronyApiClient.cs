@@ -242,6 +242,31 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<UserSettingsDto>> GetUserSettingsAsync(long userId, CancellationToken ct = default) =>
         SendAsync<UserSettingsDto>(http.GetAsync($"/users/{userId}/settings", ct), ct);
 
+    /// <summary>Asks whether to show the one-time DM-reminder opt-in prompt (true exactly once per user).</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<DmReminderOfferResponse>> OfferDmRemindersAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<DmReminderOfferResponse>(http.PostAsync($"/users/{userId}/dm-reminders/offer", null, ct), ct);
+
+    /// <summary>Claims a DM-reminder delivery right before sending: the API re-validates the
+    /// recipient (opted in and still seated on the attending option), cancels the row if not, and
+    /// otherwise stamps the claim so the row isn't re-served while this attempt is in flight.</summary>
+    /// <param name="deliveryId">The delivery id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<DmReminderClaimResponse>> ClaimDmReminderAsync(Guid deliveryId, CancellationToken ct = default) =>
+        SendAsync<DmReminderClaimResponse>(http.PostAsync($"/deliveries/{deliveryId}/dm-claim", null, ct), ct);
+
+    /// <summary>Reports that Discord refused the DM for a claimed delivery; the API switches the
+    /// recipient's preference off unless they renewed it since the attempt began, and settles the
+    /// delivery.</summary>
+    /// <param name="deliveryId">The delivery id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> ReportDmRefusedAsync(Guid deliveryId, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.PostAsync($"/deliveries/{deliveryId}/dm-refused", null, ct), ct);
+
     /// <summary>Updates a user's personal settings.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="settings">The settings to store.</param>

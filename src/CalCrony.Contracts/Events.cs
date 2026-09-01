@@ -244,7 +244,43 @@ public record GuildSettingsDto(string TimeZone, long? DefaultChannelId, bool Mir
 /// a write means "keep the stored value" — writers that don't handle theming (the bot's
 /// /settings timezone) must not clobber it; null on a read means the user never picked one, i.e.
 /// <see cref="InterfaceThemes.Default"/>.</param>
-public record UserSettingsDto(string? TimeZone, bool DmConfirmations, string? Theme = null);
+/// <param name="DmReminders">Opt-in DM delivery of reminders/start pings for events the user attends
+/// (default off). Null on a write means "keep the stored value" — writers that don't handle it
+/// (the bot's /settings timezone, older clients) must not clobber it; never null on a read.</param>
+/// <param name="DmRemindersBlockedAtUtc">Read-only: when Discord last refused a DM and the
+/// preference was switched off automatically; null when that has never happened.</param>
+public record UserSettingsDto(
+    string? TimeZone,
+    bool DmConfirmations,
+    string? Theme = null,
+    bool? DmReminders = null,
+    DateTimeOffset? DmRemindersBlockedAtUtc = null);
+
+/// <summary>Answer to the bot's "should I offer DM reminders now?" — true exactly once per user,
+/// and only while the preference is off.</summary>
+/// <param name="Offer">Whether to show the one-time opt-in prompt.</param>
+public record DmReminderOfferResponse(bool Offer);
+
+/// <summary>Outcome of the bot's pre-send claim of a DM reminder.</summary>
+public enum DmReminderClaimOutcome
+{
+    /// <summary>The recipient is still eligible and this caller now owns the attempt — send it.</summary>
+    Claimed = 0,
+
+    /// <summary>The recipient is no longer eligible (opted out, un-RSVPed, switched option, or
+    /// waitlisted) — the API cancelled the row; nothing to send, acking is a harmless no-op.</summary>
+    Cancelled = 1,
+
+    /// <summary>Not this caller's to send right now — another attempt holds the row, another DM
+    /// for the SAME recipient is in flight (one at a time per person, so closed DMs are discovered
+    /// once), or the row is no longer pending. Do NOT acknowledge it: it stays pending and is
+    /// re-served once the live claim settles or ages out.</summary>
+    AlreadyClaimed = 2,
+}
+
+/// <summary>Answer to the bot's pre-send claim of a DM reminder (see <see cref="DmReminderClaimOutcome"/>).</summary>
+/// <param name="Outcome">What the claim decided.</param>
+public record DmReminderClaimResponse(DmReminderClaimOutcome Outcome);
 
 /// <summary>TimeZone (IANA id), when set, overrides the user/guild zone resolution — used where
 /// the caller must preview in a specific zone, e.g. a series' stored zone for schedule edits.</summary>
