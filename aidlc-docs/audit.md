@@ -291,3 +291,10 @@
 **Context**: Construction — Code Generation Part 2; next: full-solution test run, PR open, Copilot loop.
 
 ---
+## Construction — RSVP v2 §3.5 full-solution test run green; PR opened
+**Timestamp**: 2026-09-01T23:52:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: `dotnet test CalCrony.slnx`: 694 passing (472 API, 113 bot, 109 web; was 632). Plan step 7.8 ticked. Opened the PR "feat: role-restricted signup for RSVPs and polls" from feature/125-role-restricted-signup with the §3.6-style body (what it does, shape of the change, the tombstone refinement to the hand-off, behaviour changes for existing servers, migration Up/Down record, test counts) citing ADR 0004; Copilot requested.
+**Context**: Construction — Code Generation Part 2 complete pending review; step 8.2 ticked, 8.3 (Copilot loop, merge, release, rollout) next.
+
+---
