@@ -181,6 +181,7 @@ else
         // URL, and stamp the load so a slower, older response can't overwrite a newer guild's.
         var generation = ++loadGeneration;
         loading = true;
+        busy = false;      // a save still in flight for the previous guild must not lock this one
         isManager = false; // never offer manager controls on the strength of the PREVIOUS guild's role
         settings = null;   // nor show its timezone / native-events state while the new guild loads
         timezoneInput = "";
@@ -251,14 +252,15 @@ else
         busy = true;
         var generation = loadGeneration;
         var result = await Api.PutPublicCalendarAsync(GuildId, request);
-        busy = false;
         if (generation != loadGeneration)
         {
             // The page moved to another guild while this was in flight: the response belongs
-            // to the old guild and its link must never be installed under the new one.
+            // to the old guild and its link must never be installed under the new one — and
+            // the new guild's load owns `busy`, so an old completion must not unlock it either.
             return;
         }
 
+        busy = false;
         if (!result.Success || result.Value is null)
         {
             publicCalendarMessage = $"❌ {result.Error}";
@@ -292,12 +294,12 @@ else
         // Read-modify-write: preserve the bot-managed DefaultChannelId and the mirror flag.
         var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
             trimmed, settings?.DefaultChannelId, settings?.MirrorNativeEvents ?? false));
-        busy = false;
         if (generation != loadGeneration)
         {
-            return; // the page moved to another guild while this was in flight
+            return; // the page moved to another guild while this was in flight — its load owns `busy` now
         }
 
+        busy = false;
         if (!result.Success || result.Value is null)
         {
             saveMessage = $"❌ {result.Error}";
@@ -316,12 +318,12 @@ else
         // Read-modify-write: preserve the timezone and the bot-managed DefaultChannelId.
         var result = await Api.PutGuildSettingsAsync(GuildId, new GuildSettingsDto(
             settings?.TimeZone ?? "UTC", settings?.DefaultChannelId, mirrorInput));
-        busy = false;
         if (generation != loadGeneration)
         {
             return;
         }
 
+        busy = false;
         if (!result.Success || result.Value is null)
         {
             mirrorMessage = $"❌ {result.Error}";

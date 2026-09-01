@@ -272,11 +272,14 @@ public class PublicCalendarComponentTests : TestContext
         cut.FindAll("button").First(b => b.TextContent.Contains("Generate new link")).Click();
         cut.Render(p => p.Add(x => x.GuildId, 2L));
         cut.WaitForAssertion(() => Assert.Contains("gs-public-cal", cut.Markup));
+        // Guild 1's still-pending save must not leave guild 2's controls disabled.
+        Assert.False(cut.Find("#gs-public-cal").HasAttribute("disabled"));
 
         putGate.SetResult(); // guild 1's regenerate completes late…
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("/c/regenerated1", cut.Markup)); // …and is discarded
         Assert.DoesNotContain("/c/guild1", cut.Markup);
+        Assert.False(cut.Find("#gs-public-cal").HasAttribute("disabled"));
     }
 
     [Fact]
