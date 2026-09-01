@@ -64,6 +64,10 @@ and **Google** (only for the free/busy lookups you enable).
   delete it, or until the bot is removed and the operator prunes the server's data on request.
 - **Operational records** (delivered notifications, consumed login/link tokens, expired session
   tokens) are automatically purged after **90 days**.
+- **Server activity log** entries (which member created, edited, deleted, or skipped an event,
+  poll, or template, or changed a server setting — recorded with the item's title, never its
+  description or messages, and visible only to that server's managers) are automatically purged
+  after **90 days**.
 - **Google connection**: disconnecting (`/calendar disconnect` or the web app) deletes the
   stored tokens immediately.
 - **Removal requests**: to have a server's or your own data deleted, open a
