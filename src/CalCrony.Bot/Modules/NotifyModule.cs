@@ -33,11 +33,10 @@ public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
             return;
         }
 
-        var result = await api.CreateNotificationAsync(ev.Id, new CreateEventNotificationRequest(
-            minutesBefore,
-            message,
-            mention?.Mention,
-            (long?)channel?.Id));
+        var result = await api.CreateNotificationAsync(
+            ev.Id,
+            new CreateEventNotificationRequest(minutesBefore, message, mention?.Mention, (long?)channel?.Id),
+            (long)Context.User.Id);
 
         if (!result.Success || result.Value is null)
         {

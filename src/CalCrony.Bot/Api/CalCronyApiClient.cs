@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using CalCrony.Contracts;
 
@@ -58,8 +59,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="id">The entity id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<Unit>> DeleteEventAsync(Guid id, CancellationToken ct = default) =>
-        SendAsync<Unit>(http.DeleteAsync($"/events/{id}", ct), ct);
+    public Task<ApiResult<Unit>> DeleteEventAsync(Guid id, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<Unit>(SendWithActorAsync(HttpMethod.Delete, $"/events/{id}", actorId, ct), ct);
 
     /// <summary>Records where the bot posted the event's embed.</summary>
     /// <param name="id">The entity id.</param>
@@ -89,8 +90,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="eventId">The event id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<SkipOccurrenceResponse>> SkipOccurrenceAsync(Guid eventId, CancellationToken ct = default) =>
-        SendAsync<SkipOccurrenceResponse>(http.PostAsync($"/events/{eventId}/skip", null, ct), ct);
+    public Task<ApiResult<SkipOccurrenceResponse>> SkipOccurrenceAsync(Guid eventId, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<SkipOccurrenceResponse>(SendWithActorAsync(HttpMethod.Post, $"/events/{eventId}/skip", actorId, ct), ct);
 
     /// <summary>Fetches a series' schedule, template, and progress.</summary>
     /// <param name="seriesId">The series id.</param>
@@ -103,16 +104,16 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="seriesId">The series id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<SeriesDto>> StopSeriesAsync(Guid seriesId, CancellationToken ct = default) =>
-        SendAsync<SeriesDto>(http.PostAsync($"/series/{seriesId}/stop", null, ct), ct);
+    public Task<ApiResult<SeriesDto>> StopSeriesAsync(Guid seriesId, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(SendWithActorAsync(HttpMethod.Post, $"/series/{seriesId}/stop", actorId, ct), ct);
 
     /// <summary>Edits a series' rule/end condition; editing an ended series revives it.</summary>
     /// <param name="seriesId">The series id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<SeriesDto>> UpdateSeriesAsync(Guid seriesId, UpdateSeriesRequest request, CancellationToken ct = default) =>
-        SendAsync<SeriesDto>(http.PatchAsJsonAsync($"/series/{seriesId}", request, ct), ct);
+    public Task<ApiResult<SeriesDto>> UpdateSeriesAsync(Guid seriesId, UpdateSeriesRequest request, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<SeriesDto>(SendWithActorAsync(HttpMethod.Patch, $"/series/{seriesId}", actorId, ct, request), ct);
 
     /// <summary>Sets a user's RSVP to the given option.</summary>
     /// <param name="eventId">The event id.</param>
@@ -163,8 +164,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="id">The entity id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<Unit>> DeleteLiveListAsync(Guid id, CancellationToken ct = default) =>
-        SendAsync<Unit>(http.DeleteAsync($"/livelists/{id}", ct), ct);
+    public Task<ApiResult<Unit>> DeleteLiveListAsync(Guid id, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<Unit>(SendWithActorAsync(HttpMethod.Delete, $"/livelists/{id}", actorId, ct), ct);
 
     /// <summary>Reads the guild's timezone and default channel.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
@@ -178,8 +179,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="settings">The settings to store.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<GuildSettingsDto>> PutGuildSettingsAsync(long guildId, GuildSettingsDto settings, CancellationToken ct = default) =>
-        SendAsync<GuildSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/settings", settings, ct), ct);
+    public Task<ApiResult<GuildSettingsDto>> PutGuildSettingsAsync(long guildId, GuildSettingsDto settings, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<GuildSettingsDto>(SendWithActorAsync(HttpMethod.Put, $"/guilds/{guildId}/settings", actorId, ct, settings), ct);
 
     /// <summary>Reads the guild's public-calendar state (on/off and its link).</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
@@ -193,8 +194,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="request">The desired state.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<PublicCalendarSettingsDto>> PutPublicCalendarAsync(long guildId, PublicCalendarRequest request, CancellationToken ct = default) =>
-        SendAsync<PublicCalendarSettingsDto>(http.PutAsJsonAsync($"/guilds/{guildId}/public-calendar", request, ct), ct);
+    public Task<ApiResult<PublicCalendarSettingsDto>> PutPublicCalendarAsync(long guildId, PublicCalendarRequest request, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<PublicCalendarSettingsDto>(SendWithActorAsync(HttpMethod.Put, $"/guilds/{guildId}/public-calendar", actorId, ct, request), ct);
 
     /// <summary>Records a single guild presence change (bot joined or left), optionally with a
     /// guild-name snapshot (renames report present with the new name).</summary>
@@ -274,8 +275,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="request">The request body.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<EventNotificationDto>> CreateNotificationAsync(Guid eventId, CreateEventNotificationRequest request, CancellationToken ct = default) =>
-        SendAsync<EventNotificationDto>(http.PostAsJsonAsync($"/events/{eventId}/notifications", request, ct), ct);
+    public Task<ApiResult<EventNotificationDto>> CreateNotificationAsync(Guid eventId, CreateEventNotificationRequest request, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<EventNotificationDto>(SendWithActorAsync(HttpMethod.Post, $"/events/{eventId}/notifications", actorId, ct, request), ct);
 
     /// <summary>Polls the outbox for pending, due deliveries.</summary>
     /// <param name="limit">Maximum number of rows to return.</param>
@@ -354,8 +355,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="pollId">The poll id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<PollDto>> ClosePollAsync(Guid pollId, CancellationToken ct = default) =>
-        SendAsync<PollDto>(http.PostAsync($"/polls/{pollId}/close", null, ct), ct);
+    public Task<ApiResult<PollDto>> ClosePollAsync(Guid pollId, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<PollDto>(SendWithActorAsync(HttpMethod.Post, $"/polls/{pollId}/close", actorId, ct), ct);
 
     /// <summary>Converts a closed time poll's winning slot into an event.</summary>
     /// <param name="pollId">The poll id.</param>
@@ -392,8 +393,8 @@ public sealed class CalCronyApiClient(HttpClient http)
     /// <param name="id">The template id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<Unit>> DeleteTemplateAsync(Guid id, CancellationToken ct = default) =>
-        SendAsync<Unit>(http.DeleteAsync($"/templates/{id}", ct), ct);
+    public Task<ApiResult<Unit>> DeleteTemplateAsync(Guid id, long? actorId = null, CancellationToken ct = default) =>
+        SendAsync<Unit>(SendWithActorAsync(HttpMethod.Delete, $"/templates/{id}", actorId, ct), ct);
 
     /// <summary>Starts a calendar OAuth link for a user.</summary>
     /// <param name="userId">The Discord user id.</param>
@@ -425,6 +426,33 @@ public sealed class CalCronyApiClient(HttpClient http)
 
     /// <summary>Empty payload marker for calls whose success carries no body.</summary>
     public readonly record struct Unit;
+
+    /// <summary>Sends a mutation naming the Discord user behind it via the actor header, so the
+    /// API's action log records the person rather than the bot. Calls whose body already carries
+    /// a user id (CreatorId/EditorId) don't need it; body-less deletes, skips, stops, closes, and
+    /// settings writes do. A null actor sends no header — the bot's own housekeeping paths.</summary>
+    /// <param name="method">The HTTP method.</param>
+    /// <param name="url">The route.</param>
+    /// <param name="actorId">The invoking Discord user's id, or null for system-initiated calls.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <param name="body">The JSON body, when the route takes one.</param>
+    /// <returns>The raw response.</returns>
+    private Task<HttpResponseMessage> SendWithActorAsync(
+        HttpMethod method, string url, long? actorId, CancellationToken ct, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body, body.GetType());
+        }
+
+        if (actorId is { } id)
+        {
+            request.Headers.Add(ActionLogHeaders.ActorUserId, id.ToString(CultureInfo.InvariantCulture));
+        }
+
+        return http.SendAsync(request, ct);
+    }
 
     private static async Task<ApiResult<T>> SendAsync<T>(Task<HttpResponseMessage> sending, CancellationToken ct)
     {

@@ -211,7 +211,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
-        var result = await api.DeleteTemplateAsync(template.Id);
+        var result = await api.DeleteTemplateAsync(template.Id, (long)Context.User.Id);
         await FollowupAsync(
             result.Success ? $"🗑️ Deleted template **{template.Name}**." : $"❌ {result.Error}",
             ephemeral: true);
