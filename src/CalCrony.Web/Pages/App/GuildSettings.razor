@@ -175,6 +175,9 @@ else
         // URL, and stamp the load so a slower, older response can't overwrite a newer guild's.
         var generation = ++loadGeneration;
         isManager = false; // never offer manager controls on the strength of the PREVIOUS guild's role
+        settings = null;   // nor show its timezone / native-events state while the new guild loads
+        timezoneInput = "";
+        mirrorInput = false;
         error = null;
         saveMessage = null;
         mirrorMessage = null;

@@ -289,6 +289,7 @@ public class PublicCalendarComponentTests : TestContext
         handler.Respond = req => req.RequestUri!.AbsolutePath switch
         {
             var p when p.EndsWith("/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(false, null, null, null), JsonWeb)),
+            "/guilds/1/settings" => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("America/Chicago", 5, true), JsonWeb)),
             var p when p.EndsWith("/settings") => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("UTC", 5), JsonWeb)),
             // Manager of guild 1 only.
             "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true), new WebGuildDto(2, "H", null, false)]), JsonWeb)),
@@ -302,9 +303,11 @@ public class PublicCalendarComponentTests : TestContext
 
         cut.Render(p => p.Add(x => x.GuildId, 2L)); // guild 2's first read is held open
 
-        // Guild 1's manager role must not leak into guild 2's loading window…
+        // Guild 1's manager role — and its timezone / native-events state — must not leak into
+        // guild 2's loading window…
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#gs-public-cal")));
         Assert.Empty(cut.FindAll("#gs-native"));
+        Assert.DoesNotContain("America/Chicago", cut.Markup);
         guild2Gate.SetResult();
 
         // …and once guild 2 loads, the member (non-manager) view is what renders.
