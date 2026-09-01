@@ -382,10 +382,6 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
 
-    /// <summary>Friendly pre-check that the bot can actually assign the picked role — grants are
-    /// best-effort later, so a bad pick would otherwise fail silently.</summary>
-    /// <param name="role">The picked role.</param>
-    /// <returns>Null when assignable, else the refusal message.</returns>
     /// <summary>Validates the roles mentioned inside <c>rsvp-options</c> the same way the
     /// <c>attendee-role</c> argument is validated. The syntax parser is pure and guild-less, so it
     /// yields raw snowflakes; without this a pasted id for a deleted, managed, @everyone, or
@@ -410,6 +406,10 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         return null;
     }
 
+    /// <summary>Friendly pre-check that the bot can actually assign the picked role — grants are
+    /// best-effort later, so a bad pick would otherwise fail silently.</summary>
+    /// <param name="role">The picked role.</param>
+    /// <returns>Null when assignable, else the refusal message.</returns>
     private string? ValidateAttendeeRole(IRole role) => AttendeeRoleSpec.Validate(
         role.Name,
         Context.Guild.CurrentUser.GuildPermissions.ManageRoles,
