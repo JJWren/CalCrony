@@ -151,6 +151,49 @@ public static class RoleSnapshotEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Trims one guild's snapshot to the roles its live restrictions still name: rows for
+    /// roles no restriction names anymore go, and members lose those ids (a member left holding
+    /// nothing watched loses the row). An ended event or a closed poll does not trigger a bot
+    /// sync, so without this the roles it named would stay held until the next full sync — and
+    /// the API must not keep who-holds-what for a role nothing references (ADR 0004).</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="guildId">The guild to trim.</param>
+    /// <param name="watchedRoleIds">The roles the guild's live restrictions name.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>How many role rows and member rows were removed.</returns>
+    internal static async Task<int> PruneSnapshotAsync(
+        CalCronyDbContext db, long guildId, IReadOnlyCollection<long> watchedRoleIds, CancellationToken cancellationToken)
+    {
+        var watched = watchedRoleIds.ToList();
+        var removedRoles = await db.GuildRoles
+            .Where(r => r.GuildId == guildId && !watched.Contains(r.RoleId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var removedMembers = 0;
+        var members = await db.GuildMemberRoles.Where(m => m.GuildId == guildId).ToListAsync(cancellationToken);
+        foreach (var member in members)
+        {
+            var kept = member.RoleIds.Where(watched.Contains).ToArray();
+            if (kept.Length == member.RoleIds.Length)
+            {
+                continue;
+            }
+
+            if (kept.Length == 0)
+            {
+                db.GuildMemberRoles.Remove(member);
+                removedMembers++;
+            }
+            else
+            {
+                member.RoleIds = kept;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return removedRoles + removedMembers;
+    }
+
     /// <summary>Drops the role snapshots of the given guilds and clears their sync markers — the
     /// bot-left path and the retention purge for guilds with no live restriction. Executes
     /// immediately (bulk statements), outside any pending SaveChanges.</summary>

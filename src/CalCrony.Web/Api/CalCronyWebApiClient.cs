@@ -6,8 +6,9 @@ namespace CalCrony.Web.Api;
 
 /// <summary>Uniform call result: Value on success, a display-ready Error otherwise. Status carries
 /// the HTTP status of a failed call (null when the API was unreachable) so pages can tell a
-/// missing resource from a rejected request or an outage.</summary>
-public record ApiResult<T>(T? Value, string? Error, System.Net.HttpStatusCode? Status = null)
+/// missing resource from a rejected request or an outage; Code carries the API's machine-readable
+/// reason when it sent one (see <see cref="ErrorCodes"/>).</summary>
+public record ApiResult<T>(T? Value, string? Error, System.Net.HttpStatusCode? Status = null, string? Code = null)
 {
     public bool Success => Error is null;
 
@@ -469,17 +470,17 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     /// when the body is one, else a status-code message.</summary>
     private static async Task<ApiResult<T>> FailureAsync<T>(HttpResponseMessage response, CancellationToken ct)
     {
-        string? error = null;
+        ErrorResponse? body = null;
         try
         {
-            error = (await response.Content.ReadFromJsonAsync<ErrorResponse>(ct))?.Error;
+            body = await response.Content.ReadFromJsonAsync<ErrorResponse>(ct);
         }
         catch
         {
             // Non-JSON error body; fall through to the status-code message.
         }
 
-        return new ApiResult<T>(default, error ?? $"API error {(int)response.StatusCode}.", response.StatusCode);
+        return new ApiResult<T>(default, body?.Error ?? $"API error {(int)response.StatusCode}.", response.StatusCode, body?.Code);
     }
 }
 

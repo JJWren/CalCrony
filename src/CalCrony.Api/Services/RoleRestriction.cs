@@ -1,3 +1,5 @@
+using NodaTime;
+
 namespace CalCrony.Api.Services;
 
 /// <summary>What a role check decided for one caller.</summary>
@@ -26,6 +28,21 @@ public readonly record struct RoleRestrictionResult(RoleRestrictionVerdict Verdi
 /// free of I/O so the whole matrix is directly testable.</summary>
 public static class RoleRestriction
 {
+    /// <summary>How long a guild's sync marker stays authoritative. The bot renews it by
+    /// reconciling every watched guild on a timer while it runs (RoleSnapshotReconcileService,
+    /// every 10 minutes), so a marker older than this means the bot has been gone long enough
+    /// that member pushes may have been missed — and the web fails closed instead of trusting
+    /// rows that may name former role holders. This is the "a long bot outage blocks restricted
+    /// RSVPs on the web" consequence ADR 0004 accepts, made concrete.</summary>
+    public static readonly Duration SnapshotMaxAge = Duration.FromMinutes(30);
+
+    /// <summary>Whether a sync marker is recent enough to answer for.</summary>
+    /// <param name="syncedAt">Guild.RolesSyncedAt.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>True when a sync happened within <see cref="SnapshotMaxAge"/>.</returns>
+    public static bool IsSnapshotFresh(Instant? syncedAt, Instant now) =>
+        syncedAt is { } at && now - at <= SnapshotMaxAge;
+
     /// <summary>Decides whether a member may take a restricted option. In order: an empty
     /// restriction or a bypass allows; a guild that has never been synced is unverifiable; roles
     /// the bot found deleted (a checked row with no name) drop out, and a restriction whose roles
@@ -34,7 +51,8 @@ public static class RoleRestriction
     /// means "not looked at since it became watched", never "not held"; otherwise the member is
     /// allowed exactly when they hold at least one remaining role.</summary>
     /// <param name="allowedRoleIds">The option's restriction (empty = unrestricted).</param>
-    /// <param name="rolesSynced">Whether the guild carries a sync marker (Guild.RolesSyncedAt).</param>
+    /// <param name="rolesSynced">Whether the guild carries a FRESH sync marker (see
+    /// <see cref="IsSnapshotFresh"/>) — an aged-out marker counts as none.</param>
     /// <param name="checkedRoles">Every GuildRoles row for the guild: role id to name, where a null
     /// name is the bot's tombstone for a role that no longer exists.</param>
     /// <param name="memberRoleIds">The watched roles the member holds per the snapshot (empty

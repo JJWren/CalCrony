@@ -1399,7 +1399,7 @@ public static class EventEndpoints
         // Signup restriction (ADR 0004): the bot checked Discord live before calling and is
         // trusted; a web caller is answered from the guild's role snapshot and fails closed.
         if (await RoleRestrictionGate.CheckAsync(
-                context, access, db, ev.GuildId, ev.CreatorId, option.AllowedRoleIds,
+                context, access, db, clock, ev.GuildId, ev.CreatorId, option.AllowedRoleIds,
                 "This option", "RSVP", cancellationToken) is { } restricted)
         {
             return restricted;

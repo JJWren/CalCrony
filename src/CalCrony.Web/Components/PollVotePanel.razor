@@ -51,9 +51,10 @@
 
     [Parameter] public EventCallback<PollDto> OnChanged { get; set; }
 
-    /// <summary>Raised when the API refused the vote on the caller's account — a role restriction
-    /// denied it (403) or could not be confirmed (409) — so the host can hide participation it
-    /// would refuse the same way. The refusal text itself is shown inline here, unchanged.</summary>
+    /// <summary>Raised when a role restriction refused the vote — denied (403) or unverifiable
+    /// (409), told apart from the route's other 403s and 409s by the API's error code — so the
+    /// host can hide participation it would refuse the same way. The refusal text itself is shown
+    /// inline here, unchanged.</summary>
     [Parameter] public EventCallback OnRefused { get; set; }
 
     /// <summary>Only used for non-anonymous polls.</summary>
@@ -101,7 +102,7 @@
         if (!result.Success || result.Value is null)
         {
             error = result.Error;
-            if (result.Status is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.Conflict)
+            if (result.Code == ErrorCodes.RoleRestricted)
             {
                 await OnRefused.InvokeAsync();
             }

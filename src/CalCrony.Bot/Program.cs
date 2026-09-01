@@ -32,6 +32,7 @@ builder.Services.AddSingleton<RoleSnapshotService>();
 
 builder.Services.AddHostedService<DiscordBotService>();
 builder.Services.AddHostedService<DeliveryPollerService>();
+builder.Services.AddHostedService<RoleSnapshotReconcileService>();
 
 var host = builder.Build();
 host.Run();

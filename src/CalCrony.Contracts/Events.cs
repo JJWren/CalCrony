@@ -408,4 +408,15 @@ public record TimeZoneOptionDto(string Id, string Label);
 
 /// <summary>Uniform error body every non-2xx JSON response carries.</summary>
 /// <param name="Error">The user-facing error text.</param>
-public record ErrorResponse(string Error);
+/// <param name="Code">A machine-readable reason, for the few failures a client acts on beyond
+/// showing the text (see <see cref="ErrorCodes"/>); null for everything else.</param>
+public record ErrorResponse(string Error, string? Code = null);
+
+/// <summary>The machine-readable codes an <see cref="ErrorResponse"/> may carry.</summary>
+public static class ErrorCodes
+{
+    /// <summary>A signup restriction refused the caller (403 — they lack the role) or could not
+    /// be evaluated for them (409 — the role snapshot is unverifiable; RSVP from Discord). Lets a
+    /// client tell a role refusal from the other 403s and 409s the same route returns.</summary>
+    public const string RoleRestricted = "role_restricted";
+}

@@ -126,7 +126,7 @@ public class RoleRestrictionComponentTests : TestContext
             "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(
                 new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(poll.GuildId, "G", null, false)]), JsonWeb)),
             var p when p.Contains("/votes/") => (HttpStatusCode.Conflict, JsonSerializer.Serialize(
-                new ErrorResponse("We can't confirm your roles right now — vote from Discord."), JsonWeb)),
+                new ErrorResponse("We can't confirm your roles right now — vote from Discord.", ErrorCodes.RoleRestricted), JsonWeb)),
             _ => (HttpStatusCode.OK, JsonSerializer.Serialize(poll, JsonWeb)),
         };
 
@@ -138,6 +138,31 @@ public class RoleRestrictionComponentTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("We can't confirm your roles right now — vote from Discord.", cut.Markup));
         Assert.DoesNotContain("Add an option", cut.Markup);
+    }
+
+    [Fact]
+    public async Task A_vote_refused_for_another_reason_keeps_the_add_option_form()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var poll = SamplePoll(allowUserOptions: true, allowedRoles: [Raiders]);
+        handler.Respond = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(
+                new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(poll.GuildId, "G", null, false)]), JsonWeb)),
+            // The same 409 status, but a vote race — not a role refusal, and carrying no code.
+            var p when p.Contains("/votes/") => (HttpStatusCode.Conflict, JsonSerializer.Serialize(
+                new ErrorResponse("Your vote changed at the same time — try again."), JsonWeb)),
+            _ => (HttpStatusCode.OK, JsonSerializer.Serialize(poll, JsonWeb)),
+        };
+
+        var cut = Render<PollDetail>(p => p.Add(x => x.PollId, poll.Id));
+        cut.WaitForAssertion(() => Assert.Contains("Add an option", cut.Markup));
+
+        await cut.FindAll("button").First(b => b.TextContent.Contains("a")).ClickAsync(new());
+
+        cut.WaitForAssertion(() => Assert.Contains("try again", cut.Markup));
+        Assert.Contains("Add an option", cut.Markup);
     }
 
     private static EventDto SampleEvent(params RsvpOptionDto[] options) => new(

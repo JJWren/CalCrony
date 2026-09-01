@@ -5,6 +5,7 @@ using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
@@ -39,7 +40,9 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         var refused = await bob.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{bobSession.UserId}",
             new RsvpRequest(ev.AttendingOption.Id));
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
-        Assert.Equal("This option is limited to @Raider.", (await Error(refused)).Error);
+        var error = await Error(refused);
+        Assert.Equal("This option is limited to @Raider.", error.Error);
+        Assert.Equal(ErrorCodes.RoleRestricted, error.Code); // tells the web it is a role refusal
 
         // The DTO carries the name for the web's chip.
         var role = Assert.Single(ev.Options[0].AllowedRoles!);
@@ -58,7 +61,9 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         var web = await carol.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{session.UserId}",
             new RsvpRequest(ev.AttendingOption!.Id));
         Assert.Equal(HttpStatusCode.Conflict, web.StatusCode);
-        Assert.Equal("We can't confirm your roles right now — RSVP from Discord.", (await Error(web)).Error);
+        var error = await Error(web);
+        Assert.Equal("We can't confirm your roles right now — RSVP from Discord.", error.Error);
+        Assert.Equal(ErrorCodes.RoleRestricted, error.Code);
 
         // The bot already checked Discord live before calling.
         var bot = await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{session.UserId}",
@@ -255,6 +260,33 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         var refused = await ivan.PutAsJsonAsync(
             $"/events/{unsynced.Id}/rsvps/{session.UserId}", new RsvpRequest(unsynced.AttendingOption!.Id));
         Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_snapshot_past_its_lease_fails_closed_until_the_bot_syncs_again()
+    {
+        const long guild = 12280;
+        var ev = await CreateAsync("Lease", allowedRoleIds: [RaiderRole], guildId: guild);
+        var (judy, session) = await fixture.LoginAsync(12281, (guild, "G", false));
+        await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
+
+        // The bot has been gone longer than the lease: its rows may name former holders, so the
+        // web stops answering from them even though Judy's row says she holds the role.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            await db.Guilds.Where(g => g.Id == guild).ExecuteUpdateAsync(s => s.SetProperty(
+                g => g.RolesSyncedAt,
+                SystemClock.Instance.GetCurrentInstant().Minus(RoleRestriction.SnapshotMaxAge + Duration.FromMinutes(1))));
+        }
+
+        var stale = await judy.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(ev.AttendingOption!.Id));
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+        // A fresh sync renews the lease.
+        await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
+        Assert.Equal(HttpStatusCode.OK, (await judy.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
     }
 
     private async Task<EventDto> CreateAsync(

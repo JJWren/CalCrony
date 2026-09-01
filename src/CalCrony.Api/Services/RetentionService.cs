@@ -45,13 +45,21 @@ public sealed class RetentionService(
             .Where(a => a.CreatedAt < actionLogCutoff)
             .ExecuteDeleteAsync(cancellationToken);
 
-        var liveRestrictionGuilds = (await RoleWatchList.WatchedByGuildAsync(db, cancellationToken)).Keys.ToList();
-        var staleSnapshotGuilds = await db.Guilds
-            .Where(g => g.RolesSyncedAt != null && !liveRestrictionGuilds.Contains(g.Id))
+        var watched = await RoleWatchList.WatchedByGuildAsync(db, cancellationToken);
+        var liveRestrictionGuilds = watched.Keys.ToList();
+        var syncedGuilds = await db.Guilds
+            .Where(g => g.RolesSyncedAt != null)
             .Select(g => g.Id)
             .ToListAsync(cancellationToken);
+        // A guild with no live restriction left loses its snapshot outright; one that still has
+        // some keeps it, trimmed to exactly the roles those restrictions name.
         var roleSnapshots = await Endpoints.RoleSnapshotEndpoints.DropSnapshotsAsync(
-            db, staleSnapshotGuilds, cancellationToken);
+            db, [.. syncedGuilds.Where(id => !liveRestrictionGuilds.Contains(id))], cancellationToken);
+        foreach (var guildId in syncedGuilds.Where(liveRestrictionGuilds.Contains))
+        {
+            roleSnapshots += await Endpoints.RoleSnapshotEndpoints.PruneSnapshotAsync(
+                db, guildId, watched[guildId], cancellationToken);
+        }
 
         var total = deliveries + loginStates + refreshTokens + linkTokens + actionLog + roleSnapshots;
         if (total > 0)

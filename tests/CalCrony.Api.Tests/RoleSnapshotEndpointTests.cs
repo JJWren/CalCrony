@@ -170,6 +170,34 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
     }
 
     [Fact]
+    public async Task Retention_trims_a_kept_snapshot_to_the_roles_still_named()
+    {
+        const long guild = 12160;
+        const long stillNamed = 995160;
+        const long endedOnly = 995161;
+        await CreateEventAsync(guild, "Still live", [stillNamed]);
+        var ended = await CreateEventAsync(guild, "Ends", [endedOnly]);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(stillNamed, "Raider"), new RoleNameDto(endedOnly, "Guest")],
+            [new MemberRolesDto(1601, [stillNamed, endedOnly]), new MemberRolesDto(1602, [endedOnly])]))).EnsureSuccessStatusCode();
+
+        // The event naming Guest ends; nothing tells the bot to re-sync, so the purge must trim.
+        (await Client.PatchAsJsonAsync($"/events/{ended.Id}", new UpdateEventRequest(
+            CreatorId, Status: EventStatus.Ended))).EnsureSuccessStatusCode();
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
+            await retention.PurgeAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
+        }
+
+        Assert.Equal(new[] { stillNamed }, (await RolesAsync(guild)).Keys);
+        var members = await MembersAsync(guild);
+        Assert.Equal(new[] { 1601L }, members.Keys);           // 1602 held only the ended role
+        Assert.Equal(new[] { stillNamed }, members[1601]);     // 1601 lost the ended role's id
+        Assert.NotNull(await SyncedAtAsync(guild));            // the snapshot itself stays
+    }
+
+    [Fact]
     public async Task The_bot_leaving_drops_the_snapshot()
     {
         const long guild = 12150;

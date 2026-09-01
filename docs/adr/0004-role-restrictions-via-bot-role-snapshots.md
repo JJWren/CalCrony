@@ -12,7 +12,9 @@ Two tables, both following the `Channels` model — rows exist only for what Cal
 
 - **`GuildRoles`** — name snapshots for *watched* roles only (a role named by at least one live
   restriction). Gives the web real role names instead of the raw `#123456` the §3.6 chip prints
-  today, and its absence is how a deleted role is recognised.
+  today. A row with no name is the bot's tombstone for a role it checked and found deleted; no
+  row at all means the role has not been checked since it became watched (see the refinement
+  below — the two must not be confused).
 - **`GuildMemberRoles`** — for each member holding at least one watched role, which ones. Members
   holding none of them have no row at all, so the table stays proportional to restrictions in use,
   not to server size.
@@ -41,16 +43,19 @@ when snapshots lag. The API trusts a bot-authenticated call and checks the snaps
 caller. Snapshots therefore exist to serve the web, and nothing else.
 
 **The web fails closed.** A web caller whose roles cannot be confirmed — no sync marker for the
-guild, or the role is not in the watched set — is refused with "we can't confirm your roles right
-now; RSVP from Discord", not admitted. This is the deliberate inverse of ADR 0001's rule for names:
-a missing name is omitted and the page still renders, but a missing *authorization* fact cannot be
-waved through. The cost is that a long bot outage blocks restricted RSVPs on the web while leaving
-them working in Discord, which is the correct direction to fail.
+guild, a marker older than its 30-minute lease, or a role with no checked row — is refused with "we
+can't confirm your roles right now; RSVP from Discord", not admitted. This is the deliberate
+inverse of ADR 0001's rule for names: a missing name is omitted and the page still renders, but a
+missing *authorization* fact cannot be waved through. The bot renews the marker by reconciling
+every watched guild every 10 minutes while it runs, so an expired marker means the bot has been
+gone long enough that member changes may have been missed. The cost is that a long bot outage
+blocks restricted RSVPs on the web while leaving them working in Discord, which is the correct
+direction to fail.
 
-**A deleted role is ignored, not enforced.** A restriction naming a role with no `GuildRoles` row
-after a sync is treated as vacuous rather than unsatisfiable, so deleting a role cannot silently
-lock a server out of its own events. A restriction whose roles have all been deleted is therefore
-no restriction at all.
+**A deleted role is ignored, not enforced.** A restriction naming a role the bot has checked and
+found gone (a `GuildRoles` row with no name) is treated as vacuous rather than unsatisfiable, so
+deleting a role cannot silently lock a server out of its own events. A restriction whose roles have
+all been deleted is therefore no restriction at all.
 
 **The restriction gates entry only.** Losing the role afterwards never revokes a seat. There is no
 sweep, no delivery type, and no background reconciliation of past RSVPs against present roles.
@@ -60,3 +65,20 @@ snapshots covered guilds and channels; `UserGuildMembership` comes from the user
 Role membership is written *about* someone by the bot, so it needs disclosure in the privacy policy
 alongside the name snapshots, and rows must be dropped when the restrictions referencing a role go
 away, when the role is deleted, and when the bot leaves the guild.
+
+## Refinements made during implementation (PR #150)
+
+**Tombstones, not absence.** The design pass read a role's *absence* from `GuildRoles` after a
+sync as "deleted, therefore vacuous". That cannot be told apart from "restricted after the last
+sync and not yet checked", and reading the latter as vacuous would admit web callers without the
+role until the next sync — the fail-open this ADR rejects. So the bot reports every watched role it
+was asked about, and a role it finds gone is stored as a row with a null name. A named row is
+known, a tombstone is deleted (vacuous), and no row is unchecked (unverifiable). The bot also
+re-syncs a guild when a watched role is deleted or renamed, so a deletion becomes vacuous within
+seconds rather than at the next reconcile.
+
+**A bounded lease on the sync marker.** "Staleness is seconds while the bot runs" only holds while
+it runs. Without a bound, a bot that has been down for a day would still answer for members who
+lost a role in the meantime. The marker therefore expires 30 minutes after the last sync; the bot's
+periodic reconcile keeps a live bot well inside it, and retention trims each guild's rows to the
+roles its live restrictions still name.

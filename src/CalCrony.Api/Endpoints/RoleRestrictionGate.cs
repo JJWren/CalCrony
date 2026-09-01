@@ -3,6 +3,7 @@ using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
@@ -17,6 +18,7 @@ internal static class RoleRestrictionGate
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source (the sync marker's lease is measured against it).</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="creatorId">The event or poll creator, who bypasses.</param>
     /// <param name="allowedRoleIds">The restriction (empty = unrestricted, always passes).</param>
@@ -28,6 +30,7 @@ internal static class RoleRestrictionGate
         HttpContext context,
         GuildAccessService access,
         CalCronyDbContext db,
+        IClock clock,
         long guildId,
         long creatorId,
         long[] allowedRoleIds,
@@ -53,15 +56,16 @@ internal static class RoleRestrictionGate
             return null;
         }
 
-        // One guild-scoped lookup: the sync marker, every watched role (with its tombstone
-        // state), and this member's held set.
+        // One guild-scoped lookup: the sync marker, THIS restriction's roles (with their
+        // tombstone state — the rest of the guild's watched set is irrelevant here), and this
+        // member's held set.
         var snapshot = await db.Guilds
             .Where(g => g.Id == guildId)
             .Select(g => new
             {
                 g.RolesSyncedAt,
                 Roles = db.GuildRoles
-                    .Where(r => r.GuildId == guildId)
+                    .Where(r => r.GuildId == guildId && allowedRoleIds.Contains(r.RoleId))
                     .Select(r => new { r.RoleId, r.Name })
                     .ToList(),
                 Held = db.GuildMemberRoles
@@ -74,16 +78,24 @@ internal static class RoleRestrictionGate
         IReadOnlyDictionary<long, string?> checkedRoles =
             snapshot?.Roles.ToDictionary(r => r.RoleId, r => r.Name) ?? new Dictionary<long, string?>();
         var result = RoleRestriction.Evaluate(
-            allowedRoleIds, snapshot?.RolesSyncedAt is not null, checkedRoles, snapshot?.Held ?? [], bypass: false);
+            allowedRoleIds,
+            RoleRestriction.IsSnapshotFresh(snapshot?.RolesSyncedAt, clock.GetCurrentInstant()),
+            checkedRoles, snapshot?.Held ?? [], bypass: false);
 
+        // Both refusals carry the same code: the route's other 403s and 409s (self-only, closed,
+        // a vote race) are not role refusals, and a client hiding participation on a role refusal
+        // must not hide it on those.
         return result.Verdict switch
         {
             RoleRestrictionVerdict.Allowed => null,
             RoleRestrictionVerdict.Denied => Results.Json(
-                new ErrorResponse($"{subject} is limited to {RoleRestriction.DescribeRoles(result.EffectiveRoleIds, checkedRoles)}."),
+                new ErrorResponse(
+                    $"{subject} is limited to {RoleRestriction.DescribeRoles(result.EffectiveRoleIds, checkedRoles)}.",
+                    ErrorCodes.RoleRestricted),
                 statusCode: StatusCodes.Status403Forbidden),
             _ => Results.Conflict(new ErrorResponse(
-                $"We can't confirm your roles right now — {discordVerb} from Discord.")),
+                $"We can't confirm your roles right now — {discordVerb} from Discord.",
+                ErrorCodes.RoleRestricted)),
         };
     }
 }

@@ -309,7 +309,7 @@ public static class PollEndpoints
         // never does (the same rule as un-RSVPing a restricted option).
         if ((request.OptionIds ?? []).Count > 0
             && await RoleRestrictionGate.CheckAsync(
-                context, access, db, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
+                context, access, db, clock, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
                 "This poll", "vote", cancellationToken) is { } restricted)
         {
             return restricted;
@@ -406,7 +406,7 @@ public static class PollEndpoints
 
         // A voter-added option is a form of participation, so the restriction gates it too.
         if (await RoleRestrictionGate.CheckAsync(
-                context, access, db, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
+                context, access, db, clock, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
                 "This poll", "add options", cancellationToken) is { } restricted)
         {
             return restricted;

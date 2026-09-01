@@ -1,4 +1,5 @@
 using CalCrony.Api.Services;
+using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
@@ -95,6 +96,18 @@ public class RoleRestrictionTests
         var result = RoleRestriction.Evaluate([Tank, Unchecked], rolesSynced: true, Checked, [Tank], bypass: false);
 
         Assert.Equal(RoleRestrictionVerdict.Unverifiable, result.Verdict);
+    }
+
+    [Fact]
+    public void A_sync_marker_is_fresh_only_inside_its_lease()
+    {
+        var now = Instant.FromUtc(2026, 9, 1, 12, 0);
+
+        Assert.False(RoleRestriction.IsSnapshotFresh(null, now));
+        Assert.True(RoleRestriction.IsSnapshotFresh(now.Minus(Duration.FromMinutes(29)), now));
+        Assert.True(RoleRestriction.IsSnapshotFresh(now.Minus(RoleRestriction.SnapshotMaxAge), now));
+        // Past the lease the bot may have missed member changes — back to unverifiable.
+        Assert.False(RoleRestriction.IsSnapshotFresh(now.Minus(Duration.FromMinutes(31)), now));
     }
 
     [Theory]
