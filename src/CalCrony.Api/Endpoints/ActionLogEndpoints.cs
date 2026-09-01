@@ -160,8 +160,9 @@ public static class ActionLogEndpoints
         return Results.Ok(new ActionLogPageDto(entries, hasMore ? FormatCursor(rows[^1]) : null));
     }
 
-    /// <summary>Streams every event the guild still has (retention already bounds what is kept,
-    /// so there is no separate window) with one row per RSVP — see CsvExport for the row model.
+    /// <summary>Streams every event the guild still has, one row per RSVP (see CsvExport for the
+    /// row model). Retention never purges events — only operational records and action-log
+    /// entries — so the row count is unbounded, which is why this streams in chunks.
     /// Events are walked in <see cref="ExportChunkSize"/> keyset chunks by id, each chunk's RSVPs
     /// fetched in one joined query, and rows are flushed to the response as they are written, so
     /// memory never holds more than one chunk. The download itself is logged: exporting attendee
