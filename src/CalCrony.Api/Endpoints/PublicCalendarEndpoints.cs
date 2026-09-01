@@ -121,7 +121,7 @@ public static partial class PublicCalendarEndpoints
             ActionLog.Record(
                 db, guildId, ActionLog.ActorFor(context), ActionLogAction.SettingsChanged, ActionTargetType.Guild, null,
                 summary, clock.GetCurrentInstant(),
-                new { fields = new[] { "public calendar" }, enabled = request.Enabled, regenerated = request.Enabled && request.Regenerate });
+                new { fields = new[] { "public calendar" } });
         }
 
         await db.SaveChangesAsync(cancellationToken);

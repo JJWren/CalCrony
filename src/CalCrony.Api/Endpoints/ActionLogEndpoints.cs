@@ -162,7 +162,7 @@ public static class ActionLogEndpoints
 
     /// <summary>Streams every event the guild still has (retention already bounds what is kept,
     /// so there is no separate window) with one row per RSVP — see CsvExport for the row model.
-    /// Events are walked in <see cref="ExportChunkSize"/> keyset chunks, each chunk's RSVPs
+    /// Events are walked in <see cref="ExportChunkSize"/> keyset chunks by id, each chunk's RSVPs
     /// fetched in one joined query, and rows are flushed to the response as they are written, so
     /// memory never holds more than one chunk. The download itself is logged: exporting attendee
     /// data is a management action a server's other managers should be able to see.</summary>
@@ -171,6 +171,7 @@ public static class ActionLogEndpoints
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="db">The database context.</param>
     /// <param name="clock">The time source.</param>
+    /// <param name="chunkHook">The test seam invoked after each chunk is flushed.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> ExportEventsCsv(
@@ -179,6 +180,7 @@ public static class ActionLogEndpoints
         long guildId,
         CalCronyDbContext db,
         IClock clock,
+        ExportChunkHook chunkHook,
         CancellationToken cancellationToken)
     {
         if (await EventEndpoints.GuardGuildManageAsync(
@@ -194,7 +196,7 @@ public static class ActionLogEndpoints
         var eventCount = await db.Events.CountAsync(e => e.GuildId == guildId, cancellationToken);
         ActionLog.Record(
             db, guildId, ActionLog.ActorFor(context), ActionLogAction.EventsExported, ActionTargetType.Guild, null,
-            $"Exported the events CSV ({eventCount} events)", now, new { eventCount });
+            $"Exported the events CSV ({eventCount} events)", now);
         await db.SaveChangesAsync(cancellationToken);
 
         var fileName = $"calcrony-events-{guildId}-{now.InUtc().Date:yyyyMMdd}.csv";
@@ -202,18 +204,23 @@ public static class ActionLogEndpoints
         // response body once headers are committed; the scoped DbContext outlives the callback
         // because result execution happens inside the request's scope.
         return Results.Stream(
-            body => WriteExportAsync(db, guildId, body, context.RequestAborted),
+            body => WriteExportAsync(db, guildId, body, chunkHook, context.RequestAborted),
             "text/csv; charset=utf-8",
             fileName);
     }
 
     /// <summary>Writes the BOM, header, and every event's rows to the response body in keyset
-    /// chunks ordered by (StartsAt, Id) — the same order the file presents.</summary>
+    /// chunks ordered by event id. The id is the only key that cannot change under a running
+    /// export — a start time edited mid-stream would move an event across a StartsAt cursor and
+    /// export it twice or not at all — so rows come out in id order (see CsvExport: sort by
+    /// <c>starts_at_utc</c> in the spreadsheet) and each event appears exactly once.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="body">The response body.</param>
+    /// <param name="chunkHook">The test seam invoked after each chunk is flushed.</param>
     /// <param name="cancellationToken">Cancels when the client goes away.</param>
-    private static async Task WriteExportAsync(CalCronyDbContext db, long guildId, Stream body, CancellationToken cancellationToken)
+    private static async Task WriteExportAsync(
+        CalCronyDbContext db, long guildId, Stream body, ExportChunkHook chunkHook, CancellationToken cancellationToken)
     {
         await body.WriteAsync(CsvExport.Utf8Bom, cancellationToken);
 
@@ -233,21 +240,20 @@ public static class ActionLogEndpoints
             builder.Clear();
         }
 
-        Instant? afterStart = null;
-        var afterId = Guid.Empty;
+        Guid? afterId = null;
+        var chunkIndex = 0;
         while (true)
         {
             var query = db.Events.AsNoTracking().Where(e => e.GuildId == guildId);
-            if (afterStart is { } start)
+            if (afterId is { } last)
             {
-                // Keyset on (StartsAt asc, Id asc): strictly later, or same instant with a larger
-                // id — the same total order the sort below uses, so chunks never overlap or skip.
-                query = query.Where(e => e.StartsAt > start || (e.StartsAt == start && e.Id.CompareTo(afterId) > 0));
+                // Keyset on the immutable Id: an event edited while the export runs stays put in
+                // this order, so chunks never overlap or skip.
+                query = query.Where(e => e.Id.CompareTo(last) > 0);
             }
 
             var chunk = await query
-                .OrderBy(e => e.StartsAt)
-                .ThenBy(e => e.Id)
+                .OrderBy(e => e.Id)
                 .Take(ExportChunkSize)
                 .Select(e => new CsvExport.EventRow(
                     e.Id, e.Title, e.StartsAt, e.TimeZone, e.DurationMinutes, e.Location, e.Status, e.SeriesId, e.ChannelId, e.CreatorId))
@@ -258,10 +264,10 @@ public static class ActionLogEndpoints
             }
 
             // One joined query for the chunk's RSVPs (no cartesian Include): an RSVP always
-            // references one of its event's options, so the inner join drops nothing.
+            // references one of its event's options, so the inner join drops nothing. (The record
+            // is constructed only in the final Select — EF can't translate a constructor call
+            // that an OrderBy still has to see through.)
             var ids = chunk.Select(e => e.Id).ToList();
-            // (The record is constructed only in the final Select — EF can't translate a
-            // constructor call that an OrderBy still has to see through.)
             var rsvps = await db.Rsvps.AsNoTracking()
                 .Where(r => ids.Contains(r.EventId))
                 .Join(db.RsvpOptions, r => r.OptionId, o => o.Id, (r, o) => new { Rsvp = r, Option = o })
@@ -279,12 +285,17 @@ public static class ActionLogEndpoints
             }
 
             await FlushChunkAsync();
+            if (chunkHook.AfterChunkFlushed is { } afterChunk)
+            {
+                await afterChunk(chunkIndex, cancellationToken);
+            }
+
+            chunkIndex++;
             if (chunk.Count < ExportChunkSize)
             {
                 break;
             }
 
-            afterStart = chunk[^1].StartsAt;
             afterId = chunk[^1].Id;
         }
 

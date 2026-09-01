@@ -11,6 +11,10 @@ namespace CalCrony.Api.Services;
 /// memory. Pure text assembly (RFC 4180: CRLF rows, quote-when-needed, doubled inner quotes),
 /// unit-testable without a database; the endpoint adds the UTF-8 BOM that makes Excel read
 /// emoji option emotes correctly.
+/// <para>Row order: events are emitted in <b>event id</b> order, not chronologically. The id is
+/// the only key that cannot change while the export streams (a start time edited mid-download
+/// would otherwise duplicate or drop the event), so exactly-once wins over pre-sorted output —
+/// sort by <c>starts_at_utc</c> in the spreadsheet.</para>
 /// <para>Formula injection: spreadsheet apps evaluate a cell that begins with <c>=</c>, <c>+</c>,
 /// <c>-</c>, <c>@</c>, tab, CR, or LF as a formula, and titles, locations, and option
 /// emotes/labels are member-controlled text. Those cells are neutralized by prefixing a single

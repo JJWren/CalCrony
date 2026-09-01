@@ -138,6 +138,10 @@ else
         filterError = null;
         exportMessage = null;
         managerKnown = false;
+        // The role is per-guild state too: carrying the previous guild's "manager" into the next
+        // guild's load would show its export button (and let it fire an unauthorized request)
+        // until the lookup lands.
+        isManager = false;
 
         var myGuilds = await Api.GetMyGuildsAsync();
         if (generation != loadGeneration)
@@ -240,11 +244,12 @@ else
             return;
         }
 
-        var file = result.Value;
-        // The one byte[] the client read is streamed to JS as-is (no Base64 round-trip): a
-        // DotNetStreamReference hands the browser the bytes for its Blob directly. The JS
-        // runtime owns the reference from here — it disposes the stream once JS has read it.
-        var streamRef = new DotNetStreamReference(new MemoryStream(file.Bytes, writable: false));
+        // The live response stream goes to JS as-is: nothing is buffered on the .NET side, the
+        // browser reads it straight into the Blob. calcronyDownload awaits the read before it
+        // returns, so the response can be disposed once the interop call completes — and must
+        // not be before, hence the using spans the await.
+        using var file = result.Value;
+        using var streamRef = new DotNetStreamReference(file.Content, leaveOpen: true);
         await Js.InvokeVoidAsync("calcronyDownload", file.FileName, streamRef, file.ContentType);
         exportMessage = $"⬇ Downloaded {file.FileName}.";
         // The export itself is logged — show it without making the user refresh.

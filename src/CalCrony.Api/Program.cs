@@ -32,6 +32,8 @@ builder.Services.AddSingleton<NaturalDateTimeParser>();
 builder.Services.AddScoped<DeliveryScheduler>();
 builder.Services.AddScoped<SeriesMaterializer>();
 builder.Services.AddScoped<RetentionService>();
+// Test seam for the streaming CSV export (see ExportChunkHook); a no-op in production.
+builder.Services.AddSingleton(new ExportChunkHook());
 
 builder.Services.AddDataProtection()
     .SetApplicationName("CalCrony.Api")

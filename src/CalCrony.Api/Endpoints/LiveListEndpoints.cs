@@ -71,7 +71,7 @@ public static class LiveListEndpoints
             db, guildId, Services.ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.LiveListCreated,
             ActionTargetType.LiveList, list.Id,
             $"Created a live list (showing up to {list.Limit} events)", list.CreatedAt,
-            new { channelId = list.ChannelId, limit = list.Limit });
+            new { channelId = list.ChannelId });
 
         try
         {

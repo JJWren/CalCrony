@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using CalCrony.Contracts;
+using Microsoft.AspNetCore.Components.WebAssembly.Http;
 
 namespace CalCrony.Web.Api;
 
@@ -381,37 +382,44 @@ public sealed class CalCronyWebApiClient(HttpClient http)
         return SendAsync<ActionLogPageDto>(http.GetAsync($"/guilds/{guildId}/actions?{string.Join("&", query)}", ct), ct);
     }
 
-    /// <summary>Downloads the server's events + RSVPs CSV (managers only). The bytes come back
-    /// through the authenticated client — the access token lives only in memory, so a plain
-    /// link to the API could never carry it — and the page hands them to the browser as a file.</summary>
+    /// <summary>Opens the server's events + RSVPs CSV (managers only) as a live response stream.
+    /// The request goes through the authenticated client — the access token lives only in
+    /// memory, so a plain link to the API could never carry it — with headers-only completion
+    /// and browser response streaming on, so nothing is buffered here: the page hands the
+    /// stream itself to the browser, and the caller disposes the result once JS has read it.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="ct">Cancels the request.</param>
-    /// <returns>The call result: the file on success, a display-ready error otherwise.</returns>
+    /// <returns>The call result: the open file on success (dispose it), a display-ready error otherwise.</returns>
     public async Task<ApiResult<DownloadedFile>> DownloadEventsCsvAsync(long guildId, CancellationToken ct = default)
     {
         HttpResponseMessage response;
         try
         {
-            response = await http.GetAsync($"/guilds/{guildId}/export/events.csv", ct);
+            var request = new HttpRequestMessage(HttpMethod.Get, $"/guilds/{guildId}/export/events.csv");
+            // Without this the WASM runtime buffers the whole body before ReadAsStreamAsync
+            // returns; with it the stream below is the browser's own ReadableStream.
+            request.SetBrowserResponseStreamingEnabled(true);
+            response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         }
         catch (HttpRequestException ex)
         {
             return new ApiResult<DownloadedFile>(default, $"API unreachable: {ex.Message}");
         }
 
-        using (response)
+        if (!response.IsSuccessStatusCode)
         {
-            if (!response.IsSuccessStatusCode)
+            using (response)
             {
                 return await FailureAsync<DownloadedFile>(response, ct);
             }
-
-            var disposition = response.Content.Headers.ContentDisposition;
-            var fileName = disposition?.FileNameStar ?? disposition?.FileName?.Trim('"') ?? $"calcrony-events-{guildId}.csv";
-            var contentType = response.Content.Headers.ContentType?.ToString() ?? "text/csv";
-            return new ApiResult<DownloadedFile>(
-                new DownloadedFile(fileName, contentType, await response.Content.ReadAsByteArrayAsync(ct)), null);
         }
+
+        var disposition = response.Content.Headers.ContentDisposition;
+        var fileName = disposition?.FileNameStar ?? disposition?.FileName?.Trim('"') ?? $"calcrony-events-{guildId}.csv";
+        var contentType = response.Content.Headers.ContentType?.ToString() ?? "text/csv";
+        // Ownership of the response moves into the file; the stream is the content stream itself.
+        return new ApiResult<DownloadedFile>(
+            new DownloadedFile(fileName, contentType, await response.Content.ReadAsStreamAsync(ct), response), null);
     }
 
     /// <summary>Empty payload marker for calls whose success carries no body.</summary>
@@ -463,8 +471,28 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     }
 }
 
-/// <summary>A file fetched through the authenticated API client, ready to hand to the browser.</summary>
-/// <param name="FileName">The server-suggested file name.</param>
-/// <param name="ContentType">The response media type.</param>
-/// <param name="Bytes">The file contents.</param>
-public record DownloadedFile(string FileName, string ContentType, byte[] Bytes);
+/// <summary>An open download fetched through the authenticated API client: the live response
+/// body as a stream plus the headers the browser needs. Owns the underlying response — dispose
+/// it only after the consumer (JS, via a DotNetStreamReference) has finished reading.</summary>
+/// <param name="fileName">The server-suggested file name.</param>
+/// <param name="contentType">The response media type.</param>
+/// <param name="content">The response body stream (not buffered).</param>
+/// <param name="response">The response that owns <paramref name="content"/>.</param>
+public sealed class DownloadedFile(string fileName, string contentType, Stream content, HttpResponseMessage response) : IDisposable
+{
+    /// <summary>The server-suggested file name.</summary>
+    public string FileName { get; } = fileName;
+
+    /// <summary>The response media type.</summary>
+    public string ContentType { get; } = contentType;
+
+    /// <summary>The response body stream, read straight from the wire.</summary>
+    public Stream Content { get; } = content;
+
+    /// <summary>Closes the body stream and the response it belongs to.</summary>
+    public void Dispose()
+    {
+        Content.Dispose();
+        response.Dispose();
+    }
+}

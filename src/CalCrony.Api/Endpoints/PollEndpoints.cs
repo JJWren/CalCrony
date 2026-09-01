@@ -171,7 +171,7 @@ public static class PollEndpoints
             db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.PollCreated,
             ActionTargetType.Poll, poll.Id,
             $"Created {(poll.IsTimePoll ? "time poll" : "poll")} {ActionLog.Quote(question)}",
-            now, new { timePoll = poll.IsTimePoll, optionCount = options.Count });
+            now);
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/polls/{poll.Id}", ToDto(poll, context));

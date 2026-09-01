@@ -3,7 +3,11 @@ using System.Net.Http.Json;
 using System.Text;
 using CalCrony.Api.Data;
 using CalCrony.Api.Endpoints;
+using CalCrony.Api.Services;
 using CalCrony.Contracts;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -158,6 +162,9 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         Assert.StartsWith("Removed a reminder", page.Entries[0].Summary);
         Assert.Equal(13145, page.Entries[1].ActorUserId);
         Assert.Contains("30 min before", page.Entries[1].Summary);
+        // Reminder details carry the change kind and scope, not the lead time or message.
+        Assert.Equal("""{"fields":["reminder added"],"scope":null}""", page.Entries[1].DetailsJson);
+        Assert.Equal("""{"fields":["reminder removed"],"scope":null}""", page.Entries[0].DetailsJson);
         Assert.Equal(13144, page.Entries[2].ActorUserId);
         Assert.All(page.Entries.Skip(2).Take(3), e => Assert.Equal(template.Id, e.TargetId));
         Assert.Contains("“Standard”", page.Entries[3].Summary);
@@ -192,7 +199,16 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         Assert.Equal("Changed server settings — native events", page.Entries[3].Summary);
         Assert.Equal(13152, page.Entries[3].ActorUserId);
         Assert.Equal("Changed server settings — timezone, default channel", page.Entries[4].Summary);
-        Assert.Contains("Europe/Berlin", page.Entries[4].DetailsJson);
+        // Details name the changed fields only — never the submitted values (the log's contract
+        // and the privacy statement): no zone id, channel id, or flag value anywhere.
+        Assert.Equal("""{"fields":["timezone","default channel"]}""", page.Entries[4].DetailsJson);
+        Assert.Equal("""{"fields":["native events"]}""", page.Entries[3].DetailsJson);
+        Assert.All(page.Entries, e =>
+        {
+            Assert.DoesNotContain("Europe/Berlin", e.DetailsJson ?? "");
+            Assert.DoesNotContain(ChannelId.ToString(), e.DetailsJson ?? "");
+            Assert.DoesNotContain("true", e.DetailsJson ?? "");
+        });
     }
 
     [Fact]
@@ -396,9 +412,129 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
             }
         }
 
-        var expectedOrder = seeded.OrderBy(e => e.StartsAt).ThenBy(e => e.Id).Select(e => e.Id).ToList();
+        // Output is in event-id order — the immutable keyset the walk pages by (see CsvExport).
+        var expectedOrder = seeded.OrderBy(e => e.Id).Select(e => e.Id).ToList();
         Assert.Equal(expectedOrder, lines.Skip(1).Select(l => Guid.Parse(l[..36])).Distinct().ToList());
         Assert.Contains($"{eventCount} events", (await ListAsync(guildId, client: manager, query: "action=EventsExported")).Entries.Single().Summary);
+    }
+
+    [Fact]
+    public async Task Csv_export_is_exactly_once_when_start_times_move_between_chunks()
+    {
+        const long guildId = 13230;
+        const int eventCount = ActionLogEndpoints.ExportChunkSize + 20; // two chunks
+        var baseStart = Instant.FromUtc(2026, 10, 1, 18, 0);
+        var seeded = new List<Event>();
+        await using (var seed = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            db.Guilds.Add(new Guild { Id = guildId });
+            for (var i = 0; i < eventCount; i++)
+            {
+                var ev = new Event
+                {
+                    Id = Guid.NewGuid(), GuildId = guildId, CreatorId = 13231, Title = $"Mover {i:000}",
+                    StartsAt = baseStart.Plus(Duration.FromHours(i)), TimeZone = "UTC", ChannelId = ChannelId,
+                    Status = EventStatus.Scheduled, CreatedAt = baseStart,
+                    Options = [new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", IsAttending = true }],
+                };
+                seeded.Add(ev);
+                db.Events.Add(ev);
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        // The walk pages by id, so "first chunk" = the 200 smallest ids. Between the two chunks
+        // the hook moves an already-exported event far into the future and a not-yet-exported one
+        // far into the past — the exact edits that would double or drop a row under a StartsAt
+        // cursor.
+        var byId = seeded.OrderBy(e => e.Id).ToList();
+        var exported = byId[0];
+        var pending = byId[^1];
+        var movedForward = baseStart.Plus(Duration.FromDays(400));
+        var movedBack = baseStart.Minus(Duration.FromDays(400));
+        // The production singleton is the seam: set the delegate for this request, clear it after
+        // (a second host via WithWebHostBuilder would rebuild the fixture's fakes under the base
+        // server's feet).
+        var hook = fixture.Factory.Services.GetRequiredService<ExportChunkHook>();
+        var hookRan = false;
+        hook.AfterChunkFlushed = async (chunk, ct) =>
+        {
+            if (chunk != 0)
+            {
+                return;
+            }
+
+            hookRan = true;
+            await using var scope = fixture.Factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            await db.Events.Where(e => e.Id == exported.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.StartsAt, movedForward), ct);
+            await db.Events.Where(e => e.Id == pending.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.StartsAt, movedBack), ct);
+        };
+
+        string[] lines;
+        try
+        {
+            var (manager, _) = await fixture.LoginAsync(13232, (guildId, "G", true));
+            var response = await manager.GetAsync($"/guilds/{guildId}/export/events.csv");
+            response.EnsureSuccessStatusCode();
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            lines = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        }
+        finally
+        {
+            hook.AfterChunkFlushed = null;
+        }
+
+        Assert.True(hookRan);
+        var ids = lines.Skip(1).Select(l => Guid.Parse(l[..36])).ToList();
+        Assert.Equal(eventCount, ids.Count);
+        Assert.Equal(eventCount, ids.Distinct().Count());
+        Assert.Equal(byId.Select(e => e.Id), ids); // every event exactly once, id order
+        // The early event went out before its edit (its original start); the late one carries
+        // the start it was moved to — under a StartsAt cursor the first would have repeated at
+        // the end and the second would never have appeared.
+        Assert.Contains(lines, l => l.StartsWith(exported.Id.ToString()) && l.Contains(NodaTime.Text.InstantPattern.General.Format(exported.StartsAt)));
+        Assert.Contains(lines, l => l.StartsWith(pending.Id.ToString()) && l.Contains(NodaTime.Text.InstantPattern.General.Format(movedBack)));
+    }
+
+    [Fact]
+    public async Task Series_scope_reminder_removal_retires_spec_reminder_and_logs_in_one_request()
+    {
+        const long guildId = 13240;
+        var ev = await CreateEventAsync(guildId, 13241, "Reminded Weekly", recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week));
+        var add = await SendAsActorAsync(
+            HttpMethod.Post, $"/events/{ev.Id}/notifications", 13241, new CreateEventNotificationRequest(45, Scope: EditScope.Series));
+        add.EnsureSuccessStatusCode();
+        var reminder = (await add.Content.ReadFromJsonAsync<EventNotificationDto>())!;
+
+        Guid specId;
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            specId = (await db.EventNotifications.SingleAsync(n => n.Id == reminder.Id)).SeriesNotificationId!.Value;
+            Assert.True(await db.SeriesNotifications.AnyAsync(s => s.Id == specId));
+        }
+
+        var remove = await SendAsActorAsync(
+            HttpMethod.Delete, $"/events/{ev.Id}/notifications/{reminder.Id}?scope=Series", 13242);
+        Assert.Equal(HttpStatusCode.NoContent, remove.StatusCode);
+
+        // All three effects of the one SaveChanges: the reminder row, its series spec, and the
+        // audit entry (the spec is removed through the tracker, never a separate ExecuteDelete).
+        await using (var verify = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = verify.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            Assert.False(await db.EventNotifications.AnyAsync(n => n.Id == reminder.Id));
+            Assert.False(await db.SeriesNotifications.AnyAsync(s => s.Id == specId));
+            var entry = await db.ActionLogEntries.SingleAsync(a =>
+                a.GuildId == guildId && a.TargetId == ev.Id && a.Action == ActionLogAction.EventEdited && a.ActorUserId == 13242);
+            Assert.Contains("Removed a reminder", entry.Summary);
+            Assert.Equal("""{"fields":["reminder removed"],"scope":"Series"}""", entry.DetailsJson);
+        }
     }
 
     private async Task SeedGuildAsync(long guildId)

@@ -70,8 +70,9 @@ public static class SettingsEndpoints
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
 
         // The PUT is a whole-object write, so the log diffs it against the stored row and names
-        // only what actually changed; a no-op save (the bot's read-modify-write of an unchanged
-        // field, a first-touch guild row) writes no entry.
+        // only what actually changed — the field names, never the submitted values (the log's
+        // contract, and what the privacy policy promises); a no-op save (the bot's
+        // read-modify-write of an unchanged field, a first-touch guild row) writes no entry.
         var changed = ActionLog.Changed(
             ("timezone", guild.TimeZone != settings.TimeZone),
             ("default channel", guild.DefaultChannelId != settings.DefaultChannelId),
@@ -84,12 +85,7 @@ public static class SettingsEndpoints
             ActionLog.Record(
                 db, guildId, ActionLog.ActorFor(context), ActionLogAction.SettingsChanged, ActionTargetType.Guild, null,
                 $"Changed server settings — {string.Join(", ", changed)}", clock.GetCurrentInstant(),
-                new
-                {
-                    fields = changed,
-                    timeZone = changed.Contains("timezone") ? settings.TimeZone : null,
-                    nativeEvents = changed.Contains("native events") ? settings.MirrorNativeEvents : (bool?)null,
-                });
+                new { fields = changed });
         }
 
         await db.SaveChangesAsync(cancellationToken);

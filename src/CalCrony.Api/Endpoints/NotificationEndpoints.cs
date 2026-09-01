@@ -146,7 +146,7 @@ public static class NotificationEndpoints
             $"Added a reminder to {ActionLog.Quote(ev.Title)} ({request.MinutesBefore} min before)"
                 + (spec is not null ? " (whole series)" : ""),
             clock.GetCurrentInstant(),
-            new { fields = new[] { "reminder added" }, scope = request.Scope?.ToString(), minutesBefore = request.MinutesBefore });
+            new { fields = new[] { "reminder added" }, scope = request.Scope?.ToString() });
         await db.SaveChangesAsync(cancellationToken);
 
         return Results.Created($"/events/{ev.Id}/notifications/{notification.Id}", ToDto(notification));
@@ -200,9 +200,16 @@ public static class NotificationEndpoints
 
         // Series scope also retires the linked template spec so future occurrences drop it.
         // Diverged rows (null lineage) only have the event row to remove — the template is untouched.
+        // The spec is removed through the change tracker (not ExecuteDelete) so it commits in the
+        // same SaveChanges as the reminder row and the log entry — a failed save leaves all three
+        // in place rather than a retired template with the reminder still there.
         if (scope == EditScope.Series && notification.SeriesNotificationId is { } specId)
         {
-            await db.SeriesNotifications.Where(s => s.Id == specId).ExecuteDeleteAsync(cancellationToken);
+            var spec = await db.SeriesNotifications.FirstOrDefaultAsync(s => s.Id == specId, cancellationToken);
+            if (spec is not null)
+            {
+                db.SeriesNotifications.Remove(spec);
+            }
         }
 
         ActionLog.Record(
@@ -210,7 +217,7 @@ public static class NotificationEndpoints
             $"Removed a reminder from {ActionLog.Quote(ev.Title)} ({notification.MinutesBefore} min before)"
                 + (scope == EditScope.Series ? " (whole series)" : ""),
             clock.GetCurrentInstant(),
-            new { fields = new[] { "reminder removed" }, scope = scope?.ToString(), minutesBefore = notification.MinutesBefore });
+            new { fields = new[] { "reminder removed" }, scope = scope?.ToString() });
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

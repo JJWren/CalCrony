@@ -139,13 +139,16 @@ public class ActivityComponentTests : TestContext
         Assert.Equal("/guilds/1/export/events.csv", handler.LastCsvPath);
         var invocation = Assert.Single(download.Invocations);
         Assert.Equal("calcrony-events-1-20260831.csv", invocation.Arguments[0]);
-        // The bytes travel as a .NET stream reference (no Base64 copy), exactly as fetched.
+        // What reaches JS is the response's own content stream — never a buffered copy: the
+        // client must not have read the body into memory on the way.
         var streamRef = Assert.IsType<DotNetStreamReference>(invocation.Arguments[1]);
-        using var received = new MemoryStream();
-        streamRef.Stream.Position = 0;
-        streamRef.Stream.CopyTo(received);
-        Assert.Equal(handler.CsvBytes, received.ToArray());
+        var content = handler.LastCsvContent!;
+        Assert.False(content.Buffered);
+        Assert.NotNull(content.HandedOut);
+        Assert.Same(content.HandedOut, streamRef.Stream);
         Assert.StartsWith("text/csv", (string)invocation.Arguments[2]!);
+        // And once the interop call has returned, the response is closed behind it.
+        Assert.Throws<ObjectDisposedException>(() => content.HandedOut!.ReadByte());
     }
 
     [Fact]
@@ -177,6 +180,35 @@ public class ActivityComponentTests : TestContext
         cut.WaitForAssertion(() => Assert.Contains("API is down for maintenance.", cut.Markup));
         Assert.DoesNotContain("Only server managers can see", cut.Markup);
         Assert.Equal(0, handler.ActionsCalls);
+    }
+
+    [Fact]
+    public void Switching_to_an_unmanaged_guild_hides_the_export_button_before_the_lookup_lands()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var guilds = JsonSerializer.Serialize(
+            new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "Mine", null, true), new WebGuildDto(2, "Theirs", null, false)]), JsonWeb);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => guilds,
+        };
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+
+        // Hold the next guild lookup open and move the component to a guild the user doesn't
+        // manage: the previous guild's "manager" must not leak into the wait.
+        var gate = new TaskCompletionSource();
+        handler.GateFor = req => req.RequestUri!.AbsolutePath == "/me/guilds" ? gate.Task : Task.CompletedTask;
+        cut.Render(p => p.Add(x => x.GuildId, 2L));
+
+        Assert.DoesNotContain("Export events (CSV)", cut.Markup);
+
+        gate.SetResult();
+        cut.WaitForAssertion(() => Assert.Contains("Only server managers can see this server's activity log", cut.Markup));
+        Assert.DoesNotContain("Export events (CSV)", cut.Markup);
     }
 
     private static ActionLogEntryDto Entry(
@@ -226,22 +258,31 @@ public class ActivityComponentTests : TestContext
 
         public byte[]? CsvBytes { get; set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        /// <summary>The CSV content served last — tells whether the client buffered it.</summary>
+        public TrackingContent? LastCsvContent { get; private set; }
+
+        /// <summary>Awaited before a request is answered — a gate for in-flight-state tests.</summary>
+        public Func<HttpRequestMessage, Task>? GateFor { get; set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            if (GateFor is { } gate)
+            {
+                await gate(request);
+            }
+
             var path = request.RequestUri!.AbsolutePath;
             if (path.EndsWith("/export/events.csv"))
             {
                 LastCsvPath = path;
-                var file = new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new ByteArrayContent(CsvBytes ?? []),
-                };
+                LastCsvContent = new TrackingContent(CsvBytes ?? []);
+                var file = new HttpResponseMessage(HttpStatusCode.OK) { Content = LastCsvContent };
                 file.Content.Headers.ContentType = new MediaTypeHeaderValue("text/csv") { CharSet = "utf-8" };
                 file.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
                 {
                     FileName = "\"calcrony-events-1-20260831.csv\"",
                 };
-                return Task.FromResult(file);
+                return file;
             }
 
             if (path.EndsWith("/actions"))
@@ -251,10 +292,39 @@ public class ActivityComponentTests : TestContext
             }
 
             var json = JsonFor?.Invoke(request) ?? "{}";
-            return Task.FromResult(new HttpResponseMessage(StatusFor?.Invoke(request) ?? HttpStatusCode.OK)
+            return new HttpResponseMessage(StatusFor?.Invoke(request) ?? HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
-            });
+            };
+        }
+    }
+
+    /// <summary>Response content that records HOW it was consumed: buffering (ReadAsByteArray /
+    /// ReadAsString / LoadIntoBuffer) goes through SerializeToStreamAsync and flips
+    /// <see cref="Buffered"/>; a streaming read hands out one stream instance the test can
+    /// compare against what reached JS.</summary>
+    private sealed class TrackingContent(byte[] bytes) : HttpContent
+    {
+        public bool Buffered { get; private set; }
+
+        public Stream? HandedOut { get; private set; }
+
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context)
+        {
+            Buffered = true;
+            return stream.WriteAsync(bytes).AsTask();
+        }
+
+        protected override Task<Stream> CreateContentReadStreamAsync()
+        {
+            HandedOut = new MemoryStream(bytes, writable: false);
+            return Task.FromResult(HandedOut);
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = bytes.Length;
+            return true;
         }
     }
 }
