@@ -95,9 +95,10 @@ else
             <button type="button" class="btn btn-outline-secondary btn-sm mt-1"
                     disabled="@(optionRows.Count >= 10)" @onclick="AddOption">+ Add option</button>
             <div class="form-text">
-                The selected radio marks the <b>attending</b> option — it drives attendee roles, threads,
-                and availability. Give it a capacity and extra RSVPs queue on a waitlist, promoted
-                automatically when a spot frees.
+                The selected radio marks the <b>attending</b> option — it drives threads, availability,
+                and the waitlist. Attendee roles are per option and set in Discord, so moving this
+                radio no longer moves them. Give it a capacity and extra RSVPs queue on a waitlist,
+                promoted automatically when a spot frees.
                 @if (IsEdit)
                 {
                     <text>Options keep their RSVPs when the label stays the same; an option with RSVPs can't be removed.</text>

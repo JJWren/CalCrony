@@ -398,8 +398,6 @@ else
 
     private bool CanManage => ev is not null && (ev.CreatorId == UserId || isGuildManager);
 
-    /// <summary>The attending option's label for the role chip ("Going" on default events).</summary>
-
     /// <summary>Live occurrence of a running series — the states where skip/stop/scope apply.</summary>
     private bool IsLiveSeries =>
         ev is { SeriesId: not null, RecurrenceSummary: not null, Status: EventStatus.Scheduled or EventStatus.Started };

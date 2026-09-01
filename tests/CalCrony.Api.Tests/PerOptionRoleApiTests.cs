@@ -156,8 +156,9 @@ public class PerOptionRoleApiTests(ApiFixture fixture) : IClassFixture<ApiFixtur
     [Fact]
     public async Task A_role_on_a_non_attending_option_still_only_reaches_seated_users()
     {
-        // Healer is capped at 1, so the second healer queues — and a queued RSVP holds no role
-        // until a seat frees, exactly like the attending option's waitlist.
+        // Healer is capped at 1 and is NOT the attending option, so the second healer is rejected
+        // rather than queued (only the attending option has a waitlist) — the role therefore
+        // reaches exactly the one seated healer.
         var ev = await CreateAsync(new CreateEventRequest(
             CreatorId, "Capped healer", "in 3 hours", ChannelId, RsvpOptions:
             [
