@@ -113,6 +113,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
     /// <param name="image">Optional image URL.</param>
     /// <param name="repeat">Replacement repeat rule; "no repeat" clears it.</param>
     /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    /// <param name="repeatDays">Weekly day set (see <see cref="RepeatDaysSyntax"/>); weekly only.</param>
     [SlashCommand("edit", "Edit a template (creator or manager)")]
     public async Task EditAsync(
         [Summary("name", "The template to edit"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string name,
@@ -123,21 +124,16 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         [Summary(description: "New location")] string? location = null,
         [Summary("image", "New image URL")] string? image = null,
         [Summary("repeat", "New repeat rule (\"no repeat\" clears it)")] RepeatChoice? repeat = null,
-        [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1)
+        [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
+        [Summary("repeat-days", "Weekly only: days it repeats on, e.g. \"tue,thu\" or \"weekdays\"")] string? repeatDays = null)
     {
         await DeferAsync(ephemeral: true);
 
-        if (newName is null && title is null && description is null && duration is null
-            && location is null && image is null && repeat is null)
+        var hasContentChange = newName is not null || title is not null || description is not null
+            || duration is not null || location is not null || image is not null;
+        if (PreflightEdit(hasContentChange, repeat, repeatEvery, repeatDays, out var recurrence) is { } optionsProblem)
         {
-            await FollowupAsync("Nothing to change — pass at least one field.", ephemeral: true);
-            return;
-        }
-
-        if (repeat is null && repeatEvery != 1)
-        {
-            // Without a rule choice, repeat-every would be silently ignored — mirroring /create.
-            await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
+            await FollowupAsync(optionsProblem, ephemeral: true);
             return;
         }
 
@@ -154,16 +150,6 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
-        var recurrence = repeat switch
-        {
-            RepeatChoice.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatEvery),
-            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
-            RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
-            RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
-            RepeatChoice.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatEvery),
-            _ => null,
-        };
-
         var result = await api.UpdateTemplateAsync(template.Id, new UpdateTemplateRequest(
             (long)Context.User.Id, newName, title, description, duration, location, image,
             recurrence, ClearRecurrence: repeat == RepeatChoice.None));
@@ -174,6 +160,34 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         }
 
         await FollowupAsync($"✏️ Updated template **{result.Value.Name}**.", ephemeral: true);
+    }
+
+    /// <summary>Pre-flight for /template edit, kept pure so the check ORDER is testable: the
+    /// no-op check counts the repeat-shaping options as input (a repeat-days-only call must
+    /// reach "Set `repeat`", not "Nothing to change"), and "none" clears a day set like the
+    /// series editor.</summary>
+    /// <param name="hasContentChange">Whether any content field (name, title, …) was passed.</param>
+    /// <param name="repeat">The repeat choice, if any.</param>
+    /// <param name="repeatEvery">The interval option.</param>
+    /// <param name="repeatDays">The raw day-set option, if any.</param>
+    /// <param name="recurrence">The replacement rule, or null when none was chosen.</param>
+    /// <returns>A user-facing problem, or null when the edit can proceed.</returns>
+    public static string? PreflightEdit(
+        bool hasContentChange, RepeatChoice? repeat, int repeatEvery, string? repeatDays, out RecurrenceRuleDto? recurrence)
+    {
+        recurrence = null;
+        if (!hasContentChange && repeat is null && repeatEvery == 1 && repeatDays is null)
+        {
+            return "Nothing to change — pass at least one field.";
+        }
+
+        if (RepeatOptions.ShapingWithoutRule(repeat, repeatEvery, repeatDays))
+        {
+            // Without a rule choice, repeat-every/repeat-days would be silently ignored — mirroring /create.
+            return "Set `repeat` to use the repeat options.";
+        }
+
+        return RepeatOptions.TryBuildRule(repeat, repeatEvery, repeatDays, allowNoneDays: true, out recurrence);
     }
 
     /// <summary>Deletes a template (creator or server manager).</summary>

@@ -147,6 +147,11 @@ public class EventSeries
     /// <summary>Meaningful only when Unit == Month.</summary>
     public MonthlyMode MonthlyMode { get; set; }
 
+    /// <summary>Weekly day set (bit flags), meaningful only when Unit == Week. None = the
+    /// anchor's weekday only — the behaviour every pre-day-set series has, so the migration
+    /// backfills 0 and nothing changes for existing rows.</summary>
+    public RecurrenceDays DaysOfWeek { get; set; }
+
     /// <summary>Local date of the first occurrence; re-set by whole-series time edits.</summary>
     public LocalDate AnchorDate { get; set; }
 
@@ -228,6 +233,10 @@ public class EventTemplate
 
     public int? RecurrenceInterval { get; set; }
     public MonthlyMode? RecurrenceMonthlyMode { get; set; }
+
+    /// <summary>Weekly day set captured with the rule; null/None = the anchor's weekday only.</summary>
+    public RecurrenceDays? RecurrenceDaysOfWeek { get; set; }
+
     public Instant CreatedAt { get; set; }
     public List<EventTemplateNotification> Notifications { get; set; } = [];
 }

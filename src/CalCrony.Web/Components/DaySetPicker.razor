@@ -1,0 +1,50 @@
+@using CalCrony.Contracts
+
+@* Weekly day-set checkboxes shared by the event form, the schedule editor, and the template
+   editor so the three stay identical. Nothing checked = "the anchor's weekday only", which is
+   the plain weekly rule; the Weekdays preset is one click. Checkbox ids are IdPrefix-mon..sun
+   so tests and labels can address them. *@
+<div class="mb-2">
+    <span class="form-label @(Small ? "small mb-1" : "") d-block">On days</span>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        @foreach (var day in RecurrenceDaySets.Ordered)
+        {
+            var id = $"{IdPrefix}-{RecurrenceDaySets.Abbreviate(day).ToLowerInvariant()}";
+            var isChecked = (Value & day) != 0;
+            <div class="form-check form-check-inline me-0">
+                <input class="form-check-input" type="checkbox" id="@id" checked="@isChecked"
+                       @onchange="e => ToggleAsync(day, e.Value is true)" />
+                <label class="form-check-label @(Small ? "small" : "")" for="@id">@RecurrenceDaySets.Abbreviate(day)</label>
+            </div>
+        }
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => SetAsync(RecurrenceDays.Weekdays)">Weekdays</button>
+        @if (Value != RecurrenceDays.None)
+        {
+            <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => SetAsync(RecurrenceDays.None)">Clear</button>
+        }
+    </div>
+    <div class="form-text mb-0">Leave all unchecked to repeat on the first occurrence's weekday only.</div>
+</div>
+
+@code {
+    /// <summary>The current day set.</summary>
+    [Parameter] public RecurrenceDays Value { get; set; }
+
+    /// <summary>Raised with the new set on every change (two-way bindable as @bind-Value).</summary>
+    [Parameter] public EventCallback<RecurrenceDays> ValueChanged { get; set; }
+
+    /// <summary>Prefix for the checkbox ids ("ev-day" → "ev-day-mon").</summary>
+    [Parameter] public string IdPrefix { get; set; } = "day";
+
+    /// <summary>Compact labels for the dense editors.</summary>
+    [Parameter] public bool Small { get; set; }
+
+    private Task ToggleAsync(RecurrenceDays day, bool on) =>
+        SetAsync(on ? Value | day : Value & ~day);
+
+    private Task SetAsync(RecurrenceDays days)
+    {
+        Value = days;
+        return ValueChanged.InvokeAsync(days);
+    }
+}

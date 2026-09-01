@@ -60,9 +60,9 @@ public static class FeedEndpoints
     }
 
     /// <summary>Serves the iCalendar document: the last 30 days plus upcoming, excluding cancelled
-    /// occurrences. History is concrete; the future is projected — each non-ended series emits one
-    /// RRULE-bearing VEVENT (stable series UID) anchored on its live occurrence, which is skipped
-    /// in the concrete loop so nothing doubles.</summary>
+    /// occurrences. Every stored row is concrete (the live occurrence included); the future is
+    /// projected — each non-ended series emits one RRULE-bearing VEVENT (stable series UID)
+    /// anchored on the calculator's next unspawned slot, so the two never overlap.</summary>
     /// <param name="token">The token value.</param>
     /// <param name="db">The database context.</param>
     /// <param name="clock">The time source.</param>
@@ -88,7 +88,6 @@ public static class FeedEndpoints
         var now = clock.GetCurrentInstant();
         var horizon = now.Minus(NodaTime.Duration.FromDays(30));
         var events = await db.Events
-            .Include(e => e.Series)
             .Where(e => e.GuildId == feedToken.GuildId
                         && e.Status != EventStatus.Cancelled
                         && e.StartsAt >= horizon)
@@ -103,11 +102,11 @@ public static class FeedEndpoints
 
         // Channel-name snapshots for every channel this feed will render; missing rows just
         // omit the channel line (names degrade gracefully — see docs/adr/0001).
-        var gapSeries = await db.EventSeries
+        var runningSeries = await db.EventSeries
             .Where(s => s.GuildId == feedToken.GuildId && !s.Ended)
             .ToListAsync(cancellationToken);
         var channelIds = events.Select(e => e.ChannelId)
-            .Concat(gapSeries.Select(s => s.ChannelId))
+            .Concat(runningSeries.Select(s => s.ChannelId))
             .Distinct()
             .ToList();
         var channelNames = await db.Channels
@@ -116,12 +115,10 @@ public static class FeedEndpoints
 
         foreach (var ev in events)
         {
-            if (IsLiveSeriesOccurrence(ev))
-            {
-                // Represented by its series' RRULE VEVENT below — emitting both would double it.
-                continue;
-            }
-
+            // A running series' live occurrence is concrete too: it is a real materialized row
+            // (possibly re-timed at Occurrence scope), and the series VEVENT below projects from
+            // the engine's NEXT slot, so nothing doubles and no one-off time change leaks into
+            // the projection.
             var eventUrl = webOrigin.Length == 0 ? null : $"{webOrigin}/app/events/{ev.Id}";
             var discordUrl = ev.MessageId is { } messageId
                 ? $"https://discord.com/channels/{ev.GuildId}/{ev.ChannelId}/{messageId}"
@@ -141,25 +138,30 @@ public static class FeedEndpoints
             });
         }
 
-        // One RRULE VEVENT per running series, anchored on its live occurrence. Series VEVENTs
-        // link to the guild's events list — the live occurrence (and its Discord message)
-        // rotates every cycle, so nothing durable may point at it.
-        var liveBySeries = events
-            .Where(IsLiveSeriesOccurrence)
-            .ToDictionary(e => e.SeriesId!.Value);
-        foreach (var live in liveBySeries.Values)
-        {
-            AddSeriesEvent(
-                calendar, live.Series!, live.StartsAt, anchorIsCounted: true,
-                live.Title,
-                BuildDescription(
-                    live.Description, channelNames.GetValueOrDefault(live.ChannelId), "Events page", guildEventsUrl, discordUrl: null),
-                live.Location, live.DurationMinutes, guildEventsUrl);
-        }
+        // One RRULE VEVENT per running series, anchored on the calculator's next slot after the
+        // cursor — never on the live occurrence. An RRULE's phase is only expressible through
+        // DTSTART, and a live occurrence can sit off the CURRENT grid after a rule edit (every 2
+        // weeks → every 3 leaves a week-2 live row in place while the engine's next slot is week
+        // 3; a day-set edit or a whole-series re-anchor shifts the grid the same way). Recomputing
+        // DTSTART from the stored rule at feed time keeps the feed on the engine's grid for every
+        // edit sequence, and covers the brief gap between a skip/end and the sweep's next spawn.
+        // Series VEVENTs link to the guild's events list — the live occurrence (and its Discord
+        // message) rotates every cycle, so nothing durable may point at it.
+        // The live occurrence also pins the projection FLOOR. The scheduler spawns the next
+        // occurrence only once the live one ends, and an Occurrence-scoped time edit can move the
+        // live row onto (or past) later nominal slots without touching the series cursor —
+        // projecting from the cursor alone would then double the moved date and list intermediate
+        // slots that can never materialize. Projecting from the live row's end reproduces exactly
+        // what the end sweep will compute (same length default as the scheduler's), while the
+        // cursor itself stays the rule's nominal position.
+        var liveEndBySeries = events
+            .Where(e => e.SeriesId is not null && e.Status is EventStatus.Scheduled or EventStatus.Started)
+            .GroupBy(e => e.SeriesId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Max(e => e.StartsAt + NodaTime.Duration.FromMinutes(e.DurationMinutes ?? 60)));
 
-        // A series can briefly lack a live occurrence (between an end/skip and the sweep's next
-        // spawn) — project it from the computed next slot so it never vanishes from the feed.
-        foreach (var series in gapSeries.Where(s => !liveBySeries.ContainsKey(s.Id)))
+        foreach (var series in runningSeries)
         {
             // NextOccurrence knows nothing about counts (the materializer enforces those), so a
             // count-exhausted series awaiting its Ended sweep must not project a phantom instance.
@@ -169,16 +171,18 @@ public static class FeedEndpoints
             }
 
             var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
+            var floor = liveEndBySeries.TryGetValue(series.Id, out var liveEnd) && liveEnd > now ? liveEnd : now;
             var next = Services.RecurrenceCalculator.NextOccurrence(
                 series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate,
-                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, now);
+                series.StartTime, zone, series.CurrentOccurrenceDate, series.UntilDate, floor,
+                series.DaysOfWeek);
             if (next is null)
             {
                 continue; // end condition about to retire the series
             }
 
             AddSeriesEvent(
-                calendar, series, next.Value.Instant, anchorIsCounted: false,
+                calendar, series, next.Value.Instant,
                 series.Title,
                 BuildDescription(
                     series.Description, channelNames.GetValueOrDefault(series.ChannelId), "Events page", guildEventsUrl, discordUrl: null),
@@ -189,28 +193,20 @@ public static class FeedEndpoints
         return Results.Text(text, "text/calendar; charset=utf-8");
     }
 
-    /// <summary>Whether the event is the live occurrence of a running series (the one the series'
-    /// RRULE VEVENT anchors on).</summary>
-    /// <param name="ev">The event (Series navigation loaded).</param>
-    /// <returns>True for live occurrences of non-ended series.</returns>
-    private static bool IsLiveSeriesOccurrence(Event ev) =>
-        ev is { SeriesId: not null, Series.Ended: false, Status: EventStatus.Scheduled or EventStatus.Started };
-
     /// <summary>Adds the RRULE-bearing VEVENT representing a running series. DTSTART/DTEND are
     /// emitted in the series' IANA zone (TZID) — an RRULE projects from DTSTART's wall time, so a
     /// UTC anchor would make subscribers' occurrences drift an hour across DST transitions while
     /// RecurrenceCalculator keeps the local wall time stable.</summary>
     /// <param name="calendar">The calendar under construction.</param>
     /// <param name="series">The series row.</param>
-    /// <param name="startsAt">The DTSTART instant (live occurrence start, or the computed next slot).</param>
-    /// <param name="anchorIsCounted">Whether DTSTART is an already-counted occurrence (shifts COUNT math).</param>
+    /// <param name="startsAt">The DTSTART instant: the calculator's next unspawned slot.</param>
     /// <param name="title">The event title.</param>
     /// <param name="description">Optional description text (metadata block already applied).</param>
     /// <param name="location">Optional location text.</param>
     /// <param name="durationMinutes">Duration in minutes.</param>
     /// <param name="url">Optional web URL for the ICS URL property.</param>
     private static void AddSeriesEvent(
-        Ical.Net.Calendar calendar, EventSeries series, Instant startsAt, bool anchorIsCounted,
+        Ical.Net.Calendar calendar, EventSeries series, Instant startsAt,
         string title, string? description, string? location, int? durationMinutes, string? url)
     {
         var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
@@ -245,7 +241,8 @@ public static class FeedEndpoints
             DtEnd = dtEnd,
             DtStamp = new CalDateTime(series.CreatedAt.ToDateTimeUtc()),
         };
-        vevent.RecurrenceRule = Services.IcsRecurrence.BuildPattern(series, anchorIsCounted);
+        // DTSTART is an unspawned slot, so the remaining COUNT excludes every counted occurrence.
+        vevent.RecurrenceRule = Services.IcsRecurrence.BuildPattern(series, anchorIsCounted: false);
         calendar.Events.Add(vevent);
     }
 

@@ -188,6 +188,130 @@ public class RecurrenceCalculatorTests
         Assert.Equal("Repeats monthly on the last Friday", RecurrenceCalculator.Describe(lastWeekday));
     }
 
+    private static readonly DateTimeZone Chicago = DateTimeZoneProviders.Tzdb["America/Chicago"];
+
+    private const RecurrenceDays TueThu = RecurrenceDays.Tuesday | RecurrenceDays.Thursday;
+
+    [Fact]
+    public void Day_set_rolls_to_the_next_selected_weekday_within_and_across_weeks()
+    {
+        var anchor = new LocalDate(2026, 9, 1); // a Tuesday
+
+        Assert.Equal(new LocalDate(2026, 9, 3),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, anchor, TueThu));
+        Assert.Equal(new LocalDate(2026, 9, 8),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 9, 3), TueThu));
+
+        // A mid-week "after" still lands on the next selected day, never the anchor weekday.
+        Assert.Equal(new LocalDate(2026, 9, 10),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 9, 9), TueThu));
+    }
+
+    [Fact]
+    public void Day_set_with_interval_counts_weeks_monday_first_from_the_anchors_week()
+    {
+        var anchor = new LocalDate(2026, 9, 1); // Tuesday of the week starting Mon Aug 31
+
+        // Both days of the anchor week fire, the next week is off, then both again.
+        var thu = RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, anchor, anchor, TueThu);
+        Assert.Equal(new LocalDate(2026, 9, 3), thu);
+        Assert.Equal(new LocalDate(2026, 9, 15),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, anchor, thu, TueThu));
+        Assert.Equal(new LocalDate(2026, 9, 17),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 9, 15), TueThu));
+
+        // From inside an off-week (Wed Sep 9) the next slot is the following on-week's Tuesday.
+        Assert.Equal(new LocalDate(2026, 9, 15),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 9, 9), TueThu));
+
+        // Sunday is the END of a Monday-first week: Tue+Sun at interval 2 fires Sun Sep 6 in the
+        // anchor week, then skips to Tue Sep 15 — not Sun Sep 13, which sits in the off-week.
+        var tueSun = RecurrenceDays.Tuesday | RecurrenceDays.Sunday;
+        Assert.Equal(new LocalDate(2026, 9, 6),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, anchor, anchor, tueSun));
+        Assert.Equal(new LocalDate(2026, 9, 15),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 9, 6), tueSun));
+    }
+
+    [Fact]
+    public void Anchor_outside_the_day_set_is_still_the_first_occurrence()
+    {
+        var anchor = new LocalDate(2026, 9, 2); // a Wednesday
+        var monFri = RecurrenceDays.Monday | RecurrenceDays.Friday;
+
+        // DTSTART semantics: before the anchor, the anchor; after it, the set takes over.
+        Assert.Equal(anchor,
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 8, 1), monFri));
+        Assert.Equal(new LocalDate(2026, 9, 4),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, anchor, monFri));
+        Assert.Equal(new LocalDate(2026, 9, 7),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, new LocalDate(2026, 9, 4), monFri));
+    }
+
+    [Fact]
+    public void Weekdays_preset_skips_the_weekend_and_non_week_units_ignore_the_set()
+    {
+        var friday = new LocalDate(2026, 9, 4);
+        Assert.Equal(new LocalDate(2026, 9, 7),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, friday, friday, RecurrenceDays.Weekdays));
+
+        // A stray day set on a daily rule changes nothing (the API rejects it anyway).
+        Assert.Equal(new LocalDate(2026, 9, 5),
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, friday, friday, TueThu));
+    }
+
+    [Fact]
+    public void Day_set_occurrences_keep_the_wall_clock_time_across_dst_transitions()
+    {
+        var weekend = RecurrenceDays.Saturday | RecurrenceDays.Sunday;
+        var sevenPm = new LocalTime(19, 0);
+
+        // Spring forward: Sat Mar 7 2026 19:00 CST → Sun Mar 8 19:00 CDT is 23 hours later.
+        var springAnchor = new LocalDate(2026, 3, 7);
+        var beforeSpring = (springAnchor + sevenPm).InZoneStrictly(Chicago).ToInstant();
+        var spring = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, springAnchor, sevenPm, Chicago,
+            springAnchor, null, beforeSpring, weekend)!.Value;
+        Assert.Equal(new LocalDate(2026, 3, 8), spring.Date);
+        Assert.Equal(Duration.FromHours(23), spring.Instant - beforeSpring);
+        Assert.Equal(sevenPm, spring.Instant.InZone(Chicago).TimeOfDay);
+
+        // Fall back: Sat Oct 31 2026 19:00 CDT → Sun Nov 1 19:00 CST is 25 hours later.
+        var fallAnchor = new LocalDate(2026, 10, 31);
+        var beforeFall = (fallAnchor + sevenPm).InZoneStrictly(Chicago).ToInstant();
+        var fall = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, fallAnchor, sevenPm, Chicago,
+            fallAnchor, null, beforeFall, weekend)!.Value;
+        Assert.Equal(new LocalDate(2026, 11, 1), fall.Date);
+        Assert.Equal(Duration.FromHours(25), fall.Instant - beforeFall);
+        Assert.Equal(sevenPm, fall.Instant.InZone(Chicago).TimeOfDay);
+    }
+
+    [Fact]
+    public void Day_set_honors_the_until_date()
+    {
+        var anchor = new LocalDate(2026, 9, 1);
+        var next = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, anchor, new LocalTime(18, 0),
+            DateTimeZone.Utc, new LocalDate(2026, 9, 3), new LocalDate(2026, 9, 7), Instant.FromUtc(2026, 9, 3, 19, 0), TueThu);
+
+        Assert.Null(next); // the next slot (Tue Sep 8) is past the inclusive until date
+    }
+
+    [Theory]
+    [InlineData(1, RecurrenceDays.Tuesday | RecurrenceDays.Thursday, "Repeats weekly on Tue, Thu")]
+    [InlineData(2, RecurrenceDays.Monday | RecurrenceDays.Wednesday | RecurrenceDays.Friday, "Repeats every 2 weeks on Mon, Wed, Fri")]
+    [InlineData(1, RecurrenceDays.Weekdays, "Repeats every weekday")]
+    [InlineData(2, RecurrenceDays.Weekdays, "Repeats every 2 weeks on weekdays")]
+    [InlineData(1, RecurrenceDays.Saturday | RecurrenceDays.Sunday, "Repeats weekly on Sat, Sun")]
+    [InlineData(1, RecurrenceDays.None, "Repeats weekly on Friday")]
+    public void Describe_renders_day_sets(int interval, RecurrenceDays days, string expected)
+    {
+        var series = Series(RecurrenceUnit.Week, interval, MonthlyMode.DayOfMonth);
+        series.DaysOfWeek = days;
+        Assert.Equal(expected, RecurrenceCalculator.Describe(series));
+    }
+
     private static EventSeries Series(RecurrenceUnit unit, int interval, MonthlyMode mode) => new()
     {
         Id = Guid.NewGuid(),

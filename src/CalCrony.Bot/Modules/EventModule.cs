@@ -41,6 +41,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
     /// <param name="image">Optional image URL for the embed.</param>
     /// <param name="repeat">Repeat-rule choice; null keeps/omits recurrence.</param>
     /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    /// <param name="repeatDays">Weekly day set (see <see cref="RepeatDaysSyntax"/>); weekly only.</param>
     /// <param name="repeatUntil">Natural-language last repeat date.</param>
     /// <param name="repeatCount">Total occurrences including the first.</param>
     /// <param name="template">Template name/fragment or picker id to start from.</param>
@@ -60,6 +61,7 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         [Summary("image", "Image URL for the event embed")] string? image = null,
         [Summary("repeat", "Repeat this event on a schedule anchored to the first occurrence")] RepeatChoice? repeat = null,
         [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
+        [Summary("repeat-days", "Weekly only: days it repeats on, e.g. \"tue,thu\" or \"weekdays\"")] string? repeatDays = null,
         [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
         [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
         [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null,
@@ -121,21 +123,19 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         // API remains the validator of record for the same rule.
         var templateHasRule = resolvedTemplate?.Recurrence is not null;
         if (repeat is null && !templateHasRule
-            && (repeatEvery != 1 || repeatUntil is not null || repeatCount is not null))
+            && (repeatEvery != 1 || repeatUntil is not null || repeatCount is not null || repeatDays is not null))
         {
             await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
             return;
         }
 
-        var recurrence = repeat switch
+        // A template's rule can't be re-shaped from here, so a day set always needs an explicit
+        // weekly choice (RepeatOptions enforces that).
+        if (RepeatOptions.TryBuildRule(repeat, repeatEvery, repeatDays, allowNoneDays: false, out var recurrence) is { } optionsProblem)
         {
-            RepeatChoice.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatEvery),
-            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
-            RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
-            RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
-            RepeatChoice.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatEvery),
-            _ => null,
-        };
+            await FollowupAsync(optionsProblem, ephemeral: true);
+            return;
+        }
 
         var result = await api.CreateEventAsync(
             (long)Context.Guild.Id,

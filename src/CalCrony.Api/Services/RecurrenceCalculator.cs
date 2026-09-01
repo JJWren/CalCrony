@@ -18,9 +18,11 @@ public static class RecurrenceCalculator
     /// <param name="mode">The monthly mode (ignored for non-month units).</param>
     /// <param name="anchor">The schedule anchor date (first occurrence).</param>
     /// <param name="after">The exclusive lower bound for the returned date.</param>
+    /// <param name="days">The weekly day set (ignored for non-week units; None = anchor weekday).</param>
     /// <returns>The next schedule date.</returns>
     public static LocalDate NextDate(
-        RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalDate after)
+        RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalDate after,
+        RecurrenceDays days = RecurrenceDays.None)
     {
         if (after < anchor)
         {
@@ -29,6 +31,9 @@ public static class RecurrenceCalculator
 
         switch (unit)
         {
+            case RecurrenceUnit.Week when days != RecurrenceDays.None:
+                return WeeklyDaySetCandidate(interval, days, anchor, after);
+
             case RecurrenceUnit.Day:
             case RecurrenceUnit.Week:
             {
@@ -77,9 +82,21 @@ public static class RecurrenceCalculator
     /// strictly after <paramref name="currentOccurrenceDate"/>; honors <paramref name="untilDate"/>
     /// (inclusive). Null = end condition exhausted. Skips over downtime-missed slots without
     /// materializing them.</summary>
+    /// <param name="unit">The recurrence unit.</param>
+    /// <param name="interval">Every N units (1-12).</param>
+    /// <param name="mode">The monthly mode (ignored for non-month units).</param>
+    /// <param name="anchor">The schedule anchor date (first occurrence).</param>
+    /// <param name="startTime">The local wall-clock start time of every occurrence.</param>
+    /// <param name="zone">The series zone the wall-clock time resolves in.</param>
+    /// <param name="currentOccurrenceDate">The slot cursor: the last-materialized slot date.</param>
+    /// <param name="untilDate">Inclusive last allowed local date, when set.</param>
+    /// <param name="now">The current instant.</param>
+    /// <param name="days">The weekly day set (ignored for non-week units; None = anchor weekday).</param>
+    /// <returns>The next (date, instant), or null when the end condition is exhausted.</returns>
     public static (LocalDate Date, Instant Instant)? NextOccurrence(
         RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalTime startTime,
-        DateTimeZone zone, LocalDate currentOccurrenceDate, LocalDate? untilDate, Instant now)
+        DateTimeZone zone, LocalDate currentOccurrenceDate, LocalDate? untilDate, Instant now,
+        RecurrenceDays days = RecurrenceDays.None)
     {
         var cursor = currentOccurrenceDate;
 
@@ -94,7 +111,7 @@ public static class RecurrenceCalculator
 
         while (true)
         {
-            var next = NextDate(unit, interval, mode, anchor, cursor);
+            var next = NextDate(unit, interval, mode, anchor, cursor, days);
             if (untilDate is { } until && next > until)
             {
                 return null;
@@ -121,8 +138,12 @@ public static class RecurrenceCalculator
         var body = series.Unit switch
         {
             RecurrenceUnit.Day => series.Interval == 1 ? "daily" : $"every {series.Interval} days",
+            // "Repeats every weekday" for the Mon–Fri preset at interval 1; otherwise the day
+            // set ("Tue, Thu" / "weekdays") replaces the anchor weekday.
+            RecurrenceUnit.Week when series.Interval == 1 && series.DaysOfWeek == RecurrenceDays.Weekdays =>
+                "every weekday",
             RecurrenceUnit.Week =>
-                $"{(every is null ? "weekly" : every + "weeks")} on {series.AnchorDate.DayOfWeek}",
+                $"{(every is null ? "weekly" : every + "weeks")} on {RecurrenceDaySets.Describe(series.DaysOfWeek) ?? series.AnchorDate.DayOfWeek.ToString()}",
             RecurrenceUnit.Year =>
                 $"{(every is null ? "yearly" : every + "years")} on {series.AnchorDate:MMM d}",
             _ when series.MonthlyMode == MonthlyMode.DayOfMonth =>
@@ -138,6 +159,47 @@ public static class RecurrenceCalculator
                 : "";
         return $"Repeats {body}{suffix}";
     }
+
+    /// <summary>Next day-set slot strictly after <paramref name="after"/>: the first selected
+    /// weekday in the earliest "on" week. Weeks run Monday–Sunday and are counted from the
+    /// anchor's week, so "every 2 weeks on Tue+Thu" fires both days in the anchor's week, none
+    /// the next, both the week after — the same expansion RFC 5545 gives
+    /// FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH with the default WKST=MO. Anchor-based like the other
+    /// units: the week grid is derived from the anchor, never chained from a previous slot.</summary>
+    /// <param name="interval">Every N weeks (1-12).</param>
+    /// <param name="days">The non-empty weekly day set.</param>
+    /// <param name="anchor">The schedule anchor date (first occurrence).</param>
+    /// <param name="after">The exclusive lower bound for the returned date.</param>
+    /// <returns>The next selected-weekday date in an on-week.</returns>
+    private static LocalDate WeeklyDaySetCandidate(int interval, RecurrenceDays days, LocalDate anchor, LocalDate after)
+    {
+        var anchorWeek = anchor.With(DateAdjusters.PreviousOrSame(IsoDayOfWeek.Monday));
+        var afterWeek = after.With(DateAdjusters.PreviousOrSame(IsoDayOfWeek.Monday));
+
+        // Jump straight to the on-week containing `after` (or the last on-week before it); the
+        // loop then runs at most twice because a non-empty set always has a day in an on-week.
+        var k = Period.DaysBetween(anchorWeek, afterWeek) / 7 / interval;
+        while (true)
+        {
+            var weekStart = anchorWeek.PlusWeeks(k * interval);
+            for (var offset = 0; offset < 7; offset++)
+            {
+                var candidate = weekStart.PlusDays(offset);
+                if (candidate > after && RecurrenceDaySets.Contains(days, ToDayOfWeek(candidate.DayOfWeek)))
+                {
+                    return candidate;
+                }
+            }
+
+            k++;
+        }
+    }
+
+    /// <summary>NodaTime → BCL weekday (NodaTime numbers Sunday 7, the BCL 0).</summary>
+    /// <param name="iso">The ISO weekday.</param>
+    /// <returns>The BCL weekday.</returns>
+    private static DayOfWeek ToDayOfWeek(IsoDayOfWeek iso) =>
+        iso == IsoDayOfWeek.Sunday ? DayOfWeek.Sunday : (DayOfWeek)(int)iso;
 
     /// <summary>The month-mode slot for anchor + monthsAhead: same day-of-month (clamped) or nth weekday (5th falls back to last).</summary>
     /// <param name="anchor">The schedule anchor date (first occurrence).</param>

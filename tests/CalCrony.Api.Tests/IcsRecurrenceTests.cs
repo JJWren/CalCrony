@@ -133,6 +133,49 @@ public class IcsRecurrenceTests
         Assert.Null(pattern.Count);
     }
 
+    [Fact]
+    public void Weekly_day_set_maps_to_byday_list_with_interval_and_monday_week_start()
+    {
+        var series = Series(RecurrenceUnit.Week, 2);
+        series.DaysOfWeek = RecurrenceDays.Tuesday | RecurrenceDays.Thursday;
+
+        var pattern = IcsRecurrence.BuildPattern(series, anchorIsCounted: true);
+
+        Assert.Equal(FrequencyType.Weekly, pattern.Frequency);
+        Assert.Equal(2, pattern.Interval);
+        Assert.Equal([DayOfWeek.Tuesday, DayOfWeek.Thursday], pattern.ByDay.Select(d => d.DayOfWeek));
+        Assert.All(pattern.ByDay, d => Assert.Null(d.Offset));
+        // The calculator counts interval weeks Monday-first; WKST=MO keeps clients in step.
+        Assert.Equal(DayOfWeek.Monday, pattern.FirstDayOfWeek);
+    }
+
+    [Fact]
+    public void Weekdays_preset_lists_monday_through_friday_in_order()
+    {
+        var series = Series(RecurrenceUnit.Week, 1);
+        series.DaysOfWeek = RecurrenceDays.Weekdays;
+
+        var pattern = IcsRecurrence.BuildPattern(series, anchorIsCounted: true);
+
+        Assert.Equal(
+            [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday],
+            pattern.ByDay.Select(d => d.DayOfWeek));
+    }
+
+    [Fact]
+    public void Weekly_day_set_serializes_as_byday_rrule()
+    {
+        var series = Series(RecurrenceUnit.Week, 2);
+        series.DaysOfWeek = RecurrenceDays.Tuesday | RecurrenceDays.Thursday;
+
+        var rrule = new Ical.Net.Serialization.DataTypes.RecurrencePatternSerializer()
+            .SerializeToString(IcsRecurrence.BuildPattern(series, anchorIsCounted: true))!;
+
+        Assert.Contains("FREQ=WEEKLY", rrule);
+        Assert.Contains("INTERVAL=2", rrule);
+        Assert.Contains("BYDAY=TU,TH", rrule);
+    }
+
     private static EventSeries Series(
         RecurrenceUnit unit, int interval, MonthlyMode mode = MonthlyMode.DayOfMonth) => new()
     {

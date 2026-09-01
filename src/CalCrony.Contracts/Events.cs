@@ -290,11 +290,15 @@ public record DmReminderClaimResponse(DmReminderClaimOutcome Outcome);
 /// <param name="TimeZone">The IANA timezone id.</param>
 public record ParseDateTimeRequest(string Text, long? UserId = null, long? GuildId = null, string? TimeZone = null);
 
-/// <summary>A parsed datetime: the UTC instant, its Unix seconds, and the zone it was resolved in.</summary>
+/// <summary>A parsed datetime: the UTC instant, its Unix seconds, the zone it was resolved in,
+/// and the calendar date in that zone. LocalDate is what recurrence anchors on (the API builds
+/// schedules in the resolved zone, not the viewer's), so previews that reason about weekdays or
+/// days-of-month must use it rather than converting Utc to the browser's zone.</summary>
 /// <param name="Utc">The UTC instant.</param>
 /// <param name="Unix">Unix seconds of the instant.</param>
 /// <param name="TimeZone">The IANA timezone id.</param>
-public record ParseDateTimeResponse(DateTimeOffset Utc, long Unix, string TimeZone);
+/// <param name="LocalDate">ISO "yyyy-MM-dd" date of the instant in TimeZone; null from older servers.</param>
+public record ParseDateTimeResponse(DateTimeOffset Utc, long Unix, string TimeZone, string? LocalDate = null);
 
 /// <summary>A selectable timezone: canonical IANA id + display label with the current UTC offset,
 /// e.g. "America/Chicago — UTC-05:00".</summary>

@@ -36,6 +36,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
     /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
     /// <param name="repeat">Repeat-rule choice; null keeps/omits recurrence.</param>
     /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    /// <param name="repeatDays">Weekly day set (see <see cref="RepeatDaysSyntax"/>); "none" clears it.</param>
     /// <param name="ends">End-condition choice.</param>
     /// <param name="until">Natural-language last repeat date.</param>
     /// <param name="count">Total occurrences including past ones.</param>
@@ -44,6 +45,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
         [Summary("repeat", "New repeat rule — or \"doesn't repeat\" to stop the series")] SeriesRepeatChoice? repeat = null,
         [Summary("repeat-every", "New interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int? repeatEvery = null,
+        [Summary("repeat-days", "Weekly only: new days, e.g. \"tue,thu\" or \"weekdays\" — \"none\" goes back to one day")] string? repeatDays = null,
         [Summary("ends", "How the series ends — or just pass until/count directly")] SeriesEndsChoice? ends = null,
         [Summary("until", "Last date it repeats, e.g. \"Aug 30\" (implies ends: on a date)")] string? until = null,
         [Summary("count", "Total occurrences including past ones (2-500)"), MinValue(2), MaxValue(500)] int? count = null)
@@ -72,7 +74,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
 
         if (repeat == SeriesRepeatChoice.DoesntRepeat)
         {
-            if (repeatEvery is not null || ends is not null || until is not null || count is not null)
+            if (repeatEvery is not null || repeatDays is not null || ends is not null || until is not null || count is not null)
             {
                 await FollowupAsync("\"doesn't repeat\" stops the series — drop the other repeat options.", ephemeral: true);
                 return;
@@ -142,10 +144,33 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
         }
 
         var wasEnded = seriesResult.Value.Ended;
-        if (repeat is null && repeatEvery is null && ends is null && until is null && count is null && !wasEnded)
+        if (repeat is null && repeatEvery is null && repeatDays is null && ends is null && until is null && count is null && !wasEnded)
         {
             await FollowupAsync("Nothing to change — pass at least one option.", ephemeral: true);
             return;
+        }
+
+        // Days apply to the EFFECTIVE unit: an explicit weekly choice, or the stored rule when
+        // the choice is omitted — so "/series edit repeat-days:mon,wed" on a weekly series just
+        // works, while on a monthly one it gets a pointer instead of an API 400.
+        RecurrenceDays? days = null;
+        if (repeatDays is not null)
+        {
+            var effectiveWeekly = repeat is SeriesRepeatChoice.Weekly
+                || (repeat is null && seriesResult.Value.Unit == RecurrenceUnit.Week);
+            if (!effectiveWeekly)
+            {
+                await FollowupAsync("`repeat-days` only applies to weekly repeats — set `repeat: weekly` too.", ephemeral: true);
+                return;
+            }
+
+            if (!RepeatDaysSyntax.TryParse(repeatDays, out var parsedDays, out var daysProblem, allowNone: true))
+            {
+                await FollowupAsync($"❌ {daysProblem}", ephemeral: true);
+                return;
+            }
+
+            days = parsedDays;
         }
 
         var (unit, mode) = repeat switch
@@ -168,7 +193,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
         };
 
         var result = await api.UpdateSeriesAsync(seriesId, new UpdateSeriesRequest(
-            unit, repeatEvery, mode, end, until, count));
+            unit, repeatEvery, mode, days, end, until, count));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

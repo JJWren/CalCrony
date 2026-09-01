@@ -71,6 +71,11 @@ public static class TemplateEndpoints
             return Results.BadRequest(new ErrorResponse("Repeat interval must be between 1 and 12."));
         }
 
+        if (request.Recurrence is { } daysRule && Validation.BadRecurrenceDays(daysRule.Unit, daysRule.DaysOfWeek) is { } badDays)
+        {
+            return badDays;
+        }
+
         if (request.Title is { } newTitle && string.IsNullOrWhiteSpace(newTitle))
         {
             // A blank template title would break /create's gap-fill (title is required there).
@@ -159,12 +164,14 @@ public static class TemplateEndpoints
             template.RecurrenceUnit = null;
             template.RecurrenceInterval = null;
             template.RecurrenceMonthlyMode = null;
+            template.RecurrenceDaysOfWeek = null;
         }
         else if (request.Recurrence is { } newRule)
         {
             template.RecurrenceUnit = newRule.Unit;
             template.RecurrenceInterval = newRule.Interval;
             template.RecurrenceMonthlyMode = newRule.MonthlyMode;
+            template.RecurrenceDaysOfWeek = newRule.DaysOfWeek;
         }
 
         try
@@ -254,6 +261,7 @@ public static class TemplateEndpoints
             RecurrenceUnit = captureRule ? ev.Series!.Unit : null,
             RecurrenceInterval = captureRule ? ev.Series!.Interval : null,
             RecurrenceMonthlyMode = captureRule ? ev.Series!.MonthlyMode : null,
+            RecurrenceDaysOfWeek = captureRule ? ev.Series!.DaysOfWeek : null,
             CreatedAt = clock.GetCurrentInstant(),
             Notifications = [.. ev.Notifications
                 .OrderByDescending(n => n.MinutesBefore)
@@ -348,7 +356,9 @@ public static class TemplateEndpoints
         template.Location,
         template.ImageUrl,
         template.RecurrenceUnit is { } unit
-            ? new RecurrenceRuleDto(unit, template.RecurrenceInterval!.Value, template.RecurrenceMonthlyMode!.Value)
+            ? new RecurrenceRuleDto(
+                unit, template.RecurrenceInterval!.Value, template.RecurrenceMonthlyMode!.Value,
+                template.RecurrenceDaysOfWeek ?? RecurrenceDays.None)
             : null,
         [.. template.Notifications
             .OrderByDescending(n => n.MinutesBefore)

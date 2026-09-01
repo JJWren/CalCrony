@@ -88,9 +88,19 @@ public static class SeriesEndpoints
         var interval = request.Interval ?? series.Interval;
         var mode = request.MonthlyMode ?? series.MonthlyMode;
 
+        // An explicit set always wins (None clears it). Omitted: a weekly series keeps its
+        // days, while a move to any other unit drops them silently — the stored set would be
+        // meaningless there and must not resurface if the series later goes weekly again.
+        var days = request.DaysOfWeek ?? (unit == RecurrenceUnit.Week ? series.DaysOfWeek : RecurrenceDays.None);
+
         if (interval is < 1 or > 12)
         {
             return Results.BadRequest(new ErrorResponse("Repeat interval must be between 1 and 12."));
+        }
+
+        if (Validation.BadRecurrenceDays(unit, days) is { } badDays)
+        {
+            return badDays;
         }
 
         if (request.End is SeriesEndChoice.Keep or SeriesEndChoice.Never
@@ -152,7 +162,7 @@ public static class SeriesEndpoints
         var now = clock.GetCurrentInstant();
         if (RecurrenceCalculator.NextOccurrence(
                 unit, interval, mode, series.AnchorDate, series.StartTime, zone,
-                series.CurrentOccurrenceDate, effectiveUntil, now) is null)
+                series.CurrentOccurrenceDate, effectiveUntil, now, days) is null)
         {
             return Results.BadRequest(new ErrorResponse(
                 "These settings leave no upcoming occurrences — use stop to end the series instead."));
@@ -161,6 +171,7 @@ public static class SeriesEndpoints
         series.Unit = unit;
         series.Interval = interval;
         series.MonthlyMode = mode;
+        series.DaysOfWeek = days;
         if (request.End != SeriesEndChoice.Keep)
         {
             series.UntilDate = effectiveUntil;

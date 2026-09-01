@@ -51,6 +51,7 @@ public static class Mapping
         series.Unit,
         series.Interval,
         series.MonthlyMode,
+        series.DaysOfWeek,
         series.TimeZone,
         series.AnchorDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
         series.StartTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),

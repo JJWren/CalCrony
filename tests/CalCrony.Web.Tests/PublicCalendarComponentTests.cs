@@ -272,11 +272,54 @@ public class PublicCalendarComponentTests : TestContext
         cut.FindAll("button").First(b => b.TextContent.Contains("Generate new link")).Click();
         cut.Render(p => p.Add(x => x.GuildId, 2L));
         cut.WaitForAssertion(() => Assert.Contains("gs-public-cal", cut.Markup));
+        // Guild 1's still-pending save must not leave guild 2's controls disabled.
+        Assert.False(cut.Find("#gs-public-cal").HasAttribute("disabled"));
 
         putGate.SetResult(); // guild 1's regenerate completes late…
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("/c/regenerated1", cut.Markup)); // …and is discarded
         Assert.DoesNotContain("/c/guild1", cut.Markup);
+        Assert.False(cut.Find("#gs-public-cal").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Manager_controls_are_withheld_while_the_next_guild_is_still_loading()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var handler = UseApi();
+        var now = DateTimeOffset.UtcNow;
+        var guild2Gate = new TaskCompletionSource();
+        handler.Respond = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(false, null, null, null), JsonWeb)),
+            "/guilds/1/settings" => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("America/Chicago", 5, true), JsonWeb)),
+            "/guilds/2/settings" => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("Europe/Berlin", 5), JsonWeb)),
+            // Manager of guild 1 only.
+            "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true), new WebGuildDto(2, "H", null, false)]), JsonWeb)),
+            var p when p.EndsWith("/feed-token") => (HttpStatusCode.OK, JsonSerializer.Serialize(new FeedTokenDto("tok", "/feeds/tok.ics"), JsonWeb)),
+            _ => (HttpStatusCode.OK, "[]"),
+        };
+        handler.Delay = req => req.RequestUri!.AbsolutePath == "/guilds/2/settings" ? guild2Gate.Task : Task.CompletedTask;
+
+        var cut = Render<GuildSettings>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => cut.Find("#gs-public-cal")); // manager switch for guild 1
+
+        cut.Render(p => p.Add(x => x.GuildId, 2L)); // guild 2's first read is held open
+
+        // Guild 1's manager role — and its timezone / native-events state — must not leak into
+        // guild 2's loading window, and loading is shown as loading, not as a member view…
+        cut.WaitForAssertion(() => Assert.Contains("Loading server settings", cut.Markup));
+        Assert.Empty(cut.FindAll("#gs-public-cal"));
+        Assert.Empty(cut.FindAll("#gs-native"));
+        Assert.DoesNotContain("America/Chicago", cut.Markup);
+        Assert.DoesNotContain("Read-only", cut.Markup);
+        guild2Gate.SetResult();
+
+        // …and only once guild 2's OWN data is in does the member (non-manager) view render.
+        cut.WaitForAssertion(() => Assert.Contains("Europe/Berlin", cut.Markup));
+        Assert.Contains("Read-only", cut.Markup);
+        Assert.Empty(cut.FindAll("#gs-public-cal"));
+        Assert.DoesNotContain("Loading server settings", cut.Markup);
     }
 
     private static PublicCalendarDto SampleMonth() =>

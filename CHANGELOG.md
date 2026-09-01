@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.29.0](https://github.com/JJWren/CalCrony/compare/v0.28.1...v0.29.0) (2026-09-01)
+
+
+### Features
+
+* multi-day-of-week recurrence (checkbox day sets) ([#135](https://github.com/JJWren/CalCrony/issues/135)) ([9501681](https://github.com/JJWren/CalCrony/commit/9501681c9eef299e67e3e9dbab79c2ac8d26811c))
+
+## [0.28.1](https://github.com/JJWren/CalCrony/compare/v0.28.0...v0.28.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* withhold manager controls while the next guild loads ([#136](https://github.com/JJWren/CalCrony/issues/136)) ([3a589fe](https://github.com/JJWren/CalCrony/commit/3a589fe7bb02662687009ecd7af48fab4335d1a3))
+
+## [0.28.0](https://github.com/JJWren/CalCrony/compare/v0.27.0...v0.28.0) (2026-09-01)
+
+
+### Features
+
+* public web calendar — opt-in, slug-URL month view ([#130](https://github.com/JJWren/CalCrony/issues/130)) ([4601ad5](https://github.com/JJWren/CalCrony/commit/4601ad53d8fe2f7abd288613caecdd3bab6c1363))
+
+
+### Bug Fixes
+
+* RSVP v1 review follow-ups ([#133](https://github.com/JJWren/CalCrony/issues/133)) ([0ec612a](https://github.com/JJWren/CalCrony/commit/0ec612acb666dc6942dd84fdb13facb69138f599))
+
 ## [0.27.0](https://github.com/JJWren/CalCrony/compare/v0.26.0...v0.27.0) (2026-08-31)
 
 
