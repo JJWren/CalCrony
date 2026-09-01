@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/JJWren/CalCrony/compare/v0.29.0...v0.30.0) (2026-09-01)
+
+
+### Features
+
+* DM reminders — strict per-user opt-in ([#137](https://github.com/JJWren/CalCrony/issues/137)) ([af10206](https://github.com/JJWren/CalCrony/commit/af10206d5b722497556359410b27d2b4f0e165f9))
+
 ## [0.29.0](https://github.com/JJWren/CalCrony/compare/v0.28.1...v0.29.0) (2026-09-01)
 
 
