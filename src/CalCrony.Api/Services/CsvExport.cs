@@ -11,10 +11,12 @@ namespace CalCrony.Api.Services;
 /// memory. Pure text assembly (RFC 4180: CRLF rows, quote-when-needed, doubled inner quotes),
 /// unit-testable without a database; the endpoint adds the UTF-8 BOM that makes Excel read
 /// emoji option emotes correctly.
-/// <para>Row order: events are emitted in <b>event id</b> order, not chronologically. The id is
-/// the only key that cannot change while the export streams (a start time edited mid-download
-/// would otherwise duplicate or drop the event), so exactly-once wins over pre-sorted output —
-/// sort by <c>starts_at_utc</c> in the spreadsheet.</para>
+/// <para>Row order: events are emitted in <b>event id</b> order, not chronologically, and an
+/// event's RSVP rows in <b>RSVP id</b> order, not queue order. Ids are the only keys that cannot
+/// change while the export streams (a start time edited mid-download, or an RSVP whose queue
+/// time moves when its member switches option, would otherwise duplicate or drop a row), so
+/// exactly-once wins over pre-sorted output — sort by <c>starts_at_utc</c> (and
+/// <c>rsvp_created_utc</c> for queue position) in the spreadsheet.</para>
 /// <para>Formula injection: spreadsheet apps evaluate a cell that begins with <c>=</c>, <c>+</c>,
 /// <c>-</c>, <c>@</c>, tab, CR, or LF as a formula, and titles, locations, and option
 /// emotes/labels are member-controlled text. Those cells are neutralized by prefixing a single
@@ -55,6 +57,7 @@ public static class CsvExport
     /// <param name="UserId">The RSVPing user's Discord id.</param>
     /// <param name="Waitlisted">True while queued past the attending option's capacity.</param>
     /// <param name="CreatedAt">When the RSVP was made (doubles as waitlist queue order).</param>
+    /// <param name="RsvpId">The RSVP row id — the streaming export's paging key, not a column.</param>
     public sealed record RsvpRow(
         Guid EventId,
         string Emote,
@@ -62,7 +65,8 @@ public static class CsvExport
         bool IsAttending,
         long UserId,
         bool Waitlisted,
-        Instant CreatedAt);
+        Instant CreatedAt,
+        Guid RsvpId = default);
 
     /// <summary>The header row, in column order. One row per RSVP with the event columns
     /// repeated; an event with no RSVPs still gets one row (RSVP columns empty) so every event
@@ -98,48 +102,61 @@ public static class CsvExport
     /// <param name="writer">The destination (CRLF rows are written explicitly).</param>
     public static void WriteHeader(TextWriter writer) => WriteRow(writer, EventColumns);
 
-    /// <summary>Writes one event: a row per RSVP in the order given (callers pass queue order —
-    /// creation time — which doubles as waitlist position), or a single row with empty RSVP
-    /// columns when the event has none.</summary>
+    /// <summary>Writes one event: a row per RSVP in the order given, or a single row with empty
+    /// RSVP columns when the event has none.</summary>
     /// <param name="writer">The destination.</param>
     /// <param name="ev">The event's columns.</param>
-    /// <param name="rsvps">The event's RSVPs in queue order.</param>
+    /// <param name="rsvps">The event's RSVPs in the order they should appear.</param>
     public static void WriteEvent(TextWriter writer, EventRow ev, IReadOnlyList<RsvpRow> rsvps)
     {
-        var eventCells = new[]
-        {
-            ev.Id.ToString(),
-            Text(ev.Title),
-            FormatInstant(ev.StartsAt),
-            ev.TimeZone,
-            ev.DurationMinutes?.ToString(CultureInfo.InvariantCulture) ?? "",
-            Text(ev.Location ?? ""),
-            ev.Status.ToString(),
-            ev.SeriesId?.ToString() ?? "",
-            ev.ChannelId.ToString(CultureInfo.InvariantCulture),
-            ev.CreatorId.ToString(CultureInfo.InvariantCulture),
-        };
-
         if (rsvps.Count == 0)
         {
-            WriteRow(writer, [.. eventCells, "", "", "", "", "", ""]);
+            WriteEventWithoutRsvps(writer, ev);
             return;
         }
 
         foreach (var rsvp in rsvps)
         {
-            WriteRow(writer,
-            [
-                .. eventCells,
-                Text(rsvp.Emote),
-                Text(rsvp.Label),
-                FormatBool(rsvp.IsAttending),
-                rsvp.UserId.ToString(CultureInfo.InvariantCulture),
-                FormatBool(rsvp.Waitlisted),
-                FormatInstant(rsvp.CreatedAt),
-            ]);
+            WriteRsvpRow(writer, ev, rsvp);
         }
     }
+
+    /// <summary>Writes the single row an event without RSVPs gets (RSVP columns empty), so every
+    /// event the server has appears in the file.</summary>
+    /// <param name="writer">The destination.</param>
+    /// <param name="ev">The event's columns.</param>
+    public static void WriteEventWithoutRsvps(TextWriter writer, EventRow ev) =>
+        WriteRow(writer, [.. EventCells(ev), "", "", "", "", "", ""]);
+
+    /// <summary>Writes one RSVP row with its event's columns repeated in front.</summary>
+    /// <param name="writer">The destination.</param>
+    /// <param name="ev">The event's columns.</param>
+    /// <param name="rsvp">The RSVP.</param>
+    public static void WriteRsvpRow(TextWriter writer, EventRow ev, RsvpRow rsvp) =>
+        WriteRow(writer,
+        [
+            .. EventCells(ev),
+            Text(rsvp.Emote),
+            Text(rsvp.Label),
+            FormatBool(rsvp.IsAttending),
+            rsvp.UserId.ToString(CultureInfo.InvariantCulture),
+            FormatBool(rsvp.Waitlisted),
+            FormatInstant(rsvp.CreatedAt),
+        ]);
+
+    private static string[] EventCells(EventRow ev) =>
+    [
+        ev.Id.ToString(),
+        Text(ev.Title),
+        FormatInstant(ev.StartsAt),
+        ev.TimeZone,
+        ev.DurationMinutes?.ToString(CultureInfo.InvariantCulture) ?? "",
+        Text(ev.Location ?? ""),
+        ev.Status.ToString(),
+        ev.SeriesId?.ToString() ?? "",
+        ev.ChannelId.ToString(CultureInfo.InvariantCulture),
+        ev.CreatorId.ToString(CultureInfo.InvariantCulture),
+    ];
 
     /// <summary>Renders a whole export to a string — the in-memory convenience for tests and
     /// small callers; the endpoint streams via <see cref="WriteHeader"/> and <see cref="WriteEvent"/>.</summary>

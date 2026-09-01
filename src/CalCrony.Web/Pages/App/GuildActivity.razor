@@ -1,5 +1,6 @@
 @page "/app/guilds/{GuildId:long}/activity"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
 @inject CalCronyWebApiClient Api
 @inject IJSRuntime Js
 
@@ -138,6 +139,11 @@ else
     private CancellationTokenSource? exportCts;
     private DownloadedFile? exportFile;
 
+    // Navigating away disposes the component without a parameter change, so Dispose is the
+    // other place an in-flight export is torn down; late continuations check this before
+    // touching state.
+    private bool disposed;
+
     protected override async Task OnParametersSetAsync()
     {
         // Blazor reuses this component across guilds: reset per-guild state before the first
@@ -161,7 +167,7 @@ else
         appliedUserId = null;
 
         var myGuilds = await Api.GetMyGuildsAsync();
-        if (generation != loadGeneration)
+        if (disposed || generation != loadGeneration)
         {
             return;
         }
@@ -189,6 +195,11 @@ else
     {
         loading = true;
         var result = await Api.ListActionsAsync(GuildId, appliedAction, appliedUserId, reset ? null : nextCursor, PageSize);
+        if (disposed)
+        {
+            return;
+        }
+
         loading = false;
         if (generation != loadGeneration)
         {
@@ -273,10 +284,10 @@ else
                 return; // the page moved on; CancelExport already cleaned up
             }
 
-            if (generation != loadGeneration || token.IsCancellationRequested)
+            if (disposed || generation != loadGeneration || token.IsCancellationRequested)
             {
-                // The page moved to another guild mid-download: the open response (and its body
-                // stream) belongs to the old guild and must be closed, not leaked.
+                // The page moved on (another guild, or away entirely) mid-download: the open
+                // response (and its body stream) must be closed, not leaked.
                 result.Value?.Dispose();
                 return;
             }
@@ -304,9 +315,10 @@ else
                 return; // the read was aborted by a guild switch
             }
 
-            // Re-checked AFTER the interop returned: the guild may have switched while JS was
-            // reading, and neither the old filename nor a reload may touch the new page.
-            if (generation != loadGeneration || token.IsCancellationRequested)
+            // Re-checked AFTER the interop returned: the guild may have switched (or the page been
+            // left) while JS was reading, and neither the old filename nor a reload may touch
+            // state after that.
+            if (disposed || generation != loadGeneration || token.IsCancellationRequested)
             {
                 return;
             }
@@ -322,6 +334,10 @@ else
             if (ReferenceEquals(exportCts, cts))
             {
                 CancelExport();
+            }
+
+            if (!disposed)
+            {
                 exporting = false;
             }
         }
@@ -329,6 +345,15 @@ else
 
     /// <summary>Cancels and releases the in-flight export, if any: the HTTP call, the JS read
     /// (by closing the stream it is reading), and the response that owns that stream.</summary>
+    /// <summary>Tears down an in-flight export when the component leaves the page; continuations
+    /// that wake afterwards see <c>disposed</c> and write nothing.</summary>
+    public void Dispose()
+    {
+        disposed = true;
+        loadGeneration++;
+        CancelExport();
+    }
+
     private void CancelExport()
     {
         var cts = exportCts;

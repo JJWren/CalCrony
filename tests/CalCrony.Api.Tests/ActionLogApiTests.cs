@@ -554,6 +554,55 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
         Assert.Equal("""{"fields":["days of week"]}""", entry.DetailsJson);
     }
 
+    [Fact]
+    public async Task Csv_export_streams_an_event_with_more_rsvps_than_one_rsvp_page_once_each_in_id_order()
+    {
+        const long guildId = 13260;
+        const int rsvpCount = ActionLogEndpoints.ExportRsvpPageSize + 50; // spans two RSVP pages
+        var baseStart = Instant.FromUtc(2026, 11, 1, 18, 0);
+        var going = new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", IsAttending = true };
+        var crowded = new Event
+        {
+            Id = Guid.NewGuid(), GuildId = guildId, CreatorId = 13261, Title = "Crowded", StartsAt = baseStart,
+            TimeZone = "UTC", ChannelId = ChannelId, Status = EventStatus.Scheduled, CreatedAt = baseStart,
+            Options = [going],
+            Rsvps = [.. Enumerable.Range(0, rsvpCount).Select(i => new Rsvp
+            {
+                Id = Guid.NewGuid(), UserId = 40000 + i, OptionId = going.Id, CreatedAt = baseStart.Plus(Duration.FromSeconds(i)),
+            })],
+        };
+        // A second, RSVP-less event so the merge has to settle an event after the big one.
+        var lonely = new Event
+        {
+            Id = Guid.NewGuid(), GuildId = guildId, CreatorId = 13261, Title = "Lonely", StartsAt = baseStart,
+            TimeZone = "UTC", ChannelId = ChannelId, Status = EventStatus.Scheduled, CreatedAt = baseStart,
+            Options = [new RsvpOption { Id = Guid.NewGuid(), Emote = "✅", Label = "Going", IsAttending = true }],
+        };
+        await using (var seed = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            db.Guilds.Add(new Guild { Id = guildId });
+            db.Events.AddRange(crowded, lonely);
+            await db.SaveChangesAsync();
+        }
+
+        var (manager, _) = await fixture.LoginAsync(13262, (guildId, "G", true));
+        var response = await manager.GetAsync($"/guilds/{guildId}/export/events.csv");
+        response.EnsureSuccessStatusCode();
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var lines = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(1 + rsvpCount + 1, lines.Length);
+        var crowdedRows = lines.Skip(1).Where(l => l.StartsWith(crowded.Id.ToString())).ToList();
+        Assert.Equal(rsvpCount, crowdedRows.Count);
+        // Every RSVP exactly once, in RSVP-id order (the page keyset) — no page boundary repeated
+        // or dropped a member. Column 13 is rsvp_user_id; the title has no comma, so a split is safe.
+        var actualUsers = crowdedRows.Select(l => long.Parse(l.Split(',')[13])).ToList();
+        Assert.Equal(crowded.Rsvps.OrderBy(r => r.Id).Select(r => r.UserId), actualUsers);
+        Assert.Equal(rsvpCount, actualUsers.Distinct().Count());
+        Assert.Single(lines.Skip(1), l => l.StartsWith(lonely.Id.ToString()) && l.EndsWith(",,,,,,"));
+    }
+
     private async Task SeedGuildAsync(long guildId)
     {
         var response = await Bot.PutAsJsonAsync($"/guilds/{guildId}/settings", new GuildSettingsDto("UTC", ChannelId));

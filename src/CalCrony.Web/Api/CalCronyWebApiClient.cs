@@ -418,8 +418,20 @@ public sealed class CalCronyWebApiClient(HttpClient http)
         var fileName = disposition?.FileNameStar ?? disposition?.FileName?.Trim('"') ?? $"calcrony-events-{guildId}.csv";
         var contentType = response.Content.Headers.ContentType?.ToString() ?? "text/csv";
         // Ownership of the response moves into the file; the stream is the content stream itself.
-        return new ApiResult<DownloadedFile>(
-            new DownloadedFile(fileName, contentType, await response.Content.ReadAsStreamAsync(ct), response), null);
+        // Until that hand-off the response is still ours — a throw here (cancellation landing after
+        // the headers arrived) must not leak it.
+        Stream content;
+        try
+        {
+            content = await response.Content.ReadAsStreamAsync(ct);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+
+        return new ApiResult<DownloadedFile>(new DownloadedFile(fileName, contentType, content, response), null);
     }
 
     /// <summary>Empty payload marker for calls whose success carries no body.</summary>

@@ -322,6 +322,46 @@ public class ActivityComponentTests : TestContext
         Assert.Contains("Export events (CSV)", cut.Markup); // the new guild's own button is live again
     }
 
+    [Fact]
+    public async Task Disposing_the_component_mid_download_closes_the_stream_and_writes_no_state()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+        handler.CsvBytes = Encoding.UTF8.GetBytes("event_id,title\r\n");
+        var download = JSInterop.SetupVoid("calcronyDownload", _ => true); // JS stays "mid-read"
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+        cut.WaitForAssertion(() => Assert.Single(download.Invocations));
+        var streamBeingRead = handler.LastCsvContent!.HandedOut!;
+        var actionsBefore = handler.ActionsCalls;
+
+        // Navigating away: Blazor disposes the component with no parameter change in between.
+        ((IDisposable)cut.Instance).Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => streamBeingRead.ReadByte());
+
+        // Let the interop call finish and give any stray continuation time to run: a reload
+        // request is the only observable state write it could make, and it must not happen.
+        try
+        {
+            download.SetVoidResult();
+        }
+        catch (InvalidOperationException)
+        {
+            // bUnit already completed the invocation as cancelled — the same end state.
+        }
+
+        await Task.Delay(250);
+        Assert.Equal(actionsBefore, handler.ActionsCalls);
+    }
+
     private static ActionLogEntryDto Entry(
         ActionLogAction action, string summary, long actorId, string? actorName,
         ActionSource source = ActionSource.Discord, ActionTargetType targetType = ActionTargetType.Poll, Guid? targetId = null,

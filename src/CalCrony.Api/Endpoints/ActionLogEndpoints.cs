@@ -22,9 +22,18 @@ public static class ActionLogEndpoints
     /// <summary>Hard cap per page — the web page loads more on demand.</summary>
     public const int MaxPageSize = 100;
 
-    /// <summary>Events per round-trip while streaming the export. Bounds memory to one chunk of
-    /// projected rows (plus their RSVPs) regardless of how much history a guild has kept.</summary>
+    /// <summary>Events per round-trip while streaming the export: one chunk of projected event
+    /// rows is all that is ever held for the event side.</summary>
     public const int ExportChunkSize = 200;
+
+    /// <summary>RSVP rows per round-trip while streaming the export. An event chunk does not
+    /// bound its RSVPs (one per member per event), so they page separately on their own keyset
+    /// and no more than this many are ever held.</summary>
+    public const int ExportRsvpPageSize = 1000;
+
+    /// <summary>Rows composed before the buffer is pushed to the response — the flush budget is
+    /// a row count, not an event chunk, so one huge event cannot balloon the buffer.</summary>
+    public const int ExportFlushRows = 500;
 
     private const string CursorSeparator = "|";
 
@@ -163,9 +172,10 @@ public static class ActionLogEndpoints
     /// <summary>Streams every event the guild still has, one row per RSVP (see CsvExport for the
     /// row model). Retention never purges events — only operational records and action-log
     /// entries — so the row count is unbounded, which is why this streams in chunks.
-    /// Events are walked in <see cref="ExportChunkSize"/> keyset chunks by id, each chunk's RSVPs
-    /// fetched in one joined query, and rows are flushed to the response as they are written, so
-    /// memory never holds more than one chunk. The download itself is logged: exporting attendee
+    /// Events are walked in <see cref="ExportChunkSize"/> keyset chunks by id, their RSVPs in
+    /// <see cref="ExportRsvpPageSize"/> keyset pages by (event id, RSVP id), and the buffer is
+    /// pushed every <see cref="ExportFlushRows"/> rows, so memory is bounded by those three
+    /// constants however much history a guild has kept. The download itself is logged: exporting attendee
     /// data is a management action a server's other managers should be able to see.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
@@ -211,50 +221,63 @@ public static class ActionLogEndpoints
             fileName);
     }
 
-    /// <summary>Writes the BOM, header, and every event's rows to the response body in keyset
-    /// chunks ordered by event id. The id is the only key that cannot change under a running
-    /// export — a start time edited mid-stream would move an event across a StartsAt cursor and
-    /// export it twice or not at all — so rows come out in id order (see CsvExport: sort by
-    /// <c>starts_at_utc</c> in the spreadsheet) and each event appears exactly once.</summary>
+    /// <summary>Writes the BOM, header, and every event's rows to the response body. Events are
+    /// walked in keyset chunks by event id and, within each chunk, their RSVPs in keyset pages by
+    /// (event id, RSVP id) — both immutable keys, so an edit landing mid-stream (a start time, an
+    /// RSVP moving between options) can neither repeat nor drop a row. The two ordered streams
+    /// merge as they arrive: RSVP rows are emitted under their event, and an event the RSVP
+    /// stream passes over gets its single empty-RSVP row. Rows come out in id order (see
+    /// CsvExport: sort by <c>starts_at_utc</c> in the spreadsheet); the buffer is pushed every
+    /// <see cref="ExportFlushRows"/> rows.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="body">The response body.</param>
-    /// <param name="chunkHook">The test seam invoked after each chunk is flushed.</param>
+    /// <param name="chunkHook">The test seam invoked after each event chunk has been flushed.</param>
     /// <param name="cancellationToken">Cancels when the client goes away.</param>
     private static async Task WriteExportAsync(
         CalCronyDbContext db, long guildId, Stream body, ExportChunkHook chunkHook, CancellationToken cancellationToken)
     {
         await body.WriteAsync(CsvExport.Utf8Bom, cancellationToken);
 
-        // Rows for one chunk are composed in memory and pushed with a single async write: a
-        // StreamWriter over the body would flush its internal buffer synchronously mid-row,
-        // which Kestrel rejects (AllowSynchronousIO is off). The BOM went out by hand above, so
-        // the encoder must not emit another.
+        // Rows are composed in memory and pushed with async writes: a StreamWriter over the body
+        // would flush its internal buffer synchronously mid-row, which Kestrel rejects
+        // (AllowSynchronousIO is off). The BOM went out by hand above, so the encoder must not
+        // emit another.
         var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         using var writer = new StringWriter();
         CsvExport.WriteHeader(writer);
+        var rowsSinceFlush = 0;
 
-        async Task FlushChunkAsync()
+        async Task FlushAsync()
         {
             var builder = writer.GetStringBuilder();
             await body.WriteAsync(utf8.GetBytes(builder.ToString()), cancellationToken);
             await body.FlushAsync(cancellationToken);
             builder.Clear();
+            rowsSinceFlush = 0;
         }
 
-        Guid? afterId = null;
+        async Task FlushIfDueAsync()
+        {
+            if (++rowsSinceFlush >= ExportFlushRows)
+            {
+                await FlushAsync();
+            }
+        }
+
+        Guid? afterEventId = null;
         var chunkIndex = 0;
         while (true)
         {
-            var query = db.Events.AsNoTracking().Where(e => e.GuildId == guildId);
-            if (afterId is { } last)
+            var events = db.Events.AsNoTracking().Where(e => e.GuildId == guildId);
+            if (afterEventId is { } lastEvent)
             {
                 // Keyset on the immutable Id: an event edited while the export runs stays put in
                 // this order, so chunks never overlap or skip.
-                query = query.Where(e => e.Id.CompareTo(last) > 0);
+                events = events.Where(e => e.Id.CompareTo(lastEvent) > 0);
             }
 
-            var chunk = await query
+            var chunk = await events
                 .OrderBy(e => e.Id)
                 .Take(ExportChunkSize)
                 .Select(e => new CsvExport.EventRow(
@@ -265,28 +288,97 @@ public static class ActionLogEndpoints
                 break;
             }
 
-            // One joined query for the chunk's RSVPs (no cartesian Include): an RSVP always
-            // references one of its event's options, so the inner join drops nothing. (The record
-            // is constructed only in the final Select — EF can't translate a constructor call
-            // that an OrderBy still has to see through.)
+            // Merge the chunk's RSVP pages into the chunk's events. Both sides are ascending by
+            // event id (Postgres uuid order equals Guid.CompareTo), so a single index walks the
+            // events while RSVP rows stream past; an event the RSVP stream steps over had none.
             var ids = chunk.Select(e => e.Id).ToList();
-            var rsvps = await db.Rsvps.AsNoTracking()
-                .Where(r => ids.Contains(r.EventId))
-                .Join(db.RsvpOptions, r => r.OptionId, o => o.Id, (r, o) => new { Rsvp = r, Option = o })
-                .OrderBy(x => x.Rsvp.CreatedAt)
-                .ThenBy(x => x.Rsvp.UserId)
-                .Select(x => new CsvExport.RsvpRow(
-                    x.Rsvp.EventId, x.Option.Emote, x.Option.Label, x.Option.IsAttending,
-                    x.Rsvp.UserId, x.Rsvp.Waitlisted, x.Rsvp.CreatedAt))
-                .ToListAsync(cancellationToken);
-            var byEvent = rsvps.ToLookup(r => r.EventId);
+            var eventIndex = 0;
+            var currentHasRows = false;
 
-            foreach (var ev in chunk)
+            void SettleEventsBefore(Guid eventId)
             {
-                CsvExport.WriteEvent(writer, ev, byEvent[ev.Id].ToList());
+                while (eventIndex < chunk.Count && chunk[eventIndex].Id.CompareTo(eventId) < 0)
+                {
+                    if (!currentHasRows)
+                    {
+                        // Counted toward the budget; the next RSVP row's check flushes (a run of
+                        // empty rows is bounded by the chunk size anyway).
+                        CsvExport.WriteEventWithoutRsvps(writer, chunk[eventIndex]);
+                        rowsSinceFlush++;
+                    }
+
+                    eventIndex++;
+                    currentHasRows = false;
+                }
             }
 
-            await FlushChunkAsync();
+            Guid? afterRsvpEvent = null;
+            var afterRsvpId = Guid.Empty;
+            while (true)
+            {
+                var rsvps = db.Rsvps.AsNoTracking().Where(r => ids.Contains(r.EventId));
+                if (afterRsvpEvent is { } lastRsvpEvent)
+                {
+                    // Keyset on (EventId, Id) — both immutable, unlike CreatedAt, which moves when
+                    // a member changes option.
+                    rsvps = rsvps.Where(r => r.EventId.CompareTo(lastRsvpEvent) > 0
+                        || (r.EventId == lastRsvpEvent && r.Id.CompareTo(afterRsvpId) > 0));
+                }
+
+                // One page joined to its options (no cartesian Include): an RSVP always
+                // references one of its event's options, so the inner join drops nothing. (The
+                // record is constructed only in the final Select — EF can't translate a
+                // constructor call that an OrderBy still has to see through.)
+                var page = await rsvps
+                    .OrderBy(r => r.EventId)
+                    .ThenBy(r => r.Id)
+                    .Take(ExportRsvpPageSize)
+                    .Join(db.RsvpOptions, r => r.OptionId, o => o.Id, (r, o) => new { Rsvp = r, Option = o })
+                    .OrderBy(x => x.Rsvp.EventId)
+                    .ThenBy(x => x.Rsvp.Id)
+                    .Select(x => new CsvExport.RsvpRow(
+                        x.Rsvp.EventId, x.Option.Emote, x.Option.Label, x.Option.IsAttending,
+                        x.Rsvp.UserId, x.Rsvp.Waitlisted, x.Rsvp.CreatedAt, x.Rsvp.Id))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var row in page)
+                {
+                    SettleEventsBefore(row.EventId);
+                    if (eventIndex >= chunk.Count || chunk[eventIndex].Id != row.EventId)
+                    {
+                        // Cannot happen (the page is filtered to the chunk's ids), but a silent
+                        // mis-merge would attribute rows to the wrong event.
+                        throw new InvalidOperationException("Export RSVP page is out of step with its event chunk.");
+                    }
+
+                    CsvExport.WriteRsvpRow(writer, chunk[eventIndex], row);
+                    currentHasRows = true;
+                    await FlushIfDueAsync();
+                }
+
+                if (page.Count < ExportRsvpPageSize)
+                {
+                    break;
+                }
+
+                afterRsvpEvent = page[^1].EventId;
+                afterRsvpId = page[^1].RsvpId;
+            }
+
+            // Events after the last RSVP row (and the last RSVP'd event itself) settle here.
+            while (eventIndex < chunk.Count)
+            {
+                if (!currentHasRows)
+                {
+                    CsvExport.WriteEventWithoutRsvps(writer, chunk[eventIndex]);
+                    await FlushIfDueAsync();
+                }
+
+                eventIndex++;
+                currentHasRows = false;
+            }
+
+            await FlushAsync();
             if (chunkHook.AfterChunkFlushed is { } afterChunk)
             {
                 await afterChunk(chunkIndex, cancellationToken);
@@ -298,11 +390,11 @@ public static class ActionLogEndpoints
                 break;
             }
 
-            afterId = chunk[^1].Id;
+            afterEventId = chunk[^1].Id;
         }
 
         // A guild with no events still gets its header row.
-        await FlushChunkAsync();
+        await FlushAsync();
     }
 
     /// <summary>The target ids of the rows with the given target type.</summary>
