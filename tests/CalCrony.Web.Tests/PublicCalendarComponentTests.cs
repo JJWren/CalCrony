@@ -290,7 +290,7 @@ public class PublicCalendarComponentTests : TestContext
         {
             var p when p.EndsWith("/public-calendar") => (HttpStatusCode.OK, JsonSerializer.Serialize(new PublicCalendarSettingsDto(false, null, null, null), JsonWeb)),
             "/guilds/1/settings" => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("America/Chicago", 5, true), JsonWeb)),
-            var p when p.EndsWith("/settings") => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("UTC", 5), JsonWeb)),
+            "/guilds/2/settings" => (HttpStatusCode.OK, JsonSerializer.Serialize(new GuildSettingsDto("Europe/Berlin", 5), JsonWeb)),
             // Manager of guild 1 only.
             "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(new WebGuildListResponse(now, [new WebGuildDto(1, "G", null, true), new WebGuildDto(2, "H", null, false)]), JsonWeb)),
             var p when p.EndsWith("/feed-token") => (HttpStatusCode.OK, JsonSerializer.Serialize(new FeedTokenDto("tok", "/feeds/tok.ics"), JsonWeb)),
@@ -304,15 +304,19 @@ public class PublicCalendarComponentTests : TestContext
         cut.Render(p => p.Add(x => x.GuildId, 2L)); // guild 2's first read is held open
 
         // Guild 1's manager role — and its timezone / native-events state — must not leak into
-        // guild 2's loading window…
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#gs-public-cal")));
+        // guild 2's loading window, and loading is shown as loading, not as a member view…
+        cut.WaitForAssertion(() => Assert.Contains("Loading server settings", cut.Markup));
+        Assert.Empty(cut.FindAll("#gs-public-cal"));
         Assert.Empty(cut.FindAll("#gs-native"));
         Assert.DoesNotContain("America/Chicago", cut.Markup);
+        Assert.DoesNotContain("Read-only", cut.Markup);
         guild2Gate.SetResult();
 
-        // …and once guild 2 loads, the member (non-manager) view is what renders.
-        cut.WaitForAssertion(() => Assert.Contains("Read-only", cut.Markup));
+        // …and only once guild 2's OWN data is in does the member (non-manager) view render.
+        cut.WaitForAssertion(() => Assert.Contains("Europe/Berlin", cut.Markup));
+        Assert.Contains("Read-only", cut.Markup);
         Assert.Empty(cut.FindAll("#gs-public-cal"));
+        Assert.DoesNotContain("Loading server settings", cut.Markup);
     }
 
     private static PublicCalendarDto SampleMonth() =>

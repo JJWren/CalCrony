@@ -8,17 +8,22 @@
 
 <p class="meta-mono text-uppercase mb-2"><a href="/app/guilds/@GuildId/events">← Back to events</a></p>
 <h1 class="h3">Server settings</h1>
-@if (!isManager)
+@if (loading)
 {
-    <p class="text-body-secondary">Read-only — server managers can edit these here or in Discord with <code>/settings</code>.</p>
+    @* Loading is its own state — the member view and the "off / not set" fallbacks would be
+       claims about a guild nothing has been read from yet. *@
+    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading server settings…</span></div>
 }
-
-@if (error is not null)
+else if (error is not null)
 {
     <div class="alert alert-danger">@error</div>
 }
 else
 {
+    @if (!isManager)
+    {
+        <p class="text-body-secondary">Read-only — server managers can edit these here or in Discord with <code>/settings</code>.</p>
+    }
     <div class="row g-3">
         <div class="col-12 col-md-6">
             <div class="card p-3 h-100">
@@ -151,6 +156,7 @@ else
     private string? error;
     private string copyLabel = "Copy URL";
     private bool isManager;
+    private bool loading = true;
     private int loadGeneration;
     private bool busy;
     private string timezoneInput = "";
@@ -174,6 +180,7 @@ else
         // await so the previous server's link (a credential) never renders under a new guild's
         // URL, and stamp the load so a slower, older response can't overwrite a newer guild's.
         var generation = ++loadGeneration;
+        loading = true;
         isManager = false; // never offer manager controls on the strength of the PREVIOUS guild's role
         settings = null;   // nor show its timezone / native-events state while the new guild loads
         timezoneInput = "";
@@ -196,6 +203,7 @@ else
         if (!settingsResult.Success)
         {
             error = settingsResult.Error;
+            loading = false;
             return;
         }
 
@@ -219,6 +227,7 @@ else
         // A failed read shows as an error, never as a fabricated "off" a manager could act on.
         publicCalendar = publicResult.Success ? publicResult.Value : null;
         publicCalendarError = publicResult.Success ? null : publicResult.Error ?? "unknown error";
+        loading = false;
     }
 
     private Task TogglePublicCalendarAsync(ChangeEventArgs e)
