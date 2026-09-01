@@ -31,7 +31,7 @@
                 <label class="form-check-label small" for="us-dm">DM confirmations</label>
             </div>
             <div class="form-check form-switch mt-2">
-                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveSettingsAsync" disabled="@(busy || settings is null)" />
+                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveDmRemindersAsync" disabled="@(busy || settings is null)" />
                 <label class="form-check-label small" for="us-dm-reminders">DM me reminders and start pings for events I'm attending</label>
             </div>
             <p class="text-body-secondary small mb-0 mt-1">
@@ -81,6 +81,12 @@
     private string timezoneInput = "";
     private bool dmConfirmations = true;
     private bool dmReminders;
+
+    /// <summary>Whether the save in flight is the one the DM-reminders switch itself triggered.
+    /// Only then is the field sent: an unrelated save (timezone, confirmations) sends null = keep,
+    /// so a value loaded earlier can't overwrite a newer consent state — e.g. an automatic
+    /// switch-off after closed DMs, or a change made from Discord meanwhile.</summary>
+    private bool dmRemindersChanged;
     private string? saveMessage;
 
     private long UserId => AuthApi.Session?.UserId ?? 0;
@@ -109,6 +115,12 @@
         calendar = calendarResult.Value;
     }
 
+    private Task SaveDmRemindersAsync()
+    {
+        dmRemindersChanged = true;
+        return SaveSettingsAsync();
+    }
+
     private async Task SaveSettingsAsync()
     {
         saveMessage = null;
@@ -123,7 +135,8 @@
         busy = true;
         var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
             string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations,
-            DmReminders: dmReminders));
+            DmReminders: dmRemindersChanged ? dmReminders : null));
+        dmRemindersChanged = false;
         busy = false;
         if (!result.Success || result.Value is null)
         {

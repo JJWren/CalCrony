@@ -228,6 +228,33 @@ public class ThemeComponentTests : TestContext
         cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
     }
 
+    [Fact]
+    public async Task Unrelated_saves_leave_the_dm_opt_in_alone_and_only_the_switch_sends_it()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate", DmReminders: true), JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#us-dm-reminders").HasAttribute("checked")));
+
+        // A timezone save must not resend the opt-in loaded earlier (it may have changed since —
+        // an automatic switch-off after closed DMs, or a /settings change in Discord).
+        cut.Find("#us-tz").Change("America/Chicago");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(handler.PutBody));
+        Assert.Null(JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!.DmReminders);
+
+        // The switch itself is the only thing that sends an explicit value.
+        cut.Find("#us-dm-reminders").Change(false);
+        cut.WaitForAssertion(() => Assert.False(JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!.DmReminders));
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();
