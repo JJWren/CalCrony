@@ -48,11 +48,15 @@ public class RetentionTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             Id = Guid.NewGuid(), UserId = 1, Token = $"l{Guid.NewGuid():N}"[..30],
             CreatedAt = Old, ExpiresAt = Old.Plus(Duration.FromMinutes(10)), ConsumedAt = Old,
         };
+        var oldAction = NewActionLogEntry(Old);
+        var youngAction = NewActionLogEntry(Young);
 
         await using (var seed = fixture.Factory.Services.CreateAsyncScope())
         {
             var db = seed.ServiceProvider.GetRequiredService<CalCronyDbContext>();
-            db.AddRange(oldSent, oldFailed, oldPending, youngSent, oldLogin, youngLogin, oldRefresh, youngRefresh, oldLink);
+            db.AddRange(
+                oldSent, oldFailed, oldPending, youngSent, oldLogin, youngLogin, oldRefresh, youngRefresh, oldLink,
+                oldAction, youngAction);
             await db.SaveChangesAsync();
         }
 
@@ -63,7 +67,7 @@ public class RetentionTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             purged = await retention.PurgeAsync(Now, CancellationToken.None);
         }
 
-        Assert.True(purged >= 5); // the five old done rows (other tests may add their own)
+        Assert.True(purged >= 6); // the six old done rows (other tests may add their own)
 
         await using var verify = fixture.Factory.Services.CreateAsyncScope();
         var verifyDb = verify.ServiceProvider.GetRequiredService<CalCronyDbContext>();
@@ -75,7 +79,48 @@ public class RetentionTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.False(await verifyDb.WebRefreshTokens.AnyAsync(t => t.Id == oldRefresh.Id));
         Assert.True(await verifyDb.WebRefreshTokens.AnyAsync(t => t.Id == youngRefresh.Id));
         Assert.False(await verifyDb.CalendarLinkTokens.AnyAsync(t => t.Id == oldLink.Id));
+        Assert.False(await verifyDb.ActionLogEntries.AnyAsync(a => a.Id == oldAction.Id));
+        Assert.True(await verifyDb.ActionLogEntries.AnyAsync(a => a.Id == youngAction.Id));
     }
+
+    [Fact]
+    public async Task Action_log_window_is_configured_separately_from_the_outbox_window()
+    {
+        // A self-hoster keeping a shorter audit trail: 30-day log window, default outbox window.
+        var recentAction = NewActionLogEntry(Now.Minus(Duration.FromDays(31)));
+        var recentSent = NewDelivery(DeliveryStatus.Sent, Now.Minus(Duration.FromDays(31)));
+        await using (var seed = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            db.AddRange(recentAction, recentSent);
+            await db.SaveChangesAsync();
+        }
+
+        using var factory = fixture.Factory.WithWebHostBuilder(b => b.UseSetting("Retention:ActionLogDays", "30"));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
+            await retention.PurgeAsync(Now, CancellationToken.None);
+        }
+
+        await using var verify = fixture.Factory.Services.CreateAsyncScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        Assert.False(await verifyDb.ActionLogEntries.AnyAsync(a => a.Id == recentAction.Id));
+        Assert.True(await verifyDb.Deliveries.AnyAsync(d => d.Id == recentSent.Id)); // 90-day window untouched
+    }
+
+    private static ActionLogEntry NewActionLogEntry(Instant createdAt) => new()
+    {
+        Id = Guid.NewGuid(),
+        GuildId = 1,
+        ActorUserId = 1,
+        Source = ActionSource.Discord,
+        Action = ActionLogAction.EventCreated,
+        TargetType = ActionTargetType.Event,
+        TargetId = Guid.NewGuid(),
+        Summary = "Created “Retention probe”",
+        CreatedAt = createdAt,
+    };
 
     [Fact]
     public async Task Purge_is_a_noop_when_everything_is_young()

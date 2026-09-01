@@ -1,0 +1,231 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using Bunit;
+using Bunit.TestDoubles;
+using CalCrony.Contracts;
+using CalCrony.Web.Api;
+using CalCrony.Web.Pages.App;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CalCrony.Web.Tests;
+
+/// <summary>The manager-only Activity page (issue #124): entries render newest first with actor
+/// names or ids, filters go out as query parameters, load-more carries the cursor, the export
+/// button fetches the CSV through the API client and hands it to the browser, and members see
+/// the managers-only notice instead of a request.</summary>
+public class ActivityComponentTests : TestContext
+{
+    private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public void Lists_entries_with_names_sources_and_target_links()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var eventId = Guid.NewGuid();
+        var page = new ActionLogPageDto(
+        [
+            Entry(ActionLogAction.EventEdited, "Edited “Raid” — title", 7, "Ash", ActionSource.Web, ActionTargetType.Event, eventId),
+            Entry(ActionLogAction.EventDeleted, "Deleted “Old”", 8, null, ActionSource.Discord, ActionTargetType.Event, Guid.NewGuid()),
+        ], null);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(page, JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Edited “Raid” — title", cut.Markup);
+            Assert.Contains("Ash", cut.Markup);
+            Assert.Contains("user 8", cut.Markup);
+            Assert.Contains($"/app/events/{eventId}", cut.Markup);
+            Assert.Contains(">web<", cut.Markup);
+            Assert.Contains(">Discord<", cut.Markup);
+            Assert.Contains("Export events (CSV)", cut.Markup);
+        });
+        Assert.DoesNotContain("Load more", cut.Markup);
+        // A deleted event's page would 404, so its entry carries no link.
+        Assert.Single(cut.FindAll("a"), a => a.GetAttribute("href")?.StartsWith("/app/events/") == true);
+    }
+
+    [Fact]
+    public void Filters_and_load_more_send_the_expected_query()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        var first = new ActionLogPageDto([Entry(ActionLogAction.PollCreated, "Created poll “A”", 1, "One")], "2026-08-31T12:00:00Z|abc");
+        var second = new ActionLogPageDto([Entry(ActionLogAction.PollClosed, "Closed poll “A”", 1, "One")], null);
+        var calls = 0;
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(++calls == 3 ? second : first, JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Created poll “A”", cut.Markup));
+        Assert.Contains("limit=50", handler.LastActionsQuery);
+        Assert.DoesNotContain("before=", handler.LastActionsQuery);
+
+        cut.Find("#act-action").Change(nameof(ActionLogAction.PollCreated));
+        cut.Find("#act-user").Change("42");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("action=PollCreated", handler.LastActionsQuery);
+            Assert.Contains("userId=42", handler.LastActionsQuery);
+        });
+
+        cut.FindAll("button").First(b => b.TextContent.Contains("Load more")).Click();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("before=2026-08-31T12%3A00%3A00Z%7Cabc", handler.LastActionsQuery);
+            Assert.Contains("Closed poll “A”", cut.Markup); // appended below the first page
+            Assert.Contains("Created poll “A”", cut.Markup);
+        });
+        Assert.DoesNotContain("Load more", cut.Markup);
+    }
+
+    [Fact]
+    public void Non_numeric_member_filter_is_rejected_client_side()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Nothing logged yet", cut.Markup));
+        var before = handler.ActionsCalls;
+
+        cut.Find("#act-user").Change("not-an-id");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("numeric Discord user id", cut.Markup));
+        Assert.Equal(before, handler.ActionsCalls);
+    }
+
+    [Fact]
+    public void Export_button_fetches_the_csv_and_hands_it_to_the_browser()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/actions") => JsonSerializer.Serialize(new ActionLogPageDto([], null), JsonWeb),
+            _ => GuildsJson(canManage: true),
+        };
+        handler.CsvBytes = [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes("event_id,title\r\n")];
+        var download = JSInterop.SetupVoid("calcronyDownload", _ => true);
+        download.SetVoidResult();
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+        cut.WaitForAssertion(() => Assert.Contains("Export events (CSV)", cut.Markup));
+
+        cut.FindAll("button").First(b => b.TextContent.Contains("Export events")).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Downloaded calcrony-events-1-20260831.csv", cut.Markup));
+        Assert.Equal("/guilds/1/export/events.csv", handler.LastCsvPath);
+        var invocation = Assert.Single(download.Invocations);
+        Assert.Equal("calcrony-events-1-20260831.csv", invocation.Arguments[0]);
+        Assert.Equal(Convert.ToBase64String(handler.CsvBytes), invocation.Arguments[1]);
+        Assert.StartsWith("text/csv", (string)invocation.Arguments[2]!);
+    }
+
+    [Fact]
+    public void Members_see_the_managers_only_notice_and_no_log_request()
+    {
+        var handler = UseApi();
+        SetupAuth(canManage: false);
+        handler.JsonFor = _ => GuildsJson(canManage: false);
+
+        var cut = Render<GuildActivity>(p => p.Add(x => x.GuildId, 1L));
+
+        cut.WaitForAssertion(() => Assert.Contains("Only server managers can see this server's activity log", cut.Markup));
+        Assert.Equal(0, handler.ActionsCalls);
+        Assert.DoesNotContain("Export events (CSV)", cut.Markup);
+    }
+
+    private static ActionLogEntryDto Entry(
+        ActionLogAction action, string summary, long actorId, string? actorName,
+        ActionSource source = ActionSource.Discord, ActionTargetType targetType = ActionTargetType.Poll, Guid? targetId = null) =>
+        new(Guid.NewGuid(), 1, actorId, actorName, source, action, targetType, targetId ?? Guid.NewGuid(), summary, null, DateTimeOffset.UtcNow);
+
+    private static string GuildsJson(bool canManage) => JsonSerializer.Serialize(
+        new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(1, "G", null, canManage)]), JsonWeb);
+
+    private CapturingHandler UseApi()
+    {
+        var handler = new CapturingHandler();
+        Services.AddScoped(_ => new CalCronyWebApiClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://localhost") }));
+        return handler;
+    }
+
+    private void SetupAuth(bool canManage)
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddSingleton<CalCrony.Web.Auth.ITokenStore, CalCrony.Web.Auth.InMemoryTokenStore>();
+        Services.AddSingleton<CalCrony.Web.Auth.JwtAuthenticationStateProvider>();
+        Services.AddScoped(sp => new CalCrony.Web.Auth.AuthApiClient(
+            new HttpClient { BaseAddress = new Uri("http://localhost") },
+            sp.GetRequiredService<CalCrony.Web.Auth.ITokenStore>(),
+            sp.GetRequiredService<CalCrony.Web.Auth.JwtAuthenticationStateProvider>()));
+        this.AddAuthorization();
+        _ = canManage; // the guild list JSON is what actually decides manager-ness
+    }
+
+    /// <summary>Routes JSON by request; serves the CSV bytes for the export route with the
+    /// headers the API sets; records the queries and paths the page sent.</summary>
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public Func<HttpRequestMessage, string?>? JsonFor { get; set; }
+
+        public string? LastActionsQuery { get; private set; }
+
+        public int ActionsCalls { get; private set; }
+
+        public string? LastCsvPath { get; private set; }
+
+        public byte[]? CsvBytes { get; set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/export/events.csv"))
+            {
+                LastCsvPath = path;
+                var file = new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(CsvBytes ?? []),
+                };
+                file.Content.Headers.ContentType = new MediaTypeHeaderValue("text/csv") { CharSet = "utf-8" };
+                file.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+                {
+                    FileName = "\"calcrony-events-1-20260831.csv\"",
+                };
+                return Task.FromResult(file);
+            }
+
+            if (path.EndsWith("/actions"))
+            {
+                ActionsCalls++;
+                LastActionsQuery = request.RequestUri.Query;
+            }
+
+            var json = JsonFor?.Invoke(request) ?? "{}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+}
