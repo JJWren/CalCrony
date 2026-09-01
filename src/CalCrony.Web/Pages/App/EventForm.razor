@@ -79,7 +79,8 @@ else
             {
                 <div class="d-flex gap-2 align-items-center mb-1">
                     <input type="radio" class="form-check-input mt-0 flex-shrink-0" name="ev-attending"
-                           title="This option counts as attending" aria-label="Attending option"
+                           title="This option counts as attending"
+                           aria-label="@AttendingRadioLabel(row, index)"
                            checked="@row.IsAttending" @onchange="() => SetAttending(index)" />
                     <input class="form-control" style="width:4.5rem" maxlength="16"
                            aria-label="Option emoji" @bind="row.Emote" />
@@ -315,6 +316,13 @@ else
     }
 
     private void AddOption() => optionRows.Add(new OptionRow());
+
+    /// <summary>Each attending radio names its own row — always by number, since labels can be
+    /// duplicated mid-edit (the API only rejects that on submit), plus the label when there is one.</summary>
+    private static string AttendingRadioLabel(OptionRow row, int index) =>
+        string.IsNullOrWhiteSpace(row.Label)
+            ? $"Attending option {index + 1}"
+            : $"Attending option {index + 1}: {row.Label.Trim()}";
 
     /// <summary>The submitted shape of the option rows (trimmed, so an untouched form compares
     /// equal to what was loaded).</summary>

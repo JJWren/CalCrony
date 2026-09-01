@@ -29,6 +29,49 @@ public class RsvpV1ComponentTests : TestContext
     }
 
     [Fact]
+    public void Buttons_freeze_and_raise_OnClosed_when_the_cutoff_passes_on_an_open_page()
+    {
+        UseApi();
+        var ev = SampleEvent(closesAt: DateTimeOffset.UtcNow.AddMilliseconds(800));
+        var closedRaised = false;
+
+        var cut = Render<RsvpButtons>(p => p
+            .Add(x => x.Event, ev)
+            .Add(x => x.UserId, 42L)
+            .Add(x => x.OnClosed, () => closedRaised = true));
+
+        // Open at first render — the wall clock hasn't reached the cutoff.
+        Assert.All(cut.FindAll("button.rsvp-btn"), b => Assert.False(b.HasAttribute("disabled")));
+
+        // The armed timer re-renders at the cutoff and tells the parent.
+        cut.WaitForAssertion(
+            () =>
+            {
+                Assert.True(closedRaised);
+                Assert.All(cut.FindAll("button.rsvp-btn"), b => Assert.True(b.HasAttribute("disabled")));
+                Assert.Contains("RSVPs are closed", cut.Markup);
+            },
+            TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void Detail_page_cutoff_chip_flips_to_closed_when_the_cutoff_passes()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var ev = SampleEvent(closesAt: DateTimeOffset.UtcNow.AddMilliseconds(800));
+        RouteEventPages(handler, ev);
+
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+
+        cut.WaitForAssertion(() => Assert.Contains("RSVPs close", cut.Markup));
+        Assert.DoesNotContain("RSVPs closed", cut.Markup);
+
+        // Only RsvpButtons owns the timer; its OnClosed must re-render the parent's chip too.
+        cut.WaitForAssertion(() => Assert.Contains("RSVPs closed", cut.Markup), TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public void Open_rsvps_show_capacity_badges_with_seated_counts_only()
     {
         UseApi();

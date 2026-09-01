@@ -182,6 +182,7 @@ public class EventEmbedBuilderTests
         });
         Assert.True(queued.Length <= 6000, $"waitlisted embed length {queued.Length}");
         Assert.Equal(11, queued.Fields.Length);
+        Assert.All(queued.Fields, f => Assert.InRange(f.Value.Length, 1, 1024));
         Assert.All(embed.Fields, f => Assert.InRange(f.Value.Length, 1, 1024));
         Assert.Contains("<@1000000000000000>", embed.Fields[0].Value); // members still render
     }
