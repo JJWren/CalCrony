@@ -19,6 +19,10 @@ public enum PollStatus
 /// <param name="Anonymous">When true, embeds show counts without voter names.</param>
 /// <param name="AllowUserOptions">When true, voters may add options.</param>
 /// <param name="ClosesText">Optional natural-language close deadline.</param>
+/// <param name="AllowedRoleIds">Signup restriction: only members holding at least one of these
+/// roles may vote or add options (the creator and server managers always may). Poll-level — a
+/// poll option is a choice, not a seat. Bot callers only (the web can't enumerate roles); fixed
+/// at creation since polls have no edit. Empty/null = anyone.</param>
 public record CreatePollRequest(
     long CreatorId,
     string Question,
@@ -28,7 +32,8 @@ public record CreatePollRequest(
     bool SingleVote = false,
     bool Anonymous = false,
     bool AllowUserOptions = false,
-    string? ClosesText = null);
+    string? ClosesText = null,
+    IReadOnlyList<long>? AllowedRoleIds = null);
 
 /// <summary>One poll choice; SlotAtUtc is set for time polls, AddedByUserId for voter-added options.</summary>
 /// <param name="Id">The unique id.</param>
@@ -67,6 +72,8 @@ public record PollVoteDto(long UserId, Guid OptionId);
 /// <param name="ConvertedEventId">The created event id once converted.</param>
 /// <param name="Options">The poll options (option texts on create).</param>
 /// <param name="Votes">The vote rows (caller-shaped on anonymous polls).</param>
+/// <param name="AllowedRoles">Signup restriction: the roles a member must hold at least one of to
+/// vote or add options. Null or empty = unrestricted. Names are snapshots and may be null.</param>
 public record PollDto(
     Guid Id,
     long GuildId,
@@ -84,11 +91,15 @@ public record PollDto(
     string TimeZone,
     Guid? ConvertedEventId,
     IReadOnlyList<PollOptionDto> Options,
-    IReadOnlyList<PollVoteDto> Votes)
+    IReadOnlyList<PollVoteDto> Votes,
+    IReadOnlyList<RoleRefDto>? AllowedRoles = null)
 {
     public long? ClosesAtUnix => ClosesAtUtc?.ToUnixTimeSeconds();
 
     public long? ClosedAtUnix => ClosedAtUtc?.ToUnixTimeSeconds();
+
+    /// <summary>Whether voting is limited by role.</summary>
+    public bool IsRestricted => AllowedRoles is { Count: > 0 };
 }
 
 /// <summary>Atomic set-replacement of one user's votes; empty clears them.</summary>
