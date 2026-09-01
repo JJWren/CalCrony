@@ -373,6 +373,10 @@ public enum DeliveryStatus
     Pending = 0,
     Sent = 1,
     Failed = 2,
+
+    /// <summary>Withdrawn before it was served (e.g. a DM reminder whose recipient turned the
+    /// opt-in off). Never re-served; purged by retention like Sent/Failed.</summary>
+    Cancelled = 3,
 }
 
 /// <summary>Unguessable token embedded in a guild's public ICS feed URL.</summary>

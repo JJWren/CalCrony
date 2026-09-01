@@ -508,14 +508,29 @@ public sealed class DeliveryPollerService(
     /// Discord.Net versions.</summary>
     private const int ClosedDmsErrorCode = 50007;
 
-    /// <summary>DMs an opted-in attendee. Closed DMs (Discord 50007 — DMs disabled or the bot
-    /// blocked) switch the user's preference off through the API and count as done: never a retry,
-    /// never a second attempt into a wall. Any other failure propagates so the outbox retries as
-    /// usual, and an unknown user id is dropped as done.</summary>
+    /// <summary>DMs an opted-in attendee — after re-checking, at send time, that the opt-in still
+    /// holds (the row may predate an opt-out, or an earlier row in this batch may just have hit
+    /// closed DMs). Closed DMs (Discord 50007 — DMs disabled or the bot blocked) switch the
+    /// preference off through the API, which also withdraws the user's other queued DMs; the
+    /// delivery counts as done only once that switch-off is recorded — otherwise it propagates
+    /// and the outbox retries, so a transient API failure can't leave the inbox exposed to every
+    /// later reminder. Any other failure propagates too; an unknown user id is dropped as done.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task DmEventReminderAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
+        var settings = await api.GetUserSettingsAsync(payload.UserId);
+        if (!settings.Success || settings.Value is null)
+        {
+            throw new InvalidOperationException($"Could not verify the DM opt-in for user {payload.UserId}: {settings.Error}");
+        }
+
+        if (settings.Value.DmReminders != true)
+        {
+            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} no longer opted in; dropping.", delivery.Id, payload.UserId);
+            return;
+        }
+
         IUser? user = client.GetUser((ulong)payload.UserId) ?? (IUser?)await client.Rest.GetUserAsync((ulong)payload.UserId);
         if (user is null)
         {
@@ -531,9 +546,17 @@ public sealed class DeliveryPollerService(
         catch (HttpException ex) when (ex.DiscordCode is { } code && (int)code == ClosedDmsErrorCode)
         {
             var blocked = await api.BlockDmRemindersAsync(payload.UserId);
+            if (!blocked.Success)
+            {
+                // Not recorded ⇒ not done: leave the row pending so the outbox retries the
+                // switch-off rather than acking a DM that will keep failing for every later row.
+                throw new InvalidOperationException(
+                    $"User {payload.UserId} has DMs closed but the switch-off could not be recorded: {blocked.Error}");
+            }
+
             logger.LogInformation(
-                "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off ({Outcome}).",
-                delivery.Id, payload.UserId, blocked.Success ? "ok" : blocked.Error);
+                "DM reminder {DeliveryId}: user {UserId} has DMs closed; preference switched off.",
+                delivery.Id, payload.UserId);
         }
     }
 

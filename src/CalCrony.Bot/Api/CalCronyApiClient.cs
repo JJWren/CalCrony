@@ -241,11 +241,6 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<UserSettingsDto>> GetUserSettingsAsync(long userId, CancellationToken ct = default) =>
         SendAsync<UserSettingsDto>(http.GetAsync($"/users/{userId}/settings", ct), ct);
 
-    /// <summary>Updates a user's personal settings.</summary>
-    /// <param name="userId">The Discord user id.</param>
-    /// <param name="settings">The settings to store.</param>
-    /// <param name="ct">Cancels the request.</param>
-    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
     /// <summary>Asks whether to show the one-time DM-reminder opt-in prompt (true exactly once per user).</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="ct">Cancels the request.</param>
@@ -260,6 +255,11 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<Unit>> BlockDmRemindersAsync(long userId, CancellationToken ct = default) =>
         SendAsync<Unit>(http.PostAsync($"/users/{userId}/dm-reminders/blocked", null, ct), ct);
 
+    /// <summary>Updates a user's personal settings.</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="settings">The settings to store.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
     public Task<ApiResult<UserSettingsDto>> PutUserSettingsAsync(long userId, UserSettingsDto settings, CancellationToken ct = default) =>
         SendAsync<UserSettingsDto>(http.PutAsJsonAsync($"/users/{userId}/settings", settings, ct), ct);
 

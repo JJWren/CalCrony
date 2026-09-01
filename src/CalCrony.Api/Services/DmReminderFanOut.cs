@@ -68,4 +68,22 @@ public static class DmReminderFanOut
 
         return recipients.Count;
     }
+
+    /// <summary>Withdraws every pending DM reminder for a user — called the moment the opt-in turns
+    /// off (an explicit write or a closed-DMs report), so nothing already queued can bypass the
+    /// revoked consent. Matches on the payload's leading <c>"UserId":&lt;id&gt;,</c> — UserId is the
+    /// first property of <see cref="DmEventReminderPayload"/>, so the prefix is exact.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>How many pending rows were cancelled.</returns>
+    public static Task<int> CancelPendingAsync(CalCronyDbContext db, long userId, CancellationToken cancellationToken)
+    {
+        var prefix = "{\"UserId\":" + userId + ",";
+        return db.Deliveries
+            .Where(d => d.Type == DeliveryType.DmEventReminder
+                        && d.Status == DeliveryStatus.Pending
+                        && d.PayloadJson.StartsWith(prefix))
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.Status, DeliveryStatus.Cancelled), cancellationToken);
+    }
 }

@@ -1,5 +1,6 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
+using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -73,12 +74,17 @@ public static class DmReminderEndpoints
             return GuildAccessService.Forbidden();
         }
 
+        // One transaction: the switch-off and the withdrawal of everything still queued for the
+        // user land together, so a batch that already held several rows can't keep DMing a wall.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var now = clock.GetCurrentInstant();
         await db.UserProfiles
             .Where(u => u.Id == userId)
             .ExecuteUpdateAsync(
                 s => s.SetProperty(u => u.DmReminders, false).SetProperty(u => u.DmRemindersBlockedAt, now),
                 cancellationToken);
+        await DmReminderFanOut.CancelPendingAsync(db, userId, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.NoContent();
     }
 }

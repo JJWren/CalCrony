@@ -143,18 +143,28 @@ public static class SettingsEndpoints
         // Null keeps the stored theme (see UserSettingsDto.Theme) — the bot's timezone/DM writes
         // never carry a theme and must not reset a web-chosen one.
         user.Theme = settings.Theme ?? user.Theme;
-        // Same null-keeps rule for the DM-reminder opt-in; turning it back on clears the
-        // closed-DMs marker so the user can retry after opening their DMs.
+        // Same null-keeps rule for the DM-reminder opt-in. Turning it on also consumes the
+        // one-time offer (someone who found the setting themselves is never prompted later) and
+        // clears the closed-DMs marker so they can retry after opening their DMs; turning it off
+        // withdraws anything already queued, so revoked consent can't be bypassed by the outbox.
+        var withdrawQueued = false;
         if (settings.DmReminders is bool dmReminders)
         {
+            withdrawQueued = user.DmReminders && !dmReminders;
             user.DmReminders = dmReminders;
             if (dmReminders)
             {
+                user.DmRemindersOffered = true;
                 user.DmRemindersBlockedAt = null;
             }
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        if (withdrawQueued)
+        {
+            await Services.DmReminderFanOut.CancelPendingAsync(db, userId, cancellationToken);
+        }
+
         return Results.Ok(ToDto(user));
     }
 }

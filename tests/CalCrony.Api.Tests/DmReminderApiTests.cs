@@ -50,11 +50,51 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         Assert.True((await ReadAsync<DmReminderOfferResponse>(await Client.PostAsync($"/users/{fresh}/dm-reminders/offer", null))).Offer);
         Assert.False((await ReadAsync<DmReminderOfferResponse>(await Client.PostAsync($"/users/{fresh}/dm-reminders/offer", null))).Offer);
 
-        // Someone who already opted in elsewhere is never nagged.
+        // Someone who already opted in elsewhere is never nagged — not even after turning it off
+        // again: finding the setting once consumes the offer for good.
         const long alreadyOn = 12321;
         (await Client.PutAsJsonAsync($"/users/{alreadyOn}/settings", new UserSettingsDto(null, true, DmReminders: true)))
             .EnsureSuccessStatusCode();
         Assert.False((await ReadAsync<DmReminderOfferResponse>(await Client.PostAsync($"/users/{alreadyOn}/dm-reminders/offer", null))).Offer);
+        (await Client.PutAsJsonAsync($"/users/{alreadyOn}/settings", new UserSettingsDto(null, true, DmReminders: false)))
+            .EnsureSuccessStatusCode();
+        Assert.False((await ReadAsync<DmReminderOfferResponse>(await Client.PostAsync($"/users/{alreadyOn}/dm-reminders/offer", null))).Offer);
+    }
+
+    [Fact]
+    public async Task Turning_the_opt_in_off_withdraws_queued_dms_by_either_path()
+    {
+        const long explicitOff = 12361;
+        const long closedDms = 12362;
+        foreach (var userId in new[] { explicitOff, closedDms })
+        {
+            (await Client.PutAsJsonAsync($"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true)))
+                .EnsureSuccessStatusCode();
+        }
+
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Withdrawn DMs", "in 3 hours", ChannelId));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var going = ev.Options.OrderBy(o => o.SortOrder).First();
+        foreach (var userId in new[] { explicitOff, closedDms })
+        {
+            (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{userId}", new RsvpRequest(going.Id))).EnsureSuccessStatusCode();
+        }
+
+        (await Client.PostAsJsonAsync($"/events/{ev.Id}/notifications", new CreateEventNotificationRequest(200, null, null)))
+            .EnsureSuccessStatusCode();
+        await SweepAsync(SystemClock.Instance.GetCurrentInstant());
+        Assert.Equal(2, (await PendingDmRowsAsync(ev.Id)).Count);
+
+        // Explicit opt-out and a closed-DMs report both withdraw what was queued for that user.
+        (await Client.PutAsJsonAsync($"/users/{explicitOff}/settings", new UserSettingsDto(null, true, DmReminders: false)))
+            .EnsureSuccessStatusCode();
+        var afterExplicit = await PendingDmRowsAsync(ev.Id);
+        Assert.Equal([closedDms], afterExplicit.Select(p => p.UserId));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Client.PostAsync($"/users/{closedDms}/dm-reminders/blocked", null)).StatusCode);
+        Assert.Empty(await PendingDmRowsAsync(ev.Id));
     }
 
     [Fact]
@@ -139,6 +179,17 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<DeliveryScheduler>();
         await scheduler.SweepAsync(now, CancellationToken.None);
+    }
+
+    private async Task<List<DmEventReminderPayload>> PendingDmRowsAsync(Guid eventId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var rows = await db.Deliveries
+            .Where(d => d.Type == DeliveryType.DmEventReminder && d.Status == DeliveryStatus.Pending
+                        && d.PayloadJson.Contains(eventId.ToString()))
+            .ToListAsync();
+        return [.. rows.Select(d => JsonSerializer.Deserialize<DmEventReminderPayload>(d.PayloadJson)!)];
     }
 
     private async Task<List<DmEventReminderPayload>> DmDeliveriesAsync(Guid eventId)
