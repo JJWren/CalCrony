@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/JJWren/CalCrony/compare/v0.31.1...v0.32.0) (2026-09-01)
+
+
+### Features
+
+* per-option attendee roles ([#144](https://github.com/JJWren/CalCrony/issues/144)) ([b5c8be7](https://github.com/JJWren/CalCrony/commit/b5c8be7e936e4b2a4662f52bec0c947132548fb6))
+
 ## [0.31.1](https://github.com/JJWren/CalCrony/compare/v0.31.0...v0.31.1) (2026-09-01)
 
 
