@@ -312,3 +312,10 @@
 **Context**: Delivery — step 8.3 in progress; #150 awaiting its first Copilot round.
 
 ---
+## Delivery — PR #150 Copilot round 1 addressed
+**Timestamp**: 2026-09-01T23:58:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Six findings, all taken. (1) A sync marker was authoritative forever, so a bot down for a day would still answer for members who had lost a role — contradicting the ADR's stated "a long bot outage blocks restricted RSVPs on the web"; added a 30-minute lease (RoleRestriction.SnapshotMaxAge) renewed by a new RoleSnapshotReconcileService that re-syncs every watched guild every 10 minutes (Roles:ReconcileMinutes). (2) The RSVP/vote path loaded every watched role in the guild; it now loads only the restriction's own ids. (3) Retention only dropped whole guilds; it now trims a kept snapshot to the roles still named (PruneSnapshotAsync). (4) Replacing rsvp-options without `only:` clauses skipped the re-sync; any option replacement now re-syncs. (5) The poll page hid its add-option form on any 409; ErrorResponse gained an optional Code, the gate sets ErrorCodes.RoleRestricted, and the web acts on the code only. (6) ADR 0004 still described absence-as-deleted; both passages now describe tombstones and a refinements section records why, plus the lease. 698 tests green (475 API, 113 bot, 110 web). Commit 93a2015; replies posted on all six threads; Copilot re-requested.
+**Context**: Delivery — step 8.3, Copilot loop round 2 pending.
+
+---
