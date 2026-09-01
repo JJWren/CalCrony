@@ -19,6 +19,11 @@
     /// the host page must not re-fetch, and a failed lookup must not retry on every one.</summary>
     private long? attemptedFor;
 
+    /// <summary>Stamps each lookup so only the newest one may write. Comparing the guild id alone
+    /// can't tell two lookups apart once a switch has started: an older response landing after
+    /// the newer one would pass that check and replace the name with its own answer.</summary>
+    private int lookupGeneration;
+
     protected override async Task OnParametersSetAsync()
     {
         if (attemptedFor == GuildId)
@@ -30,9 +35,10 @@
         // sits above the next server's events — issue #136's stale-across-switch bug in miniature.
         attemptedFor = GuildId;
         name = null;
+        var generation = ++lookupGeneration;
 
         var guilds = await Api.GetMyGuildsAsync();
-        if (attemptedFor != GuildId || !guilds.Success || guilds.Value is null)
+        if (generation != lookupGeneration || !guilds.Success || guilds.Value is null)
         {
             return;
         }
