@@ -150,9 +150,11 @@ public static class EventEndpoints
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="forbiddenMessage">The 403 body for non-managers; defaults to the settings wording.</param>
     /// <returns>Null when the caller may manage the guild; otherwise the failure response.</returns>
     internal static async Task<IResult?> GuardGuildManageAsync(
-        HttpContext context, GuildAccessService access, long guildId, CancellationToken cancellationToken)
+        HttpContext context, GuildAccessService access, long guildId, CancellationToken cancellationToken,
+        string forbiddenMessage = "Only server managers can change server settings.")
     {
         if (context.User.IsBot())
         {
@@ -168,7 +170,7 @@ public static class EventEndpoints
             GuildAccess.Stale => GuildAccessService.StaleSnapshot(),
             GuildAccess.Manager => null,
             _ => Results.Json(
-                new ErrorResponse("Only server managers can change server settings."),
+                new ErrorResponse(forbiddenMessage),
                 statusCode: StatusCodes.Status403Forbidden),
         };
     }
@@ -561,6 +563,14 @@ public static class EventEndpoints
         // Live lists rewrite on every event change, both caller types — the outbox is the only
         // path that knows which channels host one.
         await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
+
+        ActionLog.Record(
+            db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.EventCreated,
+            ActionTargetType.Event, ev.Id,
+            series is null
+                ? $"Created {ActionLog.Quote(title)}"
+                : $"Created repeating event {ActionLog.Quote(title)}",
+            now, new { seriesId = series?.Id, templateId = template?.Id });
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/events/{ev.Id}", await ToDtoWithChannelAsync(db, ev, cancellationToken));
@@ -956,6 +966,27 @@ public static class EventEndpoints
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
+
+        // The log names the fields the request touched (not their values — the log outlives
+        // the content) and rides the same transaction as the edit itself.
+        var changed = ActionLog.Changed(
+            ("title", request.Title is not null),
+            ("start", request.WhenText is not null),
+            ("description", request.Description is not null),
+            ("duration", request.DurationMinutes is not null),
+            ("location", request.Location is not null),
+            ("image", request.ImageUrl is not null),
+            ("status", request.Status is not null),
+            ("attendee role", request.AttendeeRoleId is not null || request.ClearAttendeeRole),
+            ("RSVP options", request.RsvpOptions is not null),
+            ("attendee limit", request.AttendeeLimit is not null || request.ClearAttendeeLimit),
+            ("RSVP cutoff", request.RsvpCloseText is not null || request.ClearRsvpClose));
+        ActionLog.Record(
+            db, ev.GuildId, ActionLog.ActorFor(context, request.EditorId), ActionLogAction.EventEdited,
+            ActionTargetType.Event, ev.Id,
+            ActionLog.EditSummary("Edited", ev.Title, changed) + (applyToSeries ? " (whole series)" : ""),
+            roleSyncNow, new { fields = changed, scope = request.Scope?.ToString(), seriesId = ev.SeriesId });
+
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
@@ -990,9 +1021,11 @@ public static class EventEndpoints
 
         // Deleting the live occurrence of a series means "make it gone" — stop the series too
         // (skip is the explicit just-this-one verb). Past occurrences delete as plain history.
+        var stoppedSeries = false;
         if (ev.Series is { Ended: false } series && ev.Status is EventStatus.Scheduled or EventStatus.Started)
         {
             series.Ended = true;
+            stoppedSeries = true;
         }
 
         // Attendee-role revokes must be captured before the delete cascades the RSVP rows away —
@@ -1031,7 +1064,12 @@ public static class EventEndpoints
         }
 
         db.Events.Remove(ev);
-        await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, clock.GetCurrentInstant(), cancellationToken);
+        var deletedAt = clock.GetCurrentInstant();
+        await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, deletedAt, cancellationToken);
+        ActionLog.Record(
+            db, ev.GuildId, ActionLog.ActorFor(context), ActionLogAction.EventDeleted, ActionTargetType.Event, ev.Id,
+            $"Deleted {ActionLog.Quote(ev.Title)}" + (stoppedSeries ? " and stopped its series" : ""),
+            deletedAt, new { seriesId = ev.SeriesId, seriesStopped = stoppedSeries });
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

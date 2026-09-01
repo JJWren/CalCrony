@@ -1,6 +1,8 @@
 using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
+using CalCrony.Api.Services;
 using CalCrony.Contracts;
+using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
@@ -43,6 +45,7 @@ public static class SettingsEndpoints
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="settings">The settings to store.</param>
     /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutGuildSettings(
@@ -51,6 +54,7 @@ public static class SettingsEndpoints
         long guildId,
         GuildSettingsDto settings,
         CalCronyDbContext db,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         if (await EventEndpoints.GuardGuildManageAsync(context, access, guildId, cancellationToken) is { } denied)
@@ -64,9 +68,30 @@ public static class SettingsEndpoints
         }
 
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
+
+        // The PUT is a whole-object write, so the log diffs it against the stored row and names
+        // only what actually changed; a no-op save (the bot's read-modify-write of an unchanged
+        // field, a first-touch guild row) writes no entry.
+        var changed = ActionLog.Changed(
+            ("timezone", guild.TimeZone != settings.TimeZone),
+            ("default channel", guild.DefaultChannelId != settings.DefaultChannelId),
+            ("native events", guild.MirrorNativeEvents != settings.MirrorNativeEvents));
         guild.TimeZone = settings.TimeZone;
         guild.DefaultChannelId = settings.DefaultChannelId;
         guild.MirrorNativeEvents = settings.MirrorNativeEvents;
+        if (changed.Count > 0)
+        {
+            ActionLog.Record(
+                db, guildId, ActionLog.ActorFor(context), ActionLogAction.SettingsChanged, ActionTargetType.Guild, null,
+                $"Changed server settings — {string.Join(", ", changed)}", clock.GetCurrentInstant(),
+                new
+                {
+                    fields = changed,
+                    timeZone = changed.Contains("timezone") ? settings.TimeZone : null,
+                    nativeEvents = changed.Contains("native events") ? settings.MirrorNativeEvents : (bool?)null,
+                });
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new GuildSettingsDto(guild.TimeZone, guild.DefaultChannelId, guild.MirrorNativeEvents));
     }

@@ -363,6 +363,36 @@ public class LiveList
     public Instant CreatedAt { get; set; }
 }
 
+/// <summary>One line of a server's action log: who did what to which thing, from where. Written
+/// inside the same unit of work as the mutation it describes (see ActionLog.Record), so a row
+/// exists exactly when the change committed. Retention-bounded (Retention:ActionLogDays) like
+/// the other operational records. Summary holds titles at most — never descriptions, messages,
+/// or option lists — because the log outlives edits that may have removed that content.</summary>
+public class ActionLogEntry
+{
+    public Guid Id { get; set; }
+    public long GuildId { get; set; }
+
+    /// <summary>The acting Discord user; null only when a bot call carried no actor (a system
+    /// path), which the log sites avoid writing in the first place.</summary>
+    public long? ActorUserId { get; set; }
+
+    public ActionSource Source { get; set; }
+    public ActionLogAction Action { get; set; }
+    public ActionTargetType TargetType { get; set; }
+
+    /// <summary>The touched row's id; null for guild-level actions (settings, exports).</summary>
+    public Guid? TargetId { get; set; }
+
+    public required string Summary { get; set; }
+
+    /// <summary>Optional JSON object of machine detail — changed field names, the edit scope —
+    /// never full payloads.</summary>
+    public string? DetailsJson { get; set; }
+
+    public Instant CreatedAt { get; set; }
+}
+
 /// <summary>Outbox row lifecycle: pending until the bot acks, failed after repeated attempts.</summary>
 public enum DeliveryStatus
 {

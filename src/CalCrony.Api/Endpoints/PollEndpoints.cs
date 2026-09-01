@@ -167,6 +167,12 @@ public static class PollEndpoints
                 JsonSerializer.Serialize(new PostPollMessagePayload(poll.Id)), now));
         }
 
+        ActionLog.Record(
+            db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.PollCreated,
+            ActionTargetType.Poll, poll.Id,
+            $"Created {(poll.IsTimePoll ? "time poll" : "poll")} {ActionLog.Quote(question)}",
+            now, new { timePoll = poll.IsTimePoll, optionCount = options.Count });
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/polls/{poll.Id}", ToDto(poll, context));
     }
@@ -462,6 +468,10 @@ public static class PollEndpoints
             poll.Status = PollStatus.Closed;
             poll.ClosedAt = clock.GetCurrentInstant();
             await EnqueuePollSyncAsync(context, db, poll, clock, cancellationToken);
+            // Only a real close is logged — the idempotent repeat changes nothing.
+            ActionLog.Record(
+                db, poll.GuildId, ActionLog.ActorFor(context), ActionLogAction.PollClosed, ActionTargetType.Poll, poll.Id,
+                $"Closed poll {ActionLog.Quote(poll.Question)}", poll.ClosedAt.Value);
             await db.SaveChangesAsync(cancellationToken);
         }
 
@@ -565,6 +575,14 @@ public static class PollEndpoints
         // The converted event is a new upcoming event — live lists rewrite.
         await Services.LiveListSync.EnqueueSyncForGuildAsync(db, poll.GuildId, now, cancellationToken);
 
+        // One entry for the conversion (the event's creation is implied by it) — the poll is the
+        // target, the spawned event id rides in the details.
+        ActionLog.Record(
+            db, poll.GuildId, ActionLog.ActorFor(context, request.UserId), ActionLogAction.PollConverted,
+            ActionTargetType.Poll, poll.Id,
+            $"Converted poll {ActionLog.Quote(poll.Question)} into event {ActionLog.Quote(title)}",
+            now, new { eventId = ev.Id });
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/events/{ev.Id}", ev.ToDto());
     }
@@ -604,6 +622,9 @@ public static class PollEndpoints
         }
 
         db.Polls.Remove(poll);
+        ActionLog.Record(
+            db, poll.GuildId, ActionLog.ActorFor(context), ActionLogAction.PollDeleted, ActionTargetType.Poll, poll.Id,
+            $"Deleted poll {ActionLog.Quote(poll.Question)}", clock.GetCurrentInstant());
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

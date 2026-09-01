@@ -66,6 +66,7 @@ public static partial class PublicCalendarEndpoints
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
     /// <param name="configuration">The application configuration (web origin for absolute links).</param>
+    /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> PutSettings(
@@ -75,6 +76,7 @@ public static partial class PublicCalendarEndpoints
         PublicCalendarRequest request,
         CalCronyDbContext db,
         IConfiguration configuration,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         if (await EventEndpoints.GuardGuildManageAsync(context, access, guildId, cancellationToken) is { } denied)
@@ -99,13 +101,27 @@ public static partial class PublicCalendarEndpoints
                 "The public calendar is off, so there is no link to replace — turn it on first."));
         }
 
+        // Only real transitions are logged — re-enabling an already-on calendar changes nothing.
+        string? summary = null;
         if (!request.Enabled)
         {
+            summary = guild.PublicCalendarSlug is null ? null : "Turned the public calendar off";
             guild.PublicCalendarSlug = null;
         }
         else if (guild.PublicCalendarSlug is null || request.Regenerate)
         {
+            summary = guild.PublicCalendarSlug is null
+                ? "Turned the public calendar on"
+                : "Generated a new public calendar link (the old link no longer works)";
             guild.PublicCalendarSlug = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+        }
+
+        if (summary is not null)
+        {
+            ActionLog.Record(
+                db, guildId, ActionLog.ActorFor(context), ActionLogAction.SettingsChanged, ActionTargetType.Guild, null,
+                summary, clock.GetCurrentInstant(),
+                new { fields = new[] { "public calendar" }, enabled = request.Enabled, regenerated = request.Enabled && request.Regenerate });
         }
 
         await db.SaveChangesAsync(cancellationToken);

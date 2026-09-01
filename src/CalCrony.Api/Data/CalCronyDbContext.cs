@@ -29,6 +29,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<WebLoginState> WebLoginStates => Set<WebLoginState>();
     public DbSet<WebRefreshToken> WebRefreshTokens => Set<WebRefreshToken>();
     public DbSet<UserGuildMembership> UserGuildMemberships => Set<UserGuildMembership>();
+    public DbSet<ActionLogEntry> ActionLogEntries => Set<ActionLogEntry>();
 
     /// <summary>Max lengths, indexes (including the partial unique live-occurrence index), and cascade rules.</summary>
     /// <param name="modelBuilder">The EF model builder.</param>
@@ -221,6 +222,16 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.HasKey(m => new { m.UserId, m.GuildId });
             e.Property(m => m.GuildName).HasMaxLength(128);
             e.Property(m => m.IconHash).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<ActionLogEntry>(e =>
+        {
+            e.Property(a => a.Summary).HasMaxLength(FieldLimits.ActionSummary);
+            e.Property(a => a.DetailsJson).HasMaxLength(FieldLimits.ActionDetails);
+            // The activity page reads one guild newest-first with a keyset cursor; the retention
+            // purge scans by CreatedAt alone, which the same index's second column serves well
+            // enough at the purge's daily cadence.
+            e.HasIndex(a => new { a.GuildId, a.CreatedAt }).IsDescending(false, true);
         });
     }
 }
