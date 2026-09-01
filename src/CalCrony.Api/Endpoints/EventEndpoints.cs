@@ -399,7 +399,8 @@ public static class EventEndpoints
                 : new RecurrenceRuleDto(
                     template.RecurrenceUnit.Value,
                     template.RecurrenceInterval!.Value,
-                    template.RecurrenceMonthlyMode!.Value));
+                    template.RecurrenceMonthlyMode!.Value,
+                    template.RecurrenceDaysOfWeek ?? RecurrenceDays.None));
 
         if (recurrence is null && (request.RepeatUntilText is not null || request.RepeatCount is not null))
         {
@@ -413,6 +414,11 @@ public static class EventEndpoints
             if (rule.Interval is < 1 or > 12)
             {
                 return Results.BadRequest(new ErrorResponse("Repeat interval must be between 1 and 12."));
+            }
+
+            if (Validation.BadRecurrenceDays(rule.Unit, rule.DaysOfWeek) is { } badDays)
+            {
+                return badDays;
             }
 
             if (request.RepeatUntilText is not null && request.RepeatCount is not null)
@@ -449,6 +455,7 @@ public static class EventEndpoints
                 Unit = rule.Unit,
                 Interval = rule.Interval,
                 MonthlyMode = rule.MonthlyMode,
+                DaysOfWeek = rule.DaysOfWeek,
                 AnchorDate = firstLocal.Date,
                 StartTime = firstLocal.TimeOfDay,
                 TimeZone = zone.Id,
@@ -1378,7 +1385,9 @@ public static class EventEndpoints
         }
 
         var utc = instant.ToDateTimeOffset();
-        return Results.Ok(new ParseDateTimeResponse(utc, utc.ToUnixTimeSeconds(), zone.Id));
+        return Results.Ok(new ParseDateTimeResponse(
+            utc, utc.ToUnixTimeSeconds(), zone.Id,
+            instant.InZone(zone).Date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
     }
 
     /// <summary>Takes a FOR UPDATE lock on the event row inside the ambient transaction, so

@@ -3,6 +3,7 @@ using System;
 using CalCrony.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CalCrony.Api.Data.Migrations
 {
     [DbContext(typeof(CalCronyDbContext))]
-    partial class CalCronyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831235604_AddRecurrenceDaySets")]
+    partial class AddRecurrenceDaySets
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -508,19 +511,12 @@ namespace CalCrony.Api.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("PublicCalendarSlug")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.Property<string>("TimeZone")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PublicCalendarSlug")
-                        .IsUnique();
 
                     b.ToTable("Guilds");
                 });
