@@ -9,6 +9,8 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<Guild> Guilds => Set<Guild>();
     public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<GuildRole> GuildRoles => Set<GuildRole>();
+    public DbSet<GuildMemberRole> GuildMemberRoles => Set<GuildMemberRole>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<RsvpOption> RsvpOptions => Set<RsvpOption>();
@@ -60,6 +62,19 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.HasIndex(c => c.GuildId);
         });
 
+        modelBuilder.Entity<GuildRole>(e =>
+        {
+            e.HasKey(r => new { r.GuildId, r.RoleId });
+            e.Property(r => r.Name).HasMaxLength(FieldLimits.RoleName);
+        });
+
+        modelBuilder.Entity<GuildMemberRole>(e =>
+        {
+            // One row per member per guild; the role set is a Postgres bigint[] (Npgsql maps
+            // long[] natively), so "which watched roles" is one column, not a join table.
+            e.HasKey(m => new { m.GuildId, m.UserId });
+        });
+
         modelBuilder.Entity<UserProfile>(e =>
         {
             e.Property(u => u.Id).ValueGeneratedNever();
@@ -103,7 +118,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             // Sized for the serialization worst case, not the typical one: System.Text.Json
             // escapes astral-plane chars (emoji) six-to-one per UTF-16 unit even with the relaxed
             // encoder RsvpPolicy.SerializeSpecs uses, so 10 options × two all-emoji 64-unit
-            // fields ≈ 8.4k chars. Control characters are banned at validation.
+            // fields ≈ 8.4k chars, plus a restriction of at most RsvpPolicy.MaxAllowedRoles
+            // snowflakes per option (≈1.2k more) — that cap exists to keep this bound. Control
+            // characters are banned at validation.
             e.Property(s => s.RsvpOptionsJson).HasMaxLength(10240);
             e.HasIndex(s => s.GuildId);
             e.HasMany(s => s.NotificationSpecs).WithOne().HasForeignKey(n => n.SeriesId).OnDelete(DeleteBehavior.Cascade);

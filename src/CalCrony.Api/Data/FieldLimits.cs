@@ -18,6 +18,7 @@ public static class FieldLimits
     // rather than rejected (they're best-effort bot reports, not user input).
     public const int GuildName = 100;
     public const int ChannelName = 100;
+    public const int RoleName = 100;
 
     // Action log rows are composed server-side, so these bound what the log sites write (titles
     // are clipped into the summary — see ActionLog.Clip) rather than what users may send.
