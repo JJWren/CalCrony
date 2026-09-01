@@ -538,6 +538,42 @@ public class ActionLogApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
     }
 
     [Fact]
+    public async Task Live_list_lifecycle_logs_the_person_but_not_the_bots_own_cleanup()
+    {
+        const long guildId = 13280;
+        const long listChannel = 13281;
+
+        var created = await Bot.PostAsJsonAsync(
+            $"/guilds/{guildId}/livelists", new CreateLiveListRequest(13282, listChannel, 900, 5));
+        created.EnsureSuccessStatusCode();
+        var list = (await created.Content.ReadFromJsonAsync<LiveListDto>())!;
+
+        var createdEntry = (await ListAsync(guildId, query: "action=LiveListCreated")).Entries.Single();
+        Assert.Equal(13282, createdEntry.ActorUserId);
+        Assert.Equal(ActionTargetType.LiveList, createdEntry.TargetType);
+        Assert.Equal(list.Id, createdEntry.TargetId);
+        Assert.Equal("Created a live list (showing up to 5 events)", createdEntry.Summary);
+        Assert.Equal($$"""{"channelId":{{listChannel}}}""", createdEntry.DetailsJson);
+
+        // The bot's own cleanup of a hand-deleted message carries no actor header, and nameless
+        // entries are dropped — the log shows removals people made, not the bot tidying up.
+        (await Bot.DeleteAsync($"/livelists/{list.Id}")).EnsureSuccessStatusCode();
+        Assert.Empty((await ListAsync(guildId, query: "action=LiveListRemoved")).Entries);
+
+        // A person running /livelist remove is named.
+        var second = await Bot.PostAsJsonAsync(
+            $"/guilds/{guildId}/livelists", new CreateLiveListRequest(13282, listChannel, 901, 5));
+        second.EnsureSuccessStatusCode();
+        var secondList = (await second.Content.ReadFromJsonAsync<LiveListDto>())!;
+        (await SendAsActorAsync(HttpMethod.Delete, $"/livelists/{secondList.Id}", 13283)).EnsureSuccessStatusCode();
+
+        var removed = (await ListAsync(guildId, query: "action=LiveListRemoved")).Entries.Single();
+        Assert.Equal(13283, removed.ActorUserId);
+        Assert.Equal(secondList.Id, removed.TargetId);
+        Assert.Equal("Removed a live list", removed.Summary);
+    }
+
+    [Fact]
     public async Task Logged_scope_is_the_one_applied_not_the_one_requested()
     {
         const long guildId = 13270;
