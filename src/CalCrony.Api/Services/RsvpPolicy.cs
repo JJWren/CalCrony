@@ -420,30 +420,49 @@ public static partial class RsvpPolicy
             return 0;
         }
 
-        var isLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
-        var now = clock.GetCurrentInstant();
-        var promoted = 0;
-        foreach (var rsvp in ev.Rsvps
-                     .Where(r => r.OptionId == attending.Id && r.Waitlisted)
-                     .OrderBy(r => r.CreatedAt)
-                     .Take(headroom))
+        List<Rsvp> promoting =
+        [
+            .. ev.Rsvps
+                .Where(r => r.OptionId == attending.Id && r.Waitlisted)
+                .OrderBy(r => r.CreatedAt)
+                .Take(headroom),
+        ];
+        foreach (var rsvp in promoting)
         {
             rsvp.Waitlisted = false;
-            promoted++;
-            if (!isLive)
+        }
+
+        var isLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
+        if (!isLive || promoting.Count == 0)
+        {
+            return promoting.Count;
+        }
+
+        // Coalescing state is loaded ONCE for the pass rather than per promoted user: clearing a
+        // cap on a long waitlist would otherwise be a 2N-query path, and UpdateEvent holds the
+        // event's FOR UPDATE row lock throughout, so every concurrent RSVP queues behind it.
+        var roleActive = AttendeeRoleSync.IsRoleActive(ev);
+        var threadActive = EventThreadSync.IsThreadActive(ev);
+        var userIds = promoting.Select(r => r.UserId).ToList();
+        List<Delivery> pendingRoles = roleActive
+            ? await AttendeeRoleSync.LoadPendingRoleChangesAsync(db, ev, userIds, cancellationToken)
+            : [];
+        HashSet<string> pendingAdds = threadActive
+            ? await EventThreadSync.LoadPendingMemberAddsAsync(db, ev, userIds, cancellationToken)
+            : [];
+
+        var now = clock.GetCurrentInstant();
+        foreach (var rsvp in promoting)
+        {
+            if (roleActive)
             {
-                continue;
+                AttendeeRoleSync.EnqueueRoleChange(
+                    db, ev, DeliveryType.GrantAttendeeRole, rsvp.UserId, pendingRoles, now);
             }
 
-            if (AttendeeRoleSync.IsRoleActive(ev))
+            if (threadActive)
             {
-                await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                    db, ev, DeliveryType.GrantAttendeeRole, rsvp.UserId, clock, cancellationToken);
-            }
-
-            if (EventThreadSync.IsThreadActive(ev))
-            {
-                await EventThreadSync.EnqueueMemberAddAsync(db, ev, rsvp.UserId, clock, cancellationToken);
+                EventThreadSync.EnqueueMemberAdd(db, ev, rsvp.UserId, pendingAdds, now);
             }
 
             db.Deliveries.Add(new Delivery
@@ -460,6 +479,6 @@ public static partial class RsvpPolicy
             });
         }
 
-        return promoted;
+        return promoting.Count;
     }
 }

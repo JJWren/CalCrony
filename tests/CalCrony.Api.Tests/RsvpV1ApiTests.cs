@@ -273,6 +273,59 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Contains(grants, g => g.UserId == 562);
     }
 
+    /// <summary>A promotion pass loads its role/thread coalescing state once for the whole batch
+    /// rather than per promoted user (#131). This pins the semantics that batching has to
+    /// preserve: across one multi-user pass a never-served revoke still nets away against the
+    /// promotion's grant, an already-queued thread add still dedups, and every other promoted user
+    /// still gets exactly one of each.</summary>
+    [Fact]
+    public async Task Bulk_promotion_still_coalesces_roles_and_thread_adds_once_per_user()
+    {
+        var ev = await CreateAsync(new CreateEventRequest(
+            CreatorId, "Bulk promote", "in 3 hours", ChannelId,
+            AttendeeLimit: 2, AttendeeRoleId: 888300, WantsThread: true));
+        (await Client.PutAsJsonAsync($"/events/{ev.Id}/thread", new SetThreadRequest(888301)))
+            .EnsureSuccessStatusCode();
+        var going = ev.AttendingOption!;
+        var maybe = ev.Options.First(o => o.Id != going.Id);
+
+        await RsvpAsync(ev.Id, 571, going.Id); // seated
+        await RsvpAsync(ev.Id, 572, going.Id); // seated
+        await RsvpAsync(ev.Id, 573, going.Id); // queued
+        // The bot delivers those grants, so nothing of 572's is pending when they step off below.
+        await MarkSentAsync(ev.Id, DeliveryType.GrantAttendeeRole);
+
+        // 572 steps off: that queues a never-served revoke AND frees the seat 573 is promoted into.
+        await RsvpAsync(ev.Id, 572, maybe.Id);
+        Assert.Single(await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole));
+
+        // 572 comes back to a full option (571 + 573), so they queue with the revoke still pending
+        // and their original thread add never withdrawn — add-only.
+        await RsvpAsync(ev.Id, 572, going.Id);
+        await RsvpAsync(ev.Id, 574, going.Id);
+        await RsvpAsync(ev.Id, 575, going.Id);
+
+        // One pass promotes all three: 572 nets its revoke away and dedups its add; 574 and 575
+        // are fresh grants and adds.
+        var raised = await ReadAsync<EventDto>(await Client.PatchAsJsonAsync(
+            $"/events/{ev.Id}", new UpdateEventRequest(CreatorId, AttendeeLimit: 5)));
+        Assert.Equal(5, raised.SeatedCount(going.Id));
+        Assert.Empty(raised.Waitlist);
+
+        Assert.Empty(await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole));
+        var grantsPerUser = (await RoleDeliveriesAsync(ev.Id, DeliveryType.GrantAttendeeRole))
+            .GroupBy(g => g.UserId)
+            .ToDictionary(g => g.Key, g => g.Count());
+        Assert.Equal(new[] { 571L, 572L, 573L, 574L, 575L }, grantsPerUser.Keys.Order());
+        Assert.All(grantsPerUser.Values, count => Assert.Equal(1, count));
+
+        var addsPerUser = (await ThreadAddsAsync(ev.Id))
+            .GroupBy(a => a.UserId)
+            .ToDictionary(a => a.Key, a => a.Count());
+        Assert.Equal(new[] { 571L, 572L, 573L, 574L, 575L }, addsPerUser.Keys.Order());
+        Assert.All(addsPerUser.Values, count => Assert.Equal(1, count));
+    }
+
     // ---------- Option edits ----------
 
     [Fact]
@@ -631,6 +684,29 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             .Where(d => d.Type == type && d.PayloadJson.Contains(eventId.ToString()))
             .ToListAsync();
         return [.. rows.Select(d => System.Text.Json.JsonSerializer.Deserialize<AttendeeRolePayload>(d.PayloadJson)!)];
+    }
+
+    /// <summary>Settles pending deliveries of one type the way a successful bot round would, so a
+    /// later enqueue of the same type sees nothing to dedup against.</summary>
+    private async Task MarkSentAsync(Guid eventId, DeliveryType type)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        await db.Deliveries
+            .Where(d => d.Type == type && d.PayloadJson.Contains(eventId.ToString()))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(d => d.Status, DeliveryStatus.Sent)
+                .SetProperty(d => d.Attempts, 1));
+    }
+
+    private async Task<List<ThreadMemberPayload>> ThreadAddsAsync(Guid eventId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var rows = await db.Deliveries
+            .Where(d => d.Type == DeliveryType.AddThreadMember && d.PayloadJson.Contains(eventId.ToString()))
+            .ToListAsync();
+        return [.. rows.Select(d => System.Text.Json.JsonSerializer.Deserialize<ThreadMemberPayload>(d.PayloadJson)!)];
     }
 
     /// <summary>Marks pending deliveries of one type as served so later opposite-type enqueues
