@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/JJWren/CalCrony/compare/v0.28.1...v0.29.0) (2026-09-01)
+
+
+### Features
+
+* multi-day-of-week recurrence (checkbox day sets) ([#135](https://github.com/JJWren/CalCrony/issues/135)) ([9501681](https://github.com/JJWren/CalCrony/commit/9501681c9eef299e67e3e9dbab79c2ac8d26811c))
+
 ## [0.28.1](https://github.com/JJWren/CalCrony/compare/v0.28.0...v0.28.1) (2026-09-01)
 
 
