@@ -6,18 +6,23 @@ using NodaTime;
 
 namespace CalCrony.Api.Services;
 
-/// <summary>What an RSVP change means for the event's attendee role.</summary>
-public enum AttendeeRoleAction
+/// <summary>What moving one user's SEAT between options means for their Discord roles: give up the
+/// option they left, take on the one they joined. Both sides are null for a change that touches no
+/// role, and a move between two options carrying the SAME role nets to nothing rather than
+/// churning a revoke against a grant.</summary>
+/// <param name="Revoke">The role to take away, when the vacated option carried one.</param>
+/// <param name="Grant">The role to hand out, when the taken option carries one.</param>
+public readonly record struct AttendeeRoleChange(long? Revoke, long? Grant)
 {
-    None = 0,
-    Grant = 1,
-    Revoke = 2,
+    /// <summary>Whether this change asks for any delivery at all.</summary>
+    public bool IsNoOp => Revoke is null && Grant is null;
 }
 
-/// <summary>Attendee-role outbox logic: pure decisions about when attending RSVPs earn or lose
-/// the event's role, plus the grant/revoke delivery enqueues. All Discord role changes flow
-/// through the outbox (types 10/11); the handlers are best-effort so ordering holds without
-/// retries.</summary>
+/// <summary>Attendee-role outbox logic: pure decisions about which Discord role a seated RSVP
+/// earns or loses, plus the grant/revoke delivery enqueues. Roles hang off the OPTION, not the
+/// event, so one event can hand out Tank/Healer/DPS; the attending flag drives seating and
+/// threads, never roles. All Discord role changes flow through the outbox (types 10/11); the
+/// handlers are best-effort so ordering holds without retries.</summary>
 public static class AttendeeRoleSync
 {
     /// <summary>The attending option's id (see <see cref="RsvpPolicy.AttendingOption"/>). Null
@@ -27,54 +32,80 @@ public static class AttendeeRoleSync
     public static Guid? AttendingOptionId(IEnumerable<RsvpOption> options) =>
         RsvpPolicy.AttendingOption(options)?.Id;
 
-    /// <summary>Pure decision for an RSVP change: crossing onto the attending option grants,
-    /// crossing off it revokes, everything else (Maybe↔Not going) is a no-op. Null old = fresh
-    /// RSVP; null new = un-RSVP. Callers pass null for waitlisted states too — a queued RSVP has
-    /// no seat, so it counts as "not attending" until promoted.</summary>
+    /// <summary>The role a user seated on one option holds. Null for no option (no seat at all),
+    /// an unknown option, or an option that carries no role.</summary>
+    /// <param name="options">The event's RSVP options.</param>
+    /// <param name="optionId">The seated option's id, or null for "no seat".</param>
+    /// <returns>The Discord role id, or null.</returns>
+    public static long? RoleFor(IEnumerable<RsvpOption> options, Guid? optionId) =>
+        optionId is { } id ? options.FirstOrDefault(o => o.Id == id)?.AttendeeRoleId : null;
+
+    /// <summary>Pure decision for an RSVP change: the seat given up loses its option's role and
+    /// the seat taken earns its own. Null old = fresh RSVP; null new = un-RSVP. Callers pass null
+    /// for waitlisted states too — a queued RSVP has no seat, so it holds no role until promoted.
+    /// Moving between options that share a role is a no-op, so a shared "Attending" role survives
+    /// a Tank→Healer switch untouched.</summary>
+    /// <param name="options">The event's RSVP options.</param>
     /// <param name="oldOptionId">The seated option before the change, when one existed.</param>
     /// <param name="newOptionId">The seated option after the change, when one remains.</param>
-    /// <param name="attendingOptionId">The attending option's id.</param>
-    /// <returns>The role action the change implies.</returns>
-    public static AttendeeRoleAction Decide(Guid? oldOptionId, Guid? newOptionId, Guid attendingOptionId)
+    /// <returns>The roles to revoke and grant.</returns>
+    public static AttendeeRoleChange Decide(
+        IEnumerable<RsvpOption> options, Guid? oldOptionId, Guid? newOptionId)
     {
-        var wasAttending = oldOptionId == attendingOptionId;
-        var isAttending = newOptionId == attendingOptionId;
-        return (wasAttending, isAttending) switch
-        {
-            (false, true) => AttendeeRoleAction.Grant,
-            (true, false) => AttendeeRoleAction.Revoke,
-            _ => AttendeeRoleAction.None,
-        };
+        var materialized = options as IReadOnlyCollection<RsvpOption> ?? [.. options];
+        var was = RoleFor(materialized, oldOptionId);
+        var now = RoleFor(materialized, newOptionId);
+        return was == now ? default : new AttendeeRoleChange(was, now);
     }
 
-    /// <summary>Whether role deliveries may fire at all: a role is set and the event is live.
-    /// RSVPs on non-live events succeed but never touch roles.</summary>
-    /// <param name="ev">The event.</param>
+    /// <summary>Whether role deliveries may fire at all: at least one option carries a role and
+    /// the event is live. RSVPs on non-live events succeed but never touch roles.</summary>
+    /// <param name="ev">The event (Options loaded).</param>
     /// <returns>True when grant/revoke deliveries apply.</returns>
     public static bool IsRoleActive(Event ev) =>
-        ev.AttendeeRoleId is not null && ev.Status is EventStatus.Scheduled or EventStatus.Started;
+        ev.Options.Any(o => o.AttendeeRoleId is not null)
+        && ev.Status is EventStatus.Scheduled or EventStatus.Started;
 
     /// <summary>The exact payload a grant/revoke for one user carries — the value the coalescing
     /// lookups match on and the enqueued row stores.</summary>
-    /// <param name="ev">The event (AttendeeRoleId set).</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="roleId">The Discord role id.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <returns>The serialized <see cref="AttendeeRolePayload"/>.</returns>
-    private static string RolePayloadJson(Event ev, long userId) =>
-        JsonSerializer.Serialize(new AttendeeRolePayload(ev.Id, ev.GuildId, ev.AttendeeRoleId!.Value, userId));
+    private static string RolePayloadJson(Event ev, long roleId, long userId) =>
+        JsonSerializer.Serialize(new AttendeeRolePayload(ev.Id, ev.GuildId, roleId, userId));
 
     /// <summary>Loads every pending grant/revoke addressed to any of <paramref name="userIds"/> on
-    /// this event's role in ONE query, so a caller enqueuing for many users at once (waitlist
-    /// promotion) coalesces against an in-memory set instead of a lookup per user. Feed the result
-    /// to <see cref="EnqueueRoleChange"/>, which keeps it in step with what it enqueues.</summary>
+    /// ONE role in a single query, so a caller enqueuing for many users at once (waitlist
+    /// promotion, which only ever seats users onto the attending option) coalesces against an
+    /// in-memory set instead of a lookup per user. Feed the result to
+    /// <see cref="EnqueueRoleChange"/>, which keeps it in step with what it enqueues.</summary>
     /// <param name="db">The database context.</param>
-    /// <param name="ev">The event (AttendeeRoleId set).</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="roleId">The Discord role id the batch is about.</param>
     /// <param name="userIds">The Discord user ids about to be enqueued for.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The pending grant/revoke rows for those users; the enqueue mutates it.</returns>
+    public static Task<List<Delivery>> LoadPendingRoleChangesAsync(
+        CalCronyDbContext db, Event ev, long roleId, IEnumerable<long> userIds,
+        CancellationToken cancellationToken) =>
+        LoadPendingRoleChangesAsync(
+            db, ev, userIds.Select(userId => (roleId, userId)), cancellationToken);
+
+    /// <summary>The many-roles form: one lookup covering an arbitrary set of (role, user) changes.
+    /// Per-option roles make the role vary within a single pass — an edit can revoke Tank from one
+    /// user while granting Healer to another — so the diff loads every payload it may need at once
+    /// rather than one query per user (the scaling problem #143 removed).</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="changes">The (role, user) pairs about to be enqueued.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The pending grant/revoke rows for those payloads.</returns>
     public static async Task<List<Delivery>> LoadPendingRoleChangesAsync(
-        CalCronyDbContext db, Event ev, IEnumerable<long> userIds, CancellationToken cancellationToken)
+        CalCronyDbContext db, Event ev, IEnumerable<(long RoleId, long UserId)> changes,
+        CancellationToken cancellationToken)
     {
-        var payloads = userIds.Select(userId => RolePayloadJson(ev, userId)).ToList();
+        var payloads = changes.Select(c => RolePayloadJson(ev, c.RoleId, c.UserId)).Distinct().ToList();
         return payloads.Count == 0
             ? []
             : await db.Deliveries
@@ -92,13 +123,15 @@ public static class AttendeeRoleSync
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event.</param>
     /// <param name="type">Grant or revoke.</param>
+    /// <param name="roleId">The Discord role id.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="pending">The rows from <see cref="LoadPendingRoleChangesAsync"/>.</param>
     /// <param name="now">The current instant.</param>
     public static void EnqueueRoleChange(
-        CalCronyDbContext db, Event ev, DeliveryType type, long userId, List<Delivery> pending, Instant now)
+        CalCronyDbContext db, Event ev, DeliveryType type, long roleId, long userId,
+        List<Delivery> pending, Instant now)
     {
-        var payloadJson = RolePayloadJson(ev, userId);
+        var payloadJson = RolePayloadJson(ev, roleId, userId);
         var opposite = type == DeliveryType.GrantAttendeeRole
             ? DeliveryType.RevokeAttendeeRole
             : DeliveryType.GrantAttendeeRole;
@@ -124,40 +157,72 @@ public static class AttendeeRoleSync
     /// payload of the same type dedups; an identical pending payload of the OPPOSITE type that the
     /// bot has never been served (Attempts == 0) is deleted instead — the pair nets to a no-op.
     /// An in-flight opposite (Attempts &gt; 0) always acks first (best-effort handler), so
-    /// enqueueing normally keeps last-write-wins ordering. Enqueuing for a whole set of users at
-    /// once? Use <see cref="LoadPendingRoleChangesAsync"/> with <see cref="EnqueueRoleChange"/> —
-    /// same rule, one lookup for the pass instead of one per user.</summary>
+    /// enqueueing normally keeps last-write-wins ordering. Enqueuing one role for a whole set of
+    /// users at once? Use <see cref="LoadPendingRoleChangesAsync"/> with
+    /// <see cref="EnqueueRoleChange"/> — same rule, one lookup for the pass instead of one per
+    /// user.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event.</param>
     /// <param name="type">Grant or revoke.</param>
+    /// <param name="roleId">The Discord role id.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     public static async Task EnqueueRoleChangeAsync(
-        CalCronyDbContext db, Event ev, DeliveryType type, long userId, IClock clock,
+        CalCronyDbContext db, Event ev, DeliveryType type, long roleId, long userId, IClock clock,
         CancellationToken cancellationToken)
     {
-        var pending = await LoadPendingRoleChangesAsync(db, ev, [userId], cancellationToken);
-        EnqueueRoleChange(db, ev, type, userId, pending, clock.GetCurrentInstant());
+        var pending = await LoadPendingRoleChangesAsync(db, ev, roleId, [userId], cancellationToken);
+        EnqueueRoleChange(db, ev, type, roleId, userId, pending, clock.GetCurrentInstant());
     }
 
-    /// <summary>Fans one delivery per user seated on the attending option (waitlisted users never
-    /// got the role, so they're skipped; no coalescing — used by the end/delete/skip/cancel/
-    /// role-change paths, which are one-shot). The role id is passed explicitly so a role-change
-    /// edit can revoke the OLD role after the entity was updated.</summary>
+    /// <summary>Applies an <see cref="AttendeeRoleChange"/> for one user, revoking before granting
+    /// so a move between two role-bearing options lands in the order the bot will serve.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="ev">The event.</param>
+    /// <param name="change">The decided revoke/grant pair.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    public static async Task ApplyRoleChangeAsync(
+        CalCronyDbContext db, Event ev, AttendeeRoleChange change, long userId, IClock clock,
+        CancellationToken cancellationToken)
+    {
+        if (change.Revoke is { } revoked)
+        {
+            await EnqueueRoleChangeAsync(
+                db, ev, DeliveryType.RevokeAttendeeRole, revoked, userId, clock, cancellationToken);
+        }
+
+        if (change.Grant is { } granted)
+        {
+            await EnqueueRoleChangeAsync(
+                db, ev, DeliveryType.GrantAttendeeRole, granted, userId, clock, cancellationToken);
+        }
+    }
+
+    /// <summary>Fans one delivery per seated user over EVERY role-bearing option — the event-wide
+    /// sweep used when an event leaves the live states (end / delete / skip / cancel) and every
+    /// role it handed out has to come back. Waitlisted users never held a role, so they're
+    /// skipped, and there is no coalescing: these paths are one-shot.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event (Options and Rsvps loaded).</param>
     /// <param name="type">Grant or revoke.</param>
-    /// <param name="roleId">The Discord role id to grant or revoke.</param>
     /// <param name="now">The current instant.</param>
-    /// <returns>How many deliveries were enqueued (one per seated attending RSVP).</returns>
-    public static int EnqueueRoleFanOut(CalCronyDbContext db, Event ev, DeliveryType type, long roleId, Instant now)
-        => AttendingOptionId(ev.Options) is { } attendingId
-            ? EnqueueRoleFanOutForOption(db, ev, type, roleId, attendingId, now)
-            : 0;
+    /// <returns>How many deliveries were enqueued.</returns>
+    public static int EnqueueRoleFanOutAll(CalCronyDbContext db, Event ev, DeliveryType type, Instant now)
+    {
+        var count = 0;
+        foreach (var option in ev.Options.Where(o => o.AttendeeRoleId is not null))
+        {
+            count += EnqueueRoleFanOutForOption(db, ev, type, option.AttendeeRoleId!.Value, option.Id, now);
+        }
 
-    /// <summary>Fan-out variant targeting an explicit option — used when the attending flag moves
-    /// between options and the OLD option's members must be revoked after the flag changed.</summary>
+        return count;
+    }
+
+    /// <summary>Fan-out over one option's seated RSVPs. The role id is passed explicitly so a
+    /// role-change edit can revoke the OLD role after the option row was already updated.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event (Rsvps loaded).</param>
     /// <param name="type">Grant or revoke.</param>
@@ -171,10 +236,7 @@ public static class AttendeeRoleSync
         var count = 0;
         foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == optionId && !r.Waitlisted))
         {
-            AddDelivery(
-                db, ev, type,
-                JsonSerializer.Serialize(new AttendeeRolePayload(ev.Id, ev.GuildId, roleId, rsvp.UserId)),
-                now);
+            AddDelivery(db, ev, type, RolePayloadJson(ev, roleId, rsvp.UserId), now);
             count++;
         }
 

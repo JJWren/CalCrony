@@ -18,6 +18,53 @@ public class RsvpOptionSyntaxTests
     }
 
     [Fact]
+    public void A_role_mention_gives_that_option_its_own_attendee_role()
+    {
+        // What a typed @Tank / @Healer / @DPS looks like inside a string command option.
+        Assert.True(RsvpOptionSyntax.TryParse(
+            "🛡️ Tank x2 <@&11>, 💚 Healer x2 <@&22>, ⚔️ DPS x6 <@&33>", out var specs, out var error));
+
+        Assert.Null(error);
+        Assert.Collection(
+            specs,
+            s => Assert.Equal(("Tank", (int?)2, (long?)11), (s.Label, s.Capacity, s.AttendeeRoleId)),
+            s => Assert.Equal(("Healer", (int?)2, (long?)22), (s.Label, s.Capacity, s.AttendeeRoleId)),
+            s => Assert.Equal(("DPS", (int?)6, (long?)33), (s.Label, s.Capacity, s.AttendeeRoleId)));
+    }
+
+    [Theory]
+    [InlineData("🛡️ Tank x2 <@&11>")]   // role after the capacity
+    [InlineData("🛡️ Tank <@&11> x2")]   // role before it
+    [InlineData("🛡️ <@&11> Tank x2")]   // role in the middle
+    public void The_role_mention_is_read_wherever_it_sits_and_never_becomes_label_text(string input)
+    {
+        Assert.True(RsvpOptionSyntax.TryParse(input, out var specs, out var error));
+
+        Assert.Null(error);
+        Assert.Equal(("🛡️", "Tank", (int?)2, (long?)11), (specs[0].Emote, specs[0].Label, specs[0].Capacity, specs[0].AttendeeRoleId));
+    }
+
+    [Fact]
+    public void Options_without_a_mention_carry_no_role_and_the_star_still_marks_attending()
+    {
+        Assert.True(RsvpOptionSyntax.TryParse("🛡️ Tank <@&11>, 💚 Healer *", out var specs, out _));
+
+        Assert.Equal(11, specs[0].AttendeeRoleId);
+        Assert.False(specs[0].IsAttending);
+        Assert.Null(specs[1].AttendeeRoleId);
+        Assert.True(specs[1].IsAttending);
+        Assert.Equal("Healer", specs[1].Label); // neither marker leaks into the label
+    }
+
+    [Fact]
+    public void Two_role_mentions_on_one_option_are_rejected()
+    {
+        Assert.False(RsvpOptionSyntax.TryParse("🛡️ Tank <@&11> <@&22>", out _, out var error));
+
+        Assert.Contains("at most one role", error);
+    }
+
+    [Fact]
     public void First_entry_is_attending_unless_a_star_marks_another()
     {
         Assert.True(RsvpOptionSyntax.TryParse("❌ Out, 🍕 In *", out var specs, out _));

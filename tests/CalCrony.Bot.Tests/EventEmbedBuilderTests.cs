@@ -188,10 +188,25 @@ public class EventEmbedBuilderTests
     }
 
     [Fact]
-    public void Role_note_names_the_attending_option()
+    public void Role_note_names_every_option_that_grants_one()
     {
-        var ev = WaitlistedEvent() with { AttendeeRoleId = 777 };
+        // The ordinary single-role event reads exactly as it did before roles moved onto options.
+        var ev = WaitlistedEvent();
+        var oneRole = ev with
+        {
+            Options = [ev.Options[0] with { AttendeeRoleId = 777 }, ev.Options[1]],
+        };
+        Assert.Contains("🏷️ Raider grants <@&777>", EventEmbedBuilder.Build(oneRole).Description);
 
-        Assert.Contains("🏷️ Raider grants <@&777>", EventEmbedBuilder.Build(ev).Description);
+        // …and a Tank/Healer/DPS-style event lists each option's role in display order.
+        var perOption = ev with
+        {
+            Options = [ev.Options[0] with { AttendeeRoleId = 777 }, ev.Options[1] with { AttendeeRoleId = 888 }],
+        };
+        Assert.Contains(
+            "🏷️ Raider grants <@&777> · Out grants <@&888>", EventEmbedBuilder.Build(perOption).Description);
+
+        // No option carries a role: no legend at all.
+        Assert.DoesNotContain("🏷️", EventEmbedBuilder.Build(ev).Description);
     }
 }

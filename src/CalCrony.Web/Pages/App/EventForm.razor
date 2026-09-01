@@ -95,9 +95,10 @@ else
             <button type="button" class="btn btn-outline-secondary btn-sm mt-1"
                     disabled="@(optionRows.Count >= 10)" @onclick="AddOption">+ Add option</button>
             <div class="form-text">
-                The selected radio marks the <b>attending</b> option — it drives attendee roles, threads,
-                and availability. Give it a capacity and extra RSVPs queue on a waitlist, promoted
-                automatically when a spot frees.
+                The selected radio marks the <b>attending</b> option — it drives threads, availability,
+                and the waitlist. Attendee roles are per option and set in Discord, so moving this
+                radio no longer moves them. Give it a capacity and extra RSVPs queue on a waitlist,
+                promoted automatically when a spot frees.
                 @if (IsEdit)
                 {
                     <text>Options keep their RSVPs when the label stays the same; an option with RSVPs can't be removed.</text>
@@ -309,6 +310,12 @@ else
         public int? Capacity { get; set; }
 
         public bool IsAttending { get; set; }
+
+        /// <summary>The option's attendee role, carried through untouched. The web can't
+        /// enumerate Discord roles so it never sets one, but a full option replacement re-applies
+        /// every role from the specs it sends — dropping it here would silently strip a role the
+        /// form can't even show.</summary>
+        public long? AttendeeRoleId { get; set; }
     }
 
     private static List<OptionRow> DefaultOptionRows() =>
@@ -338,7 +345,8 @@ else
     /// <summary>The submitted shape of the option rows (trimmed, so an untouched form compares
     /// equal to what was loaded).</summary>
     private static List<RsvpOptionSpec> ToSpecs(IEnumerable<OptionRow> rows) =>
-        [.. rows.Select(r => new RsvpOptionSpec(r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending))];
+        [.. rows.Select(r => new RsvpOptionSpec(
+            r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending, r.AttendeeRoleId))];
 
     private void RemoveOption(int index)
     {
@@ -469,6 +477,7 @@ else
                 Label = o.Label,
                 Capacity = o.Capacity,
                 IsAttending = o.Id == ev.AttendingOption?.Id,
+                AttendeeRoleId = o.AttendeeRoleId,
             })];
             loadedOptionSpecs = ToSpecs(optionRows);
         }

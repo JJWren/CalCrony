@@ -363,20 +363,24 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     {
         var ev = await CreateAsync(new CreateEventRequest(
             CreatorId, "Attending move", "in 3 hours", ChannelId,
-            RsvpOptions: [new RsvpOptionSpec("🍕", "In", 1), new RsvpOptionSpec("🥗", "Salad only")],
-            AttendeeRoleId: 888200));
+            RsvpOptions:
+            [
+                new RsvpOptionSpec("🍕", "In", 1, AttendeeRoleId: 888200),
+                new RsvpOptionSpec("🥗", "Salad only", AttendeeRoleId: 888201),
+            ]));
         var inOption = ev.AttendingOption!;
         var salad = ev.Options.Single(o => o.Label == "Salad only");
-        await RsvpAsync(ev.Id, 581, inOption.Id); // seated + role grant
-        await RsvpAsync(ev.Id, 582, inOption.Id); // waitlisted
-        await RsvpAsync(ev.Id, 583, salad.Id);
+        await RsvpAsync(ev.Id, 581, inOption.Id); // seated on In + In's role
+        await RsvpAsync(ev.Id, 582, inOption.Id); // waitlisted on In — no seat, no role
+        await RsvpAsync(ev.Id, 583, salad.Id);    // seated on Salad + Salad's role
         await MarkServedAsync(ev.Id, DeliveryType.GrantAttendeeRole);
+        await MarkServedAsync(ev.Id, DeliveryType.RevokeAttendeeRole);
 
         var moved = await ReadAsync<EventDto>(await Client.PatchAsJsonAsync($"/events/{ev.Id}",
             new UpdateEventRequest(CreatorId, RsvpOptions:
             [
-                new RsvpOptionSpec("🍕", "In", 1),
-                new RsvpOptionSpec("🥗", "Salad only", IsAttending: true),
+                new RsvpOptionSpec("🍕", "In", 1, AttendeeRoleId: 888200),
+                new RsvpOptionSpec("🥗", "Salad only", IsAttending: true, AttendeeRoleId: 888201),
             ])));
 
         // The flag moved; the old option's queue is seated (nothing to wait for anymore).
@@ -384,14 +388,15 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Empty(moved.Waitlist);
         Assert.False(moved.Rsvps.Single(r => r.UserId == 582).Waitlisted);
 
-        // Role re-sync: old-attending members revoked, new-attending members granted. The
-        // just-seated 582 never held the role (waitlisted at grant time), so no revoke for them —
-        // a revoke of a pre-existing role would strip a manual assignment.
-        var revokes = await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole);
-        Assert.Contains(revokes, r => r.UserId == 581);
-        Assert.DoesNotContain(revokes, r => r.UserId == 582);
+        // Roles belong to the OPTION, so moving the attending flag churns nothing: 581 keeps In's
+        // role and 583 keeps Salad's, with no revoke for either. Only 582 changes, because taking
+        // a real seat on In finally earns them In's role — which the flag-driven v1 rule left them
+        // without.
+        Assert.Empty(await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole));
         var grants = await RoleDeliveriesAsync(ev.Id, DeliveryType.GrantAttendeeRole);
-        Assert.Contains(grants, g => g.UserId == 583);
+        Assert.Contains(grants, g => g.UserId == 582 && g.RoleId == 888200);
+        // 581 and 583 were granted when they RSVPed; the edit added 582's and nothing else.
+        Assert.Equal(3, grants.Count);
     }
 
     // ---------- Close early ----------

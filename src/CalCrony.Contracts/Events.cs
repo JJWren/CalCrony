@@ -29,13 +29,17 @@ public enum EventStatus
 /// gaps, and its notification specs are always copied onto the created event.</param>
 /// <param name="NoRecurrence">Explicitly suppresses a template's repeat rule (unset does not —
 /// a template rule applies when no explicit rule is sent). Conflicts with Recurrence.</param>
-/// <param name="AttendeeRoleId">Existing Discord role granted to attending RSVPs and revoked when
-/// the event ends. Bot callers only — the web can't enumerate roles, so it is ignored there.</param>
+/// <param name="AttendeeRoleId">Shorthand for the ATTENDING option's role (the same setting as
+/// that option's spec-level AttendeeRoleId, and giving both is an error) — an existing Discord
+/// role granted to its seated RSVPs and revoked when they leave or the event ends. Set roles on
+/// the other options through RsvpOptions. Bot callers only — the web can't enumerate roles, so it
+/// is ignored there.</param>
 /// <param name="WantsThread">Opens a discussion thread on the posted embed message; attending
 /// RSVPers are auto-added and the thread archives when the event ends. Honored for both
-/// caller types (unlike AttendeeRoleId — no Discord data is needed to say yes).</param>
+/// caller types (unlike the attendee roles — no Discord data is needed to say yes).</param>
 /// <param name="RsvpOptions">Custom RSVP options replacing the default Going/Not going/Maybe set
-/// (1-10 entries; exactly one may be flagged attending — none flagged means the first).</param>
+/// (1-10 entries; exactly one may be flagged attending — none flagged means the first). Each may
+/// carry its own AttendeeRoleId, so one event can hand out a different role per choice.</param>
 /// <param name="AttendeeLimit">Capacity for the attending option — shorthand that works with the
 /// default option set too. Conflicts with an explicit capacity on the attending spec.</param>
 /// <param name="RsvpCloseText">When RSVPs stop accepting changes: relative to start ("2h before")
@@ -71,13 +75,15 @@ public record CreateEventRequest(
 /// <param name="ImageUrl">Optional image URL.</param>
 /// <param name="Status">The lifecycle status.</param>
 /// <param name="Scope">Whether the change applies to this occurrence or the whole series.</param>
-/// <param name="AttendeeRoleId">Replaces the attendee role (bot callers only; existing grants are
-/// re-synced to the new role). Null leaves it unchanged — clear with ClearAttendeeRole.</param>
-/// <param name="ClearAttendeeRole">Removes the attendee role (existing grants are revoked).
-/// Conflicts with AttendeeRoleId.</param>
+/// <param name="AttendeeRoleId">Replaces the ATTENDING option's role (bot callers only; existing
+/// grants are re-synced to the new role). Null leaves it unchanged — clear with ClearAttendeeRole.
+/// Conflicts with a role on the attending spec; edit the other options' roles via RsvpOptions.</param>
+/// <param name="ClearAttendeeRole">Removes the attending option's role (existing grants are
+/// revoked). Conflicts with AttendeeRoleId.</param>
 /// <param name="RsvpOptions">Replaces the option set. Options are matched to existing ones by
 /// label (case-insensitive): matches keep their RSVPs, new labels append, and an option with
-/// RSVPs cannot be removed (409). Null leaves the options unchanged.</param>
+/// RSVPs cannot be removed (409). A matched option's role is replaced by the spec's, with grants
+/// re-synced for its seated users. Null leaves the options unchanged.</param>
 /// <param name="AttendeeLimit">Sets the attending option's capacity. Null leaves it unchanged —
 /// clear with ClearAttendeeLimit. Conflicts with an explicit capacity on the attending spec.</param>
 /// <param name="ClearAttendeeLimit">Removes the attending option's capacity (the whole waitlist
@@ -108,9 +114,14 @@ public record UpdateEventRequest(
 /// <param name="Emote">The option emoji.</param>
 /// <param name="Label">The display label.</param>
 /// <param name="Capacity">Optional attendee cap.</param>
-/// <param name="IsAttending">Marks the option whose RSVPs count as attending (roles, threads,
+/// <param name="IsAttending">Marks the option whose RSVPs count as attending (threads,
 /// availability, waitlist). At most one per request; none flagged means the first.</param>
-public record RsvpOptionSpec(string Emote, string Label, int? Capacity = null, bool IsAttending = false);
+/// <param name="AttendeeRoleId">Existing Discord role granted to users seated on THIS option and
+/// revoked when they leave it or the event ends — how one event hands out Tank/Healer/DPS. Bot
+/// callers only (the web can't enumerate roles). On the attending option this is the same setting
+/// the request-level AttendeeRoleId shorthand writes, and giving both is an error.</param>
+public record RsvpOptionSpec(
+    string Emote, string Label, int? Capacity = null, bool IsAttending = false, long? AttendeeRoleId = null);
 
 /// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 /// <param name="Id">The unique id.</param>
@@ -119,7 +130,10 @@ public record RsvpOptionSpec(string Emote, string Label, int? Capacity = null, b
 /// <param name="SortOrder">Display ordering index.</param>
 /// <param name="Capacity">Optional attendee cap.</param>
 /// <param name="IsAttending">Whether this option's RSVPs count as attending.</param>
-public record RsvpOptionDto(Guid Id, string Emote, string Label, int SortOrder, int? Capacity, bool IsAttending = false);
+/// <param name="AttendeeRoleId">The Discord role seated users on this option hold, when set.</param>
+public record RsvpOptionDto(
+    Guid Id, string Emote, string Label, int SortOrder, int? Capacity, bool IsAttending = false,
+    long? AttendeeRoleId = null);
 
 /// <summary>A user's RSVP: which option they picked.</summary>
 /// <param name="UserId">The Discord user id.</param>
@@ -147,7 +161,8 @@ public record RsvpDto(long UserId, Guid OptionId, bool Waitlisted = false);
 /// <param name="SeriesId">The series id.</param>
 /// <param name="RecurrenceSummary">Human-readable repeat rule; null for one-offs and ended series.</param>
 /// <param name="NativeEventId">The mirrored Discord scheduled-event id, when mirrored.</param>
-/// <param name="AttendeeRoleId">The Discord role granted to attending RSVPs, when set.</param>
+/// <param name="AttendeeRoleId">The ATTENDING option's role, when set — a convenience mirror of
+/// that option's Options entry. Per-option roles are read from Options.</param>
 /// <param name="WantsThread">Whether a discussion thread should open on the posted embed.</param>
 /// <param name="ThreadId">The Discord thread-channel id once the thread exists.</param>
 /// <param name="ChannelName">The channel's name snapshot, when one is stored (attached to every
@@ -200,6 +215,12 @@ public record EventDto(
     /// <param name="optionId">The RSVP option id.</param>
     /// <returns>How many users hold a seat on the option.</returns>
     public int SeatedCount(Guid optionId) => Rsvps.Count(r => r.OptionId == optionId && !r.Waitlisted);
+
+    /// <summary>Every option that grants a Discord role, in display order — what a client renders
+    /// as the event's role legend. One entry is the common "Going grants @Raider" case; several is
+    /// the Tank/Healer/DPS case.</summary>
+    public IReadOnlyList<RsvpOptionDto> RoleGrantingOptions =>
+        [.. Options.Where(o => o.AttendeeRoleId is not null).OrderBy(o => o.SortOrder)];
 
     /// <summary>The attending option's waitlist in promotion order (RSVP order is preserved).</summary>
     public IReadOnlyList<RsvpDto> Waitlist => AttendingOption is { } attending

@@ -312,11 +312,9 @@ public static class SeriesEndpoints
         var now = clock.GetCurrentInstant();
         ev.Status = EventStatus.Cancelled;
 
-        // The skipped occurrence's attendee roles come off; the spawned replacement starts fresh.
-        if (ev.AttendeeRoleId is long roleId)
-        {
-            Services.AttendeeRoleSync.EnqueueRoleFanOut(db, ev, DeliveryType.RevokeAttendeeRole, roleId, now);
-        }
+        // Every option's attendee role comes off the skipped occurrence; the spawned replacement
+        // starts fresh.
+        Services.AttendeeRoleSync.EnqueueRoleFanOutAll(db, ev, DeliveryType.RevokeAttendeeRole, now);
 
         // Its discussion thread archives too; the replacement opens its own when posted.
         if (ev.ThreadId is not null)

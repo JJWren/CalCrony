@@ -83,6 +83,11 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             }
 
             optionSpecs = parsed;
+            if (ValidateSpecRoles(optionSpecs) is { } specRoleProblem)
+            {
+                await FollowupAsync(specRoleProblem, ephemeral: true);
+                return;
+            }
         }
 
         var targetChannel = channel ?? Context.Channel as ITextChannel;
@@ -169,9 +174,10 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         }
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
-        var roleNote = ev.AttendeeRoleId is null
-            ? ""
-            : $" · 🏷️ {ev.AttendingOption?.Label ?? "Going"} grants <@&{ev.AttendeeRoleId}>";
+        var roleNote = ev.RoleGrantingOptions is { Count: > 0 } roleOptions
+            ? " · 🏷️ " + string.Join(
+                " · ", roleOptions.Select(o => $"{o.Label} grants <@&{o.AttendeeRoleId}>"))
+            : "";
         // "opening", not "opened" — thread creation is best-effort and may still fail.
         var threadNote = ev.WantsThread ? " · 🧵 opening a discussion thread" : "";
         var limitNote = ev.AttendingOption?.Capacity is int cap ? $" · 👥 limited to {cap} (waitlist after)" : "";
@@ -306,6 +312,11 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
             }
 
             optionSpecs = parsed;
+            if (ValidateSpecRoles(optionSpecs) is { } specRoleProblem)
+            {
+                await FollowupAsync(specRoleProblem, ephemeral: true);
+                return;
+            }
         }
 
         if (attendeeRole is not null && ValidateAttendeeRole(attendeeRole) is { } roleProblem)
@@ -370,6 +381,30 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
     private bool CanManage(EventDto ev) =>
         (long)Context.User.Id == ev.CreatorId ||
         (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.ManageGuild);
+
+    /// <summary>Validates the roles mentioned inside <c>rsvp-options</c> the same way the
+    /// <c>attendee-role</c> argument is validated. The syntax parser is pure and guild-less, so it
+    /// yields raw snowflakes; without this a pasted id for a deleted, managed, @everyone, or
+    /// above-the-bot role would report success and then be dropped silently at grant time.</summary>
+    /// <param name="specs">The parsed option specs.</param>
+    /// <returns>The user-facing problem, or null when every mentioned role is assignable.</returns>
+    private string? ValidateSpecRoles(IEnumerable<RsvpOptionSpec> specs)
+    {
+        foreach (var roleId in specs.Select(s => s.AttendeeRoleId).OfType<long>().Distinct())
+        {
+            if (Context.Guild.GetRole((ulong)roleId) is not { } role)
+            {
+                return $"❌ <@&{roleId}> isn't a role in this server — pick one that exists here.";
+            }
+
+            if (ValidateAttendeeRole(role) is { } problem)
+            {
+                return problem;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Friendly pre-check that the bot can actually assign the picked role — grants are
     /// best-effort later, so a bad pick would otherwise fail silently.</summary>

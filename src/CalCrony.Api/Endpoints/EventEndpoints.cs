@@ -115,6 +115,88 @@ public static class EventEndpoints
         new RsvpOption { Id = Guid.NewGuid(), Emote = "🤔", Label = "Maybe", SortOrder = 2 },
     ];
 
+    /// <summary>Which Discord role each seated user currently holds through this event — the
+    /// snapshot the edit path diffs to decide grants and revokes. Waitlisted RSVPs hold nothing
+    /// (no seat, no role), and a non-live event hands out nothing at all, so passing
+    /// <paramref name="live"/> false yields the empty set an ended event should converge to.</summary>
+    /// <param name="ev">The event (Options and Rsvps loaded).</param>
+    /// <param name="live">Whether the event is in a live state at the point being snapshotted.</param>
+    /// <returns>Seated user id to the role they hold; users holding none are absent.</returns>
+    internal static Dictionary<long, long> SeatedRoles(Event ev, bool live)
+    {
+        var held = new Dictionary<long, long>();
+        if (!live)
+        {
+            return held;
+        }
+
+        foreach (var rsvp in ev.Rsvps.Where(r => !r.Waitlisted))
+        {
+            if (AttendeeRoleSync.RoleFor(ev.Options, rsvp.OptionId) is { } roleId)
+            {
+                held[rsvp.UserId] = roleId;
+            }
+        }
+
+        return held;
+    }
+
+    /// <summary>Drops every spec-level attendee role — the option-set equivalent of ignoring the
+    /// request's AttendeeRoleId for web callers. Roles are bot-only not merely because the web
+    /// can't enumerate them, but because accepting an arbitrary role id from a plain member would
+    /// let them hand out any role the bot outranks to everyone who RSVPs.</summary>
+    /// <param name="specs">The submitted option specs, or null.</param>
+    /// <returns>The specs with no roles, or null.</returns>
+    private static IReadOnlyList<RsvpOptionSpec>? StripSpecRoles(IReadOnlyList<RsvpOptionSpec>? specs) =>
+        specs is null ? null : [.. specs.Select(spec => spec with { AttendeeRoleId = null })];
+
+    /// <summary>Replaces every spec's role with the one already on the option it matches by label —
+    /// so a web edit preserves roles it cannot display and cannot introduce one. Labels are how
+    /// TryApplyOptionEdit matches too, so an option keeps its role exactly when it keeps its RSVPs.</summary>
+    /// <param name="specs">The submitted option specs.</param>
+    /// <param name="ev">The event being edited (Options loaded).</param>
+    /// <param name="clearAttending">Whether ClearAttendeeRole was requested — the one role change
+    /// a web caller may make, since it needs no knowledge of the role it removes.</param>
+    /// <returns>The specs carrying the event's existing roles.</returns>
+    private static IReadOnlyList<RsvpOptionSpec> CarryOverSpecRoles(
+        IReadOnlyList<RsvpOptionSpec> specs, Event ev, string? clearedLabel)
+    {
+        var byLabel = new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var option in ev.Options)
+        {
+            byLabel[option.Label] = option.AttendeeRoleId;
+        }
+
+        return
+        [
+            .. specs.Select(spec => spec with
+            {
+                AttendeeRoleId = MatchesLabel(spec, clearedLabel)
+                    ? null
+                    : byLabel.GetValueOrDefault(spec.Label?.Trim() ?? string.Empty),
+            }),
+        ];
+    }
+
+    /// <summary>Nulls one label's role in a caller-supplied spec set — the bot states roles inline,
+    /// so nothing is carried over, but a clear flag must still be honored rather than dropped.</summary>
+    /// <param name="specs">The replacement specs.</param>
+    /// <param name="clearedLabel">The label whose role the clear names, or null for no clear.</param>
+    /// <returns>The specs, with that label's role removed.</returns>
+    private static IReadOnlyList<RsvpOptionSpec> ClearSpecRole(
+        IReadOnlyList<RsvpOptionSpec> specs, string? clearedLabel) =>
+        clearedLabel is null
+            ? specs
+            : [.. specs.Select(spec => MatchesLabel(spec, clearedLabel) ? spec with { AttendeeRoleId = null } : spec)];
+
+    /// <summary>Whether a spec is the one a clear names (label match, the same identity rule option
+    /// edits use).</summary>
+    /// <param name="spec">The spec.</param>
+    /// <param name="label">The label being cleared, or null.</param>
+    /// <returns>True when the spec carries that label.</returns>
+    private static bool MatchesLabel(RsvpOptionSpec spec, string? label) =>
+        label is not null && string.Equals(spec.Label?.Trim(), label, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Guild-read guard for web callers: bot passes, members pass, others get 403/stale.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
@@ -351,10 +433,12 @@ public static class EventEndpoints
         // opens the thread when it posts the embed.
         var wantsThread = request.WantsThread;
 
-        // Custom RSVP options + attendee limit (defaults apply when unspecified) and the optional
-        // RSVP cutoff — relative text becomes minutes-before (tracks time edits), absolute text
-        // parses in the same zone as the start time.
-        var options = RsvpPolicy.TryBuildOptions(request.RsvpOptions, request.AttendeeLimit, out var optionsError);
+        // Custom RSVP options + the attending-option limit/role shorthands (defaults apply when
+        // unspecified) and the optional RSVP cutoff — relative text becomes minutes-before (tracks
+        // time edits), absolute text parses in the same zone as the start time.
+        var options = RsvpPolicy.TryBuildOptions(
+            isBot ? request.RsvpOptions : StripSpecRoles(request.RsvpOptions),
+            request.AttendeeLimit, attendeeRoleId, out var optionsError);
         if (options is null)
         {
             return Results.BadRequest(new ErrorResponse(optionsError!));
@@ -471,13 +555,13 @@ public static class EventEndpoints
                 ChannelId = channelId,
                 Location = location,
                 ImageUrl = imageUrl,
-                AttendeeRoleId = attendeeRoleId,
                 WantsThread = wantsThread,
                 // Only the relative cutoff is a template field — a fixed instant makes no sense
                 // across a schedule. The option set (with any merged attendee limit) is captured
                 // as a template too, so spawned occurrences start from it.
                 RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
                 RsvpOptionsJson = request.RsvpOptions is null && request.AttendeeLimit is null
+                                  && attendeeRoleId is null
                     ? null
                     : RsvpPolicy.SerializeSpecs(options),
                 CreatedAt = now,
@@ -498,7 +582,6 @@ public static class EventEndpoints
             ChannelId = channelId,
             Location = location,
             ImageUrl = imageUrl,
-            AttendeeRoleId = attendeeRoleId,
             WantsThread = wantsThread,
             RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
             RsvpClosesAt = rsvpClosesAt,
@@ -757,9 +840,13 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse("Attendee roles are picked in Discord — use /create or /edit."));
         }
 
-        var oldRole = ev.AttendeeRoleId;
-        var newRole = request.ClearAttendeeRole ? null : request.AttendeeRoleId ?? oldRole;
         var staysLive = (request.Status ?? ev.Status) is EventStatus.Scheduled or EventStatus.Started;
+
+        // Who holds which role right now. Every role effect of this edit is the difference between
+        // this snapshot and the one taken once the options, seats and live-status have settled —
+        // one rule that covers a role swapped on an option, the attending flag moving, an option
+        // dropped, a cap raise seating the queue, and the event being cancelled outright.
+        var rolesBefore = SeatedRoles(ev, isLive);
 
         if (request.WhenText is not null)
         {
@@ -799,37 +886,71 @@ public static class EventEndpoints
             series.ImageUrl = request.ImageUrl ?? series.ImageUrl;
         }
 
-        ev.AttendeeRoleId = newRole;
-        if (applyToSeries && (request.AttendeeRoleId is not null || request.ClearAttendeeRole))
-        {
-            series!.AttendeeRoleId = newRole;
-        }
-
-        // RSVP v1 edits — options, attendee limit, cutoff — apply BEFORE the role fan-outs so
-        // one unified transition (old role/option → new role/option) can be computed afterwards.
+        // RSVP edits — options, attendee limit, attendee role, cutoff — all apply BEFORE the role
+        // deliveries, which are computed from the settled result.
         var oldAttendingId = RsvpPolicy.AttendingOption(ev.Options)?.Id;
+        var roleShorthand = request.ClearAttendeeRole ? null : request.AttendeeRoleId;
         if (request.RsvpOptions is not null)
         {
+            // A full replacement defines every option's role; AttendeeRoleId is just the shorthand
+            // for the attending one. ClearAttendeeRole names the role the caller was LOOKING at —
+            // the option attending BEFORE this edit — so it is matched by that option's label, not
+            // by whichever spec now carries the flag: moving the attending flag and clearing in one
+            // submission must not clear a different option's role and leave the named one granting.
+            var clearedLabel = request.ClearAttendeeRole
+                ? RsvpPolicy.AttendingOption(ev.Options)?.Label
+                : null;
+            if (context.User.IsBot()
+                && clearedLabel is not null
+                && request.RsvpOptions.FirstOrDefault(spec => MatchesLabel(spec, clearedLabel)) is { AttendeeRoleId: not null })
+            {
+                // Bot callers state roles inline, so naming one for the very option being cleared
+                // is contradictory — the same "not both" rule the shorthand has. Web callers are
+                // exempt: they cannot pick roles at all, and their form round-trips each option's
+                // stored role as hidden state, so a role arriving here is the status quo rather
+                // than an intent. CarryOverSpecRoles re-derives those from the event anyway and
+                // clears the named label regardless of what was submitted.
+                return Results.BadRequest(new ErrorResponse(
+                    $"\"{clearedLabel}\" is given a role and cleared in the same edit — choose one."));
+            }
+
+            var editedSpecs = context.User.IsBot()
+                ? ClearSpecRole(request.RsvpOptions, clearedLabel)
+                : CarryOverSpecRoles(request.RsvpOptions, ev, clearedLabel);
             if (!RsvpPolicy.TryApplyOptionEdit(
-                    db, ev, request.RsvpOptions, request.AttendeeLimit, out var optionsConflict, out var optionsError))
+                    db, ev, editedSpecs, request.AttendeeLimit, roleShorthand,
+                    out var optionsConflict, out var optionsError))
             {
                 return optionsConflict
                     ? Results.Conflict(new ErrorResponse(optionsError!))
                     : Results.BadRequest(new ErrorResponse(optionsError!));
             }
         }
-        else if ((request.AttendeeLimit is not null || request.ClearAttendeeLimit)
-                 && RsvpPolicy.AttendingOption(ev.Options) is { } cappedOption)
+        else
         {
-            // Limit-only shorthand: set or clear the attending option's capacity in place — never
-            // below the seats already taken (same rule as an explicit option replacement).
-            var newLimit = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
-            if (RsvpPolicy.CapacityBelowSeated(ev, cappedOption, newLimit) is { } overCapacity)
+            // The two shorthands are INDEPENDENT — `/edit attendee-role:… attendee-limit:…` must
+            // apply both, exactly as create accepts them together. They are skipped wholesale
+            // above, because a full option replacement already states every role and capacity.
+            if ((request.AttendeeRoleId is not null || request.ClearAttendeeRole)
+                && RsvpPolicy.AttendingOption(ev.Options) is { } rerolledOption)
             {
-                return Results.Conflict(new ErrorResponse(overCapacity));
+                // Role shorthand: set or clear the attending option's role in place.
+                rerolledOption.AttendeeRoleId = roleShorthand;
             }
 
-            cappedOption.Capacity = newLimit;
+            if ((request.AttendeeLimit is not null || request.ClearAttendeeLimit)
+                && RsvpPolicy.AttendingOption(ev.Options) is { } cappedOption)
+            {
+                // Limit shorthand: set or clear the attending option's capacity in place — never
+                // below the seats already taken (same rule as an explicit option replacement).
+                var newLimit = request.ClearAttendeeLimit ? null : request.AttendeeLimit;
+                if (RsvpPolicy.CapacityBelowSeated(ev, cappedOption, newLimit) is { } overCapacity)
+                {
+                    return Results.Conflict(new ErrorResponse(overCapacity));
+                }
+
+                cappedOption.Capacity = newLimit;
+            }
         }
 
         if (applyToSeries && request.RsvpOptions is not null)
@@ -839,13 +960,22 @@ public static class EventEndpoints
             // spawn reverts to it).
             series!.RsvpOptionsJson = RsvpPolicy.SerializeSpecs(ev.Options);
         }
-        else if (applyToSeries && (request.AttendeeLimit is not null || request.ClearAttendeeLimit))
+        else if (applyToSeries)
         {
-            // Limit-only: cap the TEMPLATE's attending option rather than copying this
-            // occurrence's rows — an earlier occurrence-scoped option divergence must not ride
-            // a limit change into every future occurrence.
-            series!.RsvpOptionsJson = RsvpPolicy.WithAttendingCapacity(
-                series.RsvpOptionsJson, request.ClearAttendeeLimit ? null : request.AttendeeLimit);
+            // Same independence on the template: a combined role+limit series edit applies both,
+            // each rewriting the stored JSON in turn rather than copying this occurrence's rows —
+            // an earlier occurrence-scoped divergence must not ride a shorthand into every future
+            // occurrence.
+            if (request.AttendeeLimit is not null || request.ClearAttendeeLimit)
+            {
+                series!.RsvpOptionsJson = RsvpPolicy.WithAttendingCapacity(
+                    series.RsvpOptionsJson, request.ClearAttendeeLimit ? null : request.AttendeeLimit);
+            }
+
+            if (request.AttendeeRoleId is not null || request.ClearAttendeeRole)
+            {
+                series!.RsvpOptionsJson = RsvpPolicy.WithAttendingRole(series.RsvpOptionsJson, roleShorthand);
+            }
         }
 
         if (request.ClearRsvpClose)
@@ -905,63 +1035,72 @@ public static class EventEndpoints
 
         var newAttendingId = RsvpPolicy.AttendingOption(ev.Options)?.Id;
         var roleSyncNow = clock.GetCurrentInstant();
-        if (isLive && !staysLive)
+        if (isLive && !staysLive && ev.ThreadId is not null)
         {
-            // Cancel/end via PATCH — the previously side-effect-free path. Revoke everything
-            // under the OLD role from the PRE-EDIT attending option (its members are the ones
-            // holding it); a same-request role change never grants on a dying event.
-            if (oldRole is { } endedRole && oldAttendingId is { } endedAttending)
-            {
-                AttendeeRoleSync.EnqueueRoleFanOutForOption(
-                    db, ev, DeliveryType.RevokeAttendeeRole, endedRole, endedAttending, roleSyncNow);
-            }
-
-            if (ev.ThreadId is not null)
-            {
-                EventThreadSync.EnqueueArchive(db, ev, roleSyncNow);
-            }
+            // Cancel/end via PATCH — the previously side-effect-free path. The role revokes come
+            // out of the diff below (nobody holds a role on a dead event); the thread archives here.
+            EventThreadSync.EnqueueArchive(db, ev, roleSyncNow);
         }
-        else if (isLive && (newRole != oldRole || newAttendingId != oldAttendingId))
+
+        // The RSVP and promotion paths add thread members one at a time as users land on the
+        // CURRENT attending option — so when the flag moves, users already seated on the new
+        // option are backfilled here (add-only; the enqueue dedups repeats).
+        if (isLive && staysLive
+            && newAttendingId != oldAttendingId
+            && newAttendingId is { } seatedAttending
+            && EventThreadSync.IsThreadActive(ev))
         {
-            // One unified re-sync for role and/or attending-option changes: revoke the old role
-            // from the old attending members (who actually hold it) and grant the new role to
-            // the new attending members — never contradictory rows for the same user at the same
-            // due time. The old option's just-seated waitlist gets harmless no-op revokes.
-            if (oldRole is { } previousRole && oldAttendingId is { } previousAttending)
+            foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == seatedAttending && !r.Waitlisted))
             {
-                AttendeeRoleSync.EnqueueRoleFanOutForOption(
-                    db, ev, DeliveryType.RevokeAttendeeRole, previousRole, previousAttending, roleSyncNow);
-            }
-
-            if (newRole is { } grantedRole && newAttendingId is { } currentAttending)
-            {
-                AttendeeRoleSync.EnqueueRoleFanOutForOption(
-                    db, ev, DeliveryType.GrantAttendeeRole, grantedRole, currentAttending, roleSyncNow);
-            }
-
-            // The RSVP and promotion paths add thread members one at a time as users land on the
-            // CURRENT attending option — so when the flag moves, users already seated on the new
-            // option are backfilled here (add-only; the enqueue dedups repeats).
-            if (newAttendingId != oldAttendingId
-                && newAttendingId is { } seatedAttending
-                && EventThreadSync.IsThreadActive(ev))
-            {
-                foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == seatedAttending && !r.Waitlisted))
-                {
-                    await EventThreadSync.EnqueueMemberAddAsync(db, ev, rsvp.UserId, clock, cancellationToken);
-                }
+                await EventThreadSync.EnqueueMemberAddAsync(db, ev, rsvp.UserId, clock, cancellationToken);
             }
         }
 
         // The flag moved off an option: its queue has nothing to wait for anymore — seat it now,
-        // AFTER the fan-outs above, so those users (who never held the role) are not swept into
-        // the old option's revoke.
+        // BEFORE the role diff, so the just-seated users are credited with that option's role
+        // rather than being left holding nothing.
         if (oldAttendingId is { } vacatedAttending && newAttendingId != oldAttendingId)
         {
             RsvpPolicy.SeatWaitlist(ev, vacatedAttending);
         }
 
+        // Everything the edit did to roles, as one per-user difference. A user whose role is
+        // unchanged gets no delivery at all, and a swap emits exactly one revoke and one grant.
+        // The pairs are collected first and their pending rows loaded in ONE query: per-option
+        // roles make this many-roles-many-users, so a per-user lookup here would reintroduce the
+        // N-query scaling under the event's FOR UPDATE lock that #143 removed.
+        var rolesAfter = SeatedRoles(ev, staysLive);
+        var roleRevokes = rolesBefore
+            .Where(before => !rolesAfter.TryGetValue(before.Key, out var stillHeld) || stillHeld != before.Value)
+            .Select(before => (RoleId: before.Value, UserId: before.Key))
+            .ToList();
+        var roleGrants = rolesAfter
+            .Where(after => !rolesBefore.TryGetValue(after.Key, out var alreadyHeld) || alreadyHeld != after.Value)
+            .Select(after => (RoleId: after.Value, UserId: after.Key))
+            .ToList();
+        if (roleRevokes.Count > 0 || roleGrants.Count > 0)
+        {
+            var pendingRoleChanges = await AttendeeRoleSync.LoadPendingRoleChangesAsync(
+                db, ev, roleRevokes.Concat(roleGrants), cancellationToken);
+
+            // Revokes before grants, as before: EnqueueRoleChange nets an opposite pending row
+            // away, and the netting must see the revoke first for a same-user role swap.
+            foreach (var (roleId, userId) in roleRevokes)
+            {
+                AttendeeRoleSync.EnqueueRoleChange(
+                    db, ev, DeliveryType.RevokeAttendeeRole, roleId, userId, pendingRoleChanges, roleSyncNow);
+            }
+
+            foreach (var (roleId, userId) in roleGrants)
+            {
+                AttendeeRoleSync.EnqueueRoleChange(
+                    db, ev, DeliveryType.GrantAttendeeRole, roleId, userId, pendingRoleChanges, roleSyncNow);
+            }
+        }
+
         // Raised/cleared capacity frees seats — promote in queue order (no-op when nothing waits).
+        // Runs AFTER the diff: everyone it seats was still waitlisted above, so it owns their
+        // grants (batched) and the diff never double-enqueues them.
         await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
@@ -1041,8 +1180,8 @@ public static class EventEndpoints
         // and unlike the embed cleanup, they apply to BOTH caller types (roles always ride the outbox).
         if (AttendeeRoleSync.IsRoleActive(ev))
         {
-            AttendeeRoleSync.EnqueueRoleFanOut(
-                db, ev, DeliveryType.RevokeAttendeeRole, ev.AttendeeRoleId!.Value, clock.GetCurrentInstant());
+            AttendeeRoleSync.EnqueueRoleFanOutAll(
+                db, ev, DeliveryType.RevokeAttendeeRole, clock.GetCurrentInstant());
         }
 
         // Deleting the embed message does NOT delete its attached thread (it survives orphaned),
@@ -1249,35 +1388,25 @@ public static class EventEndpoints
             existing.CreatedAt = now;
         }
 
-        // Attendee role + thread membership: crossing onto/off an attending SEAT drives both —
-        // for BOT callers too (unlike embed sync, the bot never initiates these itself;
-        // everything rides the outbox). Waitlisted states pass null: a queued RSVP earns the
-        // role and thread on promotion, not on joining. Thread adds are add-only.
-        if (attendingId is { } goingId)
+        // Attendee roles + thread membership: the SEAT the user gives up loses its option's role
+        // and the one they take earns its own — for BOT callers too (unlike embed sync, the bot
+        // never initiates these itself; everything rides the outbox). Waitlisted states pass null:
+        // a queued RSVP earns its role and the thread on promotion, not on joining.
+        var seatBefore = oldWaitlisted ? null : oldOptionId;
+        var seatAfter = waitlisted ? (Guid?)null : option.Id;
+        if (AttendeeRoleSync.IsRoleActive(ev))
         {
-            var decision = AttendeeRoleSync.Decide(
-                oldWaitlisted ? null : oldOptionId,
-                waitlisted ? null : option.Id,
-                goingId);
-            if (AttendeeRoleSync.IsRoleActive(ev))
-            {
-                switch (decision)
-                {
-                    case AttendeeRoleAction.Grant:
-                        await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                            db, ev, DeliveryType.GrantAttendeeRole, userId, clock, cancellationToken);
-                        break;
-                    case AttendeeRoleAction.Revoke:
-                        await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                            db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
-                        break;
-                }
-            }
+            await AttendeeRoleSync.ApplyRoleChangeAsync(
+                db, ev, AttendeeRoleSync.Decide(ev.Options, seatBefore, seatAfter),
+                userId, clock, cancellationToken);
+        }
 
-            if (decision == AttendeeRoleAction.Grant && EventThreadSync.IsThreadActive(ev))
-            {
-                await EventThreadSync.EnqueueMemberAddAsync(db, ev, userId, clock, cancellationToken);
-            }
+        // Thread membership still follows the ATTENDING seat specifically — the thread belongs to
+        // the event, not to any one option, and it is add-only.
+        if (seatAfter is { } takenSeat && takenSeat == attendingId && seatBefore != attendingId
+            && EventThreadSync.IsThreadActive(ev))
+        {
+            await EventThreadSync.EnqueueMemberAddAsync(db, ev, userId, clock, cancellationToken);
         }
 
         // Switching off an attending seat frees it — promote the first waitlisted user (the
@@ -1348,13 +1477,11 @@ public static class EventEndpoints
             db.Rsvps.Remove(existing);
             ev.Rsvps.Remove(existing);
 
-            if (wasSeated
-                && AttendeeRoleSync.IsRoleActive(ev)
-                && AttendeeRoleSync.AttendingOptionId(ev.Options) is { } goingId
-                && AttendeeRoleSync.Decide(wasOptionId, null, goingId) == AttendeeRoleAction.Revoke)
+            if (wasSeated && AttendeeRoleSync.IsRoleActive(ev))
             {
-                await AttendeeRoleSync.EnqueueRoleChangeAsync(
-                    db, ev, DeliveryType.RevokeAttendeeRole, userId, clock, cancellationToken);
+                await AttendeeRoleSync.ApplyRoleChangeAsync(
+                    db, ev, AttendeeRoleSync.Decide(ev.Options, wasOptionId, null),
+                    userId, clock, cancellationToken);
             }
 
             // A vacated attending seat promotes the first waitlisted user; a waitlisted

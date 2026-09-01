@@ -33,9 +33,9 @@ else
                 {
                     <span>📍 @ev.Location</span>
                 }
-                @if (ev.AttendeeRoleId is not null)
+                @foreach (var roleOption in ev.RoleGrantingOptions)
                 {
-                    <span title="RSVPing @AttendingLabel grants this server role within ~15 seconds">🏷️ @AttendingLabel grants role #@ev.AttendeeRoleId</span>
+                    <span title="RSVPing @roleOption.Label grants this server role within ~15 seconds">🏷️ @roleOption.Label grants role #@roleOption.AttendeeRoleId</span>
                 }
                 @if (ev.RsvpClosesAtUtc is { } closesAt)
                 {
@@ -397,9 +397,6 @@ else
     private long UserId => AuthApi.Session?.UserId ?? 0;
 
     private bool CanManage => ev is not null && (ev.CreatorId == UserId || isGuildManager);
-
-    /// <summary>The attending option's label for the role chip ("Going" on default events).</summary>
-    private string AttendingLabel => ev?.AttendingOption?.Label ?? "Going";
 
     /// <summary>Live occurrence of a running series — the states where skip/stop/scope apply.</summary>
     private bool IsLiveSeries =>

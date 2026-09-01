@@ -35,6 +35,87 @@ public class AttendeeRoleApiTests(WebAuthFixture fixture) : IClassFixture<WebAut
     }
 
     [Fact]
+    public async Task Web_callers_cannot_smuggle_a_role_in_through_the_option_specs()
+    {
+        // Roles are bot-only because an arbitrary role id from a plain member would hand out any
+        // role the bot outranks to everyone who RSVPs — the option specs must not be a way around
+        // the request-level rule.
+        await Client.PutAsJsonAsync($"/guilds/{GuildId}/settings", new GuildSettingsDto("UTC", ChannelId));
+        var (member, _) = await fixture.LoginAsync(9760, (GuildId, "G", false));
+
+        var create = await member.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            0, "Web spec role", "in 2 hours", 0,
+            RsvpOptions: [new RsvpOptionSpec("✅", "Going", IsAttending: true, AttendeeRoleId: RoleA)]));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var webEvent = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        Assert.Empty(webEvent.RoleGrantingOptions);
+    }
+
+    [Fact]
+    public async Task A_web_edit_that_round_trips_roles_can_still_clear_the_attendee_role()
+    {
+        // The web form carries each option's stored AttendeeRoleId as hidden state and resubmits
+        // it whenever any option changes, so "Remove attendee role" arrives alongside the very
+        // role it means to remove. That is the status quo, not a contradiction: it must succeed.
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Web clear with options", "in 3 hours", ChannelId, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", 2, IsAttending: true, AttendeeRoleId: RoleA),
+                new RsvpOptionSpec("💚", "Healer", 2, AttendeeRoleId: RoleB),
+            ]));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+
+        var (creator, _) = await fixture.LoginAsync(CreatorId, (GuildId, "G", true));
+        var edited = await creator.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            0, ClearAttendeeRole: true, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", 4, IsAttending: true, AttendeeRoleId: RoleA),
+                new RsvpOptionSpec("💚", "Healer", 2, AttendeeRoleId: RoleB),
+            ]));
+
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        var dto = (await edited.Content.ReadFromJsonAsync<EventDto>())!;
+        Assert.Null(dto.Options.Single(o => o.Label == "Tank").AttendeeRoleId);
+        Assert.Equal(4, dto.Options.Single(o => o.Label == "Tank").Capacity);
+        Assert.Equal(RoleB, dto.Options.Single(o => o.Label == "Healer").AttendeeRoleId);
+    }
+
+    [Fact]
+    public async Task A_web_option_edit_preserves_the_roles_it_cannot_show()
+    {
+        // The web form round-trips the whole option set, so a bot-set role has to survive an edit
+        // made from a page that can neither display nor choose it.
+        var ev = await CreateEventAsync("Web edit keeps role", RoleA);
+        await Client.PutAsJsonAsync($"/guilds/{GuildId}/settings", new GuildSettingsDto("UTC", ChannelId));
+        var (creator, _) = await fixture.LoginAsync(CreatorId, (GuildId, "G", true));
+
+        var edited = await creator.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, RsvpOptions:
+            [
+                new RsvpOptionSpec("✅", "Going", 5, IsAttending: true),
+                new RsvpOptionSpec("❌", "Not going"),
+                new RsvpOptionSpec("🤔", "Maybe"),
+            ]));
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+
+        var after = (await edited.Content.ReadFromJsonAsync<EventDto>())!;
+        Assert.Equal(RoleA, after.AttendingOption!.AttendeeRoleId); // kept, despite the spec omitting it
+        Assert.Equal(5, after.AttendingOption.Capacity);            // and the real edit still applied
+
+        // ClearAttendeeRole stays available to the web — removing needs no knowledge of the role.
+        var clearedResponse = await creator.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, ClearAttendeeRole: true, RsvpOptions:
+            [
+                new RsvpOptionSpec("✅", "Going", 5, IsAttending: true),
+                new RsvpOptionSpec("❌", "Not going"),
+                new RsvpOptionSpec("🤔", "Maybe"),
+            ]));
+        Assert.Equal(HttpStatusCode.OK, clearedResponse.StatusCode);
+        Assert.Null((await clearedResponse.Content.ReadFromJsonAsync<EventDto>())!.AttendeeRoleId);
+    }
+
+    [Fact]
     public async Task Going_rsvp_enqueues_grant_for_bot_and_web_callers()
     {
         var ev = await CreateEventAsync("Grant both callers", RoleA);
@@ -333,11 +414,14 @@ public class AttendeeRoleApiTests(WebAuthFixture fixture) : IClassFixture<WebAut
             .ExecuteUpdateAsync(s => s.SetProperty(d => d.Attempts, 1));
     }
 
+    /// <summary>The series template's attending-option role — which now lives inside the option
+    /// template (like capacities) rather than in a column of its own.</summary>
     private async Task<long?> SeriesRoleAsync(Guid seriesId)
     {
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
-        return (await db.EventSeries.AsNoTracking().FirstAsync(s => s.Id == seriesId)).AttendeeRoleId;
+        var series = await db.EventSeries.AsNoTracking().FirstAsync(s => s.Id == seriesId);
+        return RsvpPolicy.AttendingOption(RsvpPolicy.OptionsFromTemplate(series.RsvpOptionsJson))?.AttendeeRoleId;
     }
 
     private async Task SweepAsync()

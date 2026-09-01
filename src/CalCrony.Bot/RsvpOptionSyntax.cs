@@ -7,9 +7,12 @@ namespace CalCrony.Bot;
 /// static (like AttendeeRoleSpec) for direct testing. The syntax is presentation-layer sugar —
 /// the API validates the resulting specs as the rules of record.
 ///
-/// Grammar: comma-separated entries, each <c>[emoji] label [xN]</c>, with a trailing <c>*</c>
-/// marking the attending option (default: the first). Example:
-/// <c>"⚔️ Raider x10, 🛡️ Standby, ❌ Can't make it"</c>.</summary>
+/// Grammar: comma-separated entries, each <c>[emoji] label [xN] [role mention]</c>, with a
+/// trailing <c>*</c> marking the attending option (default: the first). A typed role mention
+/// arrives in the string as <c>&lt;@&amp;id&gt;</c> and gives THAT option its own attendee role —
+/// how one event hands out Tank/Healer/DPS. Example:
+/// <c>"⚔️ Raider x10, 🛡️ Standby, ❌ Can't make it"</c>, or with roles:
+/// <c>"🛡️ Tank x2 &lt;@&amp;1&gt;, 💚 Healer x2 &lt;@&amp;2&gt;, ⚔️ DPS x6 &lt;@&amp;3&gt;"</c>.</summary>
 public static partial class RsvpOptionSyntax
 {
     private const int MaxOptions = 10;
@@ -19,6 +22,11 @@ public static partial class RsvpOptionSyntax
     /// large for the API is an error, never silently label text.</summary>
     [GeneratedRegex(@"^x(\d+)$", RegexOptions.IgnoreCase)]
     private static partial Regex CapacityToken();
+
+    /// <summary>A Discord role mention, which is what a typed <c>@Role</c> becomes inside a
+    /// string command option. Snowflakes are unbounded here — the API validates the id.</summary>
+    [GeneratedRegex(@"^<@&(\d{1,20})>$")]
+    private static partial Regex RoleToken();
 
     /// <summary>Parses the delimited option string.</summary>
     /// <param name="input">The raw <c>rsvp-options</c> value.</param>
@@ -70,6 +78,34 @@ public static partial class RsvpOptionSyntax
                 tokens.RemoveAt(0);
             }
 
+            // A role mention anywhere in the entry gives this option its own attendee role. It
+            // is pulled out before the capacity scan so "x2 <@&1>" and "<@&1> x2" both read.
+            long? attendeeRoleId = null;
+            for (var i = tokens.Count - 1; i >= 0; i--)
+            {
+                if (RoleToken().Match(tokens[i]) is not { Success: true } roleMatch)
+                {
+                    continue;
+                }
+
+                if (attendeeRoleId is not null)
+                {
+                    error = $"Give at most one role per RSVP option — couldn't read \"{rawEntry}\".";
+                    return false;
+                }
+
+                if (!long.TryParse(
+                        roleMatch.Groups[1].ValueSpan, System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsedRole))
+                {
+                    error = $"Role \"{tokens[i]}\" isn't a role CalCrony can read.";
+                    return false;
+                }
+
+                attendeeRoleId = parsedRole;
+                tokens.RemoveAt(i);
+            }
+
             // Trailing xN = capacity.
             int? capacity = null;
             if (tokens.Count > 0 && CapacityToken().Match(tokens[^1]) is { Success: true } match)
@@ -94,7 +130,7 @@ public static partial class RsvpOptionSyntax
                 return false;
             }
 
-            specs.Add(new RsvpOptionSpec(emote, label, capacity, isAttending));
+            specs.Add(new RsvpOptionSpec(emote, label, capacity, isAttending, attendeeRoleId));
         }
 
         // No * marker means the first option attends — made explicit here so the specs are
