@@ -1,5 +1,7 @@
 @* One button per RSVP option; clicking your current choice clears it (bot parity). Buttons
-   freeze once the RSVP cutoff passes, and a full attending option reads as "join waitlist". *@
+   freeze once the RSVP cutoff passes, and a full attending option reads as "join waitlist". A
+   role-restricted option stays enabled and marked 🔒 — the web can't see the caller's roles, so
+   there is no client-side prediction: the API's refusal (403 or 409) lands in the line below. *@
 @implements IDisposable
 <div class="d-flex flex-wrap gap-2">
     @foreach (var option in Event.Options.OrderBy(o => o.SortOrder))
@@ -8,8 +10,9 @@
         <button type="button"
                 class="rsvp-btn @(isMine ? "selected" : null)"
                 disabled="@(busy || Closed)"
+                title="@RestrictionTitle(option)"
                 @onclick="() => ClickAsync(option.Id, isMine)">
-            @option.Emote @option.Label@(CapacityBadge(option))
+            @option.Emote @option.Label@(CapacityBadge(option))@(option.IsRestricted ? " 🔒" : "")
         </button>
     }
 </div>
@@ -127,6 +130,11 @@ else if (MyWaitlistPosition is int position)
 
     private string CapacityBadge(RsvpOptionDto option) =>
         option.Capacity is int cap ? $" ({Event.SeatedCount(option.Id)}/{cap})" : "";
+
+    private static string? RestrictionTitle(RsvpOptionDto option) =>
+        option.IsRestricted
+            ? $"Limited to {string.Join(", ", option.AllowedRoles!.Select(r => r.Name is null ? $"role #{r.Id}" : $"@{r.Name}"))}"
+            : null;
 
     private async Task ClickAsync(Guid optionId, bool isMine)
     {

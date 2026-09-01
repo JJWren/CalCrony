@@ -37,6 +37,10 @@ else
                 {
                     <span class="badge text-bg-secondary">Single vote</span>
                 }
+                @if (poll.IsRestricted)
+                {
+                    <span title="Only members holding one of these roles can vote or add options">🔒 limited to @RoleList(poll.AllowedRoles!)</span>
+                }
                 <span>@TotalVotes vote@(TotalVotes == 1 ? "" : "s")</span>
             </div>
         </div>
@@ -70,7 +74,7 @@ else
 
     <h2 class="h5 mt-4 mb-2">@(poll.Status == PollStatus.Open ? "Your vote" : "Results")</h2>
     <div class="card p-3" style="max-width:560px">
-        <PollVotePanel Poll="poll" UserId="UserId" OnChanged="dto => poll = dto"
+        <PollVotePanel Poll="poll" UserId="UserId" OnChanged="dto => poll = dto" OnRefused="() => voteRefused = true"
                        NameResolver="@(poll.Anonymous ? null : NameFor)" />
         @if (poll.Anonymous)
         {
@@ -154,6 +158,7 @@ else
     private DateTimeOffset? newOptionPreview;
     private string? newOptionParseError;
     private string? addOptionError;
+    private bool voteRefused;
     private string convertTitle = "";
     private int? convertDuration = 60;
     private string? convertError;
@@ -164,8 +169,10 @@ else
 
     private int TotalVotes => poll?.Options.Sum(o => o.VoteCount) ?? 0;
 
+    // A refused vote (the caller lacks the role, or the API couldn't confirm it) hides the
+    // add-option form: adding an option is participation too, and would be refused the same way.
     private bool CanAddOption =>
-        poll is { Status: PollStatus.Open, Options.Count: < 10 } && (poll.AllowUserOptions || CanManage);
+        poll is { Status: PollStatus.Open, Options.Count: < 10 } && (poll.AllowUserOptions || CanManage) && !voteRefused;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -176,6 +183,7 @@ else
         convertError = null;
         confirmingClose = false;
         confirmingDelete = false;
+        voteRefused = false;
 
         var result = await Api.GetPollAsync(PollId);
         if (!result.Success || result.Value is null)
@@ -287,4 +295,7 @@ else
     // The web only knows Discord user ids from vote rows; show the session name for the signed-in user.
     private string NameFor(long userId) =>
         userId == UserId ? (AuthApi.Session?.Username ?? "you") : $"user {userId}";
+
+    private static string RoleList(IEnumerable<RoleRefDto> roles) =>
+        string.Join(", ", roles.Select(r => r.Name is null ? $"role #{r.Id}" : $"@{r.Name}"));
 }
