@@ -14,6 +14,11 @@ namespace CalCrony.Api.Services;
 /// items — because it runs inside the sweep's transaction.</summary>
 public static class DmReminderFanOut
 {
+    /// <summary>How long a bot claim keeps a DM row out of the pending set. Long enough to cover
+    /// an attempt plus the switch-off report and its retries; short enough that a row orphaned by
+    /// a crash mid-attempt comes back on its own.</summary>
+    public static readonly Duration ClaimTtl = Duration.FromMinutes(10);
+
     /// <summary>One channel post that may need DM mirrors.</summary>
     /// <param name="Event">The event whose channel notification/start ping was just enqueued.</param>
     /// <param name="Message">The notification's custom message (null for start announcements).</param>

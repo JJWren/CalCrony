@@ -248,6 +248,15 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<DmReminderOfferResponse>> OfferDmRemindersAsync(long userId, CancellationToken ct = default) =>
         SendAsync<DmReminderOfferResponse>(http.PostAsync($"/users/{userId}/dm-reminders/offer", null, ct), ct);
 
+    /// <summary>Claims a DM-reminder delivery right before sending: the API re-validates the
+    /// recipient (opted in and still seated on the attending option), cancels the row if not, and
+    /// otherwise stamps the claim so the row isn't re-served while this attempt is in flight.</summary>
+    /// <param name="deliveryId">The delivery id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<DmReminderClaimResponse>> ClaimDmReminderAsync(Guid deliveryId, CancellationToken ct = default) =>
+        SendAsync<DmReminderClaimResponse>(http.PostAsync($"/deliveries/{deliveryId}/dm-claim", null, ct), ct);
+
     /// <summary>Reports that Discord refused a DM to the user; the API switches the preference off.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="ct">Cancels the request.</param>

@@ -399,6 +399,12 @@ public class Delivery
     public DeliveryStatus Status { get; set; }
     public int Attempts { get; set; }
     public Instant CreatedAt { get; set; }
+
+    /// <summary>When the bot claimed this row for an attempt (DM reminders only today). A claimed
+    /// row is not re-served until the claim ages out, so a crash between a failed Discord attempt
+    /// and its recorded outcome can't produce a second attempt; success or cancellation settles
+    /// the row, and a stale claim simply expires back into the pending set.</summary>
+    public Instant? ClaimedAt { get; set; }
 }
 
 /// <summary>A Discord user's linked external calendar. Tokens are Data-Protection-encrypted at rest;

@@ -40,8 +40,12 @@ public static class DeliveryEndpoints
         limit = Math.Clamp(limit, 1, 50);
         var now = clock.GetCurrentInstant();
 
+        // Rows under a live claim (a DM attempt in flight, or one whose outcome is still being
+        // recorded) are not re-served until the claim ages out — see Delivery.ClaimedAt.
+        var claimCutoff = now.Minus(DmReminderFanOut.ClaimTtl);
         var due = await db.Deliveries
-            .Where(d => d.Status == DeliveryStatus.Pending && d.DueAt <= now)
+            .Where(d => d.Status == DeliveryStatus.Pending && d.DueAt <= now
+                        && (d.ClaimedAt == null || d.ClaimedAt < claimCutoff))
             .OrderBy(d => d.DueAt)
             .Take(limit)
             .ToListAsync(cancellationToken);
@@ -75,8 +79,14 @@ public static class DeliveryEndpoints
             return Results.NotFound();
         }
 
-        delivery.Status = DeliveryStatus.Sent;
-        await db.SaveChangesAsync(cancellationToken);
+        // Only a pending row becomes Sent — a row the API already cancelled (e.g. a DM whose
+        // recipient opted out mid-flight) must not be resurrected as delivered.
+        if (delivery.Status == DeliveryStatus.Pending)
+        {
+            delivery.Status = DeliveryStatus.Sent;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         return Results.NoContent();
     }
 

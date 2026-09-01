@@ -27,11 +27,11 @@
                 <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@busy">Save</button>
             </div>
             <div class="form-check form-switch mt-3">
-                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" />
+                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" disabled="@busy" />
                 <label class="form-check-label small" for="us-dm">DM confirmations</label>
             </div>
             <div class="form-check form-switch mt-2">
-                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveSettingsAsync" />
+                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveSettingsAsync" disabled="@busy" />
                 <label class="form-check-label small" for="us-dm-reminders">DM me reminders and start pings for events I'm attending</label>
             </div>
             <p class="text-body-secondary small mb-0 mt-1">

@@ -131,6 +131,82 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
     }
 
     [Fact]
+    public async Task Claiming_revalidates_the_seat_and_opt_in_cancels_otherwise_and_parks_the_row()
+    {
+        const long stillSeated = 12381;
+        const long unRsvped = 12382;
+        const long waitlistedLater = 12383;
+        const long optedOutLater = 12384;
+        foreach (var userId in new[] { stillSeated, unRsvped, waitlistedLater, optedOutLater })
+        {
+            (await Client.PutAsJsonAsync($"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true)))
+                .EnsureSuccessStatusCode();
+        }
+
+        // Capacity 4 seats everyone at first; the "waitlisted later" case is produced by
+        // lowering the limit after the fact.
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Claim checks", "in 3 hours", ChannelId, AttendeeLimit: 4));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var going = ev.Options.OrderBy(o => o.SortOrder).First();
+        foreach (var userId in new[] { stillSeated, unRsvped, optedOutLater, waitlistedLater })
+        {
+            (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{userId}", new RsvpRequest(going.Id))).EnsureSuccessStatusCode();
+        }
+
+        (await Client.PostAsJsonAsync($"/events/{ev.Id}/notifications", new CreateEventNotificationRequest(200, null, null)))
+            .EnsureSuccessStatusCode();
+        await SweepAsync(SystemClock.Instance.GetCurrentInstant());
+        var rows = await DmRowsAsync(ev.Id);
+        Assert.Equal(4, rows.Count);
+
+        // Things change between enqueue and send.
+        (await Client.DeleteAsync($"/events/{ev.Id}/rsvps/{unRsvped}")).EnsureSuccessStatusCode();
+        (await Client.PutAsJsonAsync($"/users/{optedOutLater}/settings", new UserSettingsDto(null, true, DmReminders: false)))
+            .EnsureSuccessStatusCode(); // (this one is withdrawn immediately by the opt-out itself)
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            await db.Rsvps.Where(r => r.EventId == ev.Id && r.UserId == waitlistedLater)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.Waitlisted, true));
+        }
+
+        async Task<bool> ClaimAsync(long userId)
+        {
+            var row = rows.Single(r => r.Payload.UserId == userId);
+            var response = await Client.PostAsync($"/deliveries/{row.Id}/dm-claim", null);
+            return (await ReadAsync<DmReminderClaimResponse>(response)).Eligible;
+        }
+
+        Assert.False(await ClaimAsync(unRsvped));
+        Assert.False(await ClaimAsync(waitlistedLater));
+        Assert.False(await ClaimAsync(optedOutLater));
+        Assert.True(await ClaimAsync(stillSeated));
+
+        // Cancelled rows stay cancelled even if the bot acks them; the claimed row is parked
+        // (not re-served) while the attempt is in flight, and a second claim doesn't hand it out again.
+        var unRsvpedRow = rows.Single(r => r.Payload.UserId == unRsvped);
+        (await Client.PostAsync($"/deliveries/{unRsvpedRow.Id}/ack", null)).EnsureSuccessStatusCode();
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            var statuses = await db.Deliveries.Where(d => rows.Select(r => r.Id).Contains(d.Id))
+                .ToDictionaryAsync(d => d.Id, d => (d.Status, d.ClaimedAt));
+            Assert.Equal(DeliveryStatus.Cancelled, statuses[unRsvpedRow.Id].Status);
+            Assert.Equal(DeliveryStatus.Cancelled, statuses[rows.Single(r => r.Payload.UserId == waitlistedLater).Id].Status);
+            Assert.Equal(DeliveryStatus.Cancelled, statuses[rows.Single(r => r.Payload.UserId == optedOutLater).Id].Status);
+            var claimedRow = statuses[rows.Single(r => r.Payload.UserId == stillSeated).Id];
+            Assert.Equal(DeliveryStatus.Pending, claimedRow.Status);
+            Assert.NotNull(claimedRow.ClaimedAt);
+        }
+
+        var pending = await ReadAsync<List<DeliveryDto>>(await Client.GetAsync("/deliveries/pending?limit=50"));
+        Assert.DoesNotContain(pending, d => rows.Select(r => r.Id).Contains(d.Id));
+        Assert.False(await ClaimAsync(stillSeated));
+    }
+
+    [Fact]
     public async Task Offer_and_blocked_are_bot_only()
     {
         var (member, session) = await fixture.LoginAsync(12330, (GuildId, "G", false));
@@ -212,6 +288,16 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<DeliveryScheduler>();
         await scheduler.SweepAsync(now, CancellationToken.None);
+    }
+
+    private async Task<List<(Guid Id, DmEventReminderPayload Payload)>> DmRowsAsync(Guid eventId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var rows = await db.Deliveries
+            .Where(d => d.Type == DeliveryType.DmEventReminder && d.PayloadJson.Contains(eventId.ToString()))
+            .ToListAsync();
+        return [.. rows.Select(d => (d.Id, JsonSerializer.Deserialize<DmEventReminderPayload>(d.PayloadJson)!))];
     }
 
     private async Task<List<DmEventReminderPayload>> PendingDmRowsAsync(Guid eventId)

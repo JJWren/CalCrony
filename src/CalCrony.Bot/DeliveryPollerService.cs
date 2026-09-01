@@ -509,30 +509,34 @@ public sealed class DeliveryPollerService(
     private const int ClosedDmsErrorCode = 50007;
 
     /// <summary>Users Discord has already told us have closed DMs, whose switch-off report has not
-    /// yet been recorded by the API. A retried row for such a user goes straight to the report
-    /// instead of knocking on the closed inbox again; entries clear once the report succeeds.</summary>
+    /// yet been recorded by the API. Within this process a retried row for such a user goes
+    /// straight to the report instead of knocking on the closed inbox again; across a restart the
+    /// API-side claim on the row (not re-served while the claim lives) provides the same guarantee.
+    /// Entries clear once the report succeeds.</summary>
     private readonly HashSet<long> closedDmsPendingReport = [];
 
-    /// <summary>DMs an opted-in attendee — after re-checking, at send time, that the opt-in still
-    /// holds (the row may predate an opt-out, or an earlier row in this batch may just have hit
-    /// closed DMs). Closed DMs (Discord 50007 — DMs disabled or the bot blocked) switch the
-    /// preference off through the API, which also withdraws the user's other queued DMs; the
-    /// delivery counts as done only once that switch-off is recorded — otherwise it propagates
-    /// and the outbox retries, so a transient API failure can't leave the inbox exposed to every
-    /// later reminder. Any other failure propagates too; an unknown user id is dropped as done.</summary>
+    /// <summary>DMs an attendee — after claiming the row with the API, which re-validates NOW that
+    /// the recipient is still opted in and still seated on the attending option (an un-RSVP, an
+    /// option switch, or a drop to the waitlist since enqueue cancels the row instead) and stamps
+    /// the claim so the row isn't re-served while this attempt is in flight. Closed DMs (Discord
+    /// 50007 — DMs disabled or the bot blocked) switch the preference off through the API, which
+    /// also withdraws the user's other queued DMs; the delivery counts as done only once that
+    /// switch-off is recorded — otherwise it propagates and the outbox retries the report (the
+    /// claim keeps the row parked meanwhile). Any other failure propagates too; an unknown user
+    /// id is dropped as done.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task DmEventReminderAsync(DeliveryDto delivery)
     {
         var payload = JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
-        var settings = await api.GetUserSettingsAsync(payload.UserId);
-        if (!settings.Success || settings.Value is null)
+        var claim = await api.ClaimDmReminderAsync(delivery.Id);
+        if (!claim.Success || claim.Value is null)
         {
-            throw new InvalidOperationException($"Could not verify the DM opt-in for user {payload.UserId}: {settings.Error}");
+            throw new InvalidOperationException($"Could not claim DM reminder {delivery.Id}: {claim.Error}");
         }
 
-        if (settings.Value.DmReminders != true)
+        if (!claim.Value.Eligible)
         {
-            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} no longer opted in; dropping.", delivery.Id, payload.UserId);
+            logger.LogInformation("DM reminder {DeliveryId}: user {UserId} is no longer eligible; the API cancelled it.", delivery.Id, payload.UserId);
             return;
         }
 

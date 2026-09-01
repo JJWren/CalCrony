@@ -261,6 +261,12 @@ public record UserSettingsDto(
 /// <param name="Offer">Whether to show the one-time opt-in prompt.</param>
 public record DmReminderOfferResponse(bool Offer);
 
+/// <summary>Answer to the bot's pre-send claim of a DM reminder: whether the recipient is still
+/// eligible (opted in AND holding a seat on the event's attending option). An ineligible row is
+/// cancelled by the API in the same step, so the bot has nothing to do for it.</summary>
+/// <param name="Eligible">Whether to send the DM.</param>
+public record DmReminderClaimResponse(bool Eligible);
+
 /// <summary>TimeZone (IANA id), when set, overrides the user/guild zone resolution — used where
 /// the caller must preview in a specific zone, e.g. a series' stored zone for schedule edits.</summary>
 /// <param name="Text">The text to parse.</param>

@@ -19,6 +19,62 @@ public static class DmReminderEndpoints
     {
         app.MapPost("/users/{userId:long}/dm-reminders/offer", Offer);
         app.MapPost("/users/{userId:long}/dm-reminders/blocked", Blocked);
+        app.MapPost("/deliveries/{id:guid}/dm-claim", Claim);
+    }
+
+    /// <summary>The bot's pre-send claim of a DM reminder. Eligibility is re-validated NOW, not at
+    /// enqueue time: the recipient must still be opted in and still hold a seat on the event's
+    /// attending option (un-RSVPing, switching option, or dropping to the waitlist all revoke it).
+    /// An ineligible row is cancelled here; an eligible one is stamped so it is not re-served
+    /// while the attempt — and, after a Discord refusal, the switch-off report — is in flight,
+    /// which is what keeps a crash in that window from producing a second attempt.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="id">The delivery id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> Claim(
+        HttpContext context, Guid id, CalCronyDbContext db, IClock clock, CancellationToken cancellationToken)
+    {
+        if (!context.User.IsBot())
+        {
+            return GuildAccessService.Forbidden();
+        }
+
+        var delivery = await db.Deliveries.FindAsync([id], cancellationToken);
+        if (delivery is null || delivery.Type != DeliveryType.DmEventReminder)
+        {
+            return Results.NotFound();
+        }
+
+        if (delivery.Status != DeliveryStatus.Pending)
+        {
+            return Results.Ok(new DmReminderClaimResponse(false));
+        }
+
+        var payload = System.Text.Json.JsonSerializer.Deserialize<DmEventReminderPayload>(delivery.PayloadJson)!;
+        var optedIn = await db.UserProfiles.AnyAsync(u => u.Id == payload.UserId && u.DmReminders, cancellationToken);
+        var options = await db.RsvpOptions.Where(o => o.EventId == payload.EventId).ToListAsync(cancellationToken);
+        var attendingId = RsvpPolicy.AttendingOption(options)?.Id;
+        var seated = attendingId is { } attending && await db.Rsvps.AnyAsync(
+            r => r.EventId == payload.EventId && r.UserId == payload.UserId && r.OptionId == attending && !r.Waitlisted,
+            cancellationToken);
+        if (!optedIn || !seated)
+        {
+            delivery.Status = DeliveryStatus.Cancelled;
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new DmReminderClaimResponse(false));
+        }
+
+        // Conditional stamp: a row another attempt already holds is not handed out twice.
+        var now = clock.GetCurrentInstant();
+        var claimCutoff = now.Minus(DmReminderFanOut.ClaimTtl);
+        var claimed = await db.Deliveries
+            .Where(d => d.Id == id && d.Status == DeliveryStatus.Pending
+                        && (d.ClaimedAt == null || d.ClaimedAt < claimCutoff))
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.ClaimedAt, now), cancellationToken);
+        return Results.Ok(new DmReminderClaimResponse(claimed == 1));
     }
 
     /// <summary>Claims the one-time opt-in prompt for a user: true exactly once, and only while the
