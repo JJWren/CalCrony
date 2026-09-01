@@ -1,0 +1,42 @@
+@* Which server the Events / Polls / Templates / Activity views belong to. The section h1 names
+   the view; this names the place, so a member who has just picked a server from /app can see
+   where they landed without reading the URL. Renders nothing until the name is known — an
+   unresolved guild shows no line rather than a placeholder or a raw snowflake, the same rule
+   ADR 0001 sets for name snapshots. *@
+@inject CalCronyWebApiClient Api
+
+@if (name is { Length: > 0 })
+{
+    <p class="guild-context">@name</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public long GuildId { get; set; }
+
+    private string? name;
+
+    /// <summary>The guild the lookup has already been run for — success or failure. Re-renders of
+    /// the host page must not re-fetch, and a failed lookup must not retry on every one.</summary>
+    private long? attemptedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (attemptedFor == GuildId)
+        {
+            return;
+        }
+
+        // Guild switch: drop the old name before the lookup lands, or the previous server's name
+        // sits above the next server's events — issue #136's stale-across-switch bug in miniature.
+        attemptedFor = GuildId;
+        name = null;
+
+        var guilds = await Api.GetMyGuildsAsync();
+        if (attemptedFor != GuildId || !guilds.Success || guilds.Value is null)
+        {
+            return;
+        }
+
+        name = guilds.Value.Guilds.FirstOrDefault(g => g.Id == GuildId)?.Name;
+    }
+}
