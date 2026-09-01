@@ -27,7 +27,10 @@ public static class DmReminderEndpoints
     /// attending option (un-RSVPing, switching option, or dropping to the waitlist all revoke it).
     /// An ineligible row is cancelled here; an eligible one is stamped so it is not re-served
     /// while the attempt — and, after a Discord refusal, the switch-off report — is in flight,
-    /// which is what keeps a crash in that window from producing a second attempt.</summary>
+    /// which is what keeps a crash in that window from producing a second attempt. Claims are
+    /// exclusive PER RECIPIENT, not just per row (a per-user advisory lock serializes the check):
+    /// with several pollers, only one DM for a person can be in flight, so closed DMs are
+    /// discovered by exactly one attempt and the switch-off withdraws the rest.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="id">The delivery id.</param>
     /// <param name="db">The database context.</param>
@@ -67,13 +70,30 @@ public static class DmReminderEndpoints
             return Results.Ok(new DmReminderClaimResponse(DmReminderClaimOutcome.Cancelled));
         }
 
-        // Conditional stamp: a row another attempt already holds is not handed out twice.
+        // Serialized per recipient (advisory lock keyed by user id, released at commit) so two
+        // pollers can't each claim a different row for the same person in the same instant.
         var now = clock.GetCurrentInstant();
         var claimCutoff = now.Minus(DmReminderFanOut.ClaimTtl);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({payload.UserId})", cancellationToken);
+
+        var userPrefix = "{\"UserId\":" + payload.UserId + ",";
+        var anotherInFlight = await db.Deliveries.AnyAsync(
+            d => d.Id != id && d.Type == DeliveryType.DmEventReminder && d.Status == DeliveryStatus.Pending
+                 && d.ClaimedAt != null && d.ClaimedAt >= claimCutoff && d.PayloadJson.StartsWith(userPrefix),
+            cancellationToken);
+        if (anotherInFlight)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return Results.Ok(new DmReminderClaimResponse(DmReminderClaimOutcome.AlreadyClaimed));
+        }
+
+        // Conditional stamp: a row another attempt already holds is not handed out twice.
         var claimed = await db.Deliveries
             .Where(d => d.Id == id && d.Status == DeliveryStatus.Pending
                         && (d.ClaimedAt == null || d.ClaimedAt < claimCutoff))
             .ExecuteUpdateAsync(s => s.SetProperty(d => d.ClaimedAt, now), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(new DmReminderClaimResponse(
             claimed == 1 ? DmReminderClaimOutcome.Claimed : DmReminderClaimOutcome.AlreadyClaimed));
     }

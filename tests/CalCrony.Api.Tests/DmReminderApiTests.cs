@@ -208,6 +208,40 @@ public class DmReminderApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthF
     }
 
     [Fact]
+    public async Task Only_one_dm_per_recipient_can_be_in_flight_across_pollers()
+    {
+        const long userId = 12391;
+        (await Client.PutAsJsonAsync($"/users/{userId}/settings", new UserSettingsDto(null, true, DmReminders: true)))
+            .EnsureSuccessStatusCode();
+
+        // Two due events → two pending DM rows for the same person in one sweep.
+        var eventIds = new List<Guid>();
+        foreach (var title in new[] { "Flight A", "Flight B" })
+        {
+            var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(CreatorId, title, "in 3 hours", ChannelId));
+            var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+            eventIds.Add(ev.Id);
+            (await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/{userId}", new RsvpRequest(ev.Options.OrderBy(o => o.SortOrder).First().Id))).EnsureSuccessStatusCode();
+            (await Client.PostAsJsonAsync($"/events/{ev.Id}/notifications", new CreateEventNotificationRequest(200, null, null))).EnsureSuccessStatusCode();
+        }
+
+        await SweepAsync(SystemClock.Instance.GetCurrentInstant());
+        var rowA = (await DmRowsAsync(eventIds[0])).Single();
+        var rowB = (await DmRowsAsync(eventIds[1])).Single();
+
+        async Task<DmReminderClaimOutcome> ClaimAsync(Guid id) =>
+            (await ReadAsync<DmReminderClaimResponse>(await Client.PostAsync($"/deliveries/{id}/dm-claim", null))).Outcome;
+
+        // A second poller holding row B is parked while row A's attempt is in flight…
+        Assert.Equal(DmReminderClaimOutcome.Claimed, await ClaimAsync(rowA.Id));
+        Assert.Equal(DmReminderClaimOutcome.AlreadyClaimed, await ClaimAsync(rowB.Id));
+
+        // …and gets its turn once A has settled.
+        (await Client.PostAsync($"/deliveries/{rowA.Id}/ack", null)).EnsureSuccessStatusCode();
+        Assert.Equal(DmReminderClaimOutcome.Claimed, await ClaimAsync(rowB.Id));
+    }
+
+    [Fact]
     public async Task Offer_and_blocked_are_bot_only()
     {
         var (member, session) = await fixture.LoginAsync(12330, (GuildId, "G", false));

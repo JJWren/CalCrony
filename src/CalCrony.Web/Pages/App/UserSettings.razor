@@ -24,14 +24,14 @@
             <label class="form-label small mt-2 mb-1" for="us-tz">Pick your timezone; blank = server timezone</label>
             <div class="d-flex gap-2">
                 <TimeZonePicker Id="us-tz" @bind-Value="timezoneInput" />
-                <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@busy">Save</button>
+                <button class="btn btn-outline-primary btn-sm" @onclick="SaveSettingsAsync" disabled="@(busy || settings is null)">Save</button>
             </div>
             <div class="form-check form-switch mt-3">
-                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" disabled="@busy" />
+                <input class="form-check-input" type="checkbox" id="us-dm" @bind="dmConfirmations" @bind:after="SaveSettingsAsync" disabled="@(busy || settings is null)" />
                 <label class="form-check-label small" for="us-dm">DM confirmations</label>
             </div>
             <div class="form-check form-switch mt-2">
-                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveSettingsAsync" disabled="@busy" />
+                <input class="form-check-input" type="checkbox" id="us-dm-reminders" @bind="dmReminders" @bind:after="SaveSettingsAsync" disabled="@(busy || settings is null)" />
                 <label class="form-check-label small" for="us-dm-reminders">DM me reminders and start pings for events I'm attending</label>
             </div>
             <p class="text-body-secondary small mb-0 mt-1">
@@ -115,11 +115,18 @@
     private async Task SaveSettingsAsync()
     {
         saveMessage = null;
+        if (settings is null)
+        {
+            // Never write never-loaded defaults over stored values (timezone, confirmations,
+            // the DM opt-in) — the controls are disabled in this state, this is the backstop.
+            saveMessage = "❌ Your settings haven't loaded — reload the page before saving.";
+            return;
+        }
+
         busy = true;
         var result = await Api.PutUserSettingsAsync(UserId, new UserSettingsDto(
             string.IsNullOrWhiteSpace(timezoneInput) ? null : timezoneInput.Trim(), dmConfirmations,
-            // Null = keep: never send an explicit value for a preference that hasn't been loaded.
-            DmReminders: settings is null ? null : dmReminders));
+            DmReminders: dmReminders));
         busy = false;
         if (!result.Success || result.Value is null)
         {

@@ -192,14 +192,17 @@ public class ThemeComponentTests : TestContext
 
         var cut = Render<UserSettings>();
 
-        // The page says it couldn't load — and a save from this state must not turn a never-loaded
-        // default into an explicit write that would silently disable a stored opt-in.
+        // The page says it couldn't load, and nothing can be saved from this state: the controls
+        // are disabled and the handler refuses, so never-loaded defaults (timezone, confirmations,
+        // the DM opt-in) can't overwrite stored values.
         cut.WaitForAssertion(() => Assert.Contains("API error 500", cut.Markup));
-        cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        var save = cut.FindAll("button").First(b => b.TextContent.Trim() == "Save");
+        Assert.True(save.HasAttribute("disabled"));
+        Assert.True(cut.Find("#us-dm-reminders").HasAttribute("disabled"));
 
-        cut.WaitForAssertion(() => Assert.NotNull(handler.PutBody));
-        var body = JsonSerializer.Deserialize<UserSettingsDto>(handler.PutBody!, JsonWeb)!;
-        Assert.Null(body.DmReminders); // null = keep whatever the account has
+        save.Click(); // a click that slips through anyway is refused
+        cut.WaitForAssertion(() => Assert.Contains("haven't loaded", cut.Markup));
+        Assert.Null(handler.PutBody);
     }
 
     private CapturingHandler UseApi()

@@ -271,8 +271,10 @@ public enum DmReminderClaimOutcome
     /// waitlisted) — the API cancelled the row; nothing to send, acking is a harmless no-op.</summary>
     Cancelled = 1,
 
-    /// <summary>Another attempt already holds the row (or it is no longer pending) — do NOT
-    /// acknowledge it: the owner will settle it.</summary>
+    /// <summary>Not this caller's to send right now — another attempt holds the row, another DM
+    /// for the SAME recipient is in flight (one at a time per person, so closed DMs are discovered
+    /// once), or the row is no longer pending. Do NOT acknowledge it: it stays pending and is
+    /// re-served once the live claim settles or ages out.</summary>
     AlreadyClaimed = 2,
 }
 
