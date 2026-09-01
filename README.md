@@ -50,12 +50,12 @@ flowchart LR
 
 | Command | What it does |
 |---|---|
-| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring, `template` starts from a saved template, `attendee-role` grants a role to attending RSVPs, `thread` opens a discussion thread; `rsvp-options:"⚔️ Raider x10, ❌ Out"` customizes the buttons (first entry — or a trailing `*` — marks the attending option; `xN` caps it), `attendee-limit` caps attendance with a waitlist, `rsvp-close:"2h before"` stops RSVP changes early |
+| `/create title when [description duration channel location image repeat...]` | Create an event; `when` is natural language, `repeat` options make it recurring (`repeat:weekly repeat-days:tue,thu` or `repeat-days:weekdays` for day sets, still `repeat-every` N weeks), `template` starts from a saved template, `attendee-role` grants a role to attending RSVPs, `thread` opens a discussion thread; `rsvp-options:"⚔️ Raider x10, ❌ Out"` customizes the buttons (first entry — or a trailing `*` — marks the attending option; `xN` caps it), `attendee-limit` caps attendance with a waitlist, `rsvp-close:"2h before"` stops RSVP changes early |
 | `/list [channel] [limit]` | Upcoming events |
 | `/livelist create [channel] [limit]` · `/livelist remove [channel]` | Post a persistent upcoming-events embed the bot keeps current (managers only; one per channel) · remove it — deleting the message by hand also removes the list |
 | `/edit name [fields...] [scope]` / `/delete name` | Edit/delete by (partial) title — creator or server manager only; repeating events need `scope` (this occurrence / whole series); `attendee-role` / `clear-attendee-role` change or remove the granted role; `rsvp-options` / `attendee-limit` / `rsvp-close` (plus their `clear-` flags) reshape the buttons, cap, and cutoff — same labels keep their RSVPs, and raising the cap seats the waitlist in order |
 | `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
-| `/series edit name [repeat repeat-every ends until count]` | Change a series' rule or end condition — editing an ended series revives it |
+| `/series edit name [repeat repeat-every repeat-days ends until count]` | Change a series' rule, day set, or end condition — editing an ended series revives it |
 | `/remind when about` | One-off reminder in the current channel |
 | `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) |
 | `/poll create question options [single-vote anonymous allow-options closes]` | Create a poll; `options` is comma-separated, `closes` is natural language |

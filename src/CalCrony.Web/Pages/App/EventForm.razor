@@ -152,6 +152,11 @@ else
                     </div>
                 </div>
 
+                @if (repeatKind == RepeatKind.Weekly)
+                {
+                    <DaySetPicker @bind-Value="repeatDays" IdPrefix="ev-day" />
+                }
+
                 <div class="mb-3">
                     <label class="form-label d-block">Ends</label>
                     <div class="form-check">
@@ -195,7 +200,11 @@ else
 
                 @if (RepeatPreview is not null)
                 {
-                    <p class="meta-mono">🔁 @RepeatPreview</p>
+                    <p class="meta-mono mb-1">🔁 @RepeatPreview</p>
+                }
+                @if (RepeatDaysHint is not null)
+                {
+                    <div class="form-text mb-3">@RepeatDaysHint</div>
                 }
             }
         }
@@ -267,6 +276,7 @@ else
     private long backGuildId;
     private RepeatKind repeatKind = RepeatKind.None;
     private int repeatInterval = 1;
+    private RecurrenceDays repeatDays = RecurrenceDays.None;
     private EndMode endMode = EndMode.Never;
     private string repeatUntil = "";
     private DateTimeOffset? untilPreview;
@@ -357,6 +367,11 @@ else
             var body = repeatKind switch
             {
                 RepeatKind.Daily => repeatInterval == 1 ? "daily" : $"every {repeatInterval} days",
+                // Mirrors RecurrenceCalculator.Describe: the day set replaces the anchor
+                // weekday, with "every weekday" for the Mon–Fri preset at interval 1.
+                RepeatKind.Weekly when repeatInterval == 1 && repeatDays == RecurrenceDays.Weekdays => "every weekday",
+                RepeatKind.Weekly when repeatDays != RecurrenceDays.None =>
+                    $"{(every == "" ? "weekly" : every + "weeks")} on {RecurrenceDaySets.Describe(repeatDays)}",
                 RepeatKind.Weekly =>
                     $"{(every == "" ? "weekly" : every + "weeks")}{(local is null ? "" : $" on {local.Value.DayOfWeek}")}",
                 RepeatKind.MonthlySameDate =>
@@ -369,6 +384,16 @@ else
             return $"Repeats {body}";
         }
     }
+
+    // The first occurrence is always the date typed above (RFC 5545's DTSTART rule) — worth a
+    // note when it falls outside the checked days so the preview doesn't look wrong.
+    private string? RepeatDaysHint =>
+        repeatKind == RepeatKind.Weekly
+        && repeatDays != RecurrenceDays.None
+        && whenPreview?.ToLocalTime() is { } first
+        && !RecurrenceDaySets.Contains(repeatDays, first.DayOfWeek)
+            ? $"The first occurrence stays on {first.DayOfWeek}; later ones follow the checked days."
+            : null;
 
     private static string Nth(int day) => ((day + 6) / 7) switch
     {
@@ -484,6 +509,7 @@ else
             _ => RepeatKind.MonthlySameDate,
         };
         repeatInterval = template.Recurrence?.Interval ?? 1;
+        repeatDays = template.Recurrence?.DaysOfWeek ?? RecurrenceDays.None;
         endMode = EndMode.Never; // templates never carry end conditions
     }
 
@@ -599,7 +625,7 @@ else
             var recurrence = repeatKind switch
             {
                 RepeatKind.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatInterval),
-                RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatInterval),
+                RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatInterval, DaysOfWeek: repeatDays),
                 RepeatKind.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatInterval),
                 RepeatKind.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatInterval, MonthlyMode.NthWeekday),
                 RepeatKind.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatInterval),

@@ -116,6 +116,10 @@ else
                                 </div>
                             }
                         </div>
+                        @if (editRepeatKind == RepeatKind.Weekly)
+                        {
+                            <DaySetPicker @bind-Value="editRepeatDays" IdPrefix="tpl-day" Small="true" />
+                        }
                         <label class="form-label d-block mt-2 mb-1">Reminders <span class="text-body-secondary">(max 5, minutes before start)</span></label>
                         @for (var i = 0; i < editSpecs.Count; i++)
                         {
@@ -165,6 +169,7 @@ else
     private string? editImageUrl;
     private RepeatKind editRepeatKind;
     private int editRepeatInterval = 1;
+    private RecurrenceDays editRepeatDays;
     private List<SpecRow> editSpecs = [];
     private string? editError;
 
@@ -210,6 +215,7 @@ else
             _ => RepeatKind.MonthlySameDate,
         };
         editRepeatInterval = template.Recurrence?.Interval ?? 1;
+        editRepeatDays = template.Recurrence?.DaysOfWeek ?? RecurrenceDays.None;
         editSpecs = [.. template.Notifications.Select(n => new SpecRow
         {
             MinutesBefore = n.MinutesBefore,
@@ -235,7 +241,7 @@ else
         var recurrence = editRepeatKind switch
         {
             RepeatKind.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, editRepeatInterval),
-            RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, editRepeatInterval),
+            RepeatKind.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, editRepeatInterval, DaysOfWeek: editRepeatDays),
             RepeatKind.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, editRepeatInterval),
             RepeatKind.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, editRepeatInterval, MonthlyMode.NthWeekday),
             RepeatKind.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, editRepeatInterval),

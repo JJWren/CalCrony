@@ -180,6 +180,10 @@ else
                         <span class="text-body-secondary small">@ScheduleUnitLabel</span>
                     </div>
                 </div>
+                @if (scheduleKind == ScheduleKind.Weekly)
+                {
+                    <DaySetPicker @bind-Value="scheduleDays" IdPrefix="se-day" Small="true" />
+                }
                 <div class="mb-2" hidden="@(scheduleKind == ScheduleKind.None)">
                     <label class="form-label small mb-1 d-block">Ends</label>
                     <div class="form-check">
@@ -417,6 +421,7 @@ else
     private SeriesDto? series;
     private ScheduleKind scheduleKind;
     private int scheduleInterval = 1;
+    private RecurrenceDays scheduleDays;
     private ScheduleEndMode scheduleEndMode;
     private string scheduleUntil = "";
     private DateTimeOffset? scheduleUntilPreview;
@@ -467,6 +472,7 @@ else
             _ => ScheduleKind.MonthlySameDate,
         };
         scheduleInterval = series.Interval;
+        scheduleDays = series.DaysOfWeek;
         scheduleEndMode = series.UntilDate is not null ? ScheduleEndMode.Until
             : series.MaxOccurrences is not null ? ScheduleEndMode.Count
             : ScheduleEndMode.Never;
@@ -543,9 +549,11 @@ else
         };
 
         busy = true;
-        // Always explicit values — the web form never sends Keep.
+        // Always explicit values — the web form never sends Keep; a non-weekly unit sends an
+        // empty day set so the stored one is dropped rather than carried along.
         var result = await Api.UpdateSeriesAsync(ev!.SeriesId!.Value, new UpdateSeriesRequest(
             unit, scheduleInterval, mode,
+            unit == RecurrenceUnit.Week ? scheduleDays : RecurrenceDays.None,
             scheduleEndMode switch
             {
                 ScheduleEndMode.Until => SeriesEndChoice.Until,

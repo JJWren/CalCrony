@@ -113,6 +113,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
     /// <param name="image">Optional image URL.</param>
     /// <param name="repeat">Replacement repeat rule; "no repeat" clears it.</param>
     /// <param name="repeatEvery">Repeat interval (every N units).</param>
+    /// <param name="repeatDays">Weekly day set (see <see cref="RepeatDaysSyntax"/>); weekly only.</param>
     [SlashCommand("edit", "Edit a template (creator or manager)")]
     public async Task EditAsync(
         [Summary("name", "The template to edit"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string name,
@@ -123,7 +124,8 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         [Summary(description: "New location")] string? location = null,
         [Summary("image", "New image URL")] string? image = null,
         [Summary("repeat", "New repeat rule (\"no repeat\" clears it)")] RepeatChoice? repeat = null,
-        [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1)
+        [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
+        [Summary("repeat-days", "Weekly only: days it repeats on, e.g. \"tue,thu\" or \"weekdays\"")] string? repeatDays = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -134,11 +136,27 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             return;
         }
 
-        if (repeat is null && repeatEvery != 1)
+        if (repeat is null && (repeatEvery != 1 || repeatDays is not null))
         {
-            // Without a rule choice, repeat-every would be silently ignored — mirroring /create.
+            // Without a rule choice, repeat-every/repeat-days would be silently ignored — mirroring /create.
             await FollowupAsync("Set `repeat` to use the repeat options.", ephemeral: true);
             return;
+        }
+
+        var days = RecurrenceDays.None;
+        if (repeatDays is not null)
+        {
+            if (repeat != RepeatChoice.Weekly)
+            {
+                await FollowupAsync("`repeat-days` only applies to `repeat: weekly`.", ephemeral: true);
+                return;
+            }
+
+            if (!RepeatDaysSyntax.TryParse(repeatDays, out days, out var daysProblem))
+            {
+                await FollowupAsync($"❌ {daysProblem}", ephemeral: true);
+                return;
+            }
         }
 
         var (template, problem) = await TemplateFinder.FindSingleAsync(api, (long)Context.Guild.Id, name);
@@ -157,7 +175,7 @@ public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         var recurrence = repeat switch
         {
             RepeatChoice.Daily => new RecurrenceRuleDto(RecurrenceUnit.Day, repeatEvery),
-            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery),
+            RepeatChoice.Weekly => new RecurrenceRuleDto(RecurrenceUnit.Week, repeatEvery, DaysOfWeek: days),
             RepeatChoice.MonthlySameDate => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery),
             RepeatChoice.MonthlyNthWeekday => new RecurrenceRuleDto(RecurrenceUnit.Month, repeatEvery, MonthlyMode.NthWeekday),
             RepeatChoice.Yearly => new RecurrenceRuleDto(RecurrenceUnit.Year, repeatEvery),
