@@ -132,6 +132,10 @@ public static class SettingsEndpoints
                 $"Unknown theme \"{settings.Theme}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
         }
 
+        // One transaction for the profile write and any queued-DM withdrawal it implies: the
+        // row lock the UPDATE takes means a concurrent re-enable (and anything the scheduler
+        // would enqueue under it) can only land after the opt-out AND its withdrawal committed.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
         if (user is null)
         {
@@ -167,6 +171,7 @@ public static class SettingsEndpoints
             await Services.DmReminderFanOut.CancelPendingAsync(db, userId, cancellationToken);
         }
 
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(ToDto(user));
     }
 }

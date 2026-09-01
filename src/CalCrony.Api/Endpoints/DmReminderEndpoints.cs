@@ -92,12 +92,16 @@ public static class DmReminderEndpoints
         var now = clock.GetCurrentInstant();
         var claimCutoff = now.Minus(DmReminderFanOut.ClaimTtl);
 
-        // Lock order: recipient (advisory) then event row — the RSVP paths take only the event
-        // row and nothing takes them the other way round, so there is no cycle.
+        // Lock order: recipient (advisory), then the event row (what RSVP mutations lock), then
+        // the recipient's profile row (what an opt-out updates) — so both a concurrent RSVP change
+        // and a concurrent opt-out either commit before the checks below or wait behind the stamp.
+        // Nothing takes these the other way round, so there is no cycle.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({userId})", cancellationToken);
         await db.Database.ExecuteSqlAsync(
             $"""SELECT "Id" FROM "Events" WHERE "Id" = {payload.EventId} FOR UPDATE""", cancellationToken);
+        await db.Database.ExecuteSqlAsync(
+            $"""SELECT "Id" FROM "UserProfiles" WHERE "Id" = {userId} FOR UPDATE""", cancellationToken);
 
         await db.Entry(delivery).ReloadAsync(cancellationToken);
         if (delivery.Status != DeliveryStatus.Pending)
