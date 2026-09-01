@@ -169,9 +169,10 @@ public class EventModule(CalCronyApiClient api, NativeEventMirror mirror, EventT
         }
 
         var repeatNote = ev.RecurrenceSummary is null ? "" : $" · 🔁 {ev.RecurrenceSummary}";
-        var roleNote = ev.AttendeeRoleId is null
-            ? ""
-            : $" · 🏷️ {ev.AttendingOption?.Label ?? "Going"} grants <@&{ev.AttendeeRoleId}>";
+        var roleNote = ev.RoleGrantingOptions is { Count: > 0 } roleOptions
+            ? " · 🏷️ " + string.Join(
+                " · ", roleOptions.Select(o => $"{o.Label} grants <@&{o.AttendeeRoleId}>"))
+            : "";
         // "opening", not "opened" — thread creation is best-effort and may still fail.
         var threadNote = ev.WantsThread ? " · 🧵 opening a discussion thread" : "";
         var limitNote = ev.AttendingOption?.Capacity is int cap ? $" · 👥 limited to {cap} (waitlist after)" : "";

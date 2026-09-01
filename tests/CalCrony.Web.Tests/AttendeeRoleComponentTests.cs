@@ -27,6 +27,22 @@ public class AttendeeRoleComponentTests : TestContext
     }
 
     [Fact]
+    public void Event_detail_lists_a_line_per_role_granting_option()
+    {
+        var handler = UseApi();
+        SetupAuth();
+        var ev = SampleEvent(attendeeRoleId: 555001, healerRoleId: 555002);
+        RouteEventPages(handler, ev);
+
+        var cut = Render<EventDetail>(p => p.Add(x => x.EventId, ev.Id));
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Going grants role #555001", cut.Markup);
+            Assert.Contains("Healer grants role #555002", cut.Markup);
+        });
+    }
+
+    [Fact]
     public void Event_detail_hides_the_role_line_without_a_role()
     {
         var handler = UseApi();
@@ -92,12 +108,18 @@ public class AttendeeRoleComponentTests : TestContext
         this.AddAuthorization();
     }
 
-    private static EventDto SampleEvent(long? attendeeRoleId)
+    /// <summary>Roles hang off the options, and the API mirrors the attending one onto the event
+    /// for pre-v2 consumers — so a realistic DTO sets both.</summary>
+    private static EventDto SampleEvent(long? attendeeRoleId, long? healerRoleId = null)
     {
-        var going = new RsvpOptionDto(Guid.NewGuid(), "✅", "Going", 0, null);
+        var going = new RsvpOptionDto(
+            Guid.NewGuid(), "✅", "Going", 0, null, IsAttending: true, AttendeeRoleId: attendeeRoleId);
+        var healer = new RsvpOptionDto(
+            Guid.NewGuid(), "💚", "Healer", 1, null, AttendeeRoleId: healerRoleId);
         return new EventDto(
             Guid.NewGuid(), 1, 2, "Role Sample", null, DateTimeOffset.UtcNow.AddHours(2), "UTC", 60,
-            3, null, null, null, EventStatus.Scheduled, [going], [],
+            3, null, null, null, EventStatus.Scheduled,
+            healerRoleId is null ? [going] : [going, healer], [],
             AttendeeRoleId: attendeeRoleId);
     }
 

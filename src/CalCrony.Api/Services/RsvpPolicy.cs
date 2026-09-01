@@ -83,14 +83,15 @@ public static partial class RsvpPolicy
 
     /// <summary>Validates option specs and builds fresh option rows. Exactly one attending option
     /// comes out: the flagged one, or the first when none is flagged (two flags is an error).
-    /// AttendeeLimit is the "cap the attending option" shorthand and conflicts with an explicit
-    /// capacity on the attending spec.</summary>
+    /// AttendeeLimit and AttendeeRoleId are the "cap / role the attending option" shorthands and
+    /// each conflicts with the same setting given explicitly on the attending spec.</summary>
     /// <param name="specs">The creator-supplied option specs (null = default set).</param>
     /// <param name="attendeeLimit">Optional capacity for the attending option.</param>
+    /// <param name="attendeeRoleId">Optional Discord role for the attending option.</param>
     /// <param name="error">The user-facing problem when validation fails.</param>
     /// <returns>The built option rows, or null when validation fails.</returns>
     public static List<RsvpOption>? TryBuildOptions(
-        IReadOnlyList<RsvpOptionSpec>? specs, int? attendeeLimit, out string? error)
+        IReadOnlyList<RsvpOptionSpec>? specs, int? attendeeLimit, long? attendeeRoleId, out string? error)
     {
         error = null;
         if (attendeeLimit is < 1)
@@ -103,6 +104,7 @@ public static partial class RsvpPolicy
         {
             var defaults = Endpoints.EventEndpoints.DefaultRsvpOptions();
             defaults[0].Capacity = attendeeLimit;
+            defaults[0].AttendeeRoleId = attendeeRoleId;
             return defaults;
         }
 
@@ -180,6 +182,12 @@ public static partial class RsvpPolicy
             return null;
         }
 
+        if (attendeeRoleId is not null && specs[attendingIndex].AttendeeRoleId is not null)
+        {
+            error = "Set the attending option's role in the options or via the attendee role, not both.";
+            return null;
+        }
+
         return [.. specs.Select((spec, index) => new RsvpOption
         {
             Id = Guid.NewGuid(),
@@ -188,6 +196,7 @@ public static partial class RsvpPolicy
             SortOrder = index,
             Capacity = index == attendingIndex ? spec.Capacity ?? attendeeLimit : spec.Capacity,
             IsAttending = index == attendingIndex,
+            AttendeeRoleId = index == attendingIndex ? spec.AttendeeRoleId ?? attendeeRoleId : spec.AttendeeRoleId,
         })];
     }
 
@@ -207,7 +216,7 @@ public static partial class RsvpPolicy
     public static string SerializeSpecs(IEnumerable<RsvpOption> options) =>
         JsonSerializer.Serialize(
             options.OrderBy(o => o.SortOrder)
-                .Select(o => new RsvpOptionSpec(o.Emote, o.Label, o.Capacity, o.IsAttending))
+                .Select(o => new RsvpOptionSpec(o.Emote, o.Label, o.Capacity, o.IsAttending, o.AttendeeRoleId))
                 .ToList(),
             SpecStorageOptions);
 
@@ -226,7 +235,7 @@ public static partial class RsvpPolicy
         try
         {
             var specs = JsonSerializer.Deserialize<List<RsvpOptionSpec>>(rsvpOptionsJson);
-            return TryBuildOptions(specs, attendeeLimit: null, out _)
+            return TryBuildOptions(specs, attendeeLimit: null, attendeeRoleId: null, out _)
                    ?? Endpoints.EventEndpoints.DefaultRsvpOptions();
         }
         catch (JsonException)
@@ -247,6 +256,23 @@ public static partial class RsvpPolicy
         if (AttendingOption(options) is { } attending)
         {
             attending.Capacity = capacity;
+        }
+
+        return SerializeSpecs(options);
+    }
+
+    /// <summary>Re-roles the attending option of a stored series template (null = the default
+    /// set) without touching its other options — how a role-only Series-scoped edit reaches the
+    /// template, mirroring <see cref="WithAttendingCapacity"/>.</summary>
+    /// <param name="rsvpOptionsJson">The stored spec list, or null.</param>
+    /// <param name="attendeeRoleId">The new attending role (null clears it).</param>
+    /// <returns>The re-serialized spec list.</returns>
+    public static string WithAttendingRole(string? rsvpOptionsJson, long? attendeeRoleId)
+    {
+        var options = OptionsFromTemplate(rsvpOptionsJson);
+        if (AttendingOption(options) is { } attending)
+        {
+            attending.AttendeeRoleId = attendeeRoleId;
         }
 
         return SerializeSpecs(options);
@@ -317,15 +343,16 @@ public static partial class RsvpPolicy
     /// <param name="ev">The event (Options and Rsvps loaded).</param>
     /// <param name="specs">The replacement option specs.</param>
     /// <param name="attendeeLimit">Optional capacity for the attending option.</param>
+    /// <param name="attendeeRoleId">Optional Discord role for the attending option.</param>
     /// <param name="conflict">True when the error should be a 409 (option in use), not a 400.</param>
     /// <param name="error">The user-facing problem when the edit is rejected.</param>
     /// <returns>True when the replacement was applied.</returns>
     public static bool TryApplyOptionEdit(
         CalCronyDbContext db, Event ev, IReadOnlyList<RsvpOptionSpec> specs, int? attendeeLimit,
-        out bool conflict, out string? error)
+        long? attendeeRoleId, out bool conflict, out string? error)
     {
         conflict = false;
-        var built = TryBuildOptions(specs, attendeeLimit, out error);
+        var built = TryBuildOptions(specs, attendeeLimit, attendeeRoleId, out error);
         if (built is null)
         {
             return false;
@@ -363,6 +390,7 @@ public static partial class RsvpPolicy
             existing.SortOrder = replacement.SortOrder;
             existing.Capacity = replacement.Capacity;
             existing.IsAttending = replacement.IsAttending;
+            existing.AttendeeRoleId = replacement.AttendeeRoleId;
             byLabel.Remove(existing.Label);
         }
 
@@ -441,11 +469,12 @@ public static partial class RsvpPolicy
         // Coalescing state is loaded ONCE for the pass rather than per promoted user: clearing a
         // cap on a long waitlist would otherwise be a 2N-query path, and UpdateEvent holds the
         // event's FOR UPDATE row lock throughout, so every concurrent RSVP queues behind it.
-        var roleActive = AttendeeRoleSync.IsRoleActive(ev);
+        // Promotion only ever seats users onto the ATTENDING option, so one role covers the pass.
+        var attendingRole = attending.AttendeeRoleId;
         var threadActive = EventThreadSync.IsThreadActive(ev);
         var userIds = promoting.Select(r => r.UserId).ToList();
-        List<Delivery> pendingRoles = roleActive
-            ? await AttendeeRoleSync.LoadPendingRoleChangesAsync(db, ev, userIds, cancellationToken)
+        List<Delivery> pendingRoles = attendingRole is { } batchRole
+            ? await AttendeeRoleSync.LoadPendingRoleChangesAsync(db, ev, batchRole, userIds, cancellationToken)
             : [];
         HashSet<string> pendingAdds = threadActive
             ? await EventThreadSync.LoadPendingMemberAddsAsync(db, ev, userIds, cancellationToken)
@@ -454,10 +483,10 @@ public static partial class RsvpPolicy
         var now = clock.GetCurrentInstant();
         foreach (var rsvp in promoting)
         {
-            if (roleActive)
+            if (attendingRole is { } grantedRole)
             {
                 AttendeeRoleSync.EnqueueRoleChange(
-                    db, ev, DeliveryType.GrantAttendeeRole, rsvp.UserId, pendingRoles, now);
+                    db, ev, DeliveryType.GrantAttendeeRole, grantedRole, rsvp.UserId, pendingRoles, now);
             }
 
             if (threadActive)

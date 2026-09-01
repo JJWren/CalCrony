@@ -55,9 +55,13 @@ public static class EventEmbedBuilder
             description.AppendLine($"📍 {ev.Location}");
         }
 
-        if (ev.AttendeeRoleId is long roleId)
+        // One "X grants @role" clause per role-bearing option — a single line for the ordinary
+        // one-role event, and the Tank/Healer/DPS legend when several options carry roles.
+        if (ev.RoleGrantingOptions is { Count: > 0 } roleOptions)
         {
-            description.AppendLine($"🏷️ {ev.AttendingOption?.Label ?? "Going"} grants <@&{roleId}>");
+            description.AppendLine(
+                "🏷️ " + string.Join(
+                    " · ", roleOptions.Select(o => $"{o.Label} grants <@&{o.AttendeeRoleId}>")));
         }
 
         if (ev.RsvpCloseUnix is long closeUnix)

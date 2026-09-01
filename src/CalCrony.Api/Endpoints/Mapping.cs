@@ -26,13 +26,16 @@ public static class Mapping
         ev.ImageUrl,
         ev.Status,
         [.. ev.Options.OrderBy(o => o.SortOrder)
-            .Select(o => new RsvpOptionDto(o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity, o.IsAttending))],
+            .Select(o => new RsvpOptionDto(
+                o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity, o.IsAttending, o.AttendeeRoleId))],
         [.. ev.Rsvps.OrderBy(r => r.CreatedAt).Select(r => new RsvpDto(r.UserId, r.OptionId, r.Waitlisted))],
         ev.SeriesId,
         // Summary requires the Series nav loaded; ended series read as one-offs (no 🔁).
         ev.Series is { Ended: false } series ? Services.RecurrenceCalculator.Describe(series) : null,
         ev.NativeEventId,
-        ev.AttendeeRoleId,
+        // Roles live on the options; this mirrors the attending one so pre-v2 consumers still read
+        // "the event's role" without walking Options.
+        Services.RsvpPolicy.AttendingOption(ev.Options)?.AttendeeRoleId,
         ev.WantsThread,
         ev.ThreadId,
         channelName,

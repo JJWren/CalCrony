@@ -309,6 +309,12 @@ else
         public int? Capacity { get; set; }
 
         public bool IsAttending { get; set; }
+
+        /// <summary>The option's attendee role, carried through untouched. The web can't
+        /// enumerate Discord roles so it never sets one, but a full option replacement re-applies
+        /// every role from the specs it sends — dropping it here would silently strip a role the
+        /// form can't even show.</summary>
+        public long? AttendeeRoleId { get; set; }
     }
 
     private static List<OptionRow> DefaultOptionRows() =>
@@ -338,7 +344,8 @@ else
     /// <summary>The submitted shape of the option rows (trimmed, so an untouched form compares
     /// equal to what was loaded).</summary>
     private static List<RsvpOptionSpec> ToSpecs(IEnumerable<OptionRow> rows) =>
-        [.. rows.Select(r => new RsvpOptionSpec(r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending))];
+        [.. rows.Select(r => new RsvpOptionSpec(
+            r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending, r.AttendeeRoleId))];
 
     private void RemoveOption(int index)
     {
@@ -469,6 +476,7 @@ else
                 Label = o.Label,
                 Capacity = o.Capacity,
                 IsAttending = o.Id == ev.AttendingOption?.Id,
+                AttendeeRoleId = o.AttendeeRoleId,
             })];
             loadedOptionSpecs = ToSpecs(optionRows);
         }

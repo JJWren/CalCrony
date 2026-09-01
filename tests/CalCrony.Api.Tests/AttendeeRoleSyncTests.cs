@@ -33,37 +33,109 @@ public class AttendeeRoleSyncTests
         Assert.Null(AttendeeRoleSync.AttendingOptionId([]));
     }
 
+    /// <summary>Only Going carries a role here — the shape every pre-v2 event has, so these are
+    /// the v1 grant/revoke cases restated against the per-option rule.</summary>
+    private static readonly List<RsvpOption> OneRole =
+    [
+        new() { Id = Going, Emote = "✅", Label = "Going", SortOrder = 0, IsAttending = true, AttendeeRoleId = 10 },
+        new() { Id = NotGoing, Emote = "❌", Label = "Not going", SortOrder = 1 },
+        new() { Id = Maybe, Emote = "🤔", Label = "Maybe", SortOrder = 2 },
+    ];
+
+    /// <summary>Tank/Healer/DPS: three options, three different roles, none of them attending-only.</summary>
+    private static readonly List<RsvpOption> RolePerOption =
+    [
+        new() { Id = Going, Emote = "🛡️", Label = "Tank", SortOrder = 0, IsAttending = true, AttendeeRoleId = 10 },
+        new() { Id = NotGoing, Emote = "💚", Label = "Healer", SortOrder = 1, AttendeeRoleId = 20 },
+        new() { Id = Maybe, Emote = "⚔️", Label = "DPS", SortOrder = 2, AttendeeRoleId = 30 },
+    ];
+
     [Theory]
     [MemberData(nameof(DecisionCases))]
-    public void Decide_grants_on_crossing_onto_going_and_revokes_on_crossing_off(
-        Guid? oldOption, Guid? newOption, AttendeeRoleAction expected)
+    public void Decide_swaps_the_role_of_the_seat_given_up_for_the_role_of_the_seat_taken(
+        bool rolePerOption, Guid? oldOption, Guid? newOption, long? revoke, long? grant)
     {
-        Assert.Equal(expected, AttendeeRoleSync.Decide(oldOption, newOption, Going));
+        var options = rolePerOption ? RolePerOption : OneRole;
+        Assert.Equal(
+            new AttendeeRoleChange(revoke, grant), AttendeeRoleSync.Decide(options, oldOption, newOption));
     }
 
-    public static TheoryData<Guid?, Guid?, AttendeeRoleAction> DecisionCases() => new()
+    public static TheoryData<bool, Guid?, Guid?, long?, long?> DecisionCases() => new()
     {
-        { null, Going, AttendeeRoleAction.Grant },        // fresh Going RSVP
-        { Maybe, Going, AttendeeRoleAction.Grant },       // switch onto Going
-        { Going, Maybe, AttendeeRoleAction.Revoke },      // switch off Going
-        { Going, null, AttendeeRoleAction.Revoke },       // un-RSVP from Going
-        { Going, Going, AttendeeRoleAction.None },        // re-click Going
-        { Maybe, NotGoing, AttendeeRoleAction.None },     // move between non-Going options
-        { null, Maybe, AttendeeRoleAction.None },         // fresh non-Going RSVP
-        { Maybe, null, AttendeeRoleAction.None },         // un-RSVP from non-Going
+        // Only the attending option carries a role — the v1 semantics, unchanged.
+        { false, null, Going, null, 10L },        // fresh Going RSVP
+        { false, Maybe, Going, null, 10L },       // switch onto Going
+        { false, Going, Maybe, 10L, null },       // switch off Going
+        { false, Going, null, 10L, null },        // un-RSVP from Going
+        { false, Going, Going, null, null },      // re-click Going
+        { false, Maybe, NotGoing, null, null },   // move between roleless options
+        { false, null, Maybe, null, null },       // fresh roleless RSVP
+        { false, Maybe, null, null, null },       // un-RSVP from a roleless option
+        // Every option carries its own role — the reason this decision moved off the flag.
+        { true, null, NotGoing, null, 20L },      // fresh Healer RSVP earns Healer, not "attending"
+        { true, Going, Maybe, 10L, 30L },         // Tank → DPS swaps one role for the other
+        { true, Maybe, null, 30L, null },         // un-RSVP hands DPS back
+        { true, Maybe, Maybe, null, null },       // re-click DPS
     };
 
     [Fact]
-    public void Role_activity_requires_a_role_and_a_live_status()
+    public void Options_sharing_one_role_dont_churn_it_on_a_switch()
     {
-        var live = new Event { Title = "T", AttendeeRoleId = 1, Status = EventStatus.Scheduled };
-        var started = new Event { Title = "T", AttendeeRoleId = 1, Status = EventStatus.Started };
-        var ended = new Event { Title = "T", AttendeeRoleId = 1, Status = EventStatus.Ended };
-        var roleless = new Event { Title = "T", Status = EventStatus.Scheduled };
+        // A raid where Tank and Healer both grant the same "Raider" role: moving between them
+        // must not emit a revoke racing a grant for a role the user keeps throughout.
+        List<RsvpOption> shared =
+        [
+            new() { Id = Going, Emote = "🛡️", Label = "Tank", SortOrder = 0, IsAttending = true, AttendeeRoleId = 42 },
+            new() { Id = Maybe, Emote = "💚", Label = "Healer", SortOrder = 1, AttendeeRoleId = 42 },
+        ];
 
-        Assert.True(AttendeeRoleSync.IsRoleActive(live));
-        Assert.True(AttendeeRoleSync.IsRoleActive(started));
-        Assert.False(AttendeeRoleSync.IsRoleActive(ended));
+        var change = AttendeeRoleSync.Decide(shared, Going, Maybe);
+        Assert.True(change.IsNoOp);
+        Assert.Equal(new AttendeeRoleChange(null, 42), AttendeeRoleSync.Decide(shared, null, Maybe));
+    }
+
+    [Fact]
+    public void Role_lookup_is_null_without_a_seat_a_match_or_a_role()
+    {
+        Assert.Equal(10, AttendeeRoleSync.RoleFor(RolePerOption, Going));
+        Assert.Null(AttendeeRoleSync.RoleFor(RolePerOption, null));         // no seat
+        Assert.Null(AttendeeRoleSync.RoleFor(RolePerOption, Guid.NewGuid())); // option not on this event
+        Assert.Null(AttendeeRoleSync.RoleFor(OneRole, NotGoing));           // option carries no role
+    }
+
+    [Fact]
+    public void Role_activity_requires_some_option_role_and_a_live_status()
+    {
+        static Event WithRole(EventStatus status) => new()
+        {
+            Title = "T",
+            Status = status,
+            Options = [new RsvpOption { Emote = "✅", Label = "Going", IsAttending = true, AttendeeRoleId = 1 }],
+        };
+
+        Assert.True(AttendeeRoleSync.IsRoleActive(WithRole(EventStatus.Scheduled)));
+        Assert.True(AttendeeRoleSync.IsRoleActive(WithRole(EventStatus.Started)));
+        Assert.False(AttendeeRoleSync.IsRoleActive(WithRole(EventStatus.Ended)));
+
+        // A role on ANY option counts, not just the attending one.
+        var nonAttendingRole = new Event
+        {
+            Title = "T",
+            Status = EventStatus.Scheduled,
+            Options =
+            [
+                new RsvpOption { Emote = "✅", Label = "Going", IsAttending = true },
+                new RsvpOption { Emote = "💚", Label = "Healer", SortOrder = 1, AttendeeRoleId = 7 },
+            ],
+        };
+        Assert.True(AttendeeRoleSync.IsRoleActive(nonAttendingRole));
+
+        var roleless = new Event
+        {
+            Title = "T",
+            Status = EventStatus.Scheduled,
+            Options = [new RsvpOption { Emote = "✅", Label = "Going", IsAttending = true }],
+        };
         Assert.False(AttendeeRoleSync.IsRoleActive(roleless));
     }
 }

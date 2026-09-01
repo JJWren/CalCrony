@@ -99,9 +99,6 @@ public class Event
     /// <summary>Discord Guild Scheduled Event id when mirrored; null when never mirrored.</summary>
     public long? NativeEventId { get; set; }
 
-    /// <summary>Existing Discord role granted to attending RSVPs and revoked at event end; null = feature off.</summary>
-    public long? AttendeeRoleId { get; set; }
-
     /// <summary>Opt-in: open a discussion thread on the posted embed message.</summary>
     public bool WantsThread { get; set; }
 
@@ -186,9 +183,6 @@ public class EventSeries
     public string? Location { get; set; }
     public string? ImageUrl { get; set; }
 
-    /// <summary>Template field copied to spawned occurrences, like Title/Description.</summary>
-    public long? AttendeeRoleId { get; set; }
-
     /// <summary>Template field: each spawned occurrence opens its own discussion thread.</summary>
     public bool WantsThread { get; set; }
 
@@ -267,9 +261,16 @@ public class RsvpOption
     public int SortOrder { get; set; }
     public int? Capacity { get; set; }
 
-    /// <summary>Marks the option whose RSVPs count as attending — the flag that drives attendee
-    /// roles, threads, availability, counts, and the waitlist. Exactly one per event.</summary>
+    /// <summary>Marks the option whose RSVPs count as attending — the flag that drives threads,
+    /// availability, counts, and the waitlist. Exactly one per event. Roles are NOT tied to it:
+    /// each option carries its own (see <see cref="AttendeeRoleId"/>).</summary>
     public bool IsAttending { get; set; }
+
+    /// <summary>Existing Discord role held by users seated on THIS option — granted when they take
+    /// a seat here, revoked when they leave it or the event ends; null = no role on this option.
+    /// Per-option rather than per-event so one event can hand out Tank/Healer/DPS. Waitlisted
+    /// RSVPs hold nothing until promoted.</summary>
+    public long? AttendeeRoleId { get; set; }
 }
 
 /// <summary>A user's RSVP to one event (unique per user per event). CreatedAt doubles as the
