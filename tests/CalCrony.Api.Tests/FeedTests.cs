@@ -5,6 +5,7 @@ using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
+using NodaTime.Extensions;
 
 namespace CalCrony.Api.Tests;
 
@@ -50,13 +51,15 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
-    public async Task Running_series_emit_one_rrule_vevent_instead_of_the_live_occurrence()
+    public async Task Running_series_emit_the_live_occurrence_concretely_and_project_from_the_next_slot()
     {
         var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
             CreatorId, "Weekly Standup", "in 6 hours", ChannelId,
             Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, 2)));
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var ev = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var zone = DateTimeZoneProviders.Tzdb[ev.TimeZone];
+        var anchor = ev.StartsAtUtc.ToInstant().InZone(zone).Date;
 
         var ics = await FetchFeedAsync();
 
@@ -64,8 +67,39 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Contains("RRULE:", ics);
         Assert.Contains("FREQ=WEEKLY", ics);
         Assert.Contains("INTERVAL=2", ics);
-        // The live occurrence is represented by the series VEVENT — never doubled.
-        Assert.DoesNotContain($"UID:{ev.Id}@calcrony", ics);
+        // The live occurrence is a concrete VEVENT; the series projects from the NEXT slot, so
+        // the two never overlap and the RRULE's phase is the engine's, not the live row's.
+        Assert.Contains($"UID:{ev.Id}@calcrony", ics);
+        Assert.Equal(anchor, IcsText.DtStartDate(ics, $"{ev.Id}@calcrony", zone));
+        Assert.Equal(anchor.PlusWeeks(2), IcsText.DtStartDate(ics, $"{ev.SeriesId}@calcrony", zone));
+    }
+
+    [Fact]
+    public async Task Interval_edit_keeps_the_projected_series_on_the_engines_grid()
+    {
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Phase Shift", "in 6 hours", ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, 2)));
+        var first = (await create.Content.ReadFromJsonAsync<EventDto>())!;
+        var zone = DateTimeZoneProviders.Tzdb[first.TimeZone];
+        var anchor = first.StartsAtUtc.ToInstant().InZone(zone).Date;
+
+        // Skip: the live occurrence now sits in week 2 of the anchor's every-2-weeks grid…
+        var skip = await Client.PostAsync($"/events/{first.Id}/skip", null);
+        skip.EnsureSuccessStatusCode();
+        var live = (await skip.Content.ReadFromJsonAsync<SkipOccurrenceResponse>())!.NextEvent!;
+        Assert.Equal(anchor.PlusWeeks(2), live.StartsAtUtc.ToInstant().InZone(zone).Date);
+
+        // …then the rule becomes every 3 weeks. The engine's next slot is week 3 (anchor-based);
+        // an RRULE anchored on the week-2 live row would have claimed week 5 instead.
+        var edit = await Client.PatchAsJsonAsync($"/series/{first.SeriesId}", new UpdateSeriesRequest(Interval: 3));
+        edit.EnsureSuccessStatusCode();
+
+        var ics = await FetchFeedAsync();
+
+        Assert.Equal(anchor.PlusWeeks(2), IcsText.DtStartDate(ics, $"{live.Id}@calcrony", zone));
+        Assert.Equal(anchor.PlusWeeks(3), IcsText.DtStartDate(ics, $"{first.SeriesId}@calcrony", zone));
+        Assert.Contains("INTERVAL=3", ics);
     }
 
     [Fact]

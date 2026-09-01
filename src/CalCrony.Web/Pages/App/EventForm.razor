@@ -272,6 +272,7 @@ else
     private string? imageUrl;
     private string? error;
     private DateTimeOffset? whenPreview;
+    private DateOnly? whenLocalDate;
     private string? whenError;
     private long backGuildId;
     private RepeatKind repeatKind = RepeatKind.None;
@@ -362,7 +363,7 @@ else
                 return null;
             }
 
-            var local = whenPreview?.ToLocalTime();
+            var local = ResolvedDate;
             var every = repeatInterval == 1 ? "" : $"every {repeatInterval} ";
             var body = repeatKind switch
             {
@@ -385,12 +386,19 @@ else
         }
     }
 
+    // The calendar date the schedule anchors on: the parse response's date in the RESOLVED zone
+    // (server/user zone — what the API builds the series in), never the viewer's device zone,
+    // which can sit on the other side of midnight and name the wrong weekday. The UTC fallback
+    // only covers a server that predates LocalDate.
+    private DateOnly? ResolvedDate =>
+        whenLocalDate ?? (whenPreview is { } utc ? DateOnly.FromDateTime(utc.UtcDateTime) : null);
+
     // The first occurrence is always the date typed above (RFC 5545's DTSTART rule) — worth a
     // note when it falls outside the checked days so the preview doesn't look wrong.
     private string? RepeatDaysHint =>
         repeatKind == RepeatKind.Weekly
         && repeatDays != RecurrenceDays.None
-        && whenPreview?.ToLocalTime() is { } first
+        && ResolvedDate is { } first
         && !RecurrenceDaySets.Contains(repeatDays, first.DayOfWeek)
             ? $"The first occurrence stays on {first.DayOfWeek}; later ones follow the checked days."
             : null;
@@ -528,6 +536,7 @@ else
     private async Task PreviewAsync()
     {
         whenPreview = null;
+        whenLocalDate = null;
         whenError = null;
         if (string.IsNullOrWhiteSpace(when))
         {
@@ -538,6 +547,11 @@ else
         if (result.Success && result.Value is not null)
         {
             whenPreview = result.Value.Utc;
+            whenLocalDate = DateOnly.TryParseExact(
+                result.Value.LocalDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var resolved)
+                ? resolved
+                : null;
         }
         else
         {

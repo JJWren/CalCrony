@@ -31,6 +31,9 @@ public class RepeatDaysSyntaxTests
     [InlineData("m", "isn't a weekday")] // one letter is never enough
     [InlineData("funday", "isn't a weekday")]
     [InlineData("tue, thx", "isn't a weekday")]
+    [InlineData("weekdayxyz", "isn't a weekday")] // presets are exact literals, not prefixes
+    [InlineData("weekendxyz", "isn't a weekday")]
+    [InlineData("weekdaysss", "isn't a weekday")]
     [InlineData("   ", "at least one day")]
     [InlineData("none", "isn't a weekday")] // only edit commands accept "none"
     public void Rejects_bad_input_with_a_pointer_at_the_problem(string input, string expectedFragment)

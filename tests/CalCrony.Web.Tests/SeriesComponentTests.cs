@@ -304,6 +304,45 @@ public class SeriesComponentTests : TestContext
         Assert.Equal(RecurrenceDays.Tuesday | RecurrenceDays.Thursday, body.Recurrence.DaysOfWeek);
     }
 
+    [Theory]
+    // 03:00Z Wed Sep 2 is still Tue Sep 1 in Los Angeles: a viewer east of the resolved zone
+    // (UTC, Europe, Asia) would read Wednesday off ToLocalTime().
+    [InlineData("2026-09-02T03:00:00Z", "America/Los_Angeles", "2026-09-01", DayOfWeek.Tuesday)]
+    // 22:00Z Tue Sep 1 is already Wed Sep 2 in Auckland: a viewer west of it (the Americas,
+    // UTC) would read Tuesday. Between the two rows, any viewer zone catches a device-zone hint.
+    [InlineData("2026-09-01T22:00:00Z", "Pacific/Auckland", "2026-09-02", DayOfWeek.Wednesday)]
+    public void Create_form_weekday_preview_and_hint_use_the_resolved_zone_not_the_viewers(
+        string utc, string timeZone, string localDate, DayOfWeek resolvedDay)
+    {
+        var handler = UseApi();
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            var p when p.EndsWith("/templates") => "[]",
+            var p when p.EndsWith("/parse-datetime") => JsonSerializer.Serialize(
+                new ParseDateTimeResponse(
+                    DateTimeOffset.Parse(utc, System.Globalization.CultureInfo.InvariantCulture), 0, timeZone, localDate),
+                JsonWeb),
+            _ => null,
+        };
+
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1));
+        cut.Find("#ev-title").Change("Zone check");
+        cut.Find("#ev-when").Change("tomorrow 8pm");
+        cut.Find("#ev-repeat").Change("Weekly");
+
+        // Plain weekly names the weekday of the resolved-zone date.
+        Assert.Contains($"Repeats weekly on {resolvedDay}", cut.Markup);
+
+        // A set that excludes the resolved weekday gets the hint, naming that weekday (Thursday
+        // is neither row's resolved day).
+        cut.Find("#ev-day-thu").Change(true);
+        Assert.Contains($"The first occurrence stays on {resolvedDay}", cut.Markup);
+
+        // Including it makes the hint go away.
+        cut.Find($"#ev-day-{resolvedDay.ToString()[..3].ToLowerInvariant()}").Change(true);
+        Assert.DoesNotContain("The first occurrence stays on", cut.Markup);
+    }
+
     [Fact]
     public void Detail_edit_schedule_prefills_day_set_and_sends_the_edited_one()
     {

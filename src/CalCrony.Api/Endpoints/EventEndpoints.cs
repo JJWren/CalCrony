@@ -1355,7 +1355,9 @@ public static class EventEndpoints
         }
 
         var utc = instant.ToDateTimeOffset();
-        return Results.Ok(new ParseDateTimeResponse(utc, utc.ToUnixTimeSeconds(), zone.Id));
+        return Results.Ok(new ParseDateTimeResponse(
+            utc, utc.ToUnixTimeSeconds(), zone.Id,
+            instant.InZone(zone).Date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
     }
 
     /// <summary>Takes a FOR UPDATE lock on the event row inside the ambient transaction, so

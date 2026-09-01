@@ -53,13 +53,17 @@ public static class RepeatDaysSyntax
 
         foreach (var token in tokens)
         {
-            if (token.StartsWith("weekday", StringComparison.OrdinalIgnoreCase))
+            // Presets match their documented literals only (singular or plural) — a prefix test
+            // would wave "weekdayxyz" through as Mon–Fri.
+            if (token.Equals("weekday", StringComparison.OrdinalIgnoreCase)
+                || token.Equals("weekdays", StringComparison.OrdinalIgnoreCase))
             {
                 days |= RecurrenceDays.Weekdays;
                 continue;
             }
 
-            if (token.StartsWith("weekend", StringComparison.OrdinalIgnoreCase))
+            if (token.Equals("weekend", StringComparison.OrdinalIgnoreCase)
+                || token.Equals("weekends", StringComparison.OrdinalIgnoreCase))
             {
                 days |= RecurrenceDays.Saturday | RecurrenceDays.Sunday;
                 continue;

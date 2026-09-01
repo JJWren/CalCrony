@@ -16,9 +16,9 @@ public static class IcsRecurrence
 {
     /// <summary>RRULE for a non-ended series, anchored on the emitted DTSTART instance.</summary>
     /// <param name="series">The series row.</param>
-    /// <param name="anchorIsCounted">True when DTSTART is the live (already materialized and
-    /// counted) occurrence; false when it is a computed next slot that hasn't spawned yet —
-    /// this shifts the remaining-COUNT math by one.</param>
+    /// <param name="anchorIsCounted">True when DTSTART is an already materialized and counted
+    /// occurrence; false when it is a computed next slot that hasn't spawned yet — this shifts
+    /// the remaining-COUNT math by one. The feed always anchors on a computed slot (false).</param>
     /// <returns>The mapped recurrence pattern.</returns>
     public static RecurrencePattern BuildPattern(EventSeries series, bool anchorIsCounted)
     {
@@ -56,9 +56,11 @@ public static class IcsRecurrence
             return pattern;
         }
 
-        // BYDAY lists the whole set; INTERVAL>1 then counts weeks from DTSTART's week with the
-        // default WKST=MO — exactly RecurrenceCalculator's Monday-first cadence, and DTSTART is
-        // always in an on-week (it is either the anchor or a slot the calculator produced).
+        // BYDAY lists the whole set; INTERVAL>1 then counts weeks from DTSTART's week with
+        // WKST=MO — RecurrenceCalculator's Monday-first cadence. That only agrees when DTSTART
+        // sits in an on-week, which the feed guarantees by anchoring every series VEVENT on a
+        // slot the calculator produced from the CURRENT rule (never on the live occurrence,
+        // which an interval edit can leave off-grid).
         foreach (var day in RecurrenceDaySets.Split(series.DaysOfWeek))
         {
             pattern.ByDay.Add(new WeekDay(RecurrenceDaySets.ToDayOfWeek(day)));

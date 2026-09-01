@@ -165,23 +165,57 @@ public class DaySetApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFixtu
     }
 
     [Fact]
-    public async Task Feed_exports_the_day_set_as_byday_with_interval()
+    public async Task Feed_exports_the_day_set_as_byday_with_interval_and_follows_rule_edits()
     {
-        // A day set no other test in this guild uses, so the RRULE line is unambiguous.
-        await CreateSeriesEventAsync("Feed days", new RecurrenceRuleDto(
-            RecurrenceUnit.Week, 3, DaysOfWeek: RecurrenceDays.Wednesday | RecurrenceDays.Saturday));
+        // Day sets no other test in this guild uses, so the RRULE lines are unambiguous.
+        var wedSat = RecurrenceDays.Wednesday | RecurrenceDays.Saturday;
+        var ev = await CreateSeriesEventAsync("Feed days", new RecurrenceRuleDto(RecurrenceUnit.Week, 3, DaysOfWeek: wedSat));
+        var zone = DateTimeZoneProviders.Tzdb[ev.TimeZone];
+        var anchor = ev.StartsAtUtc.ToInstant().InZone(zone).Date;
+        var uid = $"{ev.SeriesId}@calcrony";
 
+        var ics = await FetchFeedAsync();
+        var rrule = RruleFor(ics, "BYDAY=WE,SA");
+        Assert.Contains("FREQ=WEEKLY", rrule);
+        Assert.Contains("INTERVAL=3", rrule);
+        Assert.Equal(
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 3, MonthlyMode.DayOfMonth, anchor, anchor, wedSat),
+            IcsText.DtStartDate(ics, uid, zone));
+
+        // A day-set edit re-projects from the engine's next slot under the NEW set.
+        var monFri = RecurrenceDays.Monday | RecurrenceDays.Friday;
+        (await PatchAsync(ev.SeriesId!.Value, new UpdateSeriesRequest(DaysOfWeek: monFri))).EnsureSuccessStatusCode();
+        ics = await FetchFeedAsync();
+        Assert.Contains("INTERVAL=3", RruleFor(ics, "BYDAY=MO,FR"));
+        Assert.Equal(
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 3, MonthlyMode.DayOfMonth, anchor, anchor, monFri),
+            IcsText.DtStartDate(ics, uid, zone));
+
+        // A whole-series time edit re-anchors the grid; the feed follows the new anchor's week.
+        var move = await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, WhenText: "in 10 days", Scope: EditScope.Series));
+        move.EnsureSuccessStatusCode();
+        var moved = (await move.Content.ReadFromJsonAsync<EventDto>())!;
+        var newAnchor = moved.StartsAtUtc.ToInstant().InZone(zone).Date;
+        Assert.NotEqual(anchor, newAnchor);
+        ics = await FetchFeedAsync();
+        Assert.Equal(newAnchor, IcsText.DtStartDate(ics, $"{ev.Id}@calcrony", zone));
+        Assert.Equal(
+            RecurrenceCalculator.NextDate(RecurrenceUnit.Week, 3, MonthlyMode.DayOfMonth, newAnchor, newAnchor, monFri),
+            IcsText.DtStartDate(ics, uid, zone));
+    }
+
+    private static string RruleFor(string ics, string bydayFragment) =>
+        ics.Split('\n').Select(l => l.TrimEnd('\r'))
+            .First(l => l.StartsWith("RRULE:", StringComparison.Ordinal) && l.Contains(bydayFragment));
+
+    private async Task<string> FetchFeedAsync()
+    {
         var token = await Client.PostAsync($"/guilds/{GuildId}/feed-token", null);
         token.EnsureSuccessStatusCode();
         var feed = (await token.Content.ReadFromJsonAsync<FeedTokenDto>())!;
-
         using var anonymous = fixture.Factory.CreateClient();
-        var ics = await anonymous.GetStringAsync(feed.Path);
-
-        var rrule = ics.Split('\n').Select(l => l.TrimEnd('\r'))
-            .First(l => l.StartsWith("RRULE:", StringComparison.Ordinal) && l.Contains("BYDAY=WE,SA"));
-        Assert.Contains("FREQ=WEEKLY", rrule);
-        Assert.Contains("INTERVAL=3", rrule);
+        return await anonymous.GetStringAsync(feed.Path);
     }
 
     private Task<HttpResponseMessage> PatchAsync(Guid seriesId, UpdateSeriesRequest request) =>
