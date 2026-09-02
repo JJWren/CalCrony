@@ -323,6 +323,10 @@ else
     /// <summary>The flag as loaded for an edit, so the update carries it only when it changed —
     /// a no-op resend would still be refused while members hold several RSVPs.</summary>
     private bool loadedAllowMultipleRsvps;
+
+    /// <summary>The event the last edit route loaded, so the next create route on this reused
+    /// instance can tell it is coming from an edit and reset the opt-in switch.</summary>
+    private Guid? loadedEventId;
     private List<OptionRow> optionRows = DefaultOptionRows();
     private List<RsvpOptionSpec>? loadedOptionSpecs;
     private string rsvpClose = "";
@@ -468,6 +472,17 @@ else
     protected override async Task OnParametersSetAsync()
     {
         backGuildId = GuildId;
+        if (!IsEdit && loadedEventId is not null)
+        {
+            // Edit → create on a reused instance (same guild or not): the switch is opt-in, so a
+            // fresh event starts with it off — the edited event's `true` must not ride along.
+            // Tracked on its own rather than through the template-cache key below, which does
+            // not change when the create route is one this instance already served.
+            loadedEventId = null;
+            allowMultipleRsvps = false;
+            loadedAllowMultipleRsvps = false;
+        }
+
         if (!IsEdit && templatesLoadedForGuild != GuildId)
         {
             // Once per guild: a reused component instance must not keep another guild's
@@ -476,10 +491,6 @@ else
             selectedTemplateId = null;
             optionRows = DefaultOptionRows();
             rsvpClose = "";
-            // Opt-in, so a fresh create route starts with it off — an edit that loaded `true`
-            // into this reused instance must not ride into the next event.
-            allowMultipleRsvps = false;
-            loadedAllowMultipleRsvps = false;
             var loaded = await Api.ListTemplatesAsync(GuildId);
             // Failure just hides the picker — templates are a convenience, not a requirement.
             templates = loaded.Success ? loaded.Value ?? [] : [];
@@ -520,6 +531,7 @@ else
             currentRsvpClose = ev.RsvpClosesAtUtc;
             allowMultipleRsvps = ev.AllowMultipleRsvps;
             loadedAllowMultipleRsvps = ev.AllowMultipleRsvps;
+            loadedEventId = ev.Id;
             optionRows = [.. ev.Options.OrderBy(o => o.SortOrder).Select(o => new OptionRow
             {
                 Emote = o.Emote,

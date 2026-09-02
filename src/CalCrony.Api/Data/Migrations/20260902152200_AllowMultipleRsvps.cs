@@ -8,16 +8,45 @@ namespace CalCrony.Api.Data.Migrations
     /// §3.3): an opt-in flag on events and, as a template field, on series, and the RSVP unique
     /// index widened from (EventId, UserId) to (EventId, UserId, OptionId). Up is lossless — no
     /// existing row violates the wider index. Down is NOT: the old index cannot hold two rows for
-    /// one member, so every member keeps only their earliest RSVP on each event before it is
-    /// restored, and a revoke is enqueued for each role a discarded seat carried that the kept seat
-    /// does not — the downgraded app cannot discover those roles later.
-    /// Rolling the IMAGE back without running Down is safe only while no member holds more than
-    /// one row: the previous PutRsvp moves a member's first row onto the clicked option, which
-    /// collides with their other row when they already hold it. Once members hold several seats,
-    /// run Down first.</summary>
+    /// one member, so on each event a member keeps only one row — their seated ATTENDING row when
+    /// they hold one (so no attending seat is freed behind a waitlist the downgraded app would not
+    /// promote), else their earliest — and a revoke is enqueued for each role a discarded seat
+    /// carried that the kept seat does not, since the downgraded app cannot discover those roles
+    /// later. Rolling the IMAGE back without running Down is safe only while no member holds more
+    /// than one row: the previous PutRsvp moves a member's first row onto the clicked option,
+    /// which collides with their other row when they already hold it. Once members hold several
+    /// seats, run Down first.</summary>
     /// <inheritdoc />
     public partial class AllowMultipleRsvps : Migration
     {
+        /// <summary>Each member's rows on an event ranked for Down: seat 1 survives, the rest are
+        /// discarded. A seated row on the event's attending option (the flagged one, else the
+        /// lowest SortOrder — the RsvpPolicy.AttendingOption rule) ranks first, so collapsing a
+        /// member never frees an attending seat; otherwise the same CreatedAt order the waitlist
+        /// queues on decides, with Id breaking ties.</summary>
+        private const string RankedSeats = """
+            attending AS (
+                SELECT e."Id" AS event_id, a."Id" AS option_id
+                FROM "Events" AS e
+                JOIN LATERAL (
+                    SELECT "Id"
+                    FROM "RsvpOptions"
+                    WHERE "EventId" = e."Id"
+                    ORDER BY "IsAttending" DESC, "SortOrder", "Id"
+                    LIMIT 1
+                ) AS a ON TRUE
+            ),
+            ranked AS (
+                SELECT r."Id", r."EventId", r."UserId", r."OptionId", r."Waitlisted",
+                       ROW_NUMBER() OVER (
+                           PARTITION BY r."EventId", r."UserId"
+                           ORDER BY CASE WHEN NOT r."Waitlisted" AND r."OptionId" = a.option_id THEN 0 ELSE 1 END,
+                                    r."CreatedAt", r."Id") AS seat
+                FROM "Rsvps" AS r
+                LEFT JOIN attending AS a ON a.event_id = r."EventId"
+            )
+            """;
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -49,18 +78,13 @@ namespace CalCrony.Api.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Each member's rows on an event ranked by the same CreatedAt order the waitlist queues
-            // on (Id breaks ties): seat 1 is kept, the rest are discarded below. A discarded SEATED
-            // row on a role-bearing option of a live event loses that role for the member unless
-            // the kept row (when itself seated) carries the same role — one RevokeAttendeeRole
-            // (type 11) per (event, member, role), the way the app's own end/delete sweep would
-            // enqueue it, since the downgraded code can no longer see those seats.
-            migrationBuilder.Sql("""
-                WITH ranked AS (
-                    SELECT "Id", "EventId", "UserId", "OptionId", "Waitlisted",
-                           ROW_NUMBER() OVER (PARTITION BY "EventId", "UserId" ORDER BY "CreatedAt", "Id") AS seat
-                    FROM "Rsvps"
-                )
+            // A discarded SEATED row on a role-bearing option of a live event loses that role for
+            // the member unless the kept row (when itself seated) carries the same role — one
+            // RevokeAttendeeRole (type 11) per (event, member, role), the way the app's own
+            // end/delete sweep would enqueue it, since the downgraded code can no longer see those
+            // seats. Waitlisted rows never held a role and enqueue nothing.
+            migrationBuilder.Sql($"""
+                WITH {RankedSeats}
                 INSERT INTO "Deliveries" ("Id", "Type", "ChannelId", "PayloadJson", "DueAt", "Status", "Attempts", "CreatedAt")
                 SELECT gen_random_uuid(),
                        11,
@@ -91,17 +115,10 @@ namespace CalCrony.Api.Data.Migrations
 
             // Collapse each member back to one RSVP per event BEFORE the old unique index is
             // restored, or its creation would fail on the very rows it forbids.
-            migrationBuilder.Sql("""
+            migrationBuilder.Sql($"""
+                WITH {RankedSeats}
                 DELETE FROM "Rsvps"
-                WHERE "Id" IN (
-                    SELECT "Id"
-                    FROM (
-                        SELECT "Id",
-                               ROW_NUMBER() OVER (PARTITION BY "EventId", "UserId" ORDER BY "CreatedAt", "Id") AS seat
-                        FROM "Rsvps"
-                    ) AS ranked
-                    WHERE ranked.seat > 1
-                );
+                WHERE "Id" IN (SELECT "Id" FROM ranked WHERE seat > 1);
                 """);
 
             migrationBuilder.DropIndex(

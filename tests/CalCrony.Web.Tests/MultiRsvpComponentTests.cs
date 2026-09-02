@@ -143,11 +143,16 @@ public class MultiRsvpComponentTests : TestContext
             ? "[]"
             : JsonSerializer.Serialize(edited, JsonWeb);
 
-        // The routable component is reused across navigations: an edit that loaded `true`…
-        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)edited.Id));
+        // The routable component is reused across navigations. Create for guild G first, so the
+        // per-guild template cache is warm and cannot be what resets the flag…
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, edited.GuildId));
+        cut.WaitForAssertion(() => Assert.False(cut.Find("#ev-multi-rsvp").HasAttribute("checked")));
+
+        // …then an edit in G that loads `true`…
+        cut.Render(p => p.Add(x => x.EventId, (Guid?)edited.Id));
         cut.WaitForAssertion(() => Assert.True(cut.Find("#ev-multi-rsvp").HasAttribute("checked")));
 
-        // …followed by a create route must not submit that value.
+        // …then G's create route again must not submit that value.
         cut.Render(p => p.Add(x => x.EventId, (Guid?)null).Add(x => x.GuildId, edited.GuildId));
         cut.WaitForAssertion(() => Assert.False(cut.Find("#ev-multi-rsvp").HasAttribute("checked")));
         cut.Find("#ev-title").Change("Fresh event");
