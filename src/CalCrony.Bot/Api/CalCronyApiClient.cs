@@ -242,6 +242,14 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<WatchedRolesResponse>> GetWatchedRolesAsync(CancellationToken ct = default) =>
         SendAsync<WatchedRolesResponse>(http.GetAsync("/guilds/roles/watched", ct), ct);
 
+    /// <summary>One guild's watched roles (empty when it has no live restriction) — what a
+    /// single-guild sync resolves against.</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<GuildWatchedRolesDto>> GetGuildWatchedRolesAsync(long guildId, CancellationToken ct = default) =>
+        SendAsync<GuildWatchedRolesDto>(http.GetAsync($"/guilds/{guildId}/roles/watched", ct), ct);
+
     /// <summary>Replaces one guild's role snapshot: every watched role as resolved (null name = the
     /// role no longer exists) and every member holding at least one of them.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>

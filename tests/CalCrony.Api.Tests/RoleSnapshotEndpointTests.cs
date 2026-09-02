@@ -66,6 +66,22 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
     }
 
     [Fact]
+    public async Task The_per_guild_lookup_returns_that_guilds_roles_and_empty_for_a_guild_with_none()
+    {
+        const long restricted = 12170;
+        const long quiet = 12171;
+        const long role = 995170;
+        await CreateEventAsync(restricted, "Restricted", [role]);
+
+        var some = await Client.GetFromJsonAsync<GuildWatchedRolesDto>($"/guilds/{restricted}/roles/watched");
+        Assert.Equal(restricted, some!.GuildId);
+        Assert.Equal([role], some.RoleIds);
+
+        var none = await Client.GetFromJsonAsync<GuildWatchedRolesDto>($"/guilds/{quiet}/roles/watched");
+        Assert.Empty(none!.RoleIds);
+    }
+
+    [Fact]
     public async Task Sync_replaces_the_snapshot_tombstones_deleted_roles_and_drops_empty_members()
     {
         const long guild = 12120;
@@ -134,6 +150,7 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         var (client, _) = await fixture.LoginAsync(12190, (GuildId, "Members Only", true));
 
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/guilds/roles/watched")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/guilds/{GuildId}/roles/watched")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync(
             $"/guilds/{GuildId}/roles/sync", new RoleSyncRequest([], []))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync(

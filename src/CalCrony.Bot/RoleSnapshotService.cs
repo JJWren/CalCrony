@@ -37,10 +37,11 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// <summary>Full reconcile — at Ready and on the timer: syncs every guild the API lists plus
     /// every guild this bot still holds a watched set for. Heals a fresh database, catches role
     /// and membership changes missed while offline, and renews each guild's lease. The listing
-    /// only ENUMERATES guilds: each sync re-reads its own watched set under the guild's lock, so a
-    /// restriction created while this loop is on another guild is never overwritten by the older
-    /// listing, and a guild that lost its restrictions is dropped from the cache only once its own
-    /// fresh read says so.</summary>
+    /// only ENUMERATES guilds: each sync re-reads its own (guild-scoped) watched set under the
+    /// guild's lock, so a restriction created while this loop is on another guild is never
+    /// overwritten by the older listing, and a guild that lost its restrictions is dropped from
+    /// the cache only once its own fresh read says so. A cached guild the client no longer has is
+    /// forgotten here as well.</summary>
     public async Task ReconcileAllAsync()
     {
         var result = await api.GetWatchedRolesAsync();
@@ -57,6 +58,10 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
             {
                 await SyncGuildAsync(guild);
             }
+            else
+            {
+                Forget(guildId);
+            }
         }
 
         if (response.Guilds.Count > 0)
@@ -68,9 +73,10 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// <summary>Syncs one guild against the API's CURRENT watched set — the call a command makes
     /// right after the API accepted a restriction, so the snapshot is authoritative before the
     /// embed can be clicked. The set is read inside the guild's lock, after any sync or member
-    /// push already in flight, so two syncs can never land out of order. A guild the API no longer
-    /// lists has nothing watched (its last restriction was cleared); the API's retention drops
-    /// its rows in due course.</summary>
+    /// push already in flight, so two syncs can never land out of order; and it is read per guild,
+    /// so a sync costs that guild's restrictions, not every guild's. A guild with nothing watched
+    /// (its last restriction was cleared) is dropped from the cache; the API's retention drops its
+    /// rows in due course.</summary>
     /// <param name="guild">The guild to sync.</param>
     public async Task SyncGuildAsync(SocketGuild guild)
     {
@@ -78,15 +84,14 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
         await gate.WaitAsync();
         try
         {
-            var result = await api.GetWatchedRolesAsync();
-            if (result is not { Success: true, Value: { } response })
+            var result = await api.GetGuildWatchedRolesAsync((long)guild.Id);
+            if (result is not { Success: true, Value: { } entry })
             {
                 logger.LogWarning("Watched-role lookup failed for guild {GuildId}: {Error}", guild.Id, result.Error ?? "empty response body");
                 return;
             }
 
-            var entry = response.Guilds.FirstOrDefault(g => g.GuildId == (long)guild.Id);
-            if (entry is null)
+            if (entry.RoleIds.Count == 0)
             {
                 watched.TryRemove(guild.Id, out _);
                 return;
@@ -114,11 +119,6 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     {
         try
         {
-            if (!guild.HasAllMembers)
-            {
-                await guild.DownloadUsersAsync();
-            }
-
             var existing = new Dictionary<long, string>();
             foreach (var roleId in watchedRoleIds)
             {
@@ -128,9 +128,15 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
                 }
             }
 
-            // Registered before the capture: a member update arriving from here on is judged
-            // against this set and queues behind the lock, so it lands after this PUT.
+            // Registered BEFORE the member download, not just before the capture: the download
+            // can take a while on a large guild, and a member update or departure during it must
+            // already see this set so it queues behind the lock and lands after this PUT.
             watched[guild.Id] = [.. existing.Keys.Select(id => (ulong)id)];
+
+            if (!guild.HasAllMembers)
+            {
+                await guild.DownloadUsersAsync();
+            }
 
             var request = BuildSyncRequest(
                 watchedRoleIds, existing,
@@ -148,6 +154,33 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     }
 
     private SemaphoreSlim LockFor(ulong guildId) => guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
+
+    /// <summary>Retires a guild's cache entries — both the watched set and the lock — so guild
+    /// churn doesn't accumulate process-lifetime state or per-tick work for guilds that are gone.</summary>
+    /// <param name="guildId">The guild to forget.</param>
+    private void Forget(ulong guildId)
+    {
+        watched.TryRemove(guildId, out _);
+        guildLocks.TryRemove(guildId, out _);
+    }
+
+    /// <summary>The bot left the guild: the API drops the snapshot on the presence report, and the
+    /// bot forgets its side (under the lock, after any write in flight) so the reconcile stops
+    /// unioning the guild back in every tick.</summary>
+    /// <param name="guild">The guild the bot left.</param>
+    public async Task OnLeftGuildAsync(SocketGuild guild)
+    {
+        var gate = LockFor(guild.Id);
+        await gate.WaitAsync();
+        try
+        {
+            Forget(guild.Id);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
 
     /// <summary>Member departure (leave, kick, or ban — none of which raise a member update): an
     /// empty push removes the member's row at once. Without it a former member's row would stay

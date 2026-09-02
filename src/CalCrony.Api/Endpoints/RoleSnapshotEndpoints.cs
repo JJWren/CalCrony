@@ -18,6 +18,7 @@ public static class RoleSnapshotEndpoints
     public static void MapRoleSnapshotEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/guilds/roles/watched", GetWatched).RequireAuthorization("BotOnly");
+        app.MapGet("/guilds/{guildId:long}/roles/watched", GetWatchedForGuild).RequireAuthorization("BotOnly");
         app.MapPut("/guilds/{guildId:long}/roles/sync", SyncGuild).RequireAuthorization("BotOnly");
         app.MapPut("/guilds/{guildId:long}/members/{userId:long}/roles", PutMemberRoles).RequireAuthorization("BotOnly");
     }
@@ -39,6 +40,19 @@ public static class RoleSnapshotEndpoints
             .ToListAsync(cancellationToken);
         return Results.Ok(new WatchedRolesResponse(
             [.. present.Order().Select(id => new GuildWatchedRolesDto(id, [.. watched[id].Order()]))]));
+    }
+
+    /// <summary>One guild's watched roles — what a single-guild sync resolves against, computed
+    /// from that guild's restrictions alone so a per-guild sync never rescans every guild. Empty
+    /// when the guild has no live restriction (or is unknown).</summary>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> GetWatchedForGuild(long guildId, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        var watched = await RoleWatchList.WatchedForGuildAsync(db, guildId, cancellationToken);
+        return Results.Ok(new GuildWatchedRolesDto(guildId, [.. watched.Order()]));
     }
 
     /// <summary>Replaces one guild's whole role snapshot and stamps it synced. Every role the bot

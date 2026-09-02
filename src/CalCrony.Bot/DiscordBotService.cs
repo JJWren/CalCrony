@@ -44,6 +44,7 @@ public sealed class DiscordBotService(
         client.UserLeft += roleSnapshots.OnUserLeftAsync;
         client.RoleDeleted += roleSnapshots.OnRoleDeletedAsync;
         client.RoleUpdated += roleSnapshots.OnRoleUpdatedAsync;
+        client.LeftGuild += roleSnapshots.OnLeftGuildAsync;
 
         await interactions.AddModulesAsync(typeof(DiscordBotService).Assembly, services);
 

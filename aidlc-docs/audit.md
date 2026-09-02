@@ -354,3 +354,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 7 pending.
 
 ---
+## Delivery — PR #150 Copilot round 7 addressed
+**Timestamp**: 2026-09-02T01:15:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 7 (reviewed the pre-round-6 head): two new comments and one suppressed note, all taken. The reconcile made N+1 global watched-list calls per tick — added a guild-scoped lookup (GET /guilds/{guildId}/roles/watched, RoleWatchList.WatchedForGuildAsync) that a single-guild sync reads under its lock, so reconcile work scales per guild. The bot's per-guild caches (watched set, lock) were never retired — LeftGuild now forgets a guild under its lock, and the reconcile forgets cached guilds the client no longer has. The watched set was registered after the member download despite the stated invariant — it is now registered before, so a departure during a long download queues behind the lock. Tests: per-guild lookup (ids for a restricted guild, empty otherwise, 403 for the web). 476 API, 113 bot green.
+**Context**: Delivery — step 8.3, Copilot loop round 8 pending.
+
+---
