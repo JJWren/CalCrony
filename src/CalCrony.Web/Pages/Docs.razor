@@ -228,10 +228,12 @@
     </li>
     <li class="mb-2">
         <b>ICS subscribe feed</b> — <code>/link</code> (or the server settings page) gives a
-        tokenized URL for Google, Apple, and Outlook calendars. Repeating events carry their full
-        schedule, so subscribers see every future occurrence; each entry names its channel and links
-        to the event's web page and to the RSVP embed. Calendar apps refresh on their own schedule
-        (see Good to know below).
+        tokenized URL for Google, Apple, and Outlook calendars; the calendar is named after the
+        server ("CalCrony · Your Server"). Repeating events carry their full schedule (RRULE), so
+        subscribers see every future occurrence. Each entry's description names its channel and
+        links to the event's web page and to the RSVP embed in Discord — except recurring series,
+        which link to the server's events page instead, since their live occurrence rotates.
+        Calendar apps refresh on their own schedule (see Good to know below).
     </li>
     <li class="mb-2">
         <b>Public web calendar</b> (<b>opt-in</b> per server, managers) — <code>/settings
@@ -267,7 +269,8 @@
 <ul class="text-body-secondary" style="max-width:66ch">
     <li class="mb-2">
         <b>Attendee roles</b> — an existing role given to whoever is seated on an option and taken
-        back when they leave it or the event ends. Event-wide with <code>attendee-role:</code>, or
+        back when they leave it, or from everyone when the event ends, is deleted, skipped, or
+        cancelled. Event-wide with <code>attendee-role:</code>, or
         per option by mentioning the role inside <code>rsvp-options</code> (see Set up your interest
         roles above for the Tank/Healer/DPS pattern). Grants land within about 15 seconds; with
         multiple RSVPs on, a member seated on two options holds both roles until their last seat

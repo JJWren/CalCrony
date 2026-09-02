@@ -28,12 +28,18 @@ public class DocsPageTests : TestContext
     {
         var cut = Render<Docs>();
 
-        Assert.Contains("Multiple RSVPs per member", cut.Markup);
-        Assert.Contains("multi-rsvp:true", cut.Markup);
-        Assert.Contains("Role-restricted signup", cut.Markup);
-        Assert.Contains("Attendee roles", cut.Markup);
-        Assert.Contains("Manage Roles", cut.Markup);
-        Assert.Contains("Manage Events", cut.Markup);
-        Assert.Contains("Create Public Threads", cut.Markup);
+        // Each permission is asserted inside its own feature entry (the same names also occur in
+        // the first-steps guidance above the reference, so a page-wide search would prove nothing).
+        Assert.Contains("multi-rsvp:true", Entry(cut, "Multiple RSVPs per member").TextContent);
+        Assert.Contains("fails closed", Entry(cut, "Role-restricted signup").TextContent);
+        Assert.Contains("Manage Roles", Entry(cut, "Attendee roles").TextContent);
+        Assert.Contains("Manage Events", Entry(cut, "Discord native events").TextContent);
+        Assert.Contains("Create Public Threads", Entry(cut, "Event threads").TextContent);
     }
+
+    /// <summary>The "Features in depth" list entry whose bold lead is <paramref name="name"/> —
+    /// scoped to the lists after the <c>#features</c> heading, since the first-steps guidance
+    /// above uses some of the same leads (e.g. "Attendee roles").</summary>
+    private static AngleSharp.Dom.IElement Entry(IRenderedComponent<Docs> cut, string name) =>
+        cut.FindAll("#features ~ ul > li").Single(li => li.QuerySelector("b")?.TextContent.Trim() == name);
 }

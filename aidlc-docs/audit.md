@@ -702,3 +702,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 2 addressed.
 
 ---
+## Construction — docs PR #157 Copilot round 3
+**Timestamp**: 2026-09-02T17:47:50Z
+**User Input**: (none — continuation)
+**AI Response**: Two comments plus two notes, all accepted: the ICS entry restores the calendar name ("CalCrony · Your Server"), RRULE, and the recurring-series exception (they link to the server's events page, not the RSVP embed); the attendee-roles entry names the delete/skip/cancel lifecycle again; DocsPageTests asserts each permission inside its own feature entry, scoped to the lists after #features; plan step 2.1 describes the delivered hierarchy (one h2#features, six h3 groups, one list entry per feature). Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 3 addressed.
+
+---

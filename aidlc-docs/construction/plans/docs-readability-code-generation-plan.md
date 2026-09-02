@@ -44,7 +44,7 @@ Commands table rows carry the same semantics again (`/create` ~100 words, `/edit
 - [x] 1.4 Configuration, Running locally, Deploying, Community, Contributing sections untouched.
 
 **2. `src/CalCrony.Web/Pages/Docs.razor`**
-- [x] 2.1 New "Features in depth" section after the worked example: the same six groups as `h2`s, one short `h3` per feature carrying the long-form text migrated from the README bullets and today's "The web app" bullets — what it does, how to invoke it in Discord and on the web, the Discord permission it needs, its default (opt-in or not) and caveats. Nothing said today is lost; duplication between the two pages ends.
+- [x] 2.1 New "Features in depth" section after the worked example (one `h2#features`; the six groups as `h3` headings; one list entry per feature — the delivered hierarchy, revised in review from the originally planned h2/h3 split) carrying the long-form text migrated from the README bullets and today's "The web app" bullets — what it does, how to invoke it in Discord and on the web, the Discord permission it needs, its default (opt-in or not) and caveats. Nothing said today is lost; duplication between the two pages ends.
 - [x] 2.2 "The web app" section shrinks to sign-in scope, what the browser can do, themes and the server re-sync link, pointing into the features section for the rest.
 - [x] 2.3 Slash commands table rows trimmed the same way as the README's.
 - [x] 2.4 First steps, interest-role guidance, the worked example and "Good to know" unchanged.
