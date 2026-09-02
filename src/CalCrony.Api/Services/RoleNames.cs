@@ -5,8 +5,10 @@ namespace CalCrony.Api.Services;
 
 /// <summary>Role-name snapshot lookups for DTO mapping. The API holds names only for watched
 /// roles (see <see cref="RoleWatchList"/>: restricted and granted roles alike), so a name can
-/// still be missing — a role named since the bot's last sync, or one the bot found deleted —
-/// and consumers fall back to the id, the ADR 0001 posture for every name snapshot.</summary>
+/// still be missing — a role named since the bot's last sync, one the bot found deleted, or any
+/// role of a guild the bot has left (the presence route drops that guild's rows while its events
+/// live on) — and consumers fall back to the id, the ADR 0001 posture for every name
+/// snapshot.</summary>
 public static class RoleNames
 {
     private static readonly IReadOnlyDictionary<long, string?> Empty = new Dictionary<long, string?>();

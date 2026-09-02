@@ -7,7 +7,8 @@ using Discord.WebSocket;
 namespace CalCrony.Bot;
 
 /// <summary>Pushes role snapshots to the API (ADR 0004): which watched roles exist and who holds
-/// them, so the API can answer WEB callers' signup restrictions without ever asking Discord. The
+/// them, so the API can answer WEB callers' signup restrictions — and name the roles events grant
+/// (#167) — without ever asking Discord. The
 /// API publishes what it watches (<c>GET /guilds/roles/watched</c>); this service resolves exactly
 /// that and pushes it — a full guild sync at Ready and on a timer, right after any command that
 /// names roles, and whenever a watched role is deleted or renamed; a single-member push on a
@@ -42,9 +43,9 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// every guild this bot still holds a watched set for. Heals a fresh database, catches role
     /// and membership changes missed while offline, and renews each guild's lease. The listing
     /// only ENUMERATES guilds: each sync re-reads its own (guild-scoped) watched set under the
-    /// guild's lock, so a restriction created while this loop is on another guild is never
-    /// overwritten by the older listing, and a guild that lost its restrictions is dropped from
-    /// the cache only once its own fresh read says so. A cached guild the client no longer has is
+    /// guild's lock, so a role named while this loop is on another guild is never overwritten by
+    /// the older listing, and a guild with no watched role left is dropped from the cache only
+    /// once its own fresh read says so. A cached guild the client no longer has is
     /// forgotten here as well.</summary>
     public async Task ReconcileAllAsync()
     {
@@ -75,12 +76,13 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     }
 
     /// <summary>Syncs one guild against the API's CURRENT watched set — the call a command makes
-    /// right after the API accepted a restriction, so the snapshot is authoritative before the
-    /// embed can be clicked. The set is read inside the guild's lock, after any sync or member
-    /// push already in flight, so two syncs can never land out of order; and it is read per guild,
-    /// so a sync costs that guild's restrictions, not every guild's. A guild with nothing watched
-    /// (its last restriction was cleared) is dropped from the cache; the API's retention drops its
-    /// rows in due course.</summary>
+    /// right after the API accepted a restriction or an attendee role, so the snapshot is
+    /// authoritative before the embed can be clicked (and names the granted role at once). The set
+    /// is read inside the guild's lock, after any sync or member push already in flight, so two
+    /// syncs can never land out of order; and it is read per guild, so a sync costs that guild's
+    /// watched roles, not every guild's. A guild with nothing watched (its last restriction or
+    /// granted role was cleared) is dropped from the cache; the API's retention drops its rows in
+    /// due course.</summary>
     /// <param name="guild">The guild to sync.</param>
     public async Task SyncGuildAsync(SocketGuild guild)
     {

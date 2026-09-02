@@ -94,5 +94,9 @@ sync fires for a named attendee role as well. The cost is a wider per-user fact:
 now also records who holds a granted role — including members who hold it independently of
 CalCrony — so the privacy policy's role-snapshot bullet names granted roles alongside restricted
 ones, and the same retention rules (last watched role ends, bot leaves, trim to the roles still
-named or granted) apply. The write load is nothing new: the bot grants attendee roles itself, and
-each grant is the existing per-member push.
+named or granted) apply. The write cost is real, not new in kind: the ten-minute reconcile already
+sends every holder of every watched role and `SyncGuild` replaces the guild's member rows
+wholesale, so a pre-existing, widely held role chosen as an attendee role adds rows proportional
+to its holders and rewrites them each cycle — the same cost a restriction naming that role has
+always carried. A role CalCrony creates for the purpose stays proportional to the event's RSVPs,
+and each grant the bot makes is the existing per-member push.

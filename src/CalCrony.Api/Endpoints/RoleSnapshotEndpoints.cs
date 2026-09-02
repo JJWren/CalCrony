@@ -23,10 +23,11 @@ public static class RoleSnapshotEndpoints
         app.MapPut("/guilds/{guildId:long}/members/{userId:long}/roles", PutMemberRoles).RequireAuthorization("BotOnly");
     }
 
-    /// <summary>Lists, per bot-present guild, the roles its live signup restrictions name —
-    /// scheduled/started events' options, running series' option templates, and open polls. The
-    /// bot's Ready-time reconcile syncs every guild listed; guilds with no live restriction are
-    /// absent, and the bot can't resolve roles in guilds it has left.</summary>
+    /// <summary>Lists, per bot-present guild, its watched roles — the roles live signup
+    /// restrictions name (scheduled/started events' options, running series' option templates,
+    /// open polls) and the attendee roles live events and running series grant. The bot's
+    /// Ready-time reconcile syncs every guild listed; guilds with no watched role are absent, and
+    /// the bot can't resolve roles in guilds it has left.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
@@ -42,9 +43,10 @@ public static class RoleSnapshotEndpoints
             [.. present.Order().Select(id => new GuildWatchedRolesDto(id, [.. watched[id].Order()]))]));
     }
 
-    /// <summary>One guild's watched roles — what a single-guild sync resolves against, computed
-    /// from that guild's restrictions alone so a per-guild sync never rescans every guild. Empty
-    /// when the guild has no live restriction (or is unknown).</summary>
+    /// <summary>One guild's watched roles (restricted and granted) — what a single-guild sync
+    /// resolves against, computed from that guild's events, series and polls alone so a per-guild
+    /// sync never rescans every guild. Empty when the guild has no watched role (or is
+    /// unknown).</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="db">The database context.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
