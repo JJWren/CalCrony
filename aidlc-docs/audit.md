@@ -597,3 +597,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — delivery step 8.3, Copilot loop round 4 addressed.
 
 ---
+## Construction — Copilot review round 5
+**Timestamp**: 2026-09-02T16:24:08Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 5 (one comment + one previously-missed note): (1) Down collapsed rows without asking the bot to re-render posted embeds, which would keep showing discarded choices — Down now enqueues one SyncEventMessage (type 3) per affected event that has a MessageId, before the delete; re-verified on postgres:17-alpine (one sync for the collapsed event, none for a second event with a message but no multi rows; revokes unchanged). (2) Docs /create row wording "design choices that combine" → "choose options that combine sensibly". Pushing and re-requesting Copilot.
+**Context**: Construction — delivery step 8.3, Copilot loop round 5 addressed.
+
+---

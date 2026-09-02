@@ -113,6 +113,25 @@ namespace CalCrony.Api.Data.Migrations
                 GROUP BY e."Id", e."GuildId", e."ChannelId", r."UserId", o."AttendeeRoleId";
                 """);
 
+            // A posted embed would keep showing the discarded choices: one SyncEventMessage
+            // (type 3) per affected event that has a message, so the bot re-renders it from the
+            // collapsed rows. Ready reconciles live lists on its own, but not event messages.
+            migrationBuilder.Sql($"""
+                WITH {RankedSeats}
+                INSERT INTO "Deliveries" ("Id", "Type", "ChannelId", "PayloadJson", "DueAt", "Status", "Attempts", "CreatedAt")
+                SELECT gen_random_uuid(),
+                       3,
+                       e."ChannelId",
+                       json_build_object('EventId', e."Id")::text,
+                       now(),
+                       0,
+                       0,
+                       now()
+                FROM "Events" AS e
+                WHERE e."MessageId" IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM ranked AS r WHERE r."EventId" = e."Id" AND r.seat > 1);
+                """);
+
             // Collapse each member back to one RSVP per event BEFORE the old unique index is
             // restored, or its creation would fail on the very rows it forbids.
             migrationBuilder.Sql($"""
