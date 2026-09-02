@@ -50,7 +50,7 @@ Steps run top to bottom; each layer builds and its tests pass before the next st
 ## 6. Docs and policy
 - [x] 6.1 `PRIVACY_POLICY.md`: role-membership snapshots — what is stored, why (only roles named by a live restriction), retention (a guild's snapshot is dropped when its last restriction ends or the bot leaves; while restrictions remain it is trimmed to the roles still named, and a deleted role keeps only a nameless tombstone with no member associations — the refinement recorded in ADR 0004).
 - [x] 6.2 `README.md` + web `Docs` page: `restrict-to:` syntax, per-option grammar, the "RSVP from Discord" web behaviour, manager/creator bypass, seats survive role loss.
-- [ ] 6.3 `aidlc-state.md` marks §3.5 shipped on merge; `audit.md` entries throughout.
+- [x] 6.3 `aidlc-state.md` marks §3.5 shipped on merge; `audit.md` entries throughout.
 
 ## 7. Tests (each layer's tests pass before the next layer starts)
 - [x] 7.1 API `RoleRestrictionTests` (pure): the evaluation matrix — deleted role vacuous, all-deleted allowed, unknown role unverifiable, no sync unverifiable, bypass, empty set allowed.
@@ -65,4 +65,4 @@ Steps run top to bottom; each layer builds and its tests pass before the next st
 ## 8. Delivery
 - [x] 8.1 Ship #148 (the `GuildHeading` sidebar change) first as its own PR (`feat: name the server above the guild section tabs`) so this PR stays single-purpose.
 - [x] 8.2 Open the PR with the §3.6-style body: what it does, shape of the change, behaviour changes for existing servers (none expected — restrictions are opt-in), migration verification, test counts.
-- [ ] 8.3 Copilot review loop to zero comments; squash-merge; release; upgrade test then prod (pg_dump first); update the #125 checklist and `aidlc-state.md`.
+- [x] 8.3 Copilot review loop to zero comments; squash-merge; release; upgrade test then prod (pg_dump first); update the #125 checklist and `aidlc-state.md`.
