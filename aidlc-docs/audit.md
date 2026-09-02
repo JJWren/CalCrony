@@ -410,3 +410,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 16 addressed
+**Timestamp**: 2026-09-02T03:12:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 16 (on a0a6e43): one new thread, taken. The sync borrowed the guild-name helper, whose blank-to-null rule would have turned a whitespace-only role name (valid in Discord) into the deletion tombstone and made that restriction vacuous; the sync now keeps any name the bot reported, clamped to the column only, and null means exactly "reported gone" (tested with a whitespace-only name). The two round-15 threads drew no new comment and are resolved. 478 API green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

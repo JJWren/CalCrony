@@ -88,10 +88,16 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         const long tank = 995120;
         const long deleted = 995121;
         const long unwatched = 995122;
-        await CreateEventAsync(guild, "Watched", [tank, deleted]);
+        const long blank = 995123;
+        await CreateEventAsync(guild, "Watched", [tank, deleted, blank]);
 
         var first = await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
-            [new RoleNameDto(tank, "Tank"), new RoleNameDto(deleted, null), new RoleNameDto(unwatched, "Stale")],
+            [
+                new RoleNameDto(tank, "Tank"),
+                new RoleNameDto(deleted, null),
+                new RoleNameDto(unwatched, "Stale"),
+                new RoleNameDto(blank, "   "), // a whitespace-only name is a real, existing role
+            ],
             [
                 new MemberRolesDto(1201, [tank, unwatched]),
                 new MemberRolesDto(1202, []),          // holds none — no row
@@ -104,6 +110,7 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         Assert.Equal("Tank", roles[tank]);
         Assert.True(roles.ContainsKey(deleted));
         Assert.Null(roles[deleted]); // checked and gone: the tombstone that makes it vacuous
+        Assert.Equal("   ", roles[blank]); // present, so it keeps gating — never mistaken for a tombstone
         // A role the API's own watch list doesn't name is never stored, however the bot's payload
         // was captured — the API decides what a snapshot may hold.
         Assert.False(roles.ContainsKey(unwatched));

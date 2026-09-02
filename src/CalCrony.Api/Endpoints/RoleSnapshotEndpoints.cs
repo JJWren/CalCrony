@@ -103,7 +103,11 @@ public static class RoleSnapshotEndpoints
         var existing = new HashSet<long>();
         foreach (var role in roles)
         {
-            var name = GuildPresenceEndpoints.Truncate(role.Name, FieldLimits.RoleName);
+            // Null is the tombstone and means exactly "the bot reported this role gone" — a name
+            // the bot did report is kept whatever it contains (Discord allows whitespace-only
+            // names), only clamped to the column; the guild-name helper's blank-to-null rule
+            // would otherwise turn such a role into a vacuous restriction.
+            var name = role.Name is null ? null : ClampName(role.Name, FieldLimits.RoleName);
             if (name is not null)
             {
                 existing.Add(role.RoleId);
@@ -194,6 +198,22 @@ public static class RoleSnapshotEndpoints
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Results.NoContent();
+    }
+
+    /// <summary>Clamps a reported role name to its column, never splitting a surrogate pair and
+    /// never turning a present name into null (see the sync for why null is reserved).</summary>
+    /// <param name="name">The reported name.</param>
+    /// <param name="limit">The column max length.</param>
+    /// <returns>The storable name.</returns>
+    private static string ClampName(string name, int limit)
+    {
+        if (name.Length <= limit)
+        {
+            return name;
+        }
+
+        var cut = char.IsHighSurrogate(name[limit - 1]) ? limit - 1 : limit;
+        return name[..cut];
     }
 
     /// <summary>Drops whatever snapshot rows exist for roles a request is about to make NEWLY
