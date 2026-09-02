@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/JJWren/CalCrony/compare/v0.36.1...v0.36.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **bot:** answer guild commands from servers the bot isn't in instead of hanging ([#164](https://github.com/JJWren/CalCrony/issues/164)) ([8163d02](https://github.com/JJWren/CalCrony/commit/8163d024a37c0805f82a32395f6c8d92a9f8477b)), closes [#163](https://github.com/JJWren/CalCrony/issues/163)
+
 ## [0.36.1](https://github.com/JJWren/CalCrony/compare/v0.36.0...v0.36.1) (2026-09-02)
 
 
