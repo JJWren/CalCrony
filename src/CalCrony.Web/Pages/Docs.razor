@@ -55,8 +55,9 @@
         <b>Attendee roles</b> — temporary, per-event badges CalCrony manages for you, e.g.
         <code>@@session-players</code>. Create the role empty and pass it at
         <code>/create attendee-role:</code> — everyone who RSVPs <b>Going</b> gets it
-        automatically, switching away or removing the RSVP removes it, and the whole role empties
-        when the event ends. Perfect for pinging only confirmed attendees or temporarily unlocking a
+        automatically, switching away or removing the RSVP removes it (unless, with multiple RSVPs
+        on, another option they still hold grants the same role), and the whole role empties when
+        the event ends. Perfect for pinging only confirmed attendees or temporarily unlocking a
         planning channel.
         <br />
         Each RSVP option can hand out a <i>different</i> role: mention one inside

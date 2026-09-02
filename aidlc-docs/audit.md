@@ -611,3 +611,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — delivery step 8.3, Copilot loop round 6 addressed.
 
 ---
+## Construction — Copilot review round 7
+**Timestamp**: 2026-09-02T16:37:36Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 7 ("needs a closer look", two minor items): (1) `RsvpReplyText` rendered a bare " ** **" when the clicked option had vanished between the bot's read and the click — it now says "that option", with a test. (2) The Docs page's attendee-role sentence claimed removing an RSVP always removes the role — qualified for the shared-role case with multiple RSVPs on. Bot 121 green; total 752. The review's headline asks for human validation of the data-collapsing rollback and the cross-layer role semantics — both are covered by the migration verification and the API/bot tests recorded in the PR body, and are flagged for Joshua in the final report.
+**Context**: Construction — delivery step 8.3, Copilot loop round 7 addressed.
+
+---

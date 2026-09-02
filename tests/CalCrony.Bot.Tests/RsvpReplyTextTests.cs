@@ -84,6 +84,17 @@ public class RsvpReplyTextTests
     }
 
     [Fact]
+    public void An_option_that_vanished_under_the_click_reads_as_that_option()
+    {
+        // The option was removed by an edit between the bot's read and the completed click.
+        var ev = Event(multi: true, new RsvpDto(Me, Tank.Id));
+        Assert.Equal("Added that option to your RSVPs for **Raid Night** (<t:1800000000:F>). You're also marked: 🛡️ **Tank**.", RsvpReplyText.Marked(ev, null, Me));
+        Assert.Equal("Removed that option from your RSVPs for **Raid Night**. You're still marked: 🛡️ **Tank**.", RsvpReplyText.Removed(ev, null, Me));
+        Assert.StartsWith("that option is full — you're **#1 on the waitlist**", RsvpReplyText.Waitlisted(ev, null, Me, 0));
+        Assert.DoesNotContain(" ** **", RsvpReplyText.Marked(Event(multi: false), null, Me));
+    }
+
+    [Fact]
     public void Waitlist_position_is_judged_on_the_clicked_option_not_on_the_member()
     {
         // Queued for Tank behind 7, seated on Healer.

@@ -83,5 +83,8 @@ public static class RsvpReplyText
                 .Select(pair => Choice(pair.Option) + (pair.Rsvp.Waitlisted ? " (waitlisted)" : "")),
         ];
 
-    private static string Choice(RsvpOptionDto? option) => $"{option?.Emote} **{option?.Label}**";
+    /// <summary>"emote **label**", or a readable stand-in when the option vanished between the
+    /// bot's read and the completed click (an edit removed it) — never a bare " ** **".</summary>
+    private static string Choice(RsvpOptionDto? option) =>
+        option is null ? "that option" : $"{option.Emote} **{option.Label}**";
 }
