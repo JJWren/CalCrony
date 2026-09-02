@@ -1609,7 +1609,10 @@ public static class EventEndpoints
     }
 
     /// <summary>Clears EVERY RSVP a user holds on the event (self-only for web callers) — the one
-    /// row in single-choice mode, all of them when the event allows multiple RSVPs.</summary>
+    /// row in single-choice mode, all of them when the event allows multiple RSVPs. The current
+    /// bot and web withdraw through the option-scoped route instead; a pre-0.35 client still calls
+    /// this one on a click, so it is only equivalent on single-choice events — on a multi-RSVP
+    /// event an old client would clear the member's every seat. Upgrade clients with the API.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="id">The event id.</param>

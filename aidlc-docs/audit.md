@@ -604,3 +604,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — delivery step 8.3, Copilot loop round 5 addressed.
 
 ---
+## Construction — Copilot review round 6
+**Timestamp**: 2026-09-02T16:31:04Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 6 (two comments + four previously-missed notes, all documentation): (1) the old-client compatibility claim was too broad — a pre-0.35 bot or web withdraws through the bare DELETE, which now clears every seat, so it is equivalent only on single-choice events; the PR body and the route's doc comment say so and advise upgrading clients with the API and not switching an event to multi before every client is on 0.35.0. (2) The requirements doc (FR11, §5 assumption, §7 risk) and the plan (2.3, 7.6, 8.2) still described Down as "keep the earliest" and rollback as unconditionally safe — aligned with the delivered behaviour (attending-first survivor, owed revokes, embed re-renders, rollback safe only before multi rows). The #125 hand-off comment keeps its original text as the historical record; the plan file in the repo is the maintained copy.
+**Context**: Construction — delivery step 8.3, Copilot loop round 6 addressed.
+
+---

@@ -64,8 +64,10 @@ Tests that encode the single-choice rule: `RsvpV1ApiTests`, `PerOptionRoleApiTes
 - **FR9** Web: buttons toggle, several can be selected, helper text explains.
 - **FR10** Turning multi off while members hold several seats: per Q4.
 - **FR11** Migration swaps the unique index; Down must collapse extra rows before restoring the old
-  index and enqueue a revoke for each role a discarded seat carried that the kept seat does not
-  (recorded in the PR body). Rolling the image back is safe only while no member holds more than one
+  index — keeping each member's seated attending row when they hold one (so no attending seat is
+  freed behind a waitlist the downgraded app would not promote), else their earliest — enqueue a
+  revoke for each role a discarded seat carried that the kept seat does not, and queue an embed
+  re-render per affected event (all recorded in the PR body). Rolling the image back is safe only while no member holds more than one
   row — 0.34.0's PutRsvp moves a member's first row onto the clicked option, which collides with
   their other row when they already hold it (found in review, PR #154); once multi rows exist, run
   Down first.
@@ -163,8 +165,11 @@ choices ("🎬 Movie x10").
   "Added 🍕 Dinner to your RSVPs for **X** (you're also marked: 🎬 Movie)" / "Removed …".
 - Series: `EventSeries.AllowMultipleRsvps` copied to spawned occurrences; a Series-scope edit updates
   the template only when the request carried the flag (the role/limit rule).
-- Migration Down keeps each `(EventId, UserId)`'s earliest row before restoring the old unique index;
-  Up and Down executed against `postgres:17-alpine` over seeded multi rows and recorded in the PR body.
+- Migration Down keeps one row per `(EventId, UserId)` before restoring the old unique index — the
+  member's seated attending row when they hold one, else their earliest (refined in review, PR #154:
+  always keeping the earliest could free an attending seat behind a stranded waitlist) — and enqueues
+  the role revokes and embed re-renders the discarded seats owe; Up and Down executed against
+  `postgres:17-alpine` over seeded multi rows and recorded in the PR body.
 - Polls untouched (they already support multi-vote via `SingleVote = false`).
 - `CheckedRoleIds` and the restriction gate untouched (both are already per option).
 - Action log: EventEdited detail says "multiple RSVPs on/off" where it lists limit/role changes.
@@ -180,9 +185,9 @@ choices ("🎬 Movie x10").
 - **Not additive**: the migration swaps a unique index. Rolling the prod image back to 0.34.0 is safe
   only while no member holds more than one row (old code ignores the columns and never inserts a second
   row, but its PutRsvp would move a member's first row onto an option they already hold and hit the new
-  index — found in review, PR #154); once multi rows exist, run Down first — it collapses members' extra
-  seats to the earliest and enqueues the revokes for roles those seats carried. Say so in the PR body
-  and the rollout note.
+  index — found in review, PR #154); once multi rows exist, run Down first — it collapses each member to their seated attending row
+  (else their earliest), enqueues the revokes for roles the discarded seats carried, and queues an
+  embed re-render per affected event. Say so in the PR body and the rollout note.
 - Slightly more outbox traffic on toggle-happy events (each seat change is its own role delivery);
   coalescing already nets never-served pairs to zero.
 - Larger embeds (a member can appear in every column); the existing per-list budget bounds it.
