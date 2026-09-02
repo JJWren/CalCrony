@@ -368,3 +368,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 9 addressed
+**Timestamp**: 2026-09-02T01:42:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 9 (on the round-7 head, before the API-side refusal landed) restated the leave race and added that retiring a guild's semaphore while held strands its waiters on the old instance. Locks are now kept for the process lifetime (one idle semaphore per guild ever synced) and only the watched set is retired; the ordering concern is closed by d67e1f7's API-side rule that a bot-absent guild refuses snapshot writes under its row lock. Every push already triggers a Copilot review, so manual re-requests stop here to avoid duplicate rounds.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

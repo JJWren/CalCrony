@@ -31,7 +31,11 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// <summary>One lock per guild, held by a full sync for the whole capture-and-PUT and by a
     /// member push for its PUT. Without it a full sync that captured the member list BEFORE a
     /// role loss could land AFTER that loss's push and restore the stale row under a fresh lease;
-    /// serialized, the push runs after the sync and rewrites the row from the live cache.</summary>
+    /// serialized, the push runs after the sync and rewrites the row from the live cache. Locks
+    /// are never retired: a lock replaced while held would strand its waiters on the old instance
+    /// while new work took the new one, and one idle semaphore per guild ever synced is nothing.
+    /// The API is the backstop for a guild the bot has left — it refuses snapshot writes for a
+    /// bot-absent guild under its own row lock — so ordering against the leave does not matter.</summary>
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> guildLocks = new();
 
     /// <summary>Full reconcile — at Ready and on the timer: syncs every guild the API lists plus
@@ -155,18 +159,14 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
 
     private SemaphoreSlim LockFor(ulong guildId) => guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
 
-    /// <summary>Retires a guild's cache entries — both the watched set and the lock — so guild
-    /// churn doesn't accumulate process-lifetime state or per-tick work for guilds that are gone.</summary>
+    /// <summary>Retires a guild's watched set so the reconcile stops unioning the guild back in
+    /// every tick and member events stop pushing for it. The lock stays (see <see cref="guildLocks"/>).</summary>
     /// <param name="guildId">The guild to forget.</param>
-    private void Forget(ulong guildId)
-    {
-        watched.TryRemove(guildId, out _);
-        guildLocks.TryRemove(guildId, out _);
-    }
+    private void Forget(ulong guildId) => watched.TryRemove(guildId, out _);
 
-    /// <summary>The bot left the guild: the API drops the snapshot on the presence report, and the
-    /// bot forgets its side (under the lock, after any write in flight) so the reconcile stops
-    /// unioning the guild back in every tick.</summary>
+    /// <summary>The bot left the guild: the API drops the snapshot on the presence report and
+    /// refuses any later write for the guild, and the bot forgets its side (under the lock, after
+    /// any write in flight) so the reconcile stops unioning the guild back in every tick.</summary>
     /// <param name="guild">The guild the bot left.</param>
     public async Task OnLeftGuildAsync(SocketGuild guild)
     {
