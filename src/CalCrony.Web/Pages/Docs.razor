@@ -149,7 +149,10 @@
         <code>rsvp-options:"⚔️ Raider x10, 🛡️ Standby, ❌ Out"</code> or the form's option editor:
         any emoji and label, up to ten. Exactly one option is the <i>attending</i> one — the first,
         or the one marked with a trailing <code>*</code> (the form's radio) — and it is what
-        roles, threads, availability and the waitlist key on.
+        roles, threads, availability and the waitlist key on. On <code>/edit</code>,
+        <code>rsvp-options</code> matches existing options by label so their RSVPs survive, an
+        option that has RSVPs can't be removed, and each entry you send replaces that option's
+        role and restriction — so restate them; the web form's editor keeps them as they were.
     </li>
     <li class="mb-2">
         <b>Attendee limits, the waitlist, and closing early</b> — <code>attendee-limit:6</code>
@@ -224,7 +227,8 @@
         <b>DM reminders</b> (<b>opt-in</b> per user, off by default) — <code>/settings dm-reminders
         enabled:true</code> or My settings here: reminders and start announcements for events
         you're attending also arrive by DM. The bot offers the toggle exactly once, as an ephemeral
-        prompt after your first attending RSVP — never an unsolicited DM — and if your DMs are
+        prompt after your first attending RSVP made with a Discord button (a web RSVP never
+        prompts — use My settings here) — never an unsolicited DM — and if your DMs are
         closed to it, it switches the setting off instead of retrying. Servers and event creators
         can never turn it on for you.
     </li>
@@ -305,7 +309,8 @@
         <b>Activity log &amp; CSV export</b> (managers) — the Activity tab shows every
         user-initiated management action (events, series, polls, templates, settings, live lists),
         who did it and from where (Discord or web), filterable by action and member, kept for 90
-        days. Its <b>Export events (CSV)</b> button downloads every event with its RSVPs — one row
+        days by default (self-hosters set <code>Retention__ActionLogDays</code>). Its <b>Export
+        events (CSV)</b> button downloads every event with its RSVPs — one row
         per RSVP, custom options and waitlist status included. Free for every server; there is no
         premium tier.
     </li>

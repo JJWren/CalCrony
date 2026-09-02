@@ -716,3 +716,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 4 addressed.
 
 ---
+## Construction — docs PR #157 Copilot round 5
+**Timestamp**: 2026-09-02T17:58:14Z
+**User Input**: (none — continuation)
+**AI Response**: Two comments plus one note, all accepted: the custom-options entry now carries the /edit semantics the trimmed command row dropped (label matching keeps RSVPs, an option with RSVPs can't be removed, each sent entry replaces that option's role and restriction, the web editor keeps them); the DM-reminders entry says the one-time prompt follows a Discord-button RSVP only (a web RSVP never prompts); the activity-log retention reads "90 days by default (Retention__ActionLogDays)". Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 5 addressed.
+
+---
