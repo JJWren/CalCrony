@@ -165,6 +165,29 @@ public class MultiRsvpComponentTests : TestContext
     }
 
     [Fact]
+    public void A_reused_form_instance_starts_another_guilds_create_route_with_the_flag_off()
+    {
+        var handler = UseApi();
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates") ? "[]" : null;
+
+        // Ticked for guild 1's new event…
+        var cut = Render<EventForm>(p => p.Add(x => x.GuildId, 1L));
+        cut.Find("#ev-multi-rsvp").Change(true);
+        Assert.True(cut.Find("#ev-multi-rsvp").HasAttribute("checked"));
+
+        // …must not stay ticked when the same instance serves guild 2's new-event route.
+        cut.Render(p => p.Add(x => x.GuildId, 2L));
+        cut.WaitForAssertion(() => Assert.False(cut.Find("#ev-multi-rsvp").HasAttribute("checked")));
+        cut.Find("#ev-title").Change("Other guild");
+        cut.Find("#ev-when").Change("friday 6pm");
+        handler.NextJson = JsonSerializer.Serialize(SampleEvent(), JsonWeb);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Create event")).Click();
+
+        var body = JsonSerializer.Deserialize<CreateEventRequest>(handler.LastBody!, JsonWeb)!;
+        Assert.False(body.AllowMultipleRsvps);
+    }
+
+    [Fact]
     public void Event_detail_shows_the_chip_only_in_multi_mode()
     {
         var handler = UseApi();

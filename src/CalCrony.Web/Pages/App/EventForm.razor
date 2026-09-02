@@ -112,7 +112,9 @@ else
             <div class="form-text">
                 Members can pick several options at once (Tank <i>and</i> Healer, dinner <i>and</i> movie)
                 and click a selected one again to remove it; off, picking another option switches. Only
-                the attending option keeps a waitlist.
+                the attending option keeps a waitlist. No option is exclusive — with the default
+                Going / Not going / Maybe set a member could hold Going <i>and</i> Not going — so use
+                choices that make sense together.
                 @if (IsEdit)
                 {
                     <text>Turning it off is refused while anyone holds more than one RSVP.</text>
@@ -491,6 +493,10 @@ else
             selectedTemplateId = null;
             optionRows = DefaultOptionRows();
             rsvpClose = "";
+            // Create → create across guilds is the other reuse: a box ticked for guild A's new
+            // event must not stay ticked for guild B's.
+            allowMultipleRsvps = false;
+            loadedAllowMultipleRsvps = false;
             var loaded = await Api.ListTemplatesAsync(GuildId);
             // Failure just hides the picker — templates are a convenience, not a requirement.
             templates = loaded.Success ? loaded.Value ?? [] : [];

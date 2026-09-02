@@ -584,9 +584,16 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 
 ---
 ## Construction — Copilot review round 3
-**Timestamp**: 2026-09-02T16:25:00Z
+**Timestamp**: 2026-09-02T16:12:00Z
 **User Input**: (none — continuation of the generation session)
 **AI Response**: Round 3 (two comments, both accepted): (1) Down could discard a member's seated attending row (when an earlier row was on another option) and leave a freed attending seat behind a waitlist the downgraded app never promotes — the survivor is now the member's seated attending row when they hold one, else their earliest (one ranking CTE shared by the revoke insert and the delete); re-verified on postgres:17-alpine with a member seated on Healer first and Tank later (kept Tank; still exactly one revoke overall). This refines the plan's "keep the earliest" wording. (2) The create-route reset for the multi flag was keyed on the per-guild template cache, so create(G) → edit(G) → create(G) leaked `true` — now an edit→create transition is tracked on its own (`loadedEventId`) and resets the flag every time; the bUnit test exercises that exact sequence. Web 123 green; API rebuilt clean.
 **Context**: Construction — delivery step 8.3, Copilot loop round 3 addressed.
+
+---
+## Construction — Copilot review round 4
+**Timestamp**: 2026-09-02T16:17:41Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 4 (one comment + one previously-missed note): (1) the round-3 reset covered edit→create but no longer create→create across guilds (round 2's reset had lived in the per-guild block and round 3 moved it) — the flag now resets in BOTH places, with a bUnit test for create(guild 1, ticked) → create(guild 2) → request carries false. (2) Q3's "design option sets that combine" advice was missing from the docs — the Docs page bullet, the /create row, the README bullet and the form's help text now say no option is exclusive (with the default set a member could be Going and Not going). The review also flagged documentation metadata: the round-3 audit stamp (16:25Z) was again ahead of the clock and is corrected to 16:12Z; stamps from here on come from `date -u`. Web 124 green; total 751.
+**Context**: Construction — delivery step 8.3, Copilot loop round 4 addressed.
 
 ---
