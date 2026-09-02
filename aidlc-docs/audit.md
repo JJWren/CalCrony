@@ -737,3 +737,38 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 7 addressed.
 
 ---
+## Construction — docs PR #157 merged
+**Timestamp**: 2026-09-02T18:13:39Z
+**User Input**: (none — continuation)
+**AI Response**: Copilot round 8 approved with zero comments ("consistent with the implemented commands and behavior"). Eight rounds in all — seven raising documentation-accuracy points, the eighth the approval: surface parity and the Discord-only/web-only exceptions, the attending option versus "Going", the 400-word budget (met at 392), who can enable each opt-in, real settings syntax (enabled:, mode:), complete /create and /poll option lists, /edit's real fields, the /edit option semantics, the ICS feed's naming and recurring-series links, the role delete lifecycle, the Discord-only DM prompt, configurable retention, the missing web routes (native events, recurring events, reminders, the RSVP cutoff), heading-level tests, and one stale count in aidlc-state.md. All twelve threads resolved; checks green on 788a2ed; squash-merged through the REST call as 817f947 with the PR body as the message. Next: release-please, test stack, prod.
+**Context**: Construction — step 6.2 done; 6.3 (release and rollout) next.
+
+---
+## Operations — release 0.36.0 PR approved; test stack upgraded
+**Timestamp**: 2026-09-02T18:18:22Z
+**User Input**: (none — continuation)
+**AI Response**: release-please opened #158 (chore(master): release 0.36.0); approved its CI and CodeQL runs. Test stack (Z:\docker\test-calcrony, tag main): pull and up -d --wait — all four containers healthy, /health and /health/ready report 0.0.0-main.817f947 (no migration in this release). Waiting for #158's checks to merge it, then the 0.36.0 images for prod.
+**Context**: Operations — step 6.3 in progress.
+
+---
+## Operations — release 0.36.0 merged
+**Timestamp**: 2026-09-02T18:20:53Z
+**User Input**: (none — continuation)
+**AI Response**: #158's checks green; squash-merged through the REST call as 68a5118 (chore(master): release 0.36.0). Waiting for the release workflow to publish all three 0.36.0 images (the web image lands last) and the v0.36.0 release before rolling prod: pg_dump to backups/, tag bump in a clean shell, pull, up -d --wait, /health check.
+**Context**: Operations — step 6.3, release cut; prod next.
+
+---
+## Operations — prod rolled 0.35.0 → 0.36.0; docs pass shipped
+**Timestamp**: 2026-09-02T18:25:37Z
+**User Input**: (none — continuation)
+**AI Response**: All three 0.36.0 images and release v0.36.0 published. Prod (Z:\docker\calcrony): pg_dump to backups/calcrony-prod-pre-0.36.0-20260902T182446Z.sql (70,052 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.0 by sed in a clean shell (config --images confirmed), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.36.0; no migration in this release (history still tops 20260902152200_AllowMultipleRsvps); no API errors beyond the known noise; bot Gateway Ready. Plan step 6.3 ticked (all 15 done); aidlc-state.md marks the docs pass shipped. Bookkeeping goes out as a docs PR.
+**Context**: Operations — docs readability pass delivered end to end.
+
+---
+## Operations — bookkeeping PR #159 Copilot round 1
+**Timestamp**: 2026-09-02T18:29:15Z
+**User Input**: (none — continuation)
+**AI Response**: Copilot counted the plan: 15 numbered steps (1.1–1.4, 2.1–2.4, 3.1, 4.1, 5.1–5.2, 6.1–6.3), not the 14 the completion entry and aidlc-state.md claimed — both corrected in place (the earlier "14-step" wording in this session's plan-presentation entry was the same miscount; the plan file itself was always complete). PR body corrected too.
+**Context**: Operations — bookkeeping PR round 1 addressed.
+
+---

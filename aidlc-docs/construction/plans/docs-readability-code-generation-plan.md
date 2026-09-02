@@ -61,5 +61,5 @@ Commands table rows carry the same semantics again (`/create` ~100 words, `/edit
 
 **6. Bookkeeping and delivery**
 - [x] 6.1 `audit.md` entries throughout; `aidlc-state.md` gains a line for the docs pass.
-- [ ] 6.2 PR opened with a short body (what changed, why `feat:`, before/after word counts); Copilot loop to zero comments; REST merge.
-- [ ] 6.3 release-please cuts the release (approve its runs, REST merge); test stack pulls `:main`; prod bumps the tag (no migration in this release, backup taken anyway as the standing procedure); `/health` verified.
+- [x] 6.2 PR opened with a short body (what changed, why `feat:`, before/after word counts); Copilot loop to zero comments; REST merge.
+- [x] 6.3 release-please cuts the release (approve its runs, REST merge); test stack pulls `:main`; prod bumps the tag (no migration in this release, backup taken anyway as the standing procedure); `/health` verified.
