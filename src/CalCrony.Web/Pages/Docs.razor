@@ -1,5 +1,7 @@
 @page "/docs"
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@inject NavigationManager Nav
+@inject IJSRuntime Js
 
 <PageTitle>User docs — CalCrony</PageTitle>
 
@@ -327,7 +329,7 @@
             <tr><th class="meta-mono text-uppercase">Command</th><th class="meta-mono text-uppercase">What it does</th></tr>
         </thead>
         <tbody>
-            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; options: <code>description</code>, <code>duration</code>, <code>channel</code>, <code>location</code>, <code>image</code>, <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="#features">Features in depth</a>)</td></tr>
+            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; options: <code>description</code>, <code>duration</code>, <code>channel</code>, <code>location</code>, <code>image</code>, <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="/docs#features">Features in depth</a>)</td></tr>
             <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
@@ -346,7 +348,7 @@
 <h2 class="h5 mt-4 mb-2">The web app</h2>
 <ul class="text-body-secondary">
     <li><b>Sign in</b> with Discord — CalCrony only asks for your identity and server list, never your messages.</li>
-    <li><b>Do everything here</b>: events (create, edit, delete, RSVP), polls, templates, notifications, availability grids, calendar linking, the ICS subscribe URL, and server and personal settings — each feature's web side is described under <a href="#features">Features in depth</a>.</li>
+    <li><b>Do everything here</b>: events (create, edit, delete, RSVP), polls, templates, notifications, availability grids, calendar linking, the ICS subscribe URL, and server and personal settings — each feature's web side is described under <a href="/docs#features">Features in depth</a>.</li>
     <li><b>One source of truth</b>: RSVP here and the Discord embed updates within about 15 seconds; RSVPs made in Discord show up here on the next page load (pages don't refresh themselves).</li>
     <li><b>Themes</b>: pick one of five under My settings — the choice follows your account across devices.</li>
     <li><b>Managers</b> get the Activity log, the CSV export, and the server settings page (default channel, timezone, native events, public calendar).</li>
@@ -374,3 +376,24 @@
     <a href="https://discord.gg/aEdYyZYgyV" target="_blank" rel="noopener">community Discord server</a> —
     a support forum, release announcements, and a playground channel where you can try every command live.
 </p>
+
+@code {
+    // Fragment links inside the page must be written as "/docs#features", not "#features": a
+    // fragment-only href resolves against <base href="/"> and the router would navigate to the
+    // landing page. Blazor scrolls to the fragment on those in-page navigations itself; a FRESH
+    // load of /docs#features (the README's link) needs the nudge below, because the browser's own
+    // fragment scroll runs before the app has rendered the heading.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var fragment = new Uri(Nav.Uri).Fragment;
+        if (fragment.Length > 1)
+        {
+            await Js.InvokeVoidAsync("calcronyPage.scrollToFragment", fragment[1..]);
+        }
+    }
+}

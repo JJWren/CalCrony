@@ -1,5 +1,6 @@
 using Bunit;
 using CalCrony.Web.Pages;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Web.Tests;
 
@@ -21,6 +22,45 @@ public class DocsPageTests : TestContext
         {
             Assert.Contains(group, headings);
         }
+    }
+
+    [Fact]
+    public void A_fresh_load_with_a_fragment_scrolls_to_it_after_the_first_render()
+    {
+        // The README links straight to /docs#features; the browser's own fragment scroll runs
+        // before the app has rendered the heading, so the page asks for it once it has.
+        var nav = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+        nav.NavigateTo("/docs#features");
+        JSInterop.SetupVoid("calcronyPage.scrollToFragment", "features").SetVoidResult();
+
+        var cut = Render<Docs>();
+
+        cut.WaitForAssertion(() =>
+        {
+            var call = JSInterop.VerifyInvoke("calcronyPage.scrollToFragment");
+            Assert.Equal("features", call.Arguments[0]);
+        });
+    }
+
+    [Fact]
+    public void A_fresh_load_without_a_fragment_asks_for_no_scroll()
+    {
+        Render<Docs>();
+
+        Assert.Empty(JSInterop.Invocations);
+    }
+
+    [Fact]
+    public void In_page_links_to_the_reference_stay_on_the_docs_route()
+    {
+        var cut = Render<Docs>();
+
+        // A fragment-only href ("#features") resolves against <base href="/"> and the router
+        // would land on the home page; every in-page link must carry the /docs path.
+        var links = cut.FindAll("a").Where(a => a.TextContent.Contains("Features in depth")).ToList();
+        Assert.NotEmpty(links);
+        Assert.All(links, a => Assert.Equal("/docs#features", a.GetAttribute("href")));
+        Assert.Empty(cut.FindAll("a[href^='#']"));
     }
 
     [Fact]

@@ -772,3 +772,24 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Operations — bookkeeping PR round 1 addressed.
 
 ---
+## Bug report — /docs "Features in depth" links land on the home page
+**Timestamp**: 2026-09-02T19:03:03Z
+**User Input**: "is features in depth (from /docs) supposed to take you back to the home screen of calcrony"
+**AI Response**: Investigating: the new in-page links use href="#features"; in a Blazor WASM app a fragment-only href resolves against base href "/" so the router navigates to "/#features" — the landing page — instead of scrolling. Diagnosing and proposing the fix before changing anything.
+**Context**: Operations — defect in v0.36.0's docs page.
+
+---
+## Construction — docs fragment-link fix approved
+**Timestamp**: 2026-09-02T19:04:29Z
+**User Input**: "do the fix"
+**AI Response**: Doing both parts: the two in-page links become href="/docs#features", and the Docs page scrolls to the URL fragment after its first render so a fresh load of /docs#features (the README's link) lands on the section. Branch fix/docs-fragment-links → PR fix: … → 0.36.1 → test then prod.
+**Context**: Construction — code generation for a one-unit fix (no design stages).
+
+---
+## Construction — fix PR #160 Copilot round 1
+**Timestamp**: 2026-09-02T19:09:42Z
+**User Input**: "with the test-then-prod rollout" (mid-turn confirmation of the rollout order)
+**AI Response**: PR #160 opened (fix(web): in-page docs links stay on /docs and scroll to the section). Copilot asked for the fresh-load half to be tested: added a bUnit case that navigates to /docs#features before rendering and verifies calcronyPage.scrollToFragment is invoked with "features", plus one asserting no JS call without a fragment. Web 129 green. Pushing, replying, re-requesting.
+**Context**: Construction — fix PR round 1 addressed; rollout order confirmed: test stack first, then prod.
+
+---
