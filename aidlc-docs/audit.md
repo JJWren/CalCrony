@@ -793,3 +793,31 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — fix PR round 1 addressed; rollout order confirmed: test stack first, then prod.
 
 ---
+## Construction — fix PR #160 merged
+**Timestamp**: 2026-09-02T19:13:03Z
+**User Input**: (none — continuation)
+**AI Response**: Copilot round 2 approved with zero comments; threads resolved; checks green on e80c1a3; squash-merged through the REST call as c65cc01. Web suite 129. Next: release-please 0.36.1, test stack on :main, then prod with the standing backup.
+**Context**: Construction — fix delivered; release and rollout next.
+
+---
+## Operations — release 0.36.1 PR approved; test stack upgraded
+**Timestamp**: 2026-09-02T19:17:53Z
+**User Input**: (none — continuation)
+**AI Response**: release-please opened #161 (chore(master): release 0.36.1); approved its CI and CodeQL runs. Test stack (tag main): pull and up -d --wait — all four containers healthy, /health and /health/ready report 0.0.0-main.c65cc01, and the served site.js carries calcronyPage.scrollToFragment. Merging #161 once build-test is green, then the 0.36.1 images for prod.
+**Context**: Operations — fix rollout, test done; prod next.
+
+---
+## Operations — release 0.36.1 merged
+**Timestamp**: 2026-09-02T19:19:48Z
+**User Input**: (none — continuation)
+**AI Response**: #161's checks green; squash-merged through the REST call as 1cdbf4e. Waiting for the three 0.36.1 images and the v0.36.1 release, then prod: pg_dump, clean-shell tag bump, pull, up -d --wait, /health check.
+**Context**: Operations — fix release cut; prod next.
+
+---
+## Operations — prod rolled 0.36.0 → 0.36.1; fragment-link fix shipped
+**Timestamp**: 2026-09-02T19:24:55Z
+**User Input**: (none — continuation)
+**AI Response**: All three 0.36.1 images and release v0.36.1 published. Prod: pg_dump to backups/calcrony-prod-pre-0.36.1-20260902T192408Z.sql (70,474 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.1 in a clean shell (config --images confirmed), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.36.1; the served site.js carries calcronyPage.scrollToFragment; no API errors beyond the known noise; bot Gateway Ready. aidlc-state.md records the follow-up fix under the docs pass line.
+**Context**: Operations — the /docs fragment-link defect fixed end to end (report → fix → 0.36.1 → test → prod).
+
+---
