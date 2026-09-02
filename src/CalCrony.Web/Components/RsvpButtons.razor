@@ -132,9 +132,7 @@ else if (MyWaitlistPosition is int position)
         option.Capacity is int cap ? $" ({Event.SeatedCount(option.Id)}/{cap})" : "";
 
     private static string? RestrictionTitle(RsvpOptionDto option) =>
-        option.IsRestricted
-            ? $"Limited to {string.Join(", ", option.AllowedRoles!.Select(r => r.Name is null ? $"role #{r.Id}" : $"@{r.Name}"))}"
-            : null;
+        option.IsRestricted ? $"Limited to {RoleText.List(option.AllowedRoles!)}" : null;
 
     private async Task ClickAsync(Guid optionId, bool isMine)
     {

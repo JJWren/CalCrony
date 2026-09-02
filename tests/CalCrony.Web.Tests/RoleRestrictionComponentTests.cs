@@ -138,6 +138,17 @@ public class RoleRestrictionComponentTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("We can't confirm your roles right now — vote from Discord.", cut.Markup));
         Assert.DoesNotContain("Add an option", cut.Markup);
+
+        // The snapshot catches up (or the role arrives): a vote that now succeeds shows it again.
+        handler.Respond = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(
+                new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(poll.GuildId, "G", null, false)]), JsonWeb)),
+            _ => (HttpStatusCode.OK, JsonSerializer.Serialize(poll, JsonWeb)),
+        };
+        await cut.FindAll("button").First(b => b.TextContent.Contains("a")).ClickAsync(new());
+
+        cut.WaitForAssertion(() => Assert.Contains("Add an option", cut.Markup));
     }
 
     [Fact]

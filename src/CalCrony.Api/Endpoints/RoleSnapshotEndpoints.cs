@@ -120,10 +120,10 @@ public static class RoleSnapshotEndpoints
             return Results.BadRequest(new ErrorResponse("RoleIds is required (an empty list removes the member)."));
         }
 
-        var known = await db.GuildRoles
+        var known = (await db.GuildRoles
             .Where(r => r.GuildId == guildId && r.Name != null)
             .Select(r => r.RoleId)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken)).ToHashSet();
         var held = request.RoleIds.Where(known.Contains).Distinct().ToArray();
 
         var row = await db.GuildMemberRoles.FindAsync([guildId, userId], cancellationToken);

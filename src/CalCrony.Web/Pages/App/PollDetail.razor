@@ -39,7 +39,7 @@ else
                 }
                 @if (poll.IsRestricted)
                 {
-                    <span title="Only members holding one of these roles can vote or add options">🔒 limited to @RoleList(poll.AllowedRoles!)</span>
+                    <span title="Only members holding one of these roles can vote or add options">🔒 limited to @RoleText.List(poll.AllowedRoles!)</span>
                 }
                 <span>@TotalVotes vote@(TotalVotes == 1 ? "" : "s")</span>
             </div>
@@ -74,7 +74,7 @@ else
 
     <h2 class="h5 mt-4 mb-2">@(poll.Status == PollStatus.Open ? "Your vote" : "Results")</h2>
     <div class="card p-3" style="max-width:560px">
-        <PollVotePanel Poll="poll" UserId="UserId" OnChanged="dto => poll = dto" OnRefused="() => voteRefused = true"
+        <PollVotePanel Poll="poll" UserId="UserId" OnChanged="OnVoteChanged" OnRefused="() => voteRefused = true"
                        NameResolver="@(poll.Anonymous ? null : NameFor)" />
         @if (poll.Anonymous)
         {
@@ -171,8 +171,15 @@ else
 
     // A refused vote (the caller lacks the role, or the API couldn't confirm it) hides the
     // add-option form: adding an option is participation too, and would be refused the same way.
+    // A later successful vote — the snapshot caught up, or the role arrived — shows it again.
     private bool CanAddOption =>
         poll is { Status: PollStatus.Open, Options.Count: < 10 } && (poll.AllowUserOptions || CanManage) && !voteRefused;
+
+    private void OnVoteChanged(PollDto updated)
+    {
+        poll = updated;
+        voteRefused = false;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -295,7 +302,4 @@ else
     // The web only knows Discord user ids from vote rows; show the session name for the signed-in user.
     private string NameFor(long userId) =>
         userId == UserId ? (AuthApi.Session?.Username ?? "you") : $"user {userId}";
-
-    private static string RoleList(IEnumerable<RoleRefDto> roles) =>
-        string.Join(", ", roles.Select(r => r.Name is null ? $"role #{r.Id}" : $"@{r.Name}"));
 }

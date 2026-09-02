@@ -35,19 +35,19 @@ else
                 }
                 @foreach (var roleOption in ev.RoleGrantingOptions)
                 {
-                    <span title="RSVPing @roleOption.Label grants this server role within ~15 seconds">🏷️ @roleOption.Label grants @RoleLabel(roleOption.AttendeeRoleId!.Value, roleOption.AttendeeRoleName)</span>
+                    <span title="RSVPing @roleOption.Label grants this server role within ~15 seconds">🏷️ @roleOption.Label grants @RoleText.Label(roleOption.AttendeeRoleId!.Value, roleOption.AttendeeRoleName)</span>
                 }
                 @* Signup restrictions (ADR 0004): one chip when every option shares a set, else one
                    per restricted option. Names are snapshots — the id stands in when unknown. *@
                 @if (ev.SharedRestriction is { } shared)
                 {
-                    <span title="Only members holding one of these roles can pick an RSVP option">🔒 limited to @RoleList(shared)</span>
+                    <span title="Only members holding one of these roles can pick an RSVP option">🔒 limited to @RoleText.List(shared)</span>
                 }
                 else
                 {
                     @foreach (var restricted in ev.RestrictedOptions)
                     {
-                        <span title="Only members holding one of these roles can pick @restricted.Label">🔒 @restricted.Label limited to @RoleList(restricted.AllowedRoles!)</span>
+                        <span title="Only members holding one of these roles can pick @restricted.Label">🔒 @restricted.Label limited to @RoleText.List(restricted.AllowedRoles!)</span>
                     }
                 }
                 @if (ev.RsvpClosesAtUtc is { } closesAt)
@@ -753,10 +753,4 @@ else
     // The web only knows Discord user ids from RSVP rows; show "you" for the signed-in user.
     private string NameFor(long userId) =>
         userId == UserId ? (AuthApi.Session?.Username ?? "you") : $"user {userId}";
-
-    // Role names are the API's snapshots (ADR 0001 posture): render the name when held, the id otherwise.
-    private static string RoleLabel(long id, string? name) => name is null ? $"role #{id}" : $"@{name}";
-
-    private static string RoleList(IEnumerable<RoleRefDto> roles) =>
-        string.Join(", ", roles.Select(r => RoleLabel(r.Id, r.Name)));
 }

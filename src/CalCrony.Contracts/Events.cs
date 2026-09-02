@@ -157,8 +157,23 @@ public record RsvpOptionSpec(
         && (AllowedRoleIds ?? []).SequenceEqual(other.AllowedRoleIds ?? []);
 
     /// <inheritdoc />
-    public override int GetHashCode() =>
-        HashCode.Combine(Emote, Label, Capacity, IsAttending, AttendeeRoleId, (AllowedRoleIds ?? []).Count);
+    public override int GetHashCode()
+    {
+        // Folds the role ids in (in order, matching Equals) rather than just their count, so
+        // specs that differ only in their restriction don't all collide.
+        var hash = new HashCode();
+        hash.Add(Emote);
+        hash.Add(Label);
+        hash.Add(Capacity);
+        hash.Add(IsAttending);
+        hash.Add(AttendeeRoleId);
+        foreach (var roleId in AllowedRoleIds ?? [])
+        {
+            hash.Add(roleId);
+        }
+
+        return hash.ToHashCode();
+    }
 }
 
 /// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>

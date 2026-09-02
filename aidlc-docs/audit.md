@@ -319,3 +319,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 2 pending.
 
 ---
+## Delivery — PR #150 Copilot round 2 addressed
+**Timestamp**: 2026-09-02T00:12:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 2 ran without Copilot's full suite: one new comment (a HashSet for the member-push filter — done) and four suppressed notes, all taken: the privacy "Last updated" date was a day in the future (set to 2026-09-01); the poll page's refusal flag never cleared on a later successful vote (cleared in the vote-changed handler, tested); role-label formatting was duplicated across four web files (centralized in RoleText); RsvpOptionSpec.GetHashCode hashed only the role-list count (folds the ids in). The four round-1 threads were not re-flagged and are resolved. 698 tests green.
+**Context**: Delivery — step 8.3, Copilot loop round 3 pending.
+
+---

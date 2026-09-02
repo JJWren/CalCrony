@@ -368,7 +368,7 @@ else
     /// <summary>"Tank limited to @Raiders; Healer limited to role #123" — names when the API holds
     /// them, ids otherwise.</summary>
     private string RestrictionSummary => string.Join("; ", restrictedOptions.Select(o =>
-        $"{o.Label} limited to {string.Join(", ", o.AllowedRoles!.Select(r => r.Name is null ? $"role #{r.Id}" : $"@{r.Name}"))}"));
+        $"{o.Label} limited to {RoleText.List(o.AllowedRoles!)}"));
 
     private void RemoveOption(int index)
     {

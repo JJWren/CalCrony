@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-09-02** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
+**Last updated: 2026-09-01** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
