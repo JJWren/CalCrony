@@ -8,10 +8,10 @@ namespace CalCrony.Api.Services;
 /// restriction — an option on a scheduled/started event, a running series' option template, or
 /// an open poll — and every attendee role a live event or running series grants (#167: the web
 /// names a role only from these snapshots, so a granted role without one printed as a raw id).
-/// The set is derived on demand rather than stored, so it can never drift from the
-/// restrictions themselves; the bot reads it at Ready (and after any command that names roles)
-/// and pushes exactly those roles' snapshots back. Retention uses the same answer to drop the
-/// snapshots of guilds whose restrictions have all ended (ADR 0004).</summary>
+/// The set is derived on demand rather than stored, so it can never drift from the events,
+/// series and polls that name or grant the roles; the bot reads it at Ready (and after any
+/// command that names a role) and pushes exactly those roles' snapshots back. Retention uses the
+/// same answer to drop the snapshots of guilds with no watched role left (ADR 0004).</summary>
 public static class RoleWatchList
 {
     /// <summary>The watched role ids per guild, for every guild with at least one watched role

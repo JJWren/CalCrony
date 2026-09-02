@@ -73,10 +73,12 @@ and **Google** (only for the free/busy lookups you enable).
   tokens) are automatically purged after **90 days**.
 - **Role-membership snapshots** are dropped automatically when a server's last role restriction
   or granted attendee role ends (the event ends, the poll closes, or the restriction or role is
-  removed) and when the bot leaves the server. While a server still has one, its snapshot is
-  trimmed to the roles still named or granted: a role that stops being named loses its rows,
-  and a role deleted in Discord keeps only a nameless marker (so the restriction naming it stops
-  applying) with no member associations.
+  removed) and when the bot leaves the server. A repeating event keeps its roles watched between
+  occurrences — the next one inherits them — so for a series the trigger is stopping it, not one
+  occurrence ending. While a server still has a watched role, its snapshot is trimmed to the
+  roles still named or granted: a role that stops being named loses its rows, and a role deleted
+  in Discord keeps only a nameless marker (so the restriction naming it stops applying) with no
+  member associations.
 - **Server activity log** entries record management actions by server members — creating,
   editing, deleting, or skipping events; adding or removing event reminders; changing or
   stopping a repeating event's schedule; creating, closing, converting, or deleting polls;
