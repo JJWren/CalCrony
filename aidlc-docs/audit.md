@@ -417,3 +417,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 17 addressed
+**Timestamp**: 2026-09-02T03:30:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 17 (on 7a18e5f): two new threads, both taken. A status-only edit that brings an ended or cancelled event back live, and a series revival through PATCH /series/{id}, both bring restrictions back to life without the newly-watched invalidation; both paths now invalidate the returning roles' rows before saving, and the bot's /series edit refreshes the guild snapshot after a revival. The round-16 thread drew no new comment and is resolved. Tested: a reactivated event fails closed until a fresh sync; a revived series drops its template role's rows while a role still watched by a live event keeps its. 479 API, 113 bot green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

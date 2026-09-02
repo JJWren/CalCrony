@@ -322,6 +322,59 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
             $"/events/{again.Id}/rsvps/{session.UserId}", new RsvpRequest(again.AttendingOption.Id))).StatusCode);
     }
 
+    [Fact]
+    public async Task Bringing_an_ended_event_or_a_stopped_series_back_discards_rows_from_its_earlier_watch()
+    {
+        const long guild = 12295;
+        var (lee, session) = await fixture.LoginAsync(12296, (guild, "G", false));
+
+        // An event: restricted, synced with Lee holding, ended — rows untouched — then reactivated
+        // by a status-only edit. Its role must fail closed until a fresh sync.
+        var ev = await CreateAsync("Comes back", allowedRoleIds: [RaiderRole], guildId: guild);
+        await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(CreatorId, Status: EventStatus.Ended)))
+            .EnsureSuccessStatusCode();
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(CreatorId, Status: EventStatus.Scheduled)))
+            .EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await lee.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(ev.AttendingOption!.Id))).StatusCode);
+        await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
+        Assert.Equal(HttpStatusCode.OK, (await lee.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
+
+        // A series: restricted through its template, its occurrence ended and the series stopped
+        // (nothing live names the role), rows untouched — then revived. The revival alone must
+        // drop the role's rows, since the scheduler spawns the next occurrence within seconds.
+        var weekly = await CreateAsync("Weekly", allowedRoleIds: [OfficerRole], guildId: guild, weekly: true);
+        await SyncAsync(guild, [(RaiderRole, "Raider"), (OfficerRole, "Officer")], [(session.UserId, [RaiderRole, OfficerRole])]);
+        (await Client.PatchAsJsonAsync($"/events/{weekly.Id}", new UpdateEventRequest(
+            CreatorId, Status: EventStatus.Ended, Scope: EditScope.Occurrence))).EnsureSuccessStatusCode();
+        (await Client.PostAsync($"/series/{weekly.SeriesId}/stop", null)).EnsureSuccessStatusCode();
+        Assert.Contains(OfficerRole, (await RolesAsync(guild)).Keys);
+
+        (await Client.PatchAsJsonAsync($"/series/{weekly.SeriesId}", new UpdateSeriesRequest(End: SeriesEndChoice.Never)))
+            .EnsureSuccessStatusCode();
+
+        var roles = await RolesAsync(guild);
+        Assert.DoesNotContain(OfficerRole, roles.Keys); // gone: unverifiable until the bot syncs again
+        Assert.Contains(RaiderRole, roles.Keys);        // still watched by the live event, untouched
+        Assert.Equal(new[] { RaiderRole }, (await MemberRolesAsync(guild, session.UserId))!);
+    }
+
+    private async Task<Dictionary<long, string?>> RolesAsync(long guildId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        return await db.GuildRoles.AsNoTracking().Where(r => r.GuildId == guildId).ToDictionaryAsync(r => r.RoleId, r => r.Name);
+    }
+
+    private async Task<long[]?> MemberRolesAsync(long guildId, long userId)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        return (await db.GuildMemberRoles.AsNoTracking().FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == userId))?.RoleIds;
+    }
+
     private async Task<EventDto> CreateAsync(
         string title, long[]? allowedRoleIds = null, IReadOnlyList<RsvpOptionSpec>? options = null,
         long guildId = GuildId, long creatorId = CreatorId, bool weekly = false)

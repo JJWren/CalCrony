@@ -1172,9 +1172,11 @@ public static class EventEndpoints
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
 
-        // Same rule as create for roles this edit newly restricts to (see there). The watch list
+        // Same rule as create for roles this edit newly restricts to (see there), and for every
+        // role a NON-LIVE event brings back by going live again — its restrictions were not
+        // watched while it was ended or cancelled, so its rows may be leftovers. The watch list
         // still reflects the pre-edit rows here, since nothing has been saved yet.
-        if (request.AllowedRoleIds is not null || request.RsvpOptions is not null)
+        if (request.AllowedRoleIds is not null || request.RsvpOptions is not null || (!isLive && staysLive))
         {
             await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
                 db, ev.GuildId, ev.Options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
