@@ -27,6 +27,10 @@ public static class GuildPresenceEndpoints
     private static async Task<IResult> PutPresence(
         long guildId, GuildPresenceRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
     {
+        // Under the guild row lock so a role-snapshot write in flight for this guild serializes
+        // with the leave (see RoleSnapshotEndpoints.LockGuildRowAsync).
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await RoleSnapshotEndpoints.LockGuildRowAsync(db, guildId, cancellationToken);
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
         guild.BotPresent = request.Present;
         if (Truncate(request.Name, FieldLimits.GuildName) is { } name)
@@ -43,6 +47,7 @@ public static class GuildPresenceEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.NoContent();
     }
 
@@ -86,6 +91,10 @@ public static class GuildPresenceEndpoints
         var current = request.Guilds
             .GroupBy(g => g.Id)
             .ToDictionary(g => g.Key, g => Truncate(g.First().Name, FieldLimits.GuildName));
+        // Every guild row locked for the reconcile, so no role-snapshot write lands between a
+        // guild being marked absent here and its snapshot being dropped below.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Guilds" FOR UPDATE""", cancellationToken);
         var known = await db.Guilds.ToListAsync(cancellationToken);
         var departed = new List<long>();
         foreach (var guild in known)
@@ -111,6 +120,7 @@ public static class GuildPresenceEndpoints
 
         await db.SaveChangesAsync(cancellationToken);
         await RoleSnapshotEndpoints.DropSnapshotsAsync(db, departed, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(new SyncGuildPresenceResponse(
             current.Count, known.Count(g => !g.BotPresent)));
     }

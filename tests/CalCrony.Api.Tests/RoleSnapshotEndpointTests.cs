@@ -229,6 +229,41 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         Assert.Empty(await RolesAsync(guild));
         Assert.Empty(await MembersAsync(guild));
         Assert.Null(await SyncedAtAsync(guild));
+
+        // A sync that was in flight when the bot left lands after the leave: refused, nothing
+        // resurrected; a member push likewise stores nothing for an absent guild.
+        var late = await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(role, "Raider")], [new MemberRolesDto(1501, [role])]));
+        Assert.Equal(HttpStatusCode.Conflict, late.StatusCode);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/members/1502/roles", new PutMemberRolesRequest([role])))
+            .EnsureSuccessStatusCode();
+        Assert.Empty(await RolesAsync(guild));
+        Assert.Empty(await MembersAsync(guild));
+        Assert.Null(await SyncedAtAsync(guild));
+    }
+
+    [Fact]
+    public async Task Retention_drops_a_bot_absent_guilds_snapshot_even_while_it_still_has_a_restriction()
+    {
+        const long guild = 12180;
+        const long role = 995180;
+        await CreateEventAsync(guild, "Still restricted", [role]);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(role, "Raider")], [new MemberRolesDto(1801, [role])]))).EnsureSuccessStatusCode();
+
+        // Marked absent behind the presence route's back (which would have dropped the rows
+        // itself) — the purge is the backstop for whatever such a path leaves behind.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            await db.Guilds.Where(g => g.Id == guild).ExecuteUpdateAsync(s => s.SetProperty(g => g.BotPresent, false));
+            var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
+            await retention.PurgeAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
+        }
+
+        Assert.Empty(await RolesAsync(guild));
+        Assert.Empty(await MembersAsync(guild));
+        Assert.Null(await SyncedAtAsync(guild));
     }
 
     private async Task<EventDto> CreateEventAsync(long guildId, string title, long[] allowedRoleIds, bool weekly = false)

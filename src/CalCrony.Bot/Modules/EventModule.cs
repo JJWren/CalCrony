@@ -186,7 +186,8 @@ public class EventModule(
 
         // Discord clicks are checked live, but the web answers from the API's role snapshot — sync
         // it now so the snapshot is authoritative before anyone can click the embed (ADR 0004).
-        if (TouchesRestrictions(restrictedTo, optionSpecs, cleared: false))
+        // A create can only ADD to the watched set, so only one that named a restriction syncs.
+        if (NamesRestrictions(restrictedTo, optionSpecs))
         {
             await roleSnapshots.SyncGuildAsync(Context.Guild);
         }
@@ -441,15 +442,22 @@ public class EventModule(
         return problem is null;
     }
 
-    /// <summary>Whether a command could have changed the guild's watched set, which is when its
-    /// role snapshot must be re-synced: a restriction named or cleared, or ANY option-set
-    /// replacement — a new set with no <c>only:</c> clauses may have just removed the old ones.</summary>
+    /// <summary>Whether a request named a restriction at all — event-level or on any spec.</summary>
+    /// <param name="restrictedTo">The event-level restriction, when given.</param>
+    /// <param name="specs">The option specs, when given.</param>
+    /// <returns>True when a role is named.</returns>
+    private static bool NamesRestrictions(List<long>? restrictedTo, List<RsvpOptionSpec>? specs) =>
+        restrictedTo is not null || (specs?.Any(s => s.AllowedRoleIds is { Count: > 0 }) ?? false);
+
+    /// <summary>Whether an EDIT could have changed the guild's watched set, which is when its role
+    /// snapshot must be re-synced: a restriction named or cleared, or ANY option-set replacement —
+    /// a new set with no <c>only:</c> clauses may have just removed the old ones.</summary>
     /// <param name="restrictedTo">The event-level restriction, when given.</param>
     /// <param name="specs">The option specs, when given.</param>
     /// <param name="cleared">Whether the restriction was cleared.</param>
     /// <returns>True when a sync is due.</returns>
     private static bool TouchesRestrictions(List<long>? restrictedTo, List<RsvpOptionSpec>? specs, bool cleared) =>
-        restrictedTo is not null || cleared || specs is not null;
+        NamesRestrictions(restrictedTo, specs) || cleared || specs is not null;
 
     /// <summary>The reply chip for a restriction: one when every option shares a set, else one per
     /// restricted option; empty for an unrestricted event.</summary>

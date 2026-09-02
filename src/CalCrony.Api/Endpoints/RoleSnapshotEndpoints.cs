@@ -76,9 +76,18 @@ public static class RoleSnapshotEndpoints
 
         var now = clock.GetCurrentInstant();
         // Replace-not-merge inside one transaction: a reader must never see the gap between the
-        // old rows going and the new ones landing as "synced, holds nothing".
+        // old rows going and the new ones landing as "synced, holds nothing". The guild row is
+        // locked first so this serializes with the presence routes: a sync that was in flight
+        // when the bot left waits for the leave to commit, then sees BotPresent false and stops —
+        // it can't resurrect what the leave dropped.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockGuildRowAsync(db, guildId, cancellationToken);
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
+        if (!guild.BotPresent)
+        {
+            return Results.Conflict(new ErrorResponse("The bot is not in this server — there is nothing to snapshot."));
+        }
+
         await db.GuildRoles.Where(r => r.GuildId == guildId).ExecuteDeleteAsync(cancellationToken);
         await db.GuildMemberRoles.Where(m => m.GuildId == guildId).ExecuteDeleteAsync(cancellationToken);
 
@@ -134,6 +143,19 @@ public static class RoleSnapshotEndpoints
             return Results.BadRequest(new ErrorResponse("RoleIds is required (an empty list removes the member)."));
         }
 
+        // Same serialization with the presence routes as the full sync; an unknown or bot-absent
+        // guild holds nothing, so there is nothing to upsert into.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockGuildRowAsync(db, guildId, cancellationToken);
+        var present = await db.Guilds
+            .Where(g => g.Id == guildId)
+            .Select(g => (bool?)g.BotPresent)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (present is not true)
+        {
+            return Results.NoContent();
+        }
+
         var known = (await db.GuildRoles
             .Where(r => r.GuildId == guildId && r.Name != null)
             .Select(r => r.RoleId)
@@ -162,8 +184,18 @@ public static class RoleSnapshotEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.NoContent();
     }
+
+    /// <summary>Takes a FOR UPDATE lock on the guild row inside the ambient transaction, so the
+    /// snapshot writers and the presence routes for one guild serialize. A guild with no row yet
+    /// locks nothing — it has no snapshot a leave could have dropped.</summary>
+    /// <param name="db">The database context (a transaction must be open).</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    internal static Task LockGuildRowAsync(CalCronyDbContext db, long guildId, CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Guilds" WHERE "Id" = {guildId} FOR UPDATE""", cancellationToken);
 
     /// <summary>Trims one guild's snapshot to the roles its live restrictions still name: rows for
     /// roles no restriction names anymore go, and members lose those ids (a member left holding

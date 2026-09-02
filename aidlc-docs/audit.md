@@ -361,3 +361,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 8 pending.
 
 ---
+## Delivery — PR #150 Copilot round 8 addressed
+**Timestamp**: 2026-09-02T01:30:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 8 (on the round-6 head) found that a delayed full-sync PUT could recreate rows the bot-left presence report had dropped, and that retention treated a bot-absent guild with a live restriction as still watched. The sync, member-push and presence routes now serialize on a FOR UPDATE lock of the guild row; a sync for a bot-absent guild is refused (409) and a member push for one stores nothing; retention drops a bot-absent guild's snapshot regardless of restrictions. Two suppressed notes: the create-time sync now runs only when the new event named a restriction (a create can only add to the watched set), and the N+1 lookup was already fixed in round 7. Tests: a late sync and push after the leave resurrect nothing; the purge drops a bot-absent guild's snapshot. 477 API, 113 bot green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

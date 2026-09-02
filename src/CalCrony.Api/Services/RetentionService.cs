@@ -49,16 +49,19 @@ public sealed class RetentionService(
         var liveRestrictionGuilds = watched.Keys.ToHashSet();
         var syncedGuilds = await db.Guilds
             .Where(g => g.RolesSyncedAt != null)
-            .Select(g => g.Id)
+            .Select(g => new { g.Id, g.BotPresent })
             .ToListAsync(cancellationToken);
-        // A guild with no live restriction left loses its snapshot outright; one that still has
-        // some keeps it, trimmed to exactly the roles those restrictions name.
+        // A guild with no live restriction left — or one the bot has left, whatever restrictions
+        // it still carries — loses its snapshot outright; one that still has some keeps it,
+        // trimmed to exactly the roles those restrictions name.
         var roleSnapshots = await Endpoints.RoleSnapshotEndpoints.DropSnapshotsAsync(
-            db, [.. syncedGuilds.Where(id => !liveRestrictionGuilds.Contains(id))], cancellationToken);
-        foreach (var guildId in syncedGuilds.Where(liveRestrictionGuilds.Contains))
+            db,
+            [.. syncedGuilds.Where(g => !g.BotPresent || !liveRestrictionGuilds.Contains(g.Id)).Select(g => g.Id)],
+            cancellationToken);
+        foreach (var guild in syncedGuilds.Where(g => g.BotPresent && liveRestrictionGuilds.Contains(g.Id)))
         {
             roleSnapshots += await Endpoints.RoleSnapshotEndpoints.PruneSnapshotAsync(
-                db, guildId, watched[guildId], cancellationToken);
+                db, guild.Id, watched[guild.Id], cancellationToken);
         }
 
         var total = deliveries + loginStates + refreshTokens + linkTokens + actionLog + roleSnapshots;
