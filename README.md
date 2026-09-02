@@ -29,7 +29,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 - Multiple RSVPs per member, **opt-in** per event (`multi-rsvp:true`): be Tank *and* Healer; clicking a chosen option again removes it.
 - Discussion threads (`thread:true`) that attending RSVPers join automatically; archived when the event ends.
 - Event templates (`/template save`, then `/create template:`), up to 25 per server.
-- Discord native events, **opt-in** per server (`/settings native-events on`).
+- Discord native events, **opt-in** per server (`/settings native-events enabled:true`).
 
 **Schedules**
 - Recurring events every N days, weeks, months or years, with day sets and nth-weekday rules, DST-safe; the next occurrence posts itself.
@@ -80,7 +80,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 | `/poll time question slots [anonymous allow-options closes restrict-to]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
 | `/template save name event` · `/template list` · `/template edit name [fields...]` · `/template delete name` | Save an event's setup for reuse · browse · edit · delete (creator or manager) |
-| `/settings view` · `/settings timezone` · `/settings dm-reminders` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` · `/settings public-calendar on\|off\|new-link` | Personal and server timezone · DM reminders opt-in · where web-created embeds post · native-event mirroring · the public calendar link |
+| `/settings view` · `/settings timezone` · `/settings dm-reminders` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` · `/settings public-calendar mode:on\|off\|new-link` | Personal and server timezone · DM reminders opt-in · where web-created embeds post · native-event mirroring · the public calendar link |
 | `/help` | What CalCrony is, first steps, and links to docs, the community server, and support |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |

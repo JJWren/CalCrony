@@ -6,7 +6,8 @@
 <p class="meta-mono text-uppercase mb-2">User documentation</p>
 <h1>Using CalCrony</h1>
 <p class="lead text-body-secondary" style="max-width:58ch">
-    Everything works from Discord; this web app adds a friendlier view of the same data.
+    Most things work from both Discord and this web app, and a few live on one side only — see
+    Features in depth for which.
     Sign in with Discord and you'll see exactly the servers you share with the bot.
 </p>
 
@@ -30,7 +31,7 @@
     </li>
 </ol>
 <p class="text-body-secondary" style="max-width:66ch">
-    Optional third step: <code>/settings native-events on</code> mirrors events into the server's
+    Optional third step: <code>/settings native-events enabled:true</code> mirrors events into the server's
     built-in Events tab (the bot must hold <b>Manage Events</b>; existing events mirror when next
     edited). Check everything anytime with <code>/settings view</code> or from the server's
     settings page here.
@@ -161,7 +162,8 @@
     </li>
     <li class="mb-2">
         <b>Multiple RSVPs per member</b> (<b>opt-in</b> per event) — <code>multi-rsvp:true</code>
-        on <code>/create</code>, <code>multi-rsvp:</code> on <code>/edit</code>, or the form's
+        on <code>/create</code>, <code>multi-rsvp:true</code> or <code>multi-rsvp:false</code> on
+        <code>/edit</code>, or the form's
         "Allow more than one RSVP per member" box. Members can hold several options at once (Tank
         <i>and</i> Healer, dinner <i>and</i> movie): clicking another button adds it, clicking a
         chosen one again removes it, and only the attending option keeps a waitlist. No option is
@@ -184,7 +186,7 @@
     </li>
     <li class="mb-2">
         <b>Discord native events</b> (<b>opt-in</b> per server) — <code>/settings native-events
-        on</code> mirrors events into the server's built-in Events tab through their whole
+        enabled:true</code> mirrors events into the server's built-in Events tab through their whole
         lifecycle (created, updated, deleted, active at start, completed at end). The native
         description points at the RSVP embed so "Interested" isn't mistaken for an RSVP. Needs
         <b>Manage Events</b>; existing events mirror when next edited.
@@ -237,12 +239,12 @@
     </li>
     <li class="mb-2">
         <b>Public web calendar</b> (<b>opt-in</b> per server, managers) — <code>/settings
-        public-calendar on</code> or Server settings here: a login-free month view of the server's
+        public-calendar mode:on</code> or Server settings here: a login-free month view of the server's
         events behind an unguessable link, including upcoming occurrences of repeating ones, with
         entries that jump to the Discord message. It shows titles, start times, durations,
         locations, and channel names only — never descriptions, RSVPs, or member names — and asks
-        search engines not to index it. <code>new-link</code> retires a leaked link;
-        <code>off</code> closes it.
+        search engines not to index it. <code>mode:new-link</code> retires a leaked link;
+        <code>mode:off</code> closes it.
     </li>
     <li class="mb-2">
         <b>Google Calendar availability</b> — link your calendar with <code>/calendar connect</code>
@@ -316,17 +318,17 @@
             <tr><th class="meta-mono text-uppercase">Command</th><th class="meta-mono text-uppercase">What it does</th></tr>
         </thead>
         <tbody>
-            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; flags: <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="#features">Features in depth</a>)</td></tr>
+            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; options: <code>description</code>, <code>duration</code>, <code>channel</code>, <code>location</code>, <code>image</code>, <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="#features">Features in depth</a>)</td></tr>
             <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
             <tr><td><code>/availability role|event</code></td><td>Free/busy grid for a role or an event's Going list</td></tr>
             <tr><td><code>/calendar connect</code></td><td>Link your Google Calendar (free/busy scope only)</td></tr>
             <tr><td><code>/link</code></td><td>Your server's calendar-subscribe URL</td></tr>
-            <tr><td><code>/poll create</code> · <code>/poll time</code></td><td>Polls with live vote bars · candidate times against each other; both take <code>closes</code>, <code>anonymous</code>, <code>allow-options</code>, <code>restrict-to</code></td></tr>
+            <tr><td><code>/poll create</code> · <code>/poll time</code></td><td>Polls with live vote bars · candidate times against each other; both take <code>closes</code>, <code>anonymous</code>, <code>allow-options</code>, <code>restrict-to</code>, and <code>/poll create</code> also <code>single-vote</code></td></tr>
             <tr><td><code>/poll close</code> · <code>/poll convert</code></td><td>Close voting · turn a time poll's winning slot into an event</td></tr>
             <tr><td><code>/template save</code> · <code>/template list</code> · <code>/template edit</code> · <code>/template delete</code></td><td>Save an event's setup for reuse with <code>/create template:</code> · browse · edit · delete (creator or manager)</td></tr>
-            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td><code>view</code> · <code>timezone</code> · <code>server-timezone</code> · <code>default-channel</code> · <code>dm-reminders</code> · <code>native-events</code> · <code>public-calendar on|off|new-link</code> · Discord timestamp helper</td></tr>
+            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td><code>view</code> · <code>timezone</code> · <code>server-timezone</code> · <code>default-channel</code> · <code>dm-reminders</code> · <code>native-events</code> · <code>public-calendar mode:on|off|new-link</code> · Discord timestamp helper</td></tr>
             <tr><td><code>/help</code></td><td>What CalCrony is, first steps, and links to docs, the community server, and support</td></tr>
         </tbody>
     </table>

@@ -709,3 +709,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 3 addressed.
 
 ---
+## Construction — docs PR #157 Copilot round 4
+**Timestamp**: 2026-09-02T17:53:22Z
+**User Input**: (none — continuation)
+**AI Response**: One comment plus five notes, all accepted and all pre-existing inaccuracies the rewrite carried over: `/settings native-events` takes `enabled:true` (not `on`) — fixed in the README, the Docs first steps and the in-depth entry; `/settings public-calendar` takes `mode:on|off|new-link` — fixed on both pages the same way; the multi-RSVP entry's /edit example shows `multi-rsvp:true` and `false`; the Docs /create row lists description, duration, channel, location and image too; the poll row names `single-vote` for /poll create; the Docs lead no longer claims everything works from Discord. Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 4 addressed.
+
+---
