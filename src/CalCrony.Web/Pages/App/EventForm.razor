@@ -476,6 +476,10 @@ else
             selectedTemplateId = null;
             optionRows = DefaultOptionRows();
             rsvpClose = "";
+            // Opt-in, so a fresh create route starts with it off — an edit that loaded `true`
+            // into this reused instance must not ride into the next event.
+            allowMultipleRsvps = false;
+            loadedAllowMultipleRsvps = false;
             var loaded = await Api.ListTemplatesAsync(GuildId);
             // Failure just hides the picker — templates are a convenience, not a requirement.
             templates = loaded.Success ? loaded.Value ?? [] : [];

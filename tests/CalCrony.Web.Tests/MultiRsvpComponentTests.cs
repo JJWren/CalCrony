@@ -135,6 +135,31 @@ public class MultiRsvpComponentTests : TestContext
     }
 
     [Fact]
+    public void A_reused_form_instance_starts_a_fresh_create_route_with_the_flag_off()
+    {
+        var handler = UseApi();
+        var edited = SampleEvent(multi: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath.EndsWith("/templates")
+            ? "[]"
+            : JsonSerializer.Serialize(edited, JsonWeb);
+
+        // The routable component is reused across navigations: an edit that loaded `true`…
+        var cut = Render<EventForm>(p => p.Add(x => x.EventId, (Guid?)edited.Id));
+        cut.WaitForAssertion(() => Assert.True(cut.Find("#ev-multi-rsvp").HasAttribute("checked")));
+
+        // …followed by a create route must not submit that value.
+        cut.Render(p => p.Add(x => x.EventId, (Guid?)null).Add(x => x.GuildId, edited.GuildId));
+        cut.WaitForAssertion(() => Assert.False(cut.Find("#ev-multi-rsvp").HasAttribute("checked")));
+        cut.Find("#ev-title").Change("Fresh event");
+        cut.Find("#ev-when").Change("friday 6pm");
+        handler.NextJson = JsonSerializer.Serialize(SampleEvent(), JsonWeb);
+        cut.FindAll("button").First(b => b.TextContent.Contains("Create event")).Click();
+
+        var body = JsonSerializer.Deserialize<CreateEventRequest>(handler.LastBody!, JsonWeb)!;
+        Assert.False(body.AllowMultipleRsvps);
+    }
+
+    [Fact]
     public void Event_detail_shows_the_chip_only_in_multi_mode()
     {
         var handler = UseApi();
