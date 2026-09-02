@@ -183,13 +183,15 @@ public static class SeriesEndpoints
 
         if (revived)
         {
-            // A revival brings the template's restrictions back to life, and the scheduler spawns
-            // the next occurrence within its sweep — long before the bot's reconcile. Those roles
-            // fail closed on the web until a fresh snapshot lands (the watch list read inside
-            // still sees the series as ended, so its roles count as newly watched).
+            // A revival brings the template's restrictions and attendee roles back to life, and
+            // the scheduler spawns the next occurrence within its sweep — long before the bot's
+            // reconcile. Those roles fail closed on the web (restrictions) or print as an id
+            // (granted roles) until a fresh snapshot lands, rather than answering from a stale
+            // row (the watch list read inside still sees the series as ended, so its roles
+            // count as newly watched).
             await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
                 db, series.GuildId,
-                RsvpPolicy.OptionsFromTemplate(series.RsvpOptionsJson).SelectMany(o => o.AllowedRoleIds),
+                RsvpPolicy.OptionsFromTemplate(series.RsvpOptionsJson).SelectMany(RoleWatchList.NamedBy),
                 cancellationToken);
         }
 

@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 namespace CalCrony.Api.Services;
 
 /// <summary>Role-name snapshot lookups for DTO mapping. The API holds names only for watched
-/// roles (see <see cref="RoleWatchList"/>), so a name can be missing — attendee roles that no
-/// restriction names, or a role the bot found deleted — and consumers fall back to the id, the
-/// ADR 0001 posture for every name snapshot.</summary>
+/// roles (see <see cref="RoleWatchList"/>: restricted and granted roles alike), so a name can
+/// still be missing — a role named since the bot's last sync, or one the bot found deleted —
+/// and consumers fall back to the id, the ADR 0001 posture for every name snapshot.</summary>
 public static class RoleNames
 {
     private static readonly IReadOnlyDictionary<long, string?> Empty = new Dictionary<long, string?>();

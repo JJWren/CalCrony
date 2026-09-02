@@ -197,8 +197,9 @@ public record RsvpOptionSpec(
 /// <param name="AllowedRoles">Signup restriction: the roles a member must hold at least one of to
 /// pick this option (the creator and managers bypass). Null or empty = unrestricted. Names are
 /// the API's snapshots and may be null — fall back to the id.</param>
-/// <param name="AttendeeRoleName">The attendee role's name snapshot, when the API holds one
-/// (it does when the same role is also named by a live restriction); null otherwise.</param>
+/// <param name="AttendeeRoleName">The attendee role's name snapshot, when the API holds one —
+/// granted roles are watched like restricted ones (#167), so it is missing only until the bot's
+/// next sync or for a role the bot found deleted; null then — fall back to the id.</param>
 public record RsvpOptionDto(
     Guid Id, string Emote, string Label, int SortOrder, int? Capacity, bool IsAttending = false,
     long? AttendeeRoleId = null, IReadOnlyList<RoleRefDto>? AllowedRoles = null, string? AttendeeRoleName = null)

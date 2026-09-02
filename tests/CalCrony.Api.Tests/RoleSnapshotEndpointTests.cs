@@ -201,6 +201,51 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
     }
 
     [Fact]
+    public async Task Granting_a_role_discards_rows_left_from_its_earlier_watch_on_create_edit_and_revival()
+    {
+        // The attendee-role counterpart of the restriction cases in RoleRestrictedRsvpApiTests: a
+        // name left from an earlier watch must not answer for a role newly granted, whichever path
+        // names it — the page shows the id until the bot's fresh sync, never a possibly stale name.
+        const long guild = 12183;
+        const long role = 995183;
+
+        // Create: an earlier restriction watched the role and was synced, then ended — nothing
+        // trimmed the row (no reconcile, no retention run).
+        var earlier = await CreateEventAsync(guild, "Earlier", [role]);
+        await NameAsync(guild, role, "Old name");
+        await EndAsync(earlier);
+        Assert.Contains(role, (await RolesAsync(guild)).Keys);
+
+        var granting = await CreateEventAsync(guild, "Grants", [], attendeeRoleId: role);
+        Assert.DoesNotContain(role, (await RolesAsync(guild)).Keys);
+        var fetched = await Client.GetFromJsonAsync<EventDto>($"/events/{granting.Id}");
+        Assert.Null(Assert.Single(fetched!.Options, o => o.AttendeeRoleId == role).AttendeeRoleName);
+
+        // Edit: synced under the granting event, which then ends; a plain event is edited to grant
+        // the role.
+        await NameAsync(guild, role, "Old name");
+        await EndAsync(granting);
+        var plain = await CreateEventAsync(guild, "Plain", []);
+        (await Client.PatchAsJsonAsync($"/events/{plain.Id}", new UpdateEventRequest(CreatorId, AttendeeRoleId: role)))
+            .EnsureSuccessStatusCode();
+        Assert.DoesNotContain(role, (await RolesAsync(guild)).Keys);
+        await EndAsync(plain);
+
+        // Revival: a series grants the role through its template, synced, its occurrence ended and
+        // the series stopped (nothing live names the role, row untouched), then revived.
+        var weekly = await CreateEventAsync(guild, "Weekly grants", [], weekly: true, attendeeRoleId: role);
+        await NameAsync(guild, role, "Old name");
+        (await Client.PatchAsJsonAsync($"/events/{weekly.Id}", new UpdateEventRequest(
+            CreatorId, Status: EventStatus.Ended, Scope: EditScope.Occurrence))).EnsureSuccessStatusCode();
+        (await Client.PostAsync($"/series/{weekly.SeriesId}/stop", null)).EnsureSuccessStatusCode();
+        Assert.Contains(role, (await RolesAsync(guild)).Keys);
+
+        (await Client.PatchAsJsonAsync($"/series/{weekly.SeriesId}", new UpdateSeriesRequest(End: SeriesEndChoice.Never)))
+            .EnsureSuccessStatusCode();
+        Assert.DoesNotContain(role, (await RolesAsync(guild)).Keys);
+    }
+
+    [Fact]
     public async Task Retention_keeps_a_snapshot_alive_for_a_granted_role_alone()
     {
         const long guild = 12182;
@@ -340,6 +385,18 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
             AllowedRoleIds: allowedRoleIds.Length == 0 ? null : allowedRoleIds));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<EventDto>())!;
+    }
+
+    private async Task NameAsync(long guildId, long roleId, string name)
+    {
+        (await Client.PutAsJsonAsync($"/guilds/{guildId}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(roleId, name)], []))).EnsureSuccessStatusCode();
+    }
+
+    private async Task EndAsync(EventDto ev)
+    {
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(CreatorId, Status: EventStatus.Ended)))
+            .EnsureSuccessStatusCode();
     }
 
     private async Task<PollDto> CreatePollAsync(long guildId, string question, long[] allowedRoleIds)
