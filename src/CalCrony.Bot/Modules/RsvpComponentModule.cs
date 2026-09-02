@@ -45,9 +45,12 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             return;
         }
 
+        // The restriction the live check ran against rides along, so an edit that restricted
+        // the option in between makes the API refuse and this click re-read rather than bypass.
+        var checkedRoles = current.Value.Options.FirstOrDefault(o => o.Id == optionId)?.AllowedRoles ?? [];
         var result = alreadyOnOption
             ? await api.DeleteRsvpAsync(eventId, userId)
-            : await api.PutRsvpAsync(eventId, userId, new RsvpRequest(optionId));
+            : await api.PutRsvpAsync(eventId, userId, new RsvpRequest(optionId, [.. checkedRoles.Select(r => r.Id)]));
 
         if (!result.Success || result.Value is null)
         {

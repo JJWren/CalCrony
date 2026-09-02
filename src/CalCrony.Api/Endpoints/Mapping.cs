@@ -50,12 +50,22 @@ public static class Mapping
         // truth; this is the common set when every option agrees, null when they differ.
         SharedAllowedRoles(ev.Options, roleNames));
 
-    /// <summary>Role ids to references, with whatever names the snapshot holds.</summary>
-    /// <param name="roleIds">The role ids.</param>
+    /// <summary>Role ids to references, with whatever names the snapshot holds — minus the roles
+    /// the snapshot says are deleted. A tombstone (present in the lookup with a null name) is a
+    /// role the restriction no longer gates on, so it is not part of the restriction clients see;
+    /// an id the lookup simply doesn't know keeps its place with a null name (id fallback).</summary>
+    /// <param name="roleIds">The stored role ids.</param>
     /// <param name="roleNames">Role-name snapshots, or null for none.</param>
-    /// <returns>The references, in the ids' order.</returns>
+    /// <returns>The effective references, in the ids' order.</returns>
     internal static IReadOnlyList<RoleRefDto> RoleRefs(long[] roleIds, IReadOnlyDictionary<long, string?>? roleNames) =>
-        [.. roleIds.Select(id => new RoleRefDto(id, roleNames?.GetValueOrDefault(id)))];
+        [.. EffectiveRoleIds(roleIds, roleNames).Select(id => new RoleRefDto(id, roleNames?.GetValueOrDefault(id)))];
+
+    /// <summary>The stored restriction minus tombstoned roles (see <see cref="RoleRefs"/>).</summary>
+    /// <param name="roleIds">The stored role ids.</param>
+    /// <param name="roleNames">Role-name snapshots, or null for none.</param>
+    /// <returns>The ids still gating.</returns>
+    private static IEnumerable<long> EffectiveRoleIds(long[] roleIds, IReadOnlyDictionary<long, string?>? roleNames) =>
+        roleIds.Where(id => roleNames is null || !roleNames.TryGetValue(id, out var name) || name is not null);
 
     /// <summary>The restriction every option shares — empty when none is restricted — or null when
     /// the options disagree (set-wise: order doesn't matter).</summary>
@@ -69,14 +79,15 @@ public static class Mapping
         HashSet<long>? common = null;
         foreach (var option in options)
         {
+            var effective = EffectiveRoleIds(option.AllowedRoleIds, roleNames).ToArray();
             if (first is null)
             {
-                first = option.AllowedRoleIds;
+                first = effective;
                 common = [.. first];
                 continue;
             }
 
-            if (!common!.SetEquals(option.AllowedRoleIds))
+            if (!common!.SetEquals(effective))
             {
                 return null;
             }

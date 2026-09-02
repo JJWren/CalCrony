@@ -341,7 +341,12 @@ public record SetThreadRequest(long? ThreadId);
 
 /// <summary>Sets or replaces the calling user's RSVP to the given option.</summary>
 /// <param name="OptionId">The RSVP/poll option id.</param>
-public record RsvpRequest(Guid OptionId);
+/// <param name="CheckedRoleIds">The option's signup restriction as the caller checked it (the
+/// bot's live role check runs against its own read of the event): the API refuses (409) if the
+/// option's effective restriction differs when the RSVP lands, so an edit that restricted the
+/// option in between is re-read and re-checked rather than bypassed. Null skips the check —
+/// web callers are gated by the API itself.</param>
+public record RsvpRequest(Guid OptionId, IReadOnlyList<long>? CheckedRoleIds = null);
 
 /// <summary>A guild's timezone, the default channel web-created embeds post to, and whether
 /// events mirror into Discord's native scheduled events.</summary>

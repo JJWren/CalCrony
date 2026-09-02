@@ -224,7 +224,11 @@ public static class PollEndpoints
         }
 
         var polls = await query.OrderByDescending(p => p.CreatedAt).Take(limit).ToListAsync(cancellationToken);
-        return Results.Ok(polls.Select(p => ToDto(p, context)));
+        // One guild-scoped name lookup for the page, so a deleted (vacuous) restriction reads as
+        // none in the list too.
+        var roleNames = await RoleNames.LoadAsync(
+            db, guildId, polls.SelectMany(p => p.AllowedRoleIds), cancellationToken);
+        return Results.Ok(polls.Select(p => p.ToDto(context.User.WebUserId(), context.User.IsBot(), roleNames)));
     }
 
     /// <summary>Fetches one poll with caller-aware anonymity shaping (non-members get 404).</summary>

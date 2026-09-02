@@ -268,6 +268,14 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         Assert.Equal(HttpStatusCode.OK, (await ivan.PutAsJsonAsync(
             $"/events/{deletedOnly.Id}/rsvps/{session.UserId}", new RsvpRequest(deletedOnly.AttendingOption!.Id))).StatusCode);
 
+        // …and the DTOs say so: a tombstoned role drops out of the restriction clients see, on the
+        // detail response and on list rows alike, so nothing shows as "limited" for nothing.
+        var detail = await ivan.GetFromJsonAsync<EventDto>($"/events/{deletedOnly.Id}");
+        Assert.Empty(detail!.RestrictedOptions);
+        var listed = await ivan.GetFromJsonAsync<List<EventDto>>($"/guilds/{guild}/events?limit=25");
+        Assert.Empty(listed!.Single(e => e.Id == deletedOnly.Id).RestrictedOptions);
+        Assert.NotEmpty(listed.Single(e => e.Id == unsynced.Id).RestrictedOptions); // unchecked stays
+
         // …whereas a role the snapshot has no row for cannot be read as anything but "not yet
         // looked at", and the web refuses rather than guesses.
         var refused = await ivan.PutAsJsonAsync(
@@ -300,6 +308,33 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
         Assert.Equal(HttpStatusCode.OK, (await judy.PutAsJsonAsync(
             $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_bot_rsvp_checked_against_a_restriction_that_has_since_changed_is_refused()
+    {
+        var ev = await CreateAsync("Edited underneath", options:
+        [
+            new RsvpOptionSpec("🛡️", "Tank", IsAttending: true),
+            new RsvpOptionSpec("❌", "Out"),
+        ]);
+        var tank = ev.Options.Single(o => o.Label == "Tank");
+
+        // The bot read the event with Tank unrestricted and ran its live check on that; an edit
+        // restricted Tank meanwhile. The PUT carries what was checked (nothing) and is refused.
+        (await Client.PatchAsJsonAsync($"/events/{ev.Id}", new UpdateEventRequest(
+            CreatorId, RsvpOptions:
+            [
+                new RsvpOptionSpec("🛡️", "Tank", IsAttending: true, AllowedRoleIds: [RaiderRole]),
+                new RsvpOptionSpec("❌", "Out"),
+            ]))).EnsureSuccessStatusCode();
+        var stale = await Client.PutAsJsonAsync($"/events/{ev.Id}/rsvps/12299", new RsvpRequest(tank.Id, CheckedRoleIds: []));
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Contains("changed just now", (await Error(stale)).Error);
+
+        // Re-read, re-checked against the current restriction: lands.
+        Assert.Equal(HttpStatusCode.OK, (await Client.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/12299", new RsvpRequest(tank.Id, CheckedRoleIds: [RaiderRole]))).StatusCode);
     }
 
     [Fact]

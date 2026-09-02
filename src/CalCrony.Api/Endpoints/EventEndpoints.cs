@@ -723,7 +723,11 @@ public static class EventEndpoints
         }
 
         var events = await query.OrderBy(e => e.StartsAt).Take(limit).ToListAsync(cancellationToken);
-        return Results.Ok(events.Select(e => e.ToDto()));
+        // One guild-scoped name lookup for the whole page: list rows need it to tell a deleted
+        // (vacuous) restriction from a live one, so a 🔒 badge never shows for nothing.
+        var roleNames = await RoleNames.ForOptionsAsync(
+            db, guildId, events.SelectMany(e => e.Options), cancellationToken);
+        return Results.Ok(events.Select(e => e.ToDto(null, roleNames)));
     }
 
     /// <summary>Fetches one event (non-members get 404, not 403 — ids must not be probeable).</summary>
@@ -1409,6 +1413,23 @@ public static class EventEndpoints
         if (option is null)
         {
             return Results.BadRequest(new ErrorResponse("Unknown RSVP option for this event."));
+        }
+
+        // The bot's live check ran against its own read of the option; if an edit changed the
+        // restriction since, the check covered the wrong set. Compared under the event lock
+        // against the EFFECTIVE restriction (what the DTO exposed: stored ids minus tombstones),
+        // so a mismatch means "re-read and re-check", never a spurious refusal.
+        if (request.CheckedRoleIds is { } checkedRoles)
+        {
+            var tombstoned = await db.GuildRoles
+                .Where(r => r.GuildId == ev.GuildId && r.Name == null && option.AllowedRoleIds.Contains(r.RoleId))
+                .Select(r => r.RoleId)
+                .ToListAsync(cancellationToken);
+            if (!checkedRoles.ToHashSet().SetEquals(option.AllowedRoleIds.Where(id => !tombstoned.Contains(id))))
+            {
+                return Results.Conflict(new ErrorResponse(
+                    "This option's signup restriction changed just now — try again."));
+            }
         }
 
         // Signup restriction (ADR 0004): the bot checked Discord live before calling and is

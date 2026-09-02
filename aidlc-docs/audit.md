@@ -438,3 +438,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 20 addressed
+**Timestamp**: 2026-09-02T04:20:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 20 (on aa34085): one new thread and one suppressed note, both taken. A bot RSVP checked against its own read of an option could land after an edit restricted that option, and the API trusted it; RsvpRequest now carries CheckedRoleIds (the bot sends the restriction its live check ran against) and the API refuses with 409 under the event lock when the option's effective restriction differs, so the bot re-reads and re-checks. A tombstoned role stayed in the AllowedRoles the DTOs expose, so a fully-deleted restriction still showed as "limited"; Mapping now drops tombstones from the exposed restriction (an unchecked role keeps its id fallback), and list endpoints load the guild's role names once so list rows can tell the two apart. 480 API, 113 bot, 110 web green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---
