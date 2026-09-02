@@ -786,3 +786,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — code generation for a one-unit fix (no design stages).
 
 ---
+## Construction — fix PR #160 Copilot round 1
+**Timestamp**: 2026-09-02T19:09:42Z
+**User Input**: "with the test-then-prod rollout" (mid-turn confirmation of the rollout order)
+**AI Response**: PR #160 opened (fix(web): in-page docs links stay on /docs and scroll to the section). Copilot asked for the fresh-load half to be tested: added a bUnit case that navigates to /docs#features before rendering and verifies calcronyPage.scrollToFragment is invoked with "features", plus one asserting no JS call without a fragment. Web 129 green. Pushing, replying, re-requesting.
+**Context**: Construction — fix PR round 1 addressed; rollout order confirmed: test stack first, then prod.
+
+---
