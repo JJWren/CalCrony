@@ -639,3 +639,45 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Operations — RSVP v2 §3.3 delivered end to end; #125 complete.
 
 ---
+## Operations — #125 hand-off comment checkboxes ticked after the fact
+**Timestamp**: 2026-09-02T17:13:58Z
+**User Input**: "Explain why the issue checkboxes were not all marked off. It's okay if they are complete, but there is ambiguity with closing the issue and leaving them unchecked."
+**AI Response**: The issue body's three sub-feature boxes were ticked, but the two hand-off comments still carried only unchecked boxes: the §3.3 plan (36 steps, issuecomment-5511795855) and the §3.5 plan (43 steps, issuecomment-5501383420). Cause: both hand-offs named the repo plan file as "the copy to tick", so the boxes were ticked there as each step landed and the comment copies were never touched; closing #125 then left them reading as unfinished. Fixed by ticking every box in both comments and adding a completion banner to each (shipped PR, release, pointer to the ticked repo copy; the §3.3 banner also names the two review-loop refinements that differ from the comment's text — the Down survivor rule and the rollback caveat). Nothing in the repo changed for this beyond this entry, which is left uncommitted on master for the next docs commit.
+**Context**: Operations — post-close tidy-up on #125.
+
+---
+## Inception — docs review requested; README Features readability
+**Timestamp**: 2026-09-02T17:16:27Z
+**User Input**: "Yep, let's go ahead and do a docs review and update. One thing I would like to note is that the Features section of our README is a bit difficult to read. We should discuss how we can make this more readable."
+**AI Response**: New workflow (documentation-only: user stories skipped, requirements at minimal depth). Workspace detection: brownfield, master at 12f2a19 (v0.35.0 shipped), one uncommitted audit entry. Reviewing README.md, the web Docs page, PRIVACY and the docs/ tree for accuracy after §3.3 and for staleness, then presenting a readability diagnosis of the README Features section with A–E options before changing its structure.
+**Context**: Inception — workspace detection + requirements analysis (minimal) for a docs review.
+
+---
+## Inception — docs review findings and README readability options presented
+**Timestamp**: 2026-09-02T17:17:47Z
+**User Input**: (none — continuation)
+**AI Response**: Findings: README Features is 17 bullets / ~1,430 words with four bullets over 130 words each (RSVPs 166, Web app 157, Role-restricted signup 156, Attendee roles 136), each mixing capability, invocation, permissions and caveats; the web Docs page's "The web app" list (Custom RSVPs 155 words) and its /create table row (~120 words) have the same shape. Stale: docs/research/sesh-fyi-feature-gap.md still marks §3.3 and §3.5 "Missing" and §3.6 "Partial" though all three shipped. Positioning: README and landing page say "self-hosted" while calcrony.app is the first-party hosted instance (ADR 0002). Accurate as-is: PRIVACY_POLICY, CONTRIBUTING, /help blurb, the Deploying section (matches the repo's compose file). Presented five A–E questions: Features restructure shape (recommend grouped one-liners linking to a long-form page), where the long form lives (recommend the web Docs page), whether Docs.razor gets the same treatment, the positioning line, and the gap-analysis rows. Waiting for answers before editing.
+**Context**: Inception — Requirements Analysis (minimal) awaiting decisions.
+
+---
+## Inception — docs review decisions locked
+**Timestamp**: 2026-09-02T17:23:10Z
+**User Input**: "Use your recommendeds for all of these"
+**AI Response**: Locked Q1 A (README Features → five or six themed groups of one-line bullets linking to the long form), Q2 A (the web Docs page is the single long form; README links to calcrony.app/docs), Q3 A (the Docs page gets the same grouping and shorter command rows in this PR), Q4 A (intro reworded to "hosted at calcrony.app, or run your own"), Q5 A (gap-analysis rows fixed to the shipped versions plus a dated status note). Next: a short checkbox plan for approval (workflow planning + code generation part 1 in one step — a single docs unit, no design stages).
+**Context**: Inception — Requirements approved by answer; Workflow Planning next.
+
+---
+## Construction — docs readability plan presented for approval
+**Timestamp**: 2026-09-02T17:24:15Z
+**User Input**: (none — continuation)
+**AI Response**: Wrote `aidlc-docs/construction/plans/docs-readability-code-generation-plan.md`: the five locked decisions, the findings (word counts), the six shared groups, and a 14-step checkbox plan — README (intro, grouped Features ≤ 400 words, trimmed command rows), Docs.razor ("Features in depth" absorbing the long form, slimmer web-app list, trimmed command rows), Landing tagline, gap-analysis status, tests, bookkeeping and delivery. Noted that CONTRIBUTING classes Docs.razor/Landing as product surface, so the PR is `feat:` and cuts a release that then rolls to test and prod. Presented the two-option completion prompt (workflow planning and code generation part 1 combined for a single docs unit).
+**Context**: Construction — Code Generation Part 1 awaiting approval.
+
+---
+## Construction — docs readability plan approved
+**Timestamp**: 2026-09-02T17:25:45Z
+**User Input**: "b"
+**AI Response**: Plan approved. Creating `feat/readable-docs`, committing the plan and the pending audit entries first, then executing steps 1–6 in order, ticking each as it lands.
+**Context**: Construction — Code Generation Part 2 (generation) started.
+
+---
