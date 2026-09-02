@@ -695,3 +695,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 1 addressed.
 
 ---
+## Construction — docs PR #157 Copilot round 2
+**Timestamp**: 2026-09-02T17:42:06Z
+**User Input**: (none — continuation)
+**AI Response**: Five accuracy points, all accepted: the one-surface exceptions now include live lists (Discord-only) and the CSV export (web-only) on both pages; the Docs page's /edit row enumerates the actual edit fields instead of claiming the /create flags; the web-app list no longer implies live sync from Discord (RSVPs made in Discord appear on the next page load); DocsPageTests asserts the six groups as h3 headings and the h2#features anchor; aidlc-state.md's word count corrected to 392. Web 126 green. Pushing, replying, re-requesting Copilot.
+**Context**: Construction — step 6.2, Copilot loop round 2 addressed.
+
+---

@@ -123,9 +123,9 @@
 <h2 class="h5 mt-4 mb-2" id="features">Features in depth</h2>
 <p class="text-body-secondary" style="max-width:66ch">
     Every feature: where it lives, the Discord permission it needs, and what is on by default.
-    Most work from Discord and from this web app; a few live on one side only — attendee roles
-    and signup restrictions are set in Discord, themes and the activity log are web-only — and
-    each entry says which. Anything <b>opt-in</b> stays off until someone turns it on: a server
+    Most work from Discord and from this web app; a few live on one side only — attendee roles,
+    signup restrictions and live lists are set in Discord; themes, the activity log and the CSV
+    export are web-only — and each entry says which. Anything <b>opt-in</b> stays off until someone turns it on: a server
     manager for server-wide switches (native events, the public calendar), the event's creator or
     a manager for per-event ones (multiple RSVPs), and only you for DM reminders. The three
     permissions mentioned below — <b>Manage Events</b>, <b>Manage Roles</b>, <b>Create Public
@@ -314,7 +314,7 @@
         </thead>
         <tbody>
             <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; flags: <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="#features">Features in depth</a>)</td></tr>
-            <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> takes the same flags as <code>/create</code> plus <code>clear-attendee-role</code>, <code>clear-attendee-limit</code>, <code>clear-rsvp-close</code>, <code>clear-restriction</code></td></tr>
+            <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
             <tr><td><code>/availability role|event</code></td><td>Free/busy grid for a role or an event's Going list</td></tr>
@@ -333,7 +333,7 @@
 <ul class="text-body-secondary">
     <li><b>Sign in</b> with Discord — CalCrony only asks for your identity and server list, never your messages.</li>
     <li><b>Do everything here</b>: events (create, edit, delete, RSVP), polls, templates, notifications, availability grids, calendar linking, the ICS subscribe URL, and server and personal settings — each feature's web side is described under <a href="#features">Features in depth</a>.</li>
-    <li><b>It stays in sync</b>: RSVP here and the Discord embed updates within about 15 seconds; RSVP in Discord and this page follows.</li>
+    <li><b>One source of truth</b>: RSVP here and the Discord embed updates within about 15 seconds; RSVPs made in Discord show up here on the next page load (pages don't refresh themselves).</li>
     <li><b>Themes</b>: pick one of five under My settings — the choice follows your account across devices.</li>
     <li><b>Managers</b> get the Activity log, the CSV export, and the server settings page (default channel, timezone, native events, public calendar).</li>
 </ul>

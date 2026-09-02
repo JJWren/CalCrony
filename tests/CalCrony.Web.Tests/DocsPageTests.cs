@@ -12,14 +12,15 @@ public class DocsPageTests : TestContext
     {
         var cut = Render<Docs>();
 
-        Assert.Contains("Features in depth", cut.Markup);
-        foreach (var group in new[] { "Events &amp; RSVPs", "Schedules", "Reminders &amp; calendars", "Polls", "Roles &amp; access", "Web app &amp; admin" })
-        {
-            Assert.Contains(group, cut.Markup);
-        }
+        // The section heading is the anchor the README's Features section links to…
+        Assert.Equal("Features in depth", cut.Find("h2#features").TextContent.Trim());
 
-        // The anchor the README's Features section links to.
-        Assert.NotNull(cut.Find("#features"));
+        // …and the six groups are real headings, not just words in the prose.
+        var headings = cut.FindAll("h3").Select(h => h.TextContent.Trim()).ToList();
+        foreach (var group in new[] { "Events & RSVPs", "Schedules", "Reminders & calendars", "Polls", "Roles & access", "Web app & admin" })
+        {
+            Assert.Contains(group, headings);
+        }
     }
 
     [Fact]

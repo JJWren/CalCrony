@@ -20,7 +20,7 @@ flowchart LR
 
 ## Features
 
-Most features work from both Discord and the web app; roles and restrictions are set in Discord, themes and the activity log live on the web. Anything marked **opt-in** stays off until turned on. The [user docs](https://calcrony.app/docs#features) cover each feature in full: how to reach it, the permission it needs, defaults and caveats.
+Most features work from both Discord and the web app; roles, restrictions and live lists are set in Discord, while themes, the activity log and the CSV export live on the web. Anything marked **opt-in** stays off until turned on. The [user docs](https://calcrony.app/docs#features) cover each feature in full: how to reach it, the permission it needs, defaults and caveats.
 
 **Events & RSVPs**
 - Events from plain English ("tomorrow 6pm"), timezone-aware per user and server; creators and managers edit.
