@@ -16,8 +16,8 @@ Two tables, both following the `Channels` model — rows exist only for what Cal
   row at all means the role has not been checked since it became watched (see the refinement
   below — the two must not be confused).
 - **`GuildMemberRoles`** — for each member holding at least one watched role, which ones. Members
-  holding none of them have no row at all, so the table stays proportional to restrictions in use,
-  not to server size.
+  holding none of them have no row at all, so the table stays proportional to the watched roles'
+  holders (restrictions in use and, since #167, granted attendee roles), not to server size.
 
 `Guild.RolesSyncedAt` plus the watched set recorded on `GuildRoles` is what makes an *absent* row
 readable as "holds none of them" rather than "we have never looked". Without that marker the two
@@ -83,7 +83,7 @@ seconds rather than at the next reconcile.
 it runs. Without a bound, a bot that has been down for a day would still answer for members who
 lost a role in the meantime. The marker therefore expires 30 minutes after the last sync; the bot's
 periodic reconcile keeps a live bot well inside it, and retention trims each guild's rows to the
-roles its live restrictions still name.
+roles its live restrictions still name and its live events still grant.
 
 **Attendee roles are watched too (#167).** The first cut watched restriction roles only, so an
 event that merely *granted* a role kept printing `role #123456` on the web — the snapshot is the

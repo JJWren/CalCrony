@@ -18,17 +18,19 @@ public static class RoleWatchList
     /// (bot-absent guilds included — callers filter). Guilds with none are absent.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>Guild id to the distinct roles its live restrictions name.</returns>
+    /// <returns>Guild id to the distinct roles its live restrictions name and its live events and
+    /// running series grant.</returns>
     public static Task<Dictionary<long, HashSet<long>>> WatchedByGuildAsync(
         CalCronyDbContext db, CancellationToken cancellationToken) =>
         WatchedAsync(db, guildId: null, cancellationToken);
 
     /// <summary>One guild's watched role ids — the per-guild form the bot syncs against, so a
-    /// sync scans that guild's restrictions rather than every guild's.</summary>
+    /// sync scans that guild's events, series and polls rather than every guild's.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <returns>The distinct roles the guild's live restrictions name; empty when none.</returns>
+    /// <returns>The distinct roles the guild's live restrictions name and its live events and
+    /// running series grant; empty when none.</returns>
     public static async Task<HashSet<long>> WatchedForGuildAsync(
         CalCronyDbContext db, long guildId, CancellationToken cancellationToken) =>
         (await WatchedAsync(db, guildId, cancellationToken)).GetValueOrDefault(guildId) ?? [];
