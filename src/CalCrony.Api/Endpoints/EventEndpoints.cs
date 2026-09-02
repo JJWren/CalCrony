@@ -27,6 +27,7 @@ public static class EventEndpoints
         app.MapPut("/events/{id:guid}/thread", SetThread).RequireAuthorization("BotOnly");
         app.MapPut("/events/{id:guid}/rsvps/{userId:long}", PutRsvp);
         app.MapDelete("/events/{id:guid}/rsvps/{userId:long}", DeleteRsvp);
+        app.MapDelete("/events/{id:guid}/rsvps/{userId:long}/options/{optionId:guid}", DeleteRsvpOption);
         app.MapPost("/tools/parse-datetime", ParseDateTime);
         app.MapGet("/tools/timezones", ListTimeZones);
     }
@@ -115,16 +116,17 @@ public static class EventEndpoints
         new RsvpOption { Id = Guid.NewGuid(), Emote = "🤔", Label = "Maybe", SortOrder = 2 },
     ];
 
-    /// <summary>Which Discord role each seated user currently holds through this event — the
-    /// snapshot the edit path diffs to decide grants and revokes. Waitlisted RSVPs hold nothing
-    /// (no seat, no role), and a non-live event hands out nothing at all, so passing
-    /// <paramref name="live"/> false yields the empty set an ended event should converge to.</summary>
+    /// <summary>Which Discord roles each seated user currently holds through this event — the
+    /// snapshot the edit path diffs to decide grants and revokes. A user holds the union of their
+    /// seated options' roles (several seats when the event allows multiple RSVPs). Waitlisted
+    /// RSVPs hold nothing (no seat, no role), and a non-live event hands out nothing at all, so
+    /// passing <paramref name="live"/> false yields the empty set an ended event should converge to.</summary>
     /// <param name="ev">The event (Options and Rsvps loaded).</param>
     /// <param name="live">Whether the event is in a live state at the point being snapshotted.</param>
-    /// <returns>Seated user id to the role they hold; users holding none are absent.</returns>
-    internal static Dictionary<long, long> SeatedRoles(Event ev, bool live)
+    /// <returns>Seated user id to the roles they hold; users holding none are absent.</returns>
+    internal static Dictionary<long, HashSet<long>> SeatedRoles(Event ev, bool live)
     {
-        var held = new Dictionary<long, long>();
+        var held = new Dictionary<long, HashSet<long>>();
         if (!live)
         {
             return held;
@@ -134,12 +136,39 @@ public static class EventEndpoints
         {
             if (AttendeeRoleSync.RoleFor(ev.Options, rsvp.OptionId) is { } roleId)
             {
-                held[rsvp.UserId] = roleId;
+                if (!held.TryGetValue(rsvp.UserId, out var roles))
+                {
+                    roles = [];
+                    held[rsvp.UserId] = roles;
+                }
+
+                roles.Add(roleId);
             }
         }
 
         return held;
     }
+
+    /// <summary>The roles one user holds through their seats on this event right now — the
+    /// single-user form of <see cref="SeatedRoles"/>, snapshotted before and after an RSVP change
+    /// so the roles to deliver fall out of the set difference. Reads ev.Rsvps as it stands, so
+    /// call it again after the rows changed.</summary>
+    /// <param name="ev">The event (Options and Rsvps loaded).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <returns>The roles the user's seated RSVPs carry.</returns>
+    private static HashSet<long> RolesHeldBy(Event ev, long userId) =>
+        AttendeeRoleSync.RolesHeld(
+            ev.Options, ev.Rsvps.Where(r => r.UserId == userId && !r.Waitlisted).Select(r => r.OptionId));
+
+    /// <summary>Whether the user holds a SEAT (not a queue place) on the attending option — the
+    /// one fact threads, availability and promotion key on, whatever else the user holds.</summary>
+    /// <param name="ev">The event (Rsvps loaded).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="attendingId">The attending option's id, or null when the event has none.</param>
+    /// <returns>True when a seated RSVP on the attending option exists.</returns>
+    private static bool HoldsAttendingSeat(Event ev, long userId, Guid? attendingId) =>
+        attendingId is { } attending
+        && ev.Rsvps.Any(r => r.UserId == userId && r.OptionId == attending && !r.Waitlisted);
 
     /// <summary>Drops every spec-level attendee role and signup restriction — the option-set
     /// equivalent of ignoring the request's AttendeeRoleId / AllowedRoleIds for web callers. Roles
@@ -442,8 +471,10 @@ public static class EventEndpoints
         // Signup restrictions likewise: configured in Discord, ignored from the web (ADR 0004).
         var allowedRoleIds = isBot ? request.AllowedRoleIds : null;
         // Threads are a plain yes/no, so WantsThread is honored for BOTH caller types — the bot
-        // opens the thread when it posts the embed.
+        // opens the thread when it posts the embed. Multiple RSVPs likewise: the switch hands
+        // out nothing, so there is no security boundary for the web to be kept behind.
         var wantsThread = request.WantsThread;
+        var allowMultiple = request.AllowMultipleRsvps;
 
         // Custom RSVP options + the attending-option limit/role shorthands (defaults apply when
         // unspecified) and the optional RSVP cutoff — relative text becomes minutes-before (tracks
@@ -568,6 +599,7 @@ public static class EventEndpoints
                 Location = location,
                 ImageUrl = imageUrl,
                 WantsThread = wantsThread,
+                AllowMultipleRsvps = allowMultiple,
                 // Only the relative cutoff is a template field — a fixed instant makes no sense
                 // across a schedule. The option set (with any merged attendee limit) is captured
                 // as a template too, so spawned occurrences start from it.
@@ -595,6 +627,7 @@ public static class EventEndpoints
             Location = location,
             ImageUrl = imageUrl,
             WantsThread = wantsThread,
+            AllowMultipleRsvps = allowMultiple,
             RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
             RsvpClosesAt = rsvpClosesAt,
             Status = EventStatus.Scheduled,
@@ -887,6 +920,21 @@ public static class EventEndpoints
 
         var staysLive = (request.Status ?? ev.Status) is EventStatus.Scheduled or EventStatus.Started;
 
+        // Turning multiple RSVPs OFF while members hold several is refused rather than collapsed —
+        // the same posture as a capacity below the seats taken or removing an option with RSVPs:
+        // nobody's seat is dropped by an edit. Checked under the event lock before any mutation.
+        // Turning it on never fails.
+        if (request.AllowMultipleRsvps == false && ev.AllowMultipleRsvps)
+        {
+            var multiHolders = ev.Rsvps.GroupBy(r => r.UserId).Count(rows => rows.Count() > 1);
+            if (multiHolders > 0)
+            {
+                return Results.Conflict(new ErrorResponse(multiHolders == 1
+                    ? "1 member holds more than one RSVP — keep multiple RSVPs on, or ask them to pick one."
+                    : $"{multiHolders} members hold more than one RSVP — keep multiple RSVPs on, or ask them to pick one."));
+            }
+        }
+
         // Who holds which role right now. Every role effect of this edit is the difference between
         // this snapshot and the one taken once the options, seats and live-status have settled —
         // one rule that covers a role swapped on an option, the attending flag moving, an option
@@ -1079,6 +1127,18 @@ public static class EventEndpoints
             }
         }
 
+        if (request.AllowMultipleRsvps is { } allowMultiple)
+        {
+            // A plain template field, like the relative cutoff: Series scope writes the template
+            // only when the request carried the flag; Occurrence scope diverges and the next
+            // spawn reverts. The refusal for turning it off with multi-holders ran above.
+            ev.AllowMultipleRsvps = allowMultiple;
+            if (applyToSeries)
+            {
+                series!.AllowMultipleRsvps = allowMultiple;
+            }
+        }
+
         // The cutoff must stay coherent with the (possibly just-edited) start. A newly supplied
         // cutoff of either form must be in the future (absolute text can resolve up to a minute
         // into the past — the parser's "now-ish" grace), a relative one must not be dragged into
@@ -1134,20 +1194,24 @@ public static class EventEndpoints
             RsvpPolicy.SeatWaitlist(ev, vacatedAttending);
         }
 
-        // Everything the edit did to roles, as one per-user difference. A user whose role is
-        // unchanged gets no delivery at all, and a swap emits exactly one revoke and one grant.
-        // The pairs are collected first and their pending rows loaded in ONE query: per-option
-        // roles make this many-roles-many-users, so a per-user lookup here would reintroduce the
-        // N-query scaling under the event's FOR UPDATE lock that #143 removed.
+        // Everything the edit did to roles, as one per-user set difference. A user whose roles are
+        // unchanged gets no delivery at all, a swap emits exactly one revoke and one grant, and a
+        // role still carried by another of the user's seats is left alone. The pairs are
+        // collected first and their pending rows loaded in ONE query: per-option roles make this
+        // many-roles-many-users, so a per-user lookup here would reintroduce the N-query scaling
+        // under the event's FOR UPDATE lock that #143 removed.
         var rolesAfter = SeatedRoles(ev, staysLive);
-        var roleRevokes = rolesBefore
-            .Where(before => !rolesAfter.TryGetValue(before.Key, out var stillHeld) || stillHeld != before.Value)
-            .Select(before => (RoleId: before.Value, UserId: before.Key))
-            .ToList();
-        var roleGrants = rolesAfter
-            .Where(after => !rolesBefore.TryGetValue(after.Key, out var alreadyHeld) || alreadyHeld != after.Value)
-            .Select(after => (RoleId: after.Value, UserId: after.Key))
-            .ToList();
+        var roleRevokes = new List<(long RoleId, long UserId)>();
+        var roleGrants = new List<(long RoleId, long UserId)>();
+        foreach (var roleUserId in rolesBefore.Keys.Union(rolesAfter.Keys))
+        {
+            var diff = AttendeeRoleSync.Diff(
+                rolesBefore.GetValueOrDefault(roleUserId) ?? AttendeeRoleSync.NoRoles,
+                rolesAfter.GetValueOrDefault(roleUserId) ?? AttendeeRoleSync.NoRoles);
+            roleRevokes.AddRange(diff.Revokes.Select(roleId => (roleId, roleUserId)));
+            roleGrants.AddRange(diff.Grants.Select(roleId => (roleId, roleUserId)));
+        }
+
         if (roleRevokes.Count > 0 || roleGrants.Count > 0)
         {
             var pendingRoleChanges = await AttendeeRoleSync.LoadPendingRoleChangesAsync(
@@ -1200,7 +1264,8 @@ public static class EventEndpoints
             ("RSVP options", request.RsvpOptions is not null),
             ("attendee limit", request.AttendeeLimit is not null || request.ClearAttendeeLimit),
             ("signup restriction", request.AllowedRoleIds is not null || request.ClearAllowedRoles),
-            ("RSVP cutoff", request.RsvpCloseText is not null || request.ClearRsvpClose));
+            ("RSVP cutoff", request.RsvpCloseText is not null || request.ClearRsvpClose),
+            ("multiple RSVPs", request.AllowMultipleRsvps is not null));
         ActionLog.Record(
             db, ev.GuildId, ActionLog.ActorFor(context, request.EditorId), ActionLogAction.EventEdited,
             ActionTargetType.Event, ev.Id,
@@ -1451,19 +1516,23 @@ public static class EventEndpoints
         }
 
         var attendingId = AttendeeRoleSync.AttendingOptionId(ev.Options);
-        var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
-        var oldOptionId = existing?.OptionId;
-        var oldWaitlisted = existing?.Waitlisted ?? false;
 
-        // Re-clicking the current choice changes nothing — and must not move a queue position
-        // (CreatedAt doubles as the waitlist order).
-        if (existing is not null && existing.OptionId == option.Id)
+        // Re-clicking a choice the user already holds changes nothing — and must not move a queue
+        // position (CreatedAt doubles as the waitlist order). Per option in both modes.
+        if (ev.Rsvps.Any(r => r.UserId == userId && r.OptionId == option.Id))
         {
             return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
         }
 
+        // Snapshot BEFORE the rows change: the roles the user's seats carry (the union over every
+        // seat, so one rule covers a single-choice switch and a multi-RSVP add alike) and whether
+        // one of those seats is the attending one.
+        var rolesBefore = RolesHeldBy(ev, userId);
+        var attendingSeatBefore = HoldsAttendingSeat(ev, userId, attendingId);
+
         // Capacity: the attending option queues past its cap (waitlist); any other full option
-        // still rejects outright — there is nothing to wait for on a decline/maybe.
+        // still rejects outright — there is nothing to wait for on a decline/maybe. Seats are
+        // counted per option, so a member seated elsewhere still queues on the full attending one.
         var waitlisted = false;
         if (option.Capacity is int capacity && RsvpPolicy.SeatedCount(ev, option.Id) >= capacity)
         {
@@ -1475,6 +1544,12 @@ public static class EventEndpoints
             waitlisted = true;
         }
 
+        // Single-choice mode moves the user's one row (a switch, which frees the seat it held);
+        // multiple-RSVP mode adds a row and leaves the user's other seats alone. The unique index
+        // forbids only a second row on the SAME option, so single-choice is enforced here, under
+        // the event lock, the way capacity is.
+        var vacatedAttending = false;
+        var existing = ev.AllowMultipleRsvps ? null : ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
         if (existing is null)
         {
             var rsvp = new Rsvp
@@ -1493,35 +1568,35 @@ public static class EventEndpoints
         }
         else
         {
+            vacatedAttending = !existing.Waitlisted && existing.OptionId == attendingId;
             existing.OptionId = option.Id;
             existing.Waitlisted = waitlisted;
             existing.CreatedAt = now;
         }
 
-        // Attendee roles + thread membership: the SEAT the user gives up loses its option's role
-        // and the one they take earns its own — for BOT callers too (unlike embed sync, the bot
-        // never initiates these itself; everything rides the outbox). Waitlisted states pass null:
+        // Attendee roles: whatever the seats carried before minus what they carry now is revoked,
+        // and the reverse granted — for BOT callers too (unlike embed sync, the bot never
+        // initiates these itself; everything rides the outbox). A waitlisted row is no seat, so
         // a queued RSVP earns its role and the thread on promotion, not on joining.
-        var seatBefore = oldWaitlisted ? null : oldOptionId;
-        var seatAfter = waitlisted ? (Guid?)null : option.Id;
         if (AttendeeRoleSync.IsRoleActive(ev))
         {
-            await AttendeeRoleSync.ApplyRoleChangeAsync(
-                db, ev, AttendeeRoleSync.Decide(ev.Options, seatBefore, seatAfter),
-                userId, clock, cancellationToken);
+            await AttendeeRoleSync.ApplyRoleDiffAsync(
+                db, ev, rolesBefore, RolesHeldBy(ev, userId), userId, clock, cancellationToken);
         }
 
         // Thread membership still follows the ATTENDING seat specifically — the thread belongs to
-        // the event, not to any one option, and it is add-only.
-        if (seatAfter is { } takenSeat && takenSeat == attendingId && seatBefore != attendingId
+        // the event, not to any one option, and it is add-only: a user who already held that seat
+        // (and is now adding another option) is not re-added.
+        if (!attendingSeatBefore && HoldsAttendingSeat(ev, userId, attendingId)
             && EventThreadSync.IsThreadActive(ev))
         {
             await EventThreadSync.EnqueueMemberAddAsync(db, ev, userId, clock, cancellationToken);
         }
 
         // Switching off an attending seat frees it — promote the first waitlisted user (the
-        // seat move and the promotion commit together; the ping rides the outbox).
-        if (!oldWaitlisted && oldOptionId == attendingId)
+        // seat move and the promotion commit together; the ping rides the outbox). Only a
+        // single-choice switch vacates anything; a multi-RSVP add never does.
+        if (vacatedAttending)
         {
             await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
         }
@@ -1533,7 +1608,8 @@ public static class EventEndpoints
         return Results.Ok(await ToDtoWithChannelAsync(db, ev, cancellationToken));
     }
 
-    /// <summary>Clears a user's RSVP (self-only for web callers).</summary>
+    /// <summary>Clears EVERY RSVP a user holds on the event (self-only for web callers) — the one
+    /// row in single-choice mode, all of them when the event allows multiple RSVPs.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="id">The event id.</param>
@@ -1542,11 +1618,59 @@ public static class EventEndpoints
     /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
-    private static async Task<IResult> DeleteRsvp(
+    private static Task<IResult> DeleteRsvp(
         HttpContext context,
         GuildAccessService access,
         Guid id,
         long userId,
+        CalCronyDbContext db,
+        IClock clock,
+        CancellationToken cancellationToken) =>
+        RemoveRsvpsAsync(context, access, id, userId, null, db, clock, cancellationToken);
+
+    /// <summary>Clears a user's RSVP on ONE option (self-only for web callers), leaving any other
+    /// seats they hold alone — how a member drops one of several choices on an event that allows
+    /// multiple RSVPs. In single-choice mode the one row is on that option, so it is the same
+    /// withdrawal. An option the user does not hold is the no-op OK.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="optionId">The RSVP option to withdraw from.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static Task<IResult> DeleteRsvpOption(
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        long userId,
+        Guid optionId,
+        CalCronyDbContext db,
+        IClock clock,
+        CancellationToken cancellationToken) =>
+        RemoveRsvpsAsync(context, access, id, userId, optionId, db, clock, cancellationToken);
+
+    /// <summary>The withdrawal core behind both DELETE routes: removes the user's rows (one option's,
+    /// or every one when <paramref name="optionId"/> is null), revokes the roles no remaining seat
+    /// still carries, and promotes the waitlist when a seated attending row went. Nothing to
+    /// remove is the no-op OK; the cutoff refuses with 409 as it does for a PUT.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="optionId">The one option to withdraw from, or null for all.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> RemoveRsvpsAsync(
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        long userId,
+        Guid? optionId,
         CalCronyDbContext db,
         IClock clock,
         CancellationToken cancellationToken)
@@ -1572,8 +1696,10 @@ public static class EventEndpoints
             return GuildAccessService.SelfOnly();
         }
 
-        var existing = ev.Rsvps.FirstOrDefault(r => r.UserId == userId);
-        if (existing is not null)
+        var removing = ev.Rsvps
+            .Where(r => r.UserId == userId && (optionId is null || r.OptionId == optionId))
+            .ToList();
+        if (removing.Count > 0)
         {
             // The cutoff freezes withdrawals too — "reject changes" cuts both ways, and a frozen
             // attendee list is what a close-early creator is counting on.
@@ -1582,21 +1708,26 @@ public static class EventEndpoints
                 return Results.Conflict(new ErrorResponse("RSVPs for this event are closed."));
             }
 
-            var wasOptionId = existing.OptionId;
-            var wasSeated = !existing.Waitlisted;
-            db.Rsvps.Remove(existing);
-            ev.Rsvps.Remove(existing);
-
-            if (wasSeated && AttendeeRoleSync.IsRoleActive(ev))
+            var attendingId = AttendeeRoleSync.AttendingOptionId(ev.Options);
+            var rolesBefore = RolesHeldBy(ev, userId);
+            var vacatedAttending = removing.Any(r => !r.Waitlisted && r.OptionId == attendingId);
+            foreach (var rsvp in removing)
             {
-                await AttendeeRoleSync.ApplyRoleChangeAsync(
-                    db, ev, AttendeeRoleSync.Decide(ev.Options, wasOptionId, null),
-                    userId, clock, cancellationToken);
+                db.Rsvps.Remove(rsvp);
+                ev.Rsvps.Remove(rsvp);
+            }
+
+            // Only roles no remaining seat still carries come back — dropping Tank keeps a
+            // "Raider" role the user's Healer seat also grants.
+            if (AttendeeRoleSync.IsRoleActive(ev))
+            {
+                await AttendeeRoleSync.ApplyRoleDiffAsync(
+                    db, ev, rolesBefore, RolesHeldBy(ev, userId), userId, clock, cancellationToken);
             }
 
             // A vacated attending seat promotes the first waitlisted user; a waitlisted
-            // withdrawal just shortens the queue.
-            if (wasSeated && wasOptionId == AttendeeRoleSync.AttendingOptionId(ev.Options))
+            // withdrawal, or dropping a non-attending seat, just shortens the queue or nothing.
+            if (vacatedAttending)
             {
                 await RsvpPolicy.PromoteAsync(db, ev, clock, cancellationToken);
             }

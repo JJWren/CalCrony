@@ -159,8 +159,10 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<Rsvp>(e =>
         {
-            // One RSVP per user per event in v1; multi-select is a later premium-parity feature.
-            e.HasIndex(r => new { r.EventId, r.UserId }).IsUnique();
+            // One RSVP per user per OPTION: a member may hold several options on an event that
+            // allows multiple RSVPs. Single-choice mode (the default) is enforced by PutRsvp
+            // under the event's row lock, not by the index — the way capacity is.
+            e.HasIndex(r => new { r.EventId, r.UserId, r.OptionId }).IsUnique();
             // The CSV export pages RSVPs by (EventId, Id); the unique index above can't serve
             // that walk, so a crowded event would re-sort its whole RSVP set per page.
             e.HasIndex(r => new { r.EventId, r.Id }, "IX_Rsvps_EventId_Id");

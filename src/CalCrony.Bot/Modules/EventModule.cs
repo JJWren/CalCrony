@@ -53,6 +53,7 @@ public class EventModule(
     /// <param name="attendeeLimit">Cap on the attending option; extras join the waitlist.</param>
     /// <param name="rsvpClose">RSVP cutoff — relative ("2h before") or absolute natural language.</param>
     /// <param name="restrictTo">Role mentions limiting every RSVP option to their holders (see <see cref="RoleRestrictionSpec"/>).</param>
+    /// <param name="multiRsvp">Lets each member pick more than one RSVP option (clicking a chosen option again removes it).</param>
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
@@ -73,7 +74,8 @@ public class EventModule(
         [Summary("rsvp-options", "Custom RSVP buttons, e.g. \"⚔️ Raider x10, 🛡️ Standby, ❌ Out\" — first is the attending one")] string? rsvpOptions = null,
         [Summary("attendee-limit", "Max attendees — extra RSVPs join a waitlist and are promoted when a spot frees"), MinValue(1)] int? attendeeLimit = null,
         [Summary("rsvp-close", "When RSVPs stop, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
-        [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders @Officers\"")] string? restrictTo = null)
+        [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders @Officers\"")] string? restrictTo = null,
+        [Summary("multi-rsvp", "Let each member pick more than one RSVP option (click a chosen option again to remove it)")] bool multiRsvp = false)
     {
         await DeferAsync(ephemeral: true);
 
@@ -164,7 +166,8 @@ public class EventModule(
                 RsvpOptions: optionSpecs,
                 AttendeeLimit: attendeeLimit,
                 RsvpCloseText: rsvpClose,
-                AllowedRoleIds: restrictedTo));
+                AllowedRoleIds: restrictedTo,
+                AllowMultipleRsvps: multiRsvp));
 
         if (!result.Success || result.Value is null)
         {
@@ -201,8 +204,9 @@ public class EventModule(
         var threadNote = ev.WantsThread ? " · 🧵 opening a discussion thread" : "";
         var limitNote = ev.AttendingOption?.Capacity is int cap ? $" · 👥 limited to {cap} (waitlist after)" : "";
         var closeNote = ev.RsvpCloseUnix is long closeUnix ? $" · 🔒 RSVPs close <t:{closeUnix}:f>" : "";
+        var multiNote = ev.AllowMultipleRsvps ? " · ☑️ multiple RSVPs allowed" : "";
         await FollowupAsync(
-            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{RestrictionNote(ev)}{threadNote}{limitNote}{closeNote}",
+            $"✅ **{ev.Title}** created in {targetChannel.Mention} for <t:{ev.StartsAtUnix}:F>.{repeatNote}{roleNote}{RestrictionNote(ev)}{threadNote}{limitNote}{closeNote}{multiNote}",
             ephemeral: true);
     }
 
@@ -294,6 +298,7 @@ public class EventModule(
     /// <param name="clearRsvpClose">Removes the cutoff (RSVPs reopen).</param>
     /// <param name="restrictTo">Role mentions replacing every option's signup restriction.</param>
     /// <param name="clearRestriction">Removes the signup restriction from every option.</param>
+    /// <param name="multiRsvp">Turns multiple RSVPs per member on or off (off is refused while anyone holds more than one).</param>
     [SlashCommand("edit", "Edit an event you created")]
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
@@ -312,7 +317,8 @@ public class EventModule(
         [Summary("rsvp-close", "New RSVP cutoff, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
         [Summary("clear-rsvp-close", "Remove the RSVP cutoff (RSVPs reopen)")] bool clearRsvpClose = false,
         [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders\"")] string? restrictTo = null,
-        [Summary("clear-restriction", "Remove the signup restriction from every option")] bool clearRestriction = false)
+        [Summary("clear-restriction", "Remove the signup restriction from every option")] bool clearRestriction = false,
+        [Summary("multi-rsvp", "Allow (true) or stop allowing (false) more than one RSVP option per member")] bool? multiRsvp = null)
     {
         await DeferAsync(ephemeral: true);
 
@@ -320,7 +326,7 @@ public class EventModule(
             && image is null && attendeeRole is null && !clearAttendeeRole
             && rsvpOptions is null && attendeeLimit is null && !clearAttendeeLimit
             && rsvpClose is null && !clearRsvpClose
-            && restrictTo is null && !clearRestriction)
+            && restrictTo is null && !clearRestriction && multiRsvp is null)
         {
             await FollowupAsync("Nothing to change — pass at least one field.", ephemeral: true);
             return;
@@ -395,7 +401,8 @@ public class EventModule(
             RsvpCloseText: rsvpClose,
             ClearRsvpClose: clearRsvpClose,
             AllowedRoleIds: restrictedTo,
-            ClearAllowedRoles: clearRestriction));
+            ClearAllowedRoles: clearRestriction,
+            AllowMultipleRsvps: multiRsvp));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

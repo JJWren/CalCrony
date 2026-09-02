@@ -209,4 +209,52 @@ public class EventEmbedBuilderTests
         // No option carries a role: no legend at all.
         Assert.DoesNotContain("🏷️", EventEmbedBuilder.Build(ev).Description);
     }
+
+    [Fact]
+    public void Multiple_rsvps_add_a_meta_line_after_the_restriction_lines_and_before_the_cutoff()
+    {
+        var single = SampleEvent();
+        Assert.DoesNotContain("☑️", EventEmbedBuilder.Build(single).Description);
+
+        var closes = DateTimeOffset.UtcNow.AddHours(1);
+        var multi = single with
+        {
+            AllowMultipleRsvps = true,
+            RsvpClosesAtUtc = closes,
+            Options = [single.Options[0] with { AllowedRoles = [new RoleRefDto(555, "Raider")] }, single.Options[1], single.Options[2]],
+        };
+        var description = EventEmbedBuilder.Build(multi).Description;
+        const string Line = "☑️ Pick every option that applies — click a choice again to remove it";
+        Assert.Contains(Line, description);
+        Assert.True(description.IndexOf("🔒 Going —", StringComparison.Ordinal) < description.IndexOf(Line, StringComparison.Ordinal));
+        Assert.True(description.IndexOf(Line, StringComparison.Ordinal) < description.IndexOf("🔒 RSVPs close", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_member_seated_on_two_options_appears_in_both_columns_and_once_in_the_waitlist()
+    {
+        var ev = WaitlistedEvent();
+        var (raider, declined) = (ev.Options[0], ev.Options[1]);
+        var multi = ev with
+        {
+            AllowMultipleRsvps = true,
+            Rsvps =
+            [
+                new RsvpDto(42, raider.Id),
+                new RsvpDto(42, declined.Id),                  // 42 holds two seats
+                new RsvpDto(43, raider.Id),
+                new RsvpDto(44, raider.Id, Waitlisted: true),
+                new RsvpDto(44, declined.Id),                  // 44 is queued on one and seated on the other
+            ],
+        };
+
+        var embed = EventEmbedBuilder.Build(multi);
+
+        Assert.Equal("⚔️ Raider (2/2)", embed.Fields[0].Name);   // seats, not people: 42 and 43
+        Assert.Equal("<@42>\n<@43>", embed.Fields[0].Value);
+        Assert.Equal("⏳ Waitlist (1)", embed.Fields[1].Name);
+        Assert.Equal("<@44>", embed.Fields[1].Value);            // listed once, on the attending queue only
+        Assert.Equal("❌ Out (2)", embed.Fields[2].Name);
+        Assert.Equal("<@42>\n<@44>", embed.Fields[2].Value);     // 42 again, and 44's seated row
+    }
 }

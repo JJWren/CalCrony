@@ -48,7 +48,8 @@ public static class Mapping
         Services.RsvpPolicy.EffectiveClose(ev)?.ToDateTimeOffset(),
         // The restriction mirror follows the AttendeeRoleId one: the per-option sets are the
         // truth; this is the common set when every option agrees, null when they differ.
-        SharedAllowedRoles(ev.Options, roleNames));
+        SharedAllowedRoles(ev.Options, roleNames),
+        ev.AllowMultipleRsvps);
 
     /// <summary>Role ids to references, with whatever names the snapshot holds — minus the roles
     /// the snapshot says are deleted. A tombstone (present in the lookup with a null name) is a

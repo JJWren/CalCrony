@@ -6,25 +6,31 @@ using NodaTime;
 
 namespace CalCrony.Api.Services;
 
-/// <summary>What moving one user's SEAT between options means for their Discord roles: give up the
-/// option they left, take on the one they joined. Both sides are null for a change that touches no
-/// role, and a move between two options carrying the SAME role nets to nothing rather than
-/// churning a revoke against a grant.</summary>
-/// <param name="Revoke">The role to take away, when the vacated option carried one.</param>
-/// <param name="Grant">The role to hand out, when the taken option carries one.</param>
-public readonly record struct AttendeeRoleChange(long? Revoke, long? Grant)
+/// <summary>What one user's seat changes mean for their Discord roles, as a difference between the
+/// role SET their seats carried before and the set they carry after: a role in neither or both is
+/// untouched, so a move between two options carrying the SAME role nets to nothing rather than
+/// churning a revoke against a grant, and dropping one of two seats that both grant a role keeps
+/// it. Both lists are empty for a change that touches no role.</summary>
+/// <param name="Revokes">The roles to take away — held before, held by no seat now.</param>
+/// <param name="Grants">The roles to hand out — held by no seat before, held now.</param>
+public readonly record struct AttendeeRoleDiff(IReadOnlyList<long> Revokes, IReadOnlyList<long> Grants)
 {
     /// <summary>Whether this change asks for any delivery at all.</summary>
-    public bool IsNoOp => Revoke is null && Grant is null;
+    public bool IsNoOp => Revokes.Count == 0 && Grants.Count == 0;
 }
 
-/// <summary>Attendee-role outbox logic: pure decisions about which Discord role a seated RSVP
-/// earns or loses, plus the grant/revoke delivery enqueues. Roles hang off the OPTION, not the
+/// <summary>Attendee-role outbox logic: pure decisions about which Discord roles a user's seated
+/// RSVPs earn or lose, plus the grant/revoke delivery enqueues. Roles hang off the OPTION, not the
 /// event, so one event can hand out Tank/Healer/DPS; the attending flag drives seating and
-/// threads, never roles. All Discord role changes flow through the outbox (types 10/11); the
-/// handlers are best-effort so ordering holds without retries.</summary>
+/// threads, never roles. A user holds the UNION of their seated options' roles — one seat in
+/// single-choice mode, several when the event allows multiple RSVPs — and every change is the
+/// set difference before/after. All Discord role changes flow through the outbox (types 10/11);
+/// the handlers are best-effort so ordering holds without retries.</summary>
 public static class AttendeeRoleSync
 {
+    /// <summary>The empty role set, for callers diffing a user who holds no seat on one side.</summary>
+    public static readonly IReadOnlySet<long> NoRoles = new HashSet<long>();
+
     /// <summary>The attending option's id (see <see cref="RsvpPolicy.AttendingOption"/>). Null
     /// when the event has no options.</summary>
     /// <param name="options">The event's RSVP options.</param>
@@ -40,23 +46,40 @@ public static class AttendeeRoleSync
     public static long? RoleFor(IEnumerable<RsvpOption> options, Guid? optionId) =>
         optionId is { } id ? options.FirstOrDefault(o => o.Id == id)?.AttendeeRoleId : null;
 
-    /// <summary>Pure decision for an RSVP change: the seat given up loses its option's role and
-    /// the seat taken earns its own. Null old = fresh RSVP; null new = un-RSVP. Callers pass null
-    /// for waitlisted states too — a queued RSVP has no seat, so it holds no role until promoted.
-    /// Moving between options that share a role is a no-op, so a shared "Attending" role survives
-    /// a Tank→Healer switch untouched.</summary>
+    /// <summary>The roles one user holds through a set of SEATED options: the union of those
+    /// options' roles. Callers pass seated options only — a waitlisted RSVP has no seat, so it
+    /// holds no role until promoted. Empty for no seats, unknown options, or roleless ones.</summary>
     /// <param name="options">The event's RSVP options.</param>
-    /// <param name="oldOptionId">The seated option before the change, when one existed.</param>
-    /// <param name="newOptionId">The seated option after the change, when one remains.</param>
-    /// <returns>The roles to revoke and grant.</returns>
-    public static AttendeeRoleChange Decide(
-        IEnumerable<RsvpOption> options, Guid? oldOptionId, Guid? newOptionId)
+    /// <param name="seatedOptionIds">The options the user holds a seat on.</param>
+    /// <returns>The distinct Discord role ids those seats carry.</returns>
+    public static HashSet<long> RolesHeld(IEnumerable<RsvpOption> options, IEnumerable<Guid> seatedOptionIds)
     {
         var materialized = options as IReadOnlyCollection<RsvpOption> ?? [.. options];
-        var was = RoleFor(materialized, oldOptionId);
-        var now = RoleFor(materialized, newOptionId);
-        return was == now ? default : new AttendeeRoleChange(was, now);
+        var held = new HashSet<long>();
+        foreach (var optionId in seatedOptionIds)
+        {
+            if (RoleFor(materialized, optionId) is { } roleId)
+            {
+                held.Add(roleId);
+            }
+        }
+
+        return held;
     }
+
+    /// <summary>Pure decision for one user's seat changes: every role their seats carried before
+    /// and carry no longer is revoked, every role they carry now and did not before is granted,
+    /// and a role on both sides is left alone. Covers a fresh RSVP (empty before), an un-RSVP
+    /// (empty after), a single-choice switch, and — with multiple RSVPs — adding or dropping one
+    /// seat among several: Tank and Healer both granting "Raider" means dropping Tank keeps it.
+    /// Lists come out in ascending role order so deliveries are deterministic.</summary>
+    /// <param name="before">The roles held through seats before the change.</param>
+    /// <param name="after">The roles held through seats after the change.</param>
+    /// <returns>The roles to revoke and grant.</returns>
+    public static AttendeeRoleDiff Diff(IReadOnlySet<long> before, IReadOnlySet<long> after) =>
+        new(
+            [.. before.Where(roleId => !after.Contains(roleId)).Order()],
+            [.. after.Where(roleId => !before.Contains(roleId)).Order()]);
 
     /// <summary>Whether role deliveries may fire at all: at least one option carries a role and
     /// the event is live. RSVPs on non-live events succeed but never touch roles.</summary>
@@ -176,25 +199,30 @@ public static class AttendeeRoleSync
         EnqueueRoleChange(db, ev, type, roleId, userId, pending, clock.GetCurrentInstant());
     }
 
-    /// <summary>Applies an <see cref="AttendeeRoleChange"/> for one user, revoking before granting
-    /// so a move between two role-bearing options lands in the order the bot will serve.</summary>
+    /// <summary>Applies the <see cref="Diff"/> of one user's role sets, revoking before granting
+    /// so a move between two role-bearing options lands in the order the bot will serve. Each
+    /// delivery coalesces against its own pending rows (<see cref="EnqueueRoleChangeAsync"/>) —
+    /// an RSVP touches one user, so one lookup per role is the right grain here; the edit path,
+    /// which touches many, batches through <see cref="LoadPendingRoleChangesAsync"/> instead.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event.</param>
-    /// <param name="change">The decided revoke/grant pair.</param>
+    /// <param name="before">The roles the user's seats carried before the change.</param>
+    /// <param name="after">The roles the user's seats carry after it.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="clock">The time source.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    public static async Task ApplyRoleChangeAsync(
-        CalCronyDbContext db, Event ev, AttendeeRoleChange change, long userId, IClock clock,
-        CancellationToken cancellationToken)
+    public static async Task ApplyRoleDiffAsync(
+        CalCronyDbContext db, Event ev, IReadOnlySet<long> before, IReadOnlySet<long> after, long userId,
+        IClock clock, CancellationToken cancellationToken)
     {
-        if (change.Revoke is { } revoked)
+        var diff = Diff(before, after);
+        foreach (var revoked in diff.Revokes)
         {
             await EnqueueRoleChangeAsync(
                 db, ev, DeliveryType.RevokeAttendeeRole, revoked, userId, clock, cancellationToken);
         }
 
-        if (change.Grant is { } granted)
+        foreach (var granted in diff.Grants)
         {
             await EnqueueRoleChangeAsync(
                 db, ev, DeliveryType.GrantAttendeeRole, granted, userId, clock, cancellationToken);

@@ -55,6 +55,7 @@ public sealed class SeriesMaterializer(CalCronyDbContext db)
             Location = series.Location,
             ImageUrl = series.ImageUrl,
             WantsThread = series.WantsThread,
+            AllowMultipleRsvps = series.AllowMultipleRsvps,
             RsvpCloseMinutesBefore = series.RsvpCloseMinutesBefore,
             Status = EventStatus.Scheduled,
             SeriesId = series.Id,

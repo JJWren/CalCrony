@@ -119,30 +119,30 @@ Layers run top to bottom; each layer builds and its tests pass before the next s
 turn a step completes.
 
 **1. Contracts** (`src/CalCrony.Contracts/Events.cs`)
-- [ ] 1.1 `CreateEventRequest` += `bool AllowMultipleRsvps = false`; `UpdateEventRequest` += `bool? AllowMultipleRsvps = null`. XML docs: opt-in, both caller types, 409 rule on turning off.
-- [ ] 1.2 `EventDto` += `bool AllowMultipleRsvps = false` (after `AllowedRoles`) and helper `IReadOnlyList<RsvpDto> RsvpsFor(long userId)` (seated and waitlisted rows, display order).
+- [x] 1.1 `CreateEventRequest` += `bool AllowMultipleRsvps = false`; `UpdateEventRequest` += `bool? AllowMultipleRsvps = null`. XML docs: opt-in, both caller types, 409 rule on turning off.
+- [x] 1.2 `EventDto` += `bool AllowMultipleRsvps = false` (after `AllowedRoles`) and helper `IReadOnlyList<RsvpDto> RsvpsFor(long userId)` (seated and waitlisted rows, display order).
 
 **2. API data model** (`src/CalCrony.Api/Data`)
-- [ ] 2.1 `Entities.cs`: `Event.AllowMultipleRsvps`, `EventSeries.AllowMultipleRsvps` (doc comments state the template rule).
-- [ ] 2.2 `CalCronyDbContext.cs`: replace the `(EventId, UserId)` unique index with unique `(EventId, UserId, OptionId)`; update the "one RSVP per user in v1" comment.
-- [ ] 2.3 Migration `AllowMultipleRsvps`: add both columns (default false); drop `IX_Rsvps_EventId_UserId`; create unique `IX_Rsvps_EventId_UserId_OptionId`. Down: delete every row but the earliest per `(EventId, UserId)` (`ROW_NUMBER() OVER (PARTITION BY "EventId","UserId" ORDER BY "CreatedAt","Id")`), then restore the old index and drop the columns. Execute Up and Down against `postgres:17-alpine` over seeded multi rows; record row counts before/after in the PR body.
+- [x] 2.1 `Entities.cs`: `Event.AllowMultipleRsvps`, `EventSeries.AllowMultipleRsvps` (doc comments state the template rule).
+- [x] 2.2 `CalCronyDbContext.cs`: replace the `(EventId, UserId)` unique index with unique `(EventId, UserId, OptionId)`; update the "one RSVP per user in v1" comment.
+- [x] 2.3 Migration `AllowMultipleRsvps`: add both columns (default false); drop `IX_Rsvps_EventId_UserId`; create unique `IX_Rsvps_EventId_UserId_OptionId`. Down: delete every row but the earliest per `(EventId, UserId)` (`ROW_NUMBER() OVER (PARTITION BY "EventId","UserId" ORDER BY "CreatedAt","Id")`), then restore the old index and drop the columns. Execute Up and Down against `postgres:17-alpine` over seeded multi rows; record row counts before/after in the PR body.
 
 **3. API logic** (`src/CalCrony.Api`)
-- [ ] 3.1 `AttendeeRoleSync`: `RolesHeld(options, seatedOptionIds) → HashSet<long>` and `Diff(before, after) → (revokes, grants)`; `Decide`/`AttendeeRoleChange` retired (or kept as a thin two-seat wrapper if fewer test edits result — pick one, don't keep both paths live).
-- [ ] 3.2 `EventEndpoints.SeatedRoles` → user → role set; edit-path diff (~1142–1150) as set differences through the existing batch load.
-- [ ] 3.3 `PutRsvp` per the rules (no-op per option; single-mode switch verbatim; multi-mode add; set-diff roles; attending-seat thread add; promotion on a vacated attending seat).
-- [ ] 3.4 `DeleteRsvp` core + option-scoped route `DELETE /events/{id}/rsvps/{userId}/options/{optionId}`; bare route keeps "remove every RSVP the member holds".
-- [ ] 3.5 `RsvpPolicy.PromoteAsync`: skip the grant when the promoted user's other seats already carry the attending role.
-- [ ] 3.6 Create: flag on `Event` and `EventSeries` for both caller types; `SeriesMaterializer` copies it.
-- [ ] 3.7 Edit: 409 on turning off with multi-holders (validated under the event lock before any mutation); apply to event and, Series-scope, to the template; action-log field "multiple RSVPs".
-- [ ] 3.8 `Mapping`: `EventDto.AllowMultipleRsvps`.
+- [x] 3.1 `AttendeeRoleSync`: `RolesHeld(options, seatedOptionIds) → HashSet<long>` and `Diff(before, after) → (revokes, grants)`; `Decide`/`AttendeeRoleChange` retired (or kept as a thin two-seat wrapper if fewer test edits result — pick one, don't keep both paths live).
+- [x] 3.2 `EventEndpoints.SeatedRoles` → user → role set; edit-path diff (~1142–1150) as set differences through the existing batch load.
+- [x] 3.3 `PutRsvp` per the rules (no-op per option; single-mode switch verbatim; multi-mode add; set-diff roles; attending-seat thread add; promotion on a vacated attending seat).
+- [x] 3.4 `DeleteRsvp` core + option-scoped route `DELETE /events/{id}/rsvps/{userId}/options/{optionId}`; bare route keeps "remove every RSVP the member holds".
+- [x] 3.5 `RsvpPolicy.PromoteAsync`: skip the grant when the promoted user's other seats already carry the attending role.
+- [x] 3.6 Create: flag on `Event` and `EventSeries` for both caller types; `SeriesMaterializer` copies it.
+- [x] 3.7 Edit: 409 on turning off with multi-holders (validated under the event lock before any mutation); apply to event and, Series-scope, to the template; action-log field "multiple RSVPs".
+- [x] 3.8 `Mapping`: `EventDto.AllowMultipleRsvps`.
 
 **4. Bot** (`src/CalCrony.Bot`)
-- [ ] 4.1 `CalCronyApiClient`: `DeleteRsvpOptionAsync(eventId, userId, optionId)`; drop the now-unused bare `DeleteRsvpAsync` if nothing else calls it.
-- [ ] 4.2 `EventModule`: `/create multi-rsvp:` (bool, default false) → `AllowMultipleRsvps`; reply note `· ☑️ multiple RSVPs allowed`. `/edit multi-rsvp:` (bool?) → `AllowMultipleRsvps`; added to the nothing-to-change guard.
-- [ ] 4.3 `RsvpReplyText.cs` (new, pure): confirmation lines. Single mode: today's three texts verbatim. Multi mode: `Added {emote} **{label}** to your RSVPs for **{title}** (<t:F>).` + ` You're also marked: {others}.` when other seats are held; `Removed {emote} **{label}** from your RSVPs for **{title}**.` + ` You're still marked: {others}.`; the waitlist text unchanged plus the "also marked" tail.
-- [ ] 4.4 `RsvpComponentModule`: `alreadyOnOption` → the option-scoped delete (both modes — in single mode the one row is on that option); PUT path unchanged; confirmations via `RsvpReplyText`; DM offer condition unchanged.
-- [ ] 4.5 `EventEmbedBuilder`: `☑️ Pick every option that applies — click a choice again to remove it` after the 🔒 lines, before the cutoff line, when `AllowMultipleRsvps`.
+- [x] 4.1 `CalCronyApiClient`: `DeleteRsvpOptionAsync(eventId, userId, optionId)`; drop the now-unused bare `DeleteRsvpAsync` if nothing else calls it.
+- [x] 4.2 `EventModule`: `/create multi-rsvp:` (bool, default false) → `AllowMultipleRsvps`; reply note `· ☑️ multiple RSVPs allowed`. `/edit multi-rsvp:` (bool?) → `AllowMultipleRsvps`; added to the nothing-to-change guard.
+- [x] 4.3 `RsvpReplyText.cs` (new, pure): confirmation lines. Single mode: today's three texts verbatim. Multi mode: `Added {emote} **{label}** to your RSVPs for **{title}** (<t:F>).` + ` You're also marked: {others}.` when other seats are held; `Removed {emote} **{label}** from your RSVPs for **{title}**.` + ` You're still marked: {others}.`; the waitlist text unchanged plus the "also marked" tail.
+- [x] 4.4 `RsvpComponentModule`: `alreadyOnOption` → the option-scoped delete (both modes — in single mode the one row is on that option); PUT path unchanged; confirmations via `RsvpReplyText`; DM offer condition unchanged.
+- [x] 4.5 `EventEmbedBuilder`: `☑️ Pick every option that applies — click a choice again to remove it` after the 🔒 lines, before the cutoff line, when `AllowMultipleRsvps`.
 
 **5. Web** (`src/CalCrony.Web`)
 - [ ] 5.1 `CalCronyWebApiClient`: `DeleteRsvpOptionAsync`; drop the bare `DeleteRsvpAsync` if unused.
@@ -157,15 +157,15 @@ turn a step completes.
 - [ ] 6.3 `aidlc-state.md` marks §3.3 shipped on merge; `audit.md` entries throughout.
 
 **7. Tests** (each layer's tests pass before the next layer starts)
-- [ ] 7.1 API `AttendeeRoleSyncTests`: `RolesHeld` / `Diff` matrix — same role via two seats nets to nothing, dropping one of two different roles revokes only that one, empty↔set.
-- [ ] 7.2 API `MultiRsvpApiTests` (new): single-mode behaviour unchanged (switch, re-click no-op, bare delete); multi add leaves other seats alone; option-scoped delete; bare delete clears all; capacity counts seats (one member takes a seat on two capped options); attending waitlist while seated elsewhere; promotion when the attending seat is removed via the option route and NOT when a non-attending seat is; Tank+Healer both granting `@raider` → one grant, no revoke on dropping one; Tank(@tank)+Healer(@healer) → two grants, dropping one revokes only its role; promotion skips an already-held role; edit-path diff with multi-holders (role moved between options, option dropped); turning off with multi-holders → 409 with the count, turning off with none → 200; turning on never fails; series template carries the flag to the next occurrence; Series-scope edit writes the template only when the request carried the flag; Occurrence-scope leaves it; restriction gate still per option (entry to a second option is gated, re-click is not); DM fan-out sends one DM per member; `/calendar/availability` for the event lists a member with two seats once; CSV export emits one row per seat; action log names "multiple RSVPs"; concurrent PUTs by one member to two options both land (no unique violation), concurrent PUTs to the same option yield one row.
-- [ ] 7.3 `RsvpPromotionQueryCountTests` still pin the same counts.
-- [ ] 7.4 Bot: `RsvpReplyTextTests` (six texts), `EventEmbedBuilderTests` (☑️ line present/absent; a member seated on two options appears in both columns and is counted once per column; the waitlist column still lists them once).
+- [x] 7.1 API `AttendeeRoleSyncTests`: `RolesHeld` / `Diff` matrix — same role via two seats nets to nothing, dropping one of two different roles revokes only that one, empty↔set.
+- [x] 7.2 API `MultiRsvpApiTests` (new): single-mode behaviour unchanged (switch, re-click no-op, bare delete); multi add leaves other seats alone; option-scoped delete; bare delete clears all; capacity counts seats (one member takes a seat on two capped options); attending waitlist while seated elsewhere; promotion when the attending seat is removed via the option route and NOT when a non-attending seat is; Tank+Healer both granting `@raider` → one grant, no revoke on dropping one; Tank(@tank)+Healer(@healer) → two grants, dropping one revokes only its role; promotion skips an already-held role; edit-path diff with multi-holders (role moved between options, option dropped); turning off with multi-holders → 409 with the count, turning off with none → 200; turning on never fails; series template carries the flag to the next occurrence; Series-scope edit writes the template only when the request carried the flag; Occurrence-scope leaves it; restriction gate still per option (entry to a second option is gated, re-click is not); DM fan-out sends one DM per member; `/calendar/availability` for the event lists a member with two seats once; CSV export emits one row per seat; action log names "multiple RSVPs"; concurrent PUTs by one member to two options both land (no unique violation), concurrent PUTs to the same option yield one row.
+- [x] 7.3 `RsvpPromotionQueryCountTests` still pin the same counts.
+- [x] 7.4 Bot: `RsvpReplyTextTests` (six texts), `EventEmbedBuilderTests` (☑️ line present/absent; a member seated on two options appears in both columns and is counted once per column; the waitlist column still lists them once).
 - [ ] 7.5 Web (bUnit): several selected buttons; click held sends the option-scoped delete; helper line; create form sends the flag; edit form sends it only when changed; detail chip.
-- [ ] 7.6 Migration Up/Down against `postgres:17-alpine` (Down collapses seeded multi rows to the earliest).
+- [x] 7.6 Migration Up/Down against `postgres:17-alpine` (Down collapses seeded multi rows to the earliest).
 - [ ] 7.7 Full-solution `dotnet test` green before the PR opens.
 
 **8. Delivery**
-- [ ] 8.1 First commit on the branch: `docs: RSVP v2 §3.3 design — requirements and code generation plan` (this file, the requirements doc, `aidlc-state.md`, `audit.md`).
+- [x] 8.1 First commit on the branch: `docs: RSVP v2 §3.3 design — requirements and code generation plan` (this file, the requirements doc, `aidlc-state.md`, `audit.md`).
 - [ ] 8.2 PR `feat: multiple RSVPs per user` with the #150-style body: what it does, shape of the change, behaviour changes for existing servers (none — opt-in; the index swap is invisible to single-mode events), rollback note (rolling the image back is safe: 0.34.0's code ignores the columns and never inserts a second row; only the Down migration collapses rows), migration verification, test counts. Conventional title `feat:` (never `feat!:`).
 - [ ] 8.3 Copilot review loop to zero comments (re-query PR state each turn; `env -u GITHUB_TOKEN` for gh writes; merge via the REST call); squash-merge; release-please release; upgrade test (`:main`) then prod (pg_dump to `backups/` first, bump `CALCRONY_IMAGE_TAG` in a clean shell); verify `/health` and `__EFMigrationsHistory`; tick §3.3 on #125 and close it (all three boxes done); mark shipped in `aidlc-state.md`.

@@ -49,6 +49,10 @@ public enum EventStatus
 /// AllowedRoleIds on each spec, and giving both is an error (the AttendeeLimit rule). Bot callers
 /// only — restrictions are configured in Discord, so the web is ignored here and stripped on the
 /// specs. Empty/null = unrestricted.</param>
+/// <param name="AllowMultipleRsvps">Opt-in: lets a member hold an RSVP on more than one option at
+/// once (Tank AND Healer; Dinner AND Movie). Default off keeps today's one-choice behaviour, where
+/// picking another option switches. Honored for both caller types (like WantsThread — it hands out
+/// nothing). Becomes the series template value when the event recurs.</param>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -68,7 +72,8 @@ public record CreateEventRequest(
     IReadOnlyList<RsvpOptionSpec>? RsvpOptions = null,
     int? AttendeeLimit = null,
     string? RsvpCloseText = null,
-    IReadOnlyList<long>? AllowedRoleIds = null);
+    IReadOnlyList<long>? AllowedRoleIds = null,
+    bool AllowMultipleRsvps = false);
 
 /// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
 /// the live occurrence of a non-ended series and ignored otherwise.</summary>
@@ -102,6 +107,10 @@ public record CreateEventRequest(
 /// unchanged. Conflicts with a restriction given on any spec in the same request.</param>
 /// <param name="ClearAllowedRoles">Removes the signup restriction from every option. Accepted from
 /// any caller — clearing needs no knowledge of the roles it removes. Conflicts with AllowedRoleIds.</param>
+/// <param name="AllowMultipleRsvps">Turns multiple RSVPs per member on or off; null leaves it
+/// unchanged. Accepted from any caller. Turning it OFF while any member holds more than one RSVP
+/// is refused (409 naming the count) — they keep their seats until they pick one. A Series-scope
+/// edit writes the series template only when this field is carried.</param>
 public record UpdateEventRequest(
     long EditorId,
     string? Title = null,
@@ -120,7 +129,8 @@ public record UpdateEventRequest(
     string? RsvpCloseText = null,
     bool ClearRsvpClose = false,
     IReadOnlyList<long>? AllowedRoleIds = null,
-    bool ClearAllowedRoles = false);
+    bool ClearAllowedRoles = false,
+    bool? AllowMultipleRsvps = null);
 
 /// <summary>A creator-supplied RSVP option for create/edit requests; ids and sort order are
 /// assigned server-side from list position.</summary>
@@ -234,6 +244,9 @@ public record RsvpDto(long UserId, Guid OptionId, bool Waitlisted = false);
 /// <param name="AllowedRoles">The signup restriction every option shares — empty when no option
 /// is restricted, null when the options differ (read them from Options then). A convenience
 /// mirror of the per-option sets, the way AttendeeRoleId mirrors the attending option's role.</param>
+/// <param name="AllowMultipleRsvps">Whether a member may hold an RSVP on more than one option at
+/// once. Off (the default) means picking another option switches; on means it adds a seat and a
+/// held option is removed by picking it again. Use <see cref="RsvpsFor"/> for what a member holds.</param>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -258,10 +271,18 @@ public record EventDto(
     long? ThreadId = null,
     string? ChannelName = null,
     DateTimeOffset? RsvpClosesAtUtc = null,
-    IReadOnlyList<RoleRefDto>? AllowedRoles = null)
+    IReadOnlyList<RoleRefDto>? AllowedRoles = null,
+    bool AllowMultipleRsvps = false)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
+
+    /// <summary>Every RSVP one member holds on this event — seated and waitlisted rows alike, in
+    /// display (RSVP) order. One row at most in single-choice mode; any number when
+    /// <see cref="AllowMultipleRsvps"/> is on. What the bot and web use to answer "what do I hold".</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <returns>The member's RSVP rows, empty when they hold none.</returns>
+    public IReadOnlyList<RsvpDto> RsvpsFor(long userId) => [.. Rsvps.Where(r => r.UserId == userId)];
 
     /// <summary>Unix seconds of the RSVP cutoff, for Discord &lt;t:...&gt; timestamps.</summary>
     public long? RsvpCloseUnix => RsvpClosesAtUtc?.ToUnixTimeSeconds();
