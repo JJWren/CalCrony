@@ -19,6 +19,10 @@
                 {
                     <span>📍 @Event.Location</span>
                 }
+                @if (Event.RestrictedOptions.Count > 0)
+                {
+                    <span title="Some RSVP options are limited by role" role="img" aria-label="Limited by role">🔒</span>
+                }
             </div>
         </div>
         <div class="meta-mono flex-shrink-0">✅ @GoingCount</div>

@@ -18,6 +18,11 @@ public static partial class RsvpPolicy
     /// <summary>Column cap for option emotes and labels (mirrors the DbContext config).</summary>
     public const int MaxOptionTextLength = 64;
 
+    /// <summary>Cap on the roles one signup restriction may name. Sized so a series' option
+    /// template — ten options, each carrying its restriction — stays inside the RsvpOptionsJson
+    /// column bound; a wider restriction wants one umbrella role.</summary>
+    public const int MaxAllowedRoles = 5;
+
     /// <summary>The attending option — the single source of "who is going" semantics. Falls back
     /// to the lowest SortOrder so pre-flag rows still resolve; null only without options.</summary>
     /// <param name="options">The event's RSVP options.</param>
@@ -81,17 +86,53 @@ public static partial class RsvpPolicy
     /// <returns>True once the effective cutoff has passed.</returns>
     public static bool IsClosed(Event ev, Instant now) => EffectiveClose(ev) is { } closes && closes <= now;
 
+    /// <summary>Validates a signup restriction and normalizes it to the stored shape: distinct
+    /// ids in the order given, empty for "unrestricted". Ids are Discord snowflakes the API can't
+    /// verify — the bot validates existence before it sends them.</summary>
+    /// <param name="roleIds">The submitted role ids, or null.</param>
+    /// <param name="normalized">The stored form (empty when unrestricted or on failure).</param>
+    /// <param name="error">The user-facing problem when validation fails.</param>
+    /// <returns>True when the restriction is acceptable.</returns>
+    public static bool TryNormalizeAllowedRoles(IReadOnlyList<long>? roleIds, out long[] normalized, out string? error)
+    {
+        error = null;
+        normalized = [];
+        if (roleIds is null || roleIds.Count == 0)
+        {
+            return true;
+        }
+
+        if (roleIds.Any(id => id <= 0))
+        {
+            error = "Signup restriction roles must be Discord role ids.";
+            return false;
+        }
+
+        var distinct = roleIds.Distinct().ToArray();
+        if (distinct.Length > MaxAllowedRoles)
+        {
+            error = $"A signup restriction can name at most {MaxAllowedRoles} roles.";
+            return false;
+        }
+
+        normalized = distinct;
+        return true;
+    }
+
     /// <summary>Validates option specs and builds fresh option rows. Exactly one attending option
     /// comes out: the flagged one, or the first when none is flagged (two flags is an error).
     /// AttendeeLimit and AttendeeRoleId are the "cap / role the attending option" shorthands and
-    /// each conflicts with the same setting given explicitly on the attending spec.</summary>
+    /// each conflicts with the same setting given explicitly on the attending spec; AllowedRoleIds
+    /// is the "restrict EVERY option" shorthand and conflicts with a restriction on any spec.</summary>
     /// <param name="specs">The creator-supplied option specs (null = default set).</param>
     /// <param name="attendeeLimit">Optional capacity for the attending option.</param>
     /// <param name="attendeeRoleId">Optional Discord role for the attending option.</param>
+    /// <param name="allowedRoleIds">Optional signup restriction applied to every option.</param>
     /// <param name="error">The user-facing problem when validation fails.</param>
     /// <returns>The built option rows, or null when validation fails.</returns>
     public static List<RsvpOption>? TryBuildOptions(
-        IReadOnlyList<RsvpOptionSpec>? specs, int? attendeeLimit, long? attendeeRoleId, out string? error)
+        IReadOnlyList<RsvpOptionSpec>? specs, int? attendeeLimit, long? attendeeRoleId,
+        IReadOnlyList<long>? allowedRoleIds, out string? error)
     {
         error = null;
         if (attendeeLimit is < 1)
@@ -100,11 +141,21 @@ public static partial class RsvpPolicy
             return null;
         }
 
+        if (!TryNormalizeAllowedRoles(allowedRoleIds, out var eventRestriction, out error))
+        {
+            return null;
+        }
+
         if (specs is null)
         {
             var defaults = Endpoints.EventEndpoints.DefaultRsvpOptions();
             defaults[0].Capacity = attendeeLimit;
             defaults[0].AttendeeRoleId = attendeeRoleId;
+            foreach (var option in defaults)
+            {
+                option.AllowedRoleIds = eventRestriction;
+            }
+
             return defaults;
         }
 
@@ -168,6 +219,11 @@ public static partial class RsvpPolicy
                 error = "RSVP option capacities must be at least 1.";
                 return null;
             }
+
+            if (!TryNormalizeAllowedRoles(spec.AllowedRoleIds, out _, out error))
+            {
+                return null;
+            }
         }
 
         var attendingIndex = specs.ToList().FindIndex(s => s.IsAttending);
@@ -188,6 +244,15 @@ public static partial class RsvpPolicy
             return null;
         }
 
+        // Supplied at all — an explicit empty set included, since on an edit that is "restrict
+        // every option to nobody", i.e. clear — the shorthand owns every option, and a spec that
+        // also carries a restriction is two answers to one question.
+        if (allowedRoleIds is not null && specs.Any(s => s.AllowedRoleIds is { Count: > 0 }))
+        {
+            error = "Set the signup restriction on the options or via the event-level restriction, not both.";
+            return null;
+        }
+
         return [.. specs.Select((spec, index) => new RsvpOption
         {
             Id = Guid.NewGuid(),
@@ -197,6 +262,8 @@ public static partial class RsvpPolicy
             Capacity = index == attendingIndex ? spec.Capacity ?? attendeeLimit : spec.Capacity,
             IsAttending = index == attendingIndex,
             AttendeeRoleId = index == attendingIndex ? spec.AttendeeRoleId ?? attendeeRoleId : spec.AttendeeRoleId,
+            // Validated above, so the per-spec normalization can't fail here.
+            AllowedRoleIds = allowedRoleIds is not null ? eventRestriction : [.. (spec.AllowedRoleIds ?? []).Distinct()],
         })];
     }
 
@@ -216,7 +283,11 @@ public static partial class RsvpPolicy
     public static string SerializeSpecs(IEnumerable<RsvpOption> options) =>
         JsonSerializer.Serialize(
             options.OrderBy(o => o.SortOrder)
-                .Select(o => new RsvpOptionSpec(o.Emote, o.Label, o.Capacity, o.IsAttending, o.AttendeeRoleId))
+                .Select(o => new RsvpOptionSpec(
+                    o.Emote, o.Label, o.Capacity, o.IsAttending, o.AttendeeRoleId,
+                    // Null rather than [] for the common unrestricted case — pre-§3.5 templates
+                    // carry no field at all, and this keeps new ones the same size.
+                    o.AllowedRoleIds.Length == 0 ? null : o.AllowedRoleIds))
                 .ToList(),
             SpecStorageOptions);
 
@@ -235,7 +306,7 @@ public static partial class RsvpPolicy
         try
         {
             var specs = JsonSerializer.Deserialize<List<RsvpOptionSpec>>(rsvpOptionsJson);
-            return TryBuildOptions(specs, attendeeLimit: null, attendeeRoleId: null, out _)
+            return TryBuildOptions(specs, attendeeLimit: null, attendeeRoleId: null, allowedRoleIds: null, out _)
                    ?? Endpoints.EventEndpoints.DefaultRsvpOptions();
         }
         catch (JsonException)
@@ -273,6 +344,23 @@ public static partial class RsvpPolicy
         if (AttendingOption(options) is { } attending)
         {
             attending.AttendeeRoleId = attendeeRoleId;
+        }
+
+        return SerializeSpecs(options);
+    }
+
+    /// <summary>Re-restricts EVERY option of a stored series template (null = the default set)
+    /// — how a restriction-only Series-scoped edit reaches the template. Unlike the capacity and
+    /// role shorthands this touches all options, because the restriction shorthand does too.</summary>
+    /// <param name="rsvpOptionsJson">The stored spec list, or null.</param>
+    /// <param name="allowedRoleIds">The new restriction (empty clears it).</param>
+    /// <returns>The re-serialized spec list.</returns>
+    public static string WithAllowedRoles(string? rsvpOptionsJson, long[] allowedRoleIds)
+    {
+        var options = OptionsFromTemplate(rsvpOptionsJson);
+        foreach (var option in options)
+        {
+            option.AllowedRoleIds = allowedRoleIds;
         }
 
         return SerializeSpecs(options);
@@ -344,15 +432,16 @@ public static partial class RsvpPolicy
     /// <param name="specs">The replacement option specs.</param>
     /// <param name="attendeeLimit">Optional capacity for the attending option.</param>
     /// <param name="attendeeRoleId">Optional Discord role for the attending option.</param>
+    /// <param name="allowedRoleIds">Optional signup restriction applied to every option.</param>
     /// <param name="conflict">True when the error should be a 409 (option in use), not a 400.</param>
     /// <param name="error">The user-facing problem when the edit is rejected.</param>
     /// <returns>True when the replacement was applied.</returns>
     public static bool TryApplyOptionEdit(
         CalCronyDbContext db, Event ev, IReadOnlyList<RsvpOptionSpec> specs, int? attendeeLimit,
-        long? attendeeRoleId, out bool conflict, out string? error)
+        long? attendeeRoleId, IReadOnlyList<long>? allowedRoleIds, out bool conflict, out string? error)
     {
         conflict = false;
-        var built = TryBuildOptions(specs, attendeeLimit, attendeeRoleId, out error);
+        var built = TryBuildOptions(specs, attendeeLimit, attendeeRoleId, allowedRoleIds, out error);
         if (built is null)
         {
             return false;
@@ -391,6 +480,9 @@ public static partial class RsvpPolicy
             existing.Capacity = replacement.Capacity;
             existing.IsAttending = replacement.IsAttending;
             existing.AttendeeRoleId = replacement.AttendeeRoleId;
+            // A kept option keeps (or takes) its restriction exactly as it keeps its RSVPs — by
+            // label; seats already taken stand regardless, since a restriction gates entry only.
+            existing.AllowedRoleIds = replacement.AllowedRoleIds;
             byLabel.Remove(existing.Label);
         }
 

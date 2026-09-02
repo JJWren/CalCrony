@@ -10,8 +10,11 @@ public static class Mapping
     /// <summary>Projects an event with ordered options/RSVPs; the recurrence summary requires the Series navigation loaded.</summary>
     /// <param name="ev">The event.</param>
     /// <param name="channelName">The channel-name snapshot to carry, when the caller looked one up.</param>
+    /// <param name="roleNames">Role-name snapshots for the options' roles, when the caller looked
+    /// them up; unknown roles render with a null name (id fallback on the consumer side).</param>
     /// <returns>The projected DTO.</returns>
-    public static EventDto ToDto(this Event ev, string? channelName = null) => new(
+    public static EventDto ToDto(
+        this Event ev, string? channelName = null, IReadOnlyDictionary<long, string?>? roleNames = null) => new(
         ev.Id,
         ev.GuildId,
         ev.CreatorId,
@@ -27,7 +30,9 @@ public static class Mapping
         ev.Status,
         [.. ev.Options.OrderBy(o => o.SortOrder)
             .Select(o => new RsvpOptionDto(
-                o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity, o.IsAttending, o.AttendeeRoleId))],
+                o.Id, o.Emote, o.Label, o.SortOrder, o.Capacity, o.IsAttending, o.AttendeeRoleId,
+                RoleRefs(o.AllowedRoleIds, roleNames),
+                o.AttendeeRoleId is { } attendeeRole ? roleNames?.GetValueOrDefault(attendeeRole) : null))],
         [.. ev.Rsvps.OrderBy(r => r.CreatedAt).Select(r => new RsvpDto(r.UserId, r.OptionId, r.Waitlisted))],
         ev.SeriesId,
         // Summary requires the Series nav loaded; ended series read as one-offs (no 🔁).
@@ -40,7 +45,56 @@ public static class Mapping
         ev.ThreadId,
         channelName,
         // Clients get the resolved cutoff instant — relative-vs-absolute is a storage detail.
-        Services.RsvpPolicy.EffectiveClose(ev)?.ToDateTimeOffset());
+        Services.RsvpPolicy.EffectiveClose(ev)?.ToDateTimeOffset(),
+        // The restriction mirror follows the AttendeeRoleId one: the per-option sets are the
+        // truth; this is the common set when every option agrees, null when they differ.
+        SharedAllowedRoles(ev.Options, roleNames));
+
+    /// <summary>Role ids to references, with whatever names the snapshot holds — minus the roles
+    /// the snapshot says are deleted. A tombstone (present in the lookup with a null name) is a
+    /// role the restriction no longer gates on, so it is not part of the restriction clients see;
+    /// an id the lookup simply doesn't know keeps its place with a null name (id fallback).</summary>
+    /// <param name="roleIds">The stored role ids.</param>
+    /// <param name="roleNames">Role-name snapshots, or null for none.</param>
+    /// <returns>The effective references, in the ids' order.</returns>
+    internal static IReadOnlyList<RoleRefDto> RoleRefs(long[] roleIds, IReadOnlyDictionary<long, string?>? roleNames) =>
+        [.. EffectiveRoleIds(roleIds, roleNames).Select(id => new RoleRefDto(id, roleNames?.GetValueOrDefault(id)))];
+
+    /// <summary>The stored restriction minus tombstoned roles (see <see cref="RoleRefs"/>).</summary>
+    /// <param name="roleIds">The stored role ids.</param>
+    /// <param name="roleNames">Role-name snapshots, or null for none.</param>
+    /// <returns>The ids still gating.</returns>
+    private static IEnumerable<long> EffectiveRoleIds(long[] roleIds, IReadOnlyDictionary<long, string?>? roleNames) =>
+        roleIds.Where(id => roleNames is null || !roleNames.TryGetValue(id, out var name) || name is not null);
+
+    /// <summary>The restriction every option shares — empty when none is restricted — or null when
+    /// the options disagree (set-wise: order doesn't matter).</summary>
+    /// <param name="options">The event's options.</param>
+    /// <param name="roleNames">Role-name snapshots, or null for none.</param>
+    /// <returns>The common restriction, or null.</returns>
+    private static IReadOnlyList<RoleRefDto>? SharedAllowedRoles(
+        IEnumerable<RsvpOption> options, IReadOnlyDictionary<long, string?>? roleNames)
+    {
+        long[]? first = null;
+        HashSet<long>? common = null;
+        foreach (var option in options)
+        {
+            var effective = EffectiveRoleIds(option.AllowedRoleIds, roleNames).ToArray();
+            if (first is null)
+            {
+                first = effective;
+                common = [.. first];
+                continue;
+            }
+
+            if (!common!.SetEquals(effective))
+            {
+                return null;
+            }
+        }
+
+        return RoleRefs(first ?? [], roleNames);
+    }
 
     /// <summary>Projects a series' schedule, template, progress, and notification specs.</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>
@@ -90,8 +144,10 @@ public static class Mapping
     /// <param name="poll">The poll.</param>
     /// <param name="viewerUserId">The web caller's Discord id, when a JWT caller.</param>
     /// <param name="viewerIsBot">True when the bot is the caller (sees all votes).</param>
+    /// <param name="roleNames">Role-name snapshots for the restriction, when the caller looked them up.</param>
     /// <returns>The projected DTO.</returns>
-    public static PollDto ToDto(this Poll poll, long? viewerUserId, bool viewerIsBot)
+    public static PollDto ToDto(
+        this Poll poll, long? viewerUserId, bool viewerIsBot, IReadOnlyDictionary<long, string?>? roleNames = null)
     {
         var orderedOptions = poll.IsTimePoll
             ? poll.Options.OrderBy(o => o.SlotAt).ToList()
@@ -120,6 +176,7 @@ public static class Mapping
             [.. orderedOptions.Select(o => new PollOptionDto(
                 o.Id, o.Text, o.SlotAt?.ToDateTimeOffset(), o.AddedByUserId, o.SortOrder,
                 poll.Votes.Count(v => v.OptionId == o.Id)))],
-            [.. votes.Select(v => new PollVoteDto(v.UserId, v.OptionId))]);
+            [.. votes.Select(v => new PollVoteDto(v.UserId, v.OptionId))],
+            RoleRefs(poll.AllowedRoleIds, roleNames));
     }
 }

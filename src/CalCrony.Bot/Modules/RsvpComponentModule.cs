@@ -34,9 +34,23 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
 
         // Clicking your current choice clears it; clicking another switches to it.
         var alreadyOnOption = current.Value.Rsvps.Any(r => r.UserId == userId && r.OptionId == optionId);
+
+        // Signup restriction, checked live before the API call (ADR 0004): the socket cache is
+        // Discord's own answer, so a refused click never reaches the API. Withdrawing is never gated.
+        if (!alreadyOnOption
+            && current.Value.Options.FirstOrDefault(o => o.Id == optionId) is { IsRestricted: true } restricted
+            && RoleRestrictionCheck.Denied(Context.User, current.Value.CreatorId, restricted.AllowedRoles, out var effective))
+        {
+            await FollowupAsync(RoleRestrictionCheck.Refusal($"**{restricted.Label}**", effective), ephemeral: true);
+            return;
+        }
+
+        // The restriction the live check ran against rides along, so an edit that restricted
+        // the option in between makes the API refuse and this click re-read rather than bypass.
+        var checkedRoles = current.Value.Options.FirstOrDefault(o => o.Id == optionId)?.AllowedRoles ?? [];
         var result = alreadyOnOption
             ? await api.DeleteRsvpAsync(eventId, userId)
-            : await api.PutRsvpAsync(eventId, userId, new RsvpRequest(optionId));
+            : await api.PutRsvpAsync(eventId, userId, new RsvpRequest(optionId, [.. checkedRoles.Select(r => r.Id)]));
 
         if (!result.Success || result.Value is null)
         {

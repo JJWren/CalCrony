@@ -44,6 +44,11 @@ public enum EventStatus
 /// default option set too. Conflicts with an explicit capacity on the attending spec.</param>
 /// <param name="RsvpCloseText">When RSVPs stop accepting changes: relative to start ("2h before")
 /// or a natural-language absolute time ("friday 5pm"), parsed server-side.</param>
+/// <param name="AllowedRoleIds">Event-level signup restriction: limits EVERY option to members
+/// holding at least one of these roles — the convenience form of setting the same
+/// AllowedRoleIds on each spec, and giving both is an error (the AttendeeLimit rule). Bot callers
+/// only — restrictions are configured in Discord, so the web is ignored here and stripped on the
+/// specs. Empty/null = unrestricted.</param>
 public record CreateEventRequest(
     long CreatorId,
     string Title,
@@ -62,7 +67,8 @@ public record CreateEventRequest(
     bool WantsThread = false,
     IReadOnlyList<RsvpOptionSpec>? RsvpOptions = null,
     int? AttendeeLimit = null,
-    string? RsvpCloseText = null);
+    string? RsvpCloseText = null,
+    IReadOnlyList<long>? AllowedRoleIds = null);
 
 /// <summary>Partial update; null fields are left unchanged. Scope is required when the target is
 /// the live occurrence of a non-ended series and ignored otherwise.</summary>
@@ -91,6 +97,11 @@ public record CreateEventRequest(
 /// <param name="RsvpCloseText">Replaces the RSVP cutoff — relative ("2h before") or absolute
 /// natural language. Null leaves it unchanged — clear with ClearRsvpClose.</param>
 /// <param name="ClearRsvpClose">Removes the RSVP cutoff. Conflicts with RsvpCloseText.</param>
+/// <param name="AllowedRoleIds">Replaces EVERY option's signup restriction with this role set
+/// (bot callers only; the web clears with ClearAllowedRoles). Null leaves restrictions
+/// unchanged. Conflicts with a restriction given on any spec in the same request.</param>
+/// <param name="ClearAllowedRoles">Removes the signup restriction from every option. Accepted from
+/// any caller — clearing needs no knowledge of the roles it removes. Conflicts with AllowedRoleIds.</param>
 public record UpdateEventRequest(
     long EditorId,
     string? Title = null,
@@ -107,7 +118,9 @@ public record UpdateEventRequest(
     int? AttendeeLimit = null,
     bool ClearAttendeeLimit = false,
     string? RsvpCloseText = null,
-    bool ClearRsvpClose = false);
+    bool ClearRsvpClose = false,
+    IReadOnlyList<long>? AllowedRoleIds = null,
+    bool ClearAllowedRoles = false);
 
 /// <summary>A creator-supplied RSVP option for create/edit requests; ids and sort order are
 /// assigned server-side from list position.</summary>
@@ -120,8 +133,48 @@ public record UpdateEventRequest(
 /// revoked when they leave it or the event ends — how one event hands out Tank/Healer/DPS. Bot
 /// callers only (the web can't enumerate roles). On the attending option this is the same setting
 /// the request-level AttendeeRoleId shorthand writes, and giving both is an error.</param>
+/// <param name="AllowedRoleIds">Signup restriction: only members holding at least one of these
+/// roles may pick THIS option (the creator and server managers always may). Empty/null = anyone.
+/// Bot callers only — the web can't enumerate roles, so its specs are stripped on create and the
+/// option's stored restriction is carried over by label on edit. Conflicts with the request-level
+/// AllowedRoleIds, which writes every option.</param>
 public record RsvpOptionSpec(
-    string Emote, string Label, int? Capacity = null, bool IsAttending = false, long? AttendeeRoleId = null);
+    string Emote, string Label, int? Capacity = null, bool IsAttending = false, long? AttendeeRoleId = null,
+    IReadOnlyList<long>? AllowedRoleIds = null)
+{
+    /// <summary>Value equality over the role list, so two specs built from the same option compare
+    /// equal — the web form decides whether the option set changed by comparing spec lists, and a
+    /// reference comparison would make every edit look like an option replacement.</summary>
+    /// <param name="other">The spec to compare with.</param>
+    /// <returns>True when every field, including the restriction set, matches.</returns>
+    public virtual bool Equals(RsvpOptionSpec? other) =>
+        other is not null
+        && Emote == other.Emote
+        && Label == other.Label
+        && Capacity == other.Capacity
+        && IsAttending == other.IsAttending
+        && AttendeeRoleId == other.AttendeeRoleId
+        && (AllowedRoleIds ?? []).SequenceEqual(other.AllowedRoleIds ?? []);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        // Folds the role ids in (in order, matching Equals) rather than just their count, so
+        // specs that differ only in their restriction don't all collide.
+        var hash = new HashCode();
+        hash.Add(Emote);
+        hash.Add(Label);
+        hash.Add(Capacity);
+        hash.Add(IsAttending);
+        hash.Add(AttendeeRoleId);
+        foreach (var roleId in AllowedRoleIds ?? [])
+        {
+            hash.Add(roleId);
+        }
+
+        return hash.ToHashCode();
+    }
+}
 
 /// <summary>One RSVP choice on an event (emote + label, optional capacity).</summary>
 /// <param name="Id">The unique id.</param>
@@ -131,9 +184,18 @@ public record RsvpOptionSpec(
 /// <param name="Capacity">Optional attendee cap.</param>
 /// <param name="IsAttending">Whether this option's RSVPs count as attending.</param>
 /// <param name="AttendeeRoleId">The Discord role seated users on this option hold, when set.</param>
+/// <param name="AllowedRoles">Signup restriction: the roles a member must hold at least one of to
+/// pick this option (the creator and managers bypass). Null or empty = unrestricted. Names are
+/// the API's snapshots and may be null — fall back to the id.</param>
+/// <param name="AttendeeRoleName">The attendee role's name snapshot, when the API holds one
+/// (it does when the same role is also named by a live restriction); null otherwise.</param>
 public record RsvpOptionDto(
     Guid Id, string Emote, string Label, int SortOrder, int? Capacity, bool IsAttending = false,
-    long? AttendeeRoleId = null);
+    long? AttendeeRoleId = null, IReadOnlyList<RoleRefDto>? AllowedRoles = null, string? AttendeeRoleName = null)
+{
+    /// <summary>Whether picking this option is limited by role.</summary>
+    public bool IsRestricted => AllowedRoles is { Count: > 0 };
+}
 
 /// <summary>A user's RSVP: which option they picked.</summary>
 /// <param name="UserId">The Discord user id.</param>
@@ -169,6 +231,9 @@ public record RsvpDto(long UserId, Guid OptionId, bool Waitlisted = false);
 /// single-event response, never list rows); consumers must omit gracefully when null.</param>
 /// <param name="RsvpClosesAtUtc">The effective RSVP cutoff (relative cutoffs already resolved
 /// against the current start time); null when RSVPs never close early.</param>
+/// <param name="AllowedRoles">The signup restriction every option shares — empty when no option
+/// is restricted, null when the options differ (read them from Options then). A convenience
+/// mirror of the per-option sets, the way AttendeeRoleId mirrors the attending option's role.</param>
 public record EventDto(
     Guid Id,
     long GuildId,
@@ -192,7 +257,8 @@ public record EventDto(
     bool WantsThread = false,
     long? ThreadId = null,
     string? ChannelName = null,
-    DateTimeOffset? RsvpClosesAtUtc = null)
+    DateTimeOffset? RsvpClosesAtUtc = null,
+    IReadOnlyList<RoleRefDto>? AllowedRoles = null)
 {
     /// <summary>Unix seconds of the start time, for Discord &lt;t:...&gt; timestamps.</summary>
     public long StartsAtUnix => StartsAtUtc.ToUnixTimeSeconds();
@@ -222,6 +288,34 @@ public record EventDto(
     public IReadOnlyList<RsvpOptionDto> RoleGrantingOptions =>
         [.. Options.Where(o => o.AttendeeRoleId is not null).OrderBy(o => o.SortOrder)];
 
+    /// <summary>Every option whose signup is limited by role, in display order — what a client
+    /// renders as 🔒 lines. Computed from Options rather than read from AllowedRoles so a DTO
+    /// built without the mirror still answers correctly.</summary>
+    public IReadOnlyList<RsvpOptionDto> RestrictedOptions =>
+        [.. Options.Where(o => o.IsRestricted).OrderBy(o => o.SortOrder)];
+
+    /// <summary>The restriction shared by EVERY option, when they all agree on one non-empty
+    /// set (the "whole event is limited to @Raiders" case, worth a single line); null when
+    /// options differ or nothing is restricted. Computed from Options like RestrictedOptions.</summary>
+    public IReadOnlyList<RoleRefDto>? SharedRestriction
+    {
+        get
+        {
+            if (Options.Count == 0 || !Options[0].IsRestricted)
+            {
+                return null;
+            }
+
+            var first = Options[0].AllowedRoles!;
+            var firstIds = first.Select(r => r.Id).ToHashSet();
+            return Options.All(o => o.AllowedRoles is { } roles
+                                    && roles.Count == firstIds.Count
+                                    && roles.All(r => firstIds.Contains(r.Id)))
+                ? first
+                : null;
+        }
+    }
+
     /// <summary>The attending option's waitlist in promotion order (RSVP order is preserved).</summary>
     public IReadOnlyList<RsvpDto> Waitlist => AttendingOption is { } attending
         ? [.. Rsvps.Where(r => r.OptionId == attending.Id && r.Waitlisted)]
@@ -247,7 +341,12 @@ public record SetThreadRequest(long? ThreadId);
 
 /// <summary>Sets or replaces the calling user's RSVP to the given option.</summary>
 /// <param name="OptionId">The RSVP/poll option id.</param>
-public record RsvpRequest(Guid OptionId);
+/// <param name="CheckedRoleIds">The option's signup restriction as the caller checked it (the
+/// bot's live role check runs against its own read of the event): the API refuses (409) if the
+/// option's effective restriction differs when the RSVP lands, so an edit that restricted the
+/// option in between is re-read and re-checked rather than bypassed. Null skips the check —
+/// web callers are gated by the API itself.</param>
+public record RsvpRequest(Guid OptionId, IReadOnlyList<long>? CheckedRoleIds = null);
 
 /// <summary>A guild's timezone, the default channel web-created embeds post to, and whether
 /// events mirror into Discord's native scheduled events.</summary>
@@ -329,4 +428,15 @@ public record TimeZoneOptionDto(string Id, string Label);
 
 /// <summary>Uniform error body every non-2xx JSON response carries.</summary>
 /// <param name="Error">The user-facing error text.</param>
-public record ErrorResponse(string Error);
+/// <param name="Code">A machine-readable reason, for the few failures a client acts on beyond
+/// showing the text (see <see cref="ErrorCodes"/>); null for everything else.</param>
+public record ErrorResponse(string Error, string? Code = null);
+
+/// <summary>The machine-readable codes an <see cref="ErrorResponse"/> may carry.</summary>
+public static class ErrorCodes
+{
+    /// <summary>A signup restriction refused the caller (403 — they lack the role) or could not
+    /// be evaluated for them (409 — the role snapshot is unverifiable; RSVP from Discord). Lets a
+    /// client tell a role refusal from the other 403s and 409s the same route returns.</summary>
+    public const string RoleRestricted = "role_restricted";
+}

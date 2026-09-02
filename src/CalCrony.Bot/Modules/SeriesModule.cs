@@ -28,9 +28,12 @@ public enum SeriesRepeatChoice
 
 /// <summary>/series — manage repeating events: edit the rule, skip, stop, and inspect.</summary>
 /// <param name="api">The CalCrony API client.</param>
+/// <param name="mirror">The native scheduled-event mirror.</param>
+/// <param name="roleSnapshots">The role-snapshot pusher (synced after a revival, whose template may restrict).</param>
 [RequireContext(ContextType.Guild)]
 [Group("series", "Manage repeating events")]
-public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : InteractionModuleBase<SocketInteractionContext>
+public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror, RoleSnapshotService roleSnapshots)
+    : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Edits a series' rule or end condition; can revive an ended series or stop it via "doesn't repeat".</summary>
     /// <param name="name">Event title (or fragment), or an autocomplete-picked event id.</param>
@@ -210,6 +213,14 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror) : Int
                 // A whole-series time change moves the mirrored native event's start too.
                 await mirror.TryUpsertAsync(refreshed.Value);
             }
+        }
+
+        if (wasEnded)
+        {
+            // A revival brings the template's restrictions back; the API invalidated their rows,
+            // so refresh the guild's snapshot now rather than making the next occurrence's web
+            // RSVPs wait for the reconcile.
+            await roleSnapshots.SyncGuildAsync(Context.Guild);
         }
 
         var resumedNote = (wasEnded, updated.LiveEventId) switch

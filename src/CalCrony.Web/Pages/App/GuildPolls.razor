@@ -50,6 +50,10 @@ else
                     {
                         <span class="badge text-bg-secondary">Anonymous</span>
                     }
+                    @if (poll.IsRestricted)
+                    {
+                        <span class="badge text-bg-secondary" title="Voting is limited by role">🔒 Limited</span>
+                    }
                 </div>
                 <div class="meta-mono mt-1 d-flex gap-3 flex-wrap">
                     <span>@poll.Options.Count options · @totalVotes vote@(totalVotes == 1 ? "" : "s")</span>

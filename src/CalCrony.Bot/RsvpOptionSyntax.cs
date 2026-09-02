@@ -7,12 +7,15 @@ namespace CalCrony.Bot;
 /// static (like AttendeeRoleSpec) for direct testing. The syntax is presentation-layer sugar —
 /// the API validates the resulting specs as the rules of record.
 ///
-/// Grammar: comma-separated entries, each <c>[emoji] label [xN] [role mention]</c>, with a
-/// trailing <c>*</c> marking the attending option (default: the first). A typed role mention
-/// arrives in the string as <c>&lt;@&amp;id&gt;</c> and gives THAT option its own attendee role —
-/// how one event hands out Tank/Healer/DPS. Example:
-/// <c>"⚔️ Raider x10, 🛡️ Standby, ❌ Can't make it"</c>, or with roles:
-/// <c>"🛡️ Tank x2 &lt;@&amp;1&gt;, 💚 Healer x2 &lt;@&amp;2&gt;, ⚔️ DPS x6 &lt;@&amp;3&gt;"</c>.</summary>
+/// Grammar: comma-separated entries, each <c>[emoji] label [xN] [role mention] [only: role
+/// mentions…]</c>, with a trailing <c>*</c> marking the attending option (default: the first). A
+/// typed role mention arrives in the string as <c>&lt;@&amp;id&gt;</c> and gives THAT option its
+/// own attendee role — how one event hands out Tank/Healer/DPS. Everything after <c>only:</c> is
+/// the option's signup restriction: members must hold one of those roles to pick it. The grant
+/// mention comes before <c>only:</c>, the restriction after, so the two never collide. Examples:
+/// <c>"⚔️ Raider x10, 🛡️ Standby, ❌ Can't make it"</c>; with roles:
+/// <c>"🛡️ Tank x2 &lt;@&amp;1&gt;, 💚 Healer x2 &lt;@&amp;2&gt;, ⚔️ DPS x6 &lt;@&amp;3&gt;"</c>;
+/// restricted: <c>"🛡️ Tank x2 &lt;@&amp;1&gt; only: &lt;@&amp;9&gt;, ❌ Out"</c>.</summary>
 public static partial class RsvpOptionSyntax
 {
     private const int MaxOptions = 10;
@@ -78,6 +81,24 @@ public static partial class RsvpOptionSyntax
                 tokens.RemoveAt(0);
             }
 
+            // `only:` opens the option's signup restriction: everything after it must be role
+            // mentions, and a member must hold one of them to pick the option. It comes AFTER the
+            // grant mention, so "<@&1>" before `only:` grants and "<@&9>" after it restricts.
+            List<long>? allowedRoleIds = null;
+            var onlyIndex = tokens.FindIndex(t => t.StartsWith("only:", StringComparison.OrdinalIgnoreCase));
+            if (onlyIndex >= 0)
+            {
+                var restriction = string.Join(' ', tokens.Skip(onlyIndex))["only:".Length..];
+                if (!RoleRestrictionSpec.TryParseMentions(restriction, out var restrictedTo, out var restrictionProblem))
+                {
+                    error = $"Couldn't read the `only:` restriction in \"{rawEntry}\" — {restrictionProblem}";
+                    return false;
+                }
+
+                allowedRoleIds = restrictedTo;
+                tokens.RemoveRange(onlyIndex, tokens.Count - onlyIndex);
+            }
+
             // A role mention anywhere in the entry gives this option its own attendee role. It
             // is pulled out before the capacity scan so "x2 <@&1>" and "<@&1> x2" both read.
             long? attendeeRoleId = null;
@@ -130,7 +151,7 @@ public static partial class RsvpOptionSyntax
                 return false;
             }
 
-            specs.Add(new RsvpOptionSpec(emote, label, capacity, isAttending, attendeeRoleId));
+            specs.Add(new RsvpOptionSpec(emote, label, capacity, isAttending, attendeeRoleId, allowedRoleIds));
         }
 
         // No * marker means the first option attends — made explicit here so the specs are

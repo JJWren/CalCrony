@@ -28,9 +28,11 @@ builder.Services.AddSingleton<NativeEventMirror>();
 builder.Services.AddSingleton<AttendeeRoleManager>();
 builder.Services.AddSingleton<EventThreadManager>();
 builder.Services.AddSingleton<LiveListManager>();
+builder.Services.AddSingleton<RoleSnapshotService>();
 
 builder.Services.AddHostedService<DiscordBotService>();
 builder.Services.AddHostedService<DeliveryPollerService>();
+builder.Services.AddHostedService<RoleSnapshotReconcileService>();
 
 var host = builder.Build();
 host.Run();

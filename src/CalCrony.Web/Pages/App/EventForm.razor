@@ -226,6 +226,17 @@ else
             </div>
         }
 
+        @if (IsEdit && restrictedOptions.Count > 0)
+        {
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="ev-clear-restriction" @bind="clearRestriction" />
+                <label class="form-check-label" for="ev-clear-restriction">
+                    Remove signup restriction — @RestrictionSummary
+                </label>
+                <div class="form-text">Restrictions are set in Discord with <code>/create restrict-to:</code> or <code>/edit</code>; existing RSVPs stay either way.</div>
+            </div>
+        }
+
         @if (error is not null)
         {
             <div class="alert alert-danger py-2">@error</div>
@@ -290,6 +301,8 @@ else
     private bool askingScope;
     private long? attendeeRoleId;
     private bool clearAttendeeRole;
+    private List<RsvpOptionDto> restrictedOptions = [];
+    private bool clearRestriction;
     private bool wantsThread;
     private List<OptionRow> optionRows = DefaultOptionRows();
     private List<RsvpOptionSpec>? loadedOptionSpecs;
@@ -316,6 +329,10 @@ else
         /// every role from the specs it sends — dropping it here would silently strip a role the
         /// form can't even show.</summary>
         public long? AttendeeRoleId { get; set; }
+
+        /// <summary>The option's signup restriction, carried the same way (the API re-derives it by
+        /// label for web callers regardless; carrying it keeps the changed-options comparison honest).</summary>
+        public IReadOnlyList<long>? AllowedRoleIds { get; set; }
     }
 
     private static List<OptionRow> DefaultOptionRows() =>
@@ -346,7 +363,12 @@ else
     /// equal to what was loaded).</summary>
     private static List<RsvpOptionSpec> ToSpecs(IEnumerable<OptionRow> rows) =>
         [.. rows.Select(r => new RsvpOptionSpec(
-            r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending, r.AttendeeRoleId))];
+            r.Emote.Trim(), r.Label.Trim(), r.Capacity, r.IsAttending, r.AttendeeRoleId, r.AllowedRoleIds))];
+
+    /// <summary>"Tank limited to @Raiders; Healer limited to role #123" — names when the API holds
+    /// them, ids otherwise.</summary>
+    private string RestrictionSummary => string.Join("; ", restrictedOptions.Select(o =>
+        $"{o.Label} limited to {RoleText.List(o.AllowedRoles!)}"));
 
     private void RemoveOption(int index)
     {
@@ -465,9 +487,11 @@ else
             recurrenceSummary = ev.RecurrenceSummary;
             editTargetIsLive = ev.Status is EventStatus.Scheduled or EventStatus.Started;
             attendeeRoleId = ev.AttendeeRoleId;
+            restrictedOptions = [.. ev.RestrictedOptions];
             // Per-event transient state must not survive component reuse — a stale checked
             // value would silently clear the next event's role on save.
             clearAttendeeRole = false;
+            clearRestriction = false;
             clearRsvpClose = false;
             rsvpClose = "";
             currentRsvpClose = ev.RsvpClosesAtUtc;
@@ -478,6 +502,7 @@ else
                 Capacity = o.Capacity,
                 IsAttending = o.Id == ev.AttendingOption?.Id,
                 AttendeeRoleId = o.AttendeeRoleId,
+                AllowedRoleIds = o.AllowedRoles is { Count: > 0 } ? [.. o.AllowedRoles.Select(r => r.Id)] : null,
             })];
             loadedOptionSpecs = ToSpecs(optionRows);
         }
@@ -637,6 +662,8 @@ else
                 Scope: scope,
                 // Clearing is allowed from the web; picking a role is bot-only (no role list here).
                 ClearAttendeeRole: clearAttendeeRole,
+                // Same rule for signup restrictions: the web may only remove one.
+                ClearAllowedRoles: clearRestriction,
                 RsvpOptions: optionsChanged ? optionSpecs : null,
                 // The disabled textbox keeps its value once "remove" is ticked — clear wins, or the
                 // API would reject the pair as contradictory.

@@ -141,39 +141,49 @@ public static class EventEndpoints
         return held;
     }
 
-    /// <summary>Drops every spec-level attendee role — the option-set equivalent of ignoring the
-    /// request's AttendeeRoleId for web callers. Roles are bot-only not merely because the web
-    /// can't enumerate them, but because accepting an arbitrary role id from a plain member would
-    /// let them hand out any role the bot outranks to everyone who RSVPs.</summary>
+    /// <summary>Drops every spec-level attendee role and signup restriction — the option-set
+    /// equivalent of ignoring the request's AttendeeRoleId / AllowedRoleIds for web callers. Roles
+    /// are bot-only not merely because the web can't enumerate them, but because accepting an
+    /// arbitrary role id from a plain member would let them hand out any role the bot outranks to
+    /// everyone who RSVPs; restrictions follow for the same reason (the web can't see the roles
+    /// it would be naming).</summary>
     /// <param name="specs">The submitted option specs, or null.</param>
     /// <returns>The specs with no roles, or null.</returns>
     private static IReadOnlyList<RsvpOptionSpec>? StripSpecRoles(IReadOnlyList<RsvpOptionSpec>? specs) =>
-        specs is null ? null : [.. specs.Select(spec => spec with { AttendeeRoleId = null })];
+        specs is null ? null : [.. specs.Select(spec => spec with { AttendeeRoleId = null, AllowedRoleIds = null })];
 
-    /// <summary>Replaces every spec's role with the one already on the option it matches by label —
-    /// so a web edit preserves roles it cannot display and cannot introduce one. Labels are how
-    /// TryApplyOptionEdit matches too, so an option keeps its role exactly when it keeps its RSVPs.</summary>
+    /// <summary>Replaces every spec's role and restriction with the ones already on the option it
+    /// matches by label — so a web edit preserves what it cannot display and cannot introduce
+    /// either. Labels are how TryApplyOptionEdit matches too, so an option keeps its role and its
+    /// restriction exactly when it keeps its RSVPs.</summary>
     /// <param name="specs">The submitted option specs.</param>
     /// <param name="ev">The event being edited (Options loaded).</param>
-    /// <param name="clearAttending">Whether ClearAttendeeRole was requested — the one role change
-    /// a web caller may make, since it needs no knowledge of the role it removes.</param>
-    /// <returns>The specs carrying the event's existing roles.</returns>
+    /// <param name="clearedLabel">The label whose role ClearAttendeeRole names, or null — the one
+    /// role change a web caller may make, since it needs no knowledge of the role it removes.</param>
+    /// <param name="clearRestrictions">Whether ClearAllowedRoles was requested — likewise the one
+    /// restriction change a web caller may make.</param>
+    /// <returns>The specs carrying the event's existing roles and restrictions.</returns>
     private static IReadOnlyList<RsvpOptionSpec> CarryOverSpecRoles(
-        IReadOnlyList<RsvpOptionSpec> specs, Event ev, string? clearedLabel)
+        IReadOnlyList<RsvpOptionSpec> specs, Event ev, string? clearedLabel, bool clearRestrictions)
     {
-        var byLabel = new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase);
+        var byLabel = new Dictionary<string, RsvpOption>(StringComparer.OrdinalIgnoreCase);
         foreach (var option in ev.Options)
         {
-            byLabel[option.Label] = option.AttendeeRoleId;
+            byLabel[option.Label] = option;
         }
 
         return
         [
-            .. specs.Select(spec => spec with
+            .. specs.Select(spec =>
             {
-                AttendeeRoleId = MatchesLabel(spec, clearedLabel)
-                    ? null
-                    : byLabel.GetValueOrDefault(spec.Label?.Trim() ?? string.Empty),
+                var existing = byLabel.GetValueOrDefault(spec.Label?.Trim() ?? string.Empty);
+                return spec with
+                {
+                    AttendeeRoleId = MatchesLabel(spec, clearedLabel) ? null : existing?.AttendeeRoleId,
+                    AllowedRoleIds = clearRestrictions || existing is not { AllowedRoleIds.Length: > 0 }
+                        ? null
+                        : existing.AllowedRoleIds,
+                };
             }),
         ];
     }
@@ -429,6 +439,8 @@ public static class EventEndpoints
         }
         // Role selection is bot-only (the web can't enumerate Discord roles); templates never carry one.
         var attendeeRoleId = isBot ? request.AttendeeRoleId : null;
+        // Signup restrictions likewise: configured in Discord, ignored from the web (ADR 0004).
+        var allowedRoleIds = isBot ? request.AllowedRoleIds : null;
         // Threads are a plain yes/no, so WantsThread is honored for BOTH caller types — the bot
         // opens the thread when it posts the embed.
         var wantsThread = request.WantsThread;
@@ -438,7 +450,7 @@ public static class EventEndpoints
         // time edits), absolute text parses in the same zone as the start time.
         var options = RsvpPolicy.TryBuildOptions(
             isBot ? request.RsvpOptions : StripSpecRoles(request.RsvpOptions),
-            request.AttendeeLimit, attendeeRoleId, out var optionsError);
+            request.AttendeeLimit, attendeeRoleId, allowedRoleIds, out var optionsError);
         if (options is null)
         {
             return Results.BadRequest(new ErrorResponse(optionsError!));
@@ -561,7 +573,7 @@ public static class EventEndpoints
                 // as a template too, so spawned occurrences start from it.
                 RsvpCloseMinutesBefore = rsvpCloseMinutesBefore,
                 RsvpOptionsJson = request.RsvpOptions is null && request.AttendeeLimit is null
-                                  && attendeeRoleId is null
+                                  && attendeeRoleId is null && allowedRoleIds is null
                     ? null
                     : RsvpPolicy.SerializeSpecs(options),
                 CreatedAt = now,
@@ -647,6 +659,11 @@ public static class EventEndpoints
         // path that knows which channels host one.
         await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
 
+        // Roles this event newly restricts to fail closed on the web until the bot's post-create
+        // sync lands (ADR 0004) — leftover rows from an earlier watch must not answer for them.
+        await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
+            db, guildId, options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
+
         ActionLog.Record(
             db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.EventCreated,
             ActionTargetType.Event, ev.Id,
@@ -706,7 +723,11 @@ public static class EventEndpoints
         }
 
         var events = await query.OrderBy(e => e.StartsAt).Take(limit).ToListAsync(cancellationToken);
-        return Results.Ok(events.Select(e => e.ToDto()));
+        // One guild-scoped name lookup for the whole page: list rows need it to tell a deleted
+        // (vacuous) restriction from a live one, so a 🔒 badge never shows for nothing.
+        var roleNames = await RoleNames.ForOptionsAsync(
+            db, guildId, events.SelectMany(e => e.Options), cancellationToken);
+        return Results.Ok(events.Select(e => e.ToDto(null, roleNames)));
     }
 
     /// <summary>Fetches one event (non-members get 404, not 403 — ids must not be probeable).</summary>
@@ -742,11 +763,17 @@ public static class EventEndpoints
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The projected DTO.</returns>
     private static async Task<EventDto> ToDtoWithChannelAsync(
-        CalCronyDbContext db, Event ev, CancellationToken cancellationToken) =>
-        ev.ToDto(await db.Channels
+        CalCronyDbContext db, Event ev, CancellationToken cancellationToken)
+    {
+        var channelName = await db.Channels
             .Where(c => c.Id == ev.ChannelId)
             .Select(c => c.Name)
-            .FirstOrDefaultAsync(cancellationToken));
+            .FirstOrDefaultAsync(cancellationToken);
+        // Role names ride along the same way: single-event responses carry them (the detail page
+        // overwrites its event with mutation responses), list rows skip the lookup.
+        var roleNames = await RoleNames.ForOptionsAsync(db, ev.GuildId, ev.Options, cancellationToken);
+        return ev.ToDto(channelName, roleNames);
+    }
 
     /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs template + re-anchor).</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
@@ -829,6 +856,11 @@ public static class EventEndpoints
             return Results.BadRequest(new ErrorResponse("Choose an RSVP cutoff or clear it, not both."));
         }
 
+        if (request.AllowedRoleIds is not null && request.ClearAllowedRoles)
+        {
+            return Results.BadRequest(new ErrorResponse("Choose a signup restriction or clear it, not both."));
+        }
+
         if (request.AttendeeLimit is < 1)
         {
             return Results.BadRequest(new ErrorResponse("The attendee limit must be at least 1."));
@@ -838,6 +870,19 @@ public static class EventEndpoints
         {
             // The web can't enumerate Discord roles, so selection is bot-only; clearing is fine.
             return Results.BadRequest(new ErrorResponse("Attendee roles are picked in Discord — use /create or /edit."));
+        }
+
+        if (!context.User.IsBot() && request.AllowedRoleIds is not null)
+        {
+            // Same rule for signup restrictions; ClearAllowedRoles is the web's one restriction edit.
+            return Results.BadRequest(new ErrorResponse("Signup restrictions are set in Discord — use /create or /edit."));
+        }
+
+        // The restriction shorthand normalizes once here: null → untouched below, an explicit set
+        // → every option, and ClearAllowedRoles → the empty set.
+        if (!RsvpPolicy.TryNormalizeAllowedRoles(request.AllowedRoleIds, out var restrictionShorthand, out var restrictionError))
+        {
+            return Results.BadRequest(new ErrorResponse(restrictionError!));
         }
 
         var staysLive = (request.Status ?? ev.Status) is EventStatus.Scheduled or EventStatus.Started;
@@ -914,11 +959,21 @@ public static class EventEndpoints
                     $"\"{clearedLabel}\" is given a role and cleared in the same edit — choose one."));
             }
 
+            if (context.User.IsBot()
+                && request.ClearAllowedRoles
+                && request.RsvpOptions.Any(spec => spec.AllowedRoleIds is { Count: > 0 }))
+            {
+                // The same contradiction for restrictions: the bot states them inline, so naming
+                // one while clearing them all is two answers to one question.
+                return Results.BadRequest(new ErrorResponse(
+                    "The options carry a signup restriction and the restriction is cleared in the same edit — choose one."));
+            }
+
             var editedSpecs = context.User.IsBot()
                 ? ClearSpecRole(request.RsvpOptions, clearedLabel)
-                : CarryOverSpecRoles(request.RsvpOptions, ev, clearedLabel);
+                : CarryOverSpecRoles(request.RsvpOptions, ev, clearedLabel, request.ClearAllowedRoles);
             if (!RsvpPolicy.TryApplyOptionEdit(
-                    db, ev, editedSpecs, request.AttendeeLimit, roleShorthand,
+                    db, ev, editedSpecs, request.AttendeeLimit, roleShorthand, request.AllowedRoleIds,
                     out var optionsConflict, out var optionsError))
             {
                 return optionsConflict
@@ -951,6 +1006,16 @@ public static class EventEndpoints
 
                 cappedOption.Capacity = newLimit;
             }
+
+            if (request.AllowedRoleIds is not null || request.ClearAllowedRoles)
+            {
+                // Restriction shorthand: every option takes the same set (or none) in place. Seats
+                // already taken stand — a restriction gates entry only, so nothing is swept.
+                foreach (var option in ev.Options)
+                {
+                    option.AllowedRoleIds = restrictionShorthand;
+                }
+            }
         }
 
         if (applyToSeries && request.RsvpOptions is not null)
@@ -975,6 +1040,11 @@ public static class EventEndpoints
             if (request.AttendeeRoleId is not null || request.ClearAttendeeRole)
             {
                 series!.RsvpOptionsJson = RsvpPolicy.WithAttendingRole(series.RsvpOptionsJson, roleShorthand);
+            }
+
+            if (request.AllowedRoleIds is not null || request.ClearAllowedRoles)
+            {
+                series!.RsvpOptionsJson = RsvpPolicy.WithAllowedRoles(series.RsvpOptionsJson, restrictionShorthand);
             }
         }
 
@@ -1106,6 +1176,16 @@ public static class EventEndpoints
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
 
+        // Same rule as create for roles this edit newly restricts to (see there), and for every
+        // role a NON-LIVE event brings back by going live again — its restrictions were not
+        // watched while it was ended or cancelled, so its rows may be leftovers. The watch list
+        // still reflects the pre-edit rows here, since nothing has been saved yet.
+        if (request.AllowedRoleIds is not null || request.RsvpOptions is not null || (!isLive && staysLive))
+        {
+            await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
+                db, ev.GuildId, ev.Options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
+        }
+
         // The log names the fields the request touched (not their values — the log outlives
         // the content) and rides the same transaction as the edit itself.
         var changed = ActionLog.Changed(
@@ -1119,6 +1199,7 @@ public static class EventEndpoints
             ("attendee role", request.AttendeeRoleId is not null || request.ClearAttendeeRole),
             ("RSVP options", request.RsvpOptions is not null),
             ("attendee limit", request.AttendeeLimit is not null || request.ClearAttendeeLimit),
+            ("signup restriction", request.AllowedRoleIds is not null || request.ClearAllowedRoles),
             ("RSVP cutoff", request.RsvpCloseText is not null || request.ClearRsvpClose));
         ActionLog.Record(
             db, ev.GuildId, ActionLog.ActorFor(context, request.EditorId), ActionLogAction.EventEdited,
@@ -1332,6 +1413,35 @@ public static class EventEndpoints
         if (option is null)
         {
             return Results.BadRequest(new ErrorResponse("Unknown RSVP option for this event."));
+        }
+
+        // The bot's live check ran against its own read of the option; if an edit changed the
+        // restriction since, the check covered the wrong set. Compared under the event lock
+        // against the EFFECTIVE restriction (what the DTO exposed: stored ids minus tombstones),
+        // so a mismatch means "re-read and re-check", never a spurious refusal.
+        if (request.CheckedRoleIds is { } checkedRoles)
+        {
+            var tombstoned = await db.GuildRoles
+                .Where(r => r.GuildId == ev.GuildId && r.Name == null && option.AllowedRoleIds.Contains(r.RoleId))
+                .Select(r => r.RoleId)
+                .ToListAsync(cancellationToken);
+            if (!checkedRoles.ToHashSet().SetEquals(option.AllowedRoleIds.Where(id => !tombstoned.Contains(id))))
+            {
+                return Results.Conflict(new ErrorResponse(
+                    "This option's signup restriction changed just now — try again."));
+            }
+        }
+
+        // Signup restriction (ADR 0004): the bot checked Discord live before calling and is
+        // trusted; a web caller is answered from the guild's role snapshot and fails closed.
+        // Entry only — a PUT for the option the caller already holds changes nothing (it is the
+        // no-op below) and is not gated, so losing the role never turns a re-click into a refusal.
+        if (!ev.Rsvps.Any(r => r.UserId == userId && r.OptionId == option.Id)
+            && await RoleRestrictionGate.CheckAsync(
+                context, access, db, clock, ev.GuildId, ev.CreatorId, option.AllowedRoleIds,
+                "This option", "RSVP", cancellationToken) is { } restricted)
+        {
+            return restricted;
         }
 
         var now = clock.GetCurrentInstant();

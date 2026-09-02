@@ -64,6 +64,20 @@ public static class EventEmbedBuilder
                     " · ", roleOptions.Select(o => $"{o.Label} grants <@&{o.AttendeeRoleId}>")));
         }
 
+        // Signup restrictions: one line when every option shares a set, else one per restricted
+        // option. Buttons stay enabled — a refused click explains itself; nothing is hidden.
+        if (ev.SharedRestriction is { } shared)
+        {
+            description.AppendLine($"🔒 Limited to {RoleRestrictionSpec.Mentions(shared.Select(r => r.Id))}");
+        }
+        else if (ev.RestrictedOptions is { Count: > 0 } restricted)
+        {
+            description.AppendLine(
+                "🔒 " + string.Join(
+                    " · ",
+                    restricted.Select(o => $"{o.Label} — {RoleRestrictionSpec.Mentions(o.AllowedRoles!.Select(r => r.Id))} only")));
+        }
+
         if (ev.RsvpCloseUnix is long closeUnix)
         {
             // The line reads correctly live either way (<t:R> keeps counting), but a re-render

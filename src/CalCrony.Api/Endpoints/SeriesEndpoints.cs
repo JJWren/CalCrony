@@ -181,6 +181,18 @@ public static class SeriesEndpoints
 
         series.Ended = false;
 
+        if (revived)
+        {
+            // A revival brings the template's restrictions back to life, and the scheduler spawns
+            // the next occurrence within its sweep — long before the bot's reconcile. Those roles
+            // fail closed on the web until a fresh snapshot lands (the watch list read inside
+            // still sees the series as ended, so its roles count as newly watched).
+            await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
+                db, series.GuildId,
+                RsvpPolicy.OptionsFromTemplate(series.RsvpOptionsJson).SelectMany(o => o.AllowedRoleIds),
+                cancellationToken);
+        }
+
         var changed = ActionLog.Changed(
             ("unit", request.Unit is not null),
             ("interval", request.Interval is not null),

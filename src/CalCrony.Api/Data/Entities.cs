@@ -29,6 +29,13 @@ public class Guild
     /// replaces the slug, which revokes every old link ("links are keys", like the ICS feed
     /// token).</summary>
     public string? PublicCalendarSlug { get; set; }
+
+    /// <summary>When the bot last replaced this guild's role snapshot (<see cref="GuildRole"/> +
+    /// <see cref="GuildMemberRole"/>). The marker that lets a MISSING member row read as "holds
+    /// none of the watched roles" rather than "never looked": without it the web's role check
+    /// would have to treat every absent row as a denial. Null until the first sync, and cleared
+    /// when the snapshot is dropped (no live restriction left, or the bot left the guild).</summary>
+    public Instant? RolesSyncedAt { get; set; }
 }
 
 /// <summary>Name snapshot for a Discord channel CalCrony references (an event, a series, or a
@@ -40,6 +47,40 @@ public class Channel
     public long Id { get; set; }
     public long GuildId { get; set; }
     public required string Name { get; set; }
+}
+
+/// <summary>One watched Discord role — a role named by at least one live signup restriction —
+/// as the bot last resolved it (ADR 0004). Rows exist only for watched roles, written by the
+/// bot's guild sync, so the table stays proportional to restrictions in use. A null
+/// <see cref="Name"/> is a tombstone: the bot checked and the role no longer exists in Discord,
+/// which makes any restriction naming it vacuous. No row at all means the role has not been
+/// checked since it became watched, which the web treats as unverifiable (fail closed).</summary>
+public class GuildRole
+{
+    public long GuildId { get; set; }
+    public long RoleId { get; set; }
+
+    /// <summary>The role's Discord name, or null when the bot found it deleted.</summary>
+    public string? Name { get; set; }
+
+    public Instant SnapshotAt { get; set; }
+}
+
+/// <summary>Which watched roles one guild member holds, as the bot last reported. Only members
+/// holding at least one watched role have a row — everyone else has none — so the table is
+/// bounded by restrictions in use, not by server size. Written by the bot's guild sync and its
+/// member-update pushes; read only to answer a WEB caller's role check (the bot checks live).
+/// The first per-user Discord fact the API stores that the user did not hand over at login, so
+/// it is disclosed in the privacy policy and dropped when the restrictions go away.</summary>
+public class GuildMemberRole
+{
+    public long GuildId { get; set; }
+    public long UserId { get; set; }
+
+    /// <summary>The watched roles the member holds (never empty — an empty set deletes the row).</summary>
+    public long[] RoleIds { get; set; } = [];
+
+    public Instant SnapshotAt { get; set; }
 }
 
 /// <summary>A Discord user's per-person preferences plus display fields captured at web login.</summary>
@@ -271,6 +312,13 @@ public class RsvpOption
     /// Per-option rather than per-event so one event can hand out Tank/Healer/DPS. Waitlisted
     /// RSVPs hold nothing until promoted.</summary>
     public long? AttendeeRoleId { get; set; }
+
+    /// <summary>Signup restriction: only members holding at least one of these Discord roles may
+    /// pick this option (the creator and server managers always may). Empty = unrestricted. Gates
+    /// entry only — a seat survives losing the role. Set from Discord only (the web strips and
+    /// carries over), because the API cannot see a web caller's roles; the bot checks live and the
+    /// API answers web callers from the guild's role snapshot, failing closed (ADR 0004).</summary>
+    public long[] AllowedRoleIds { get; set; } = [];
 }
 
 /// <summary>A user's RSVP to one event (unique per user per event). CreatedAt doubles as the
@@ -311,6 +359,11 @@ public class Poll
 
     /// <summary>Set once when a time poll's winner becomes an event — the convert-idempotency guard.</summary>
     public Guid? ConvertedEventId { get; set; }
+
+    /// <summary>Signup restriction: only members holding at least one of these roles may vote or
+    /// add options (the creator and managers always may). Poll-level, not per option — a poll
+    /// option is a choice, not a seat. Empty = unrestricted; fixed at creation (polls have no edit).</summary>
+    public long[] AllowedRoleIds { get; set; } = [];
 
     public Instant CreatedAt { get; set; }
     public List<PollOption> Options { get; set; } = [];

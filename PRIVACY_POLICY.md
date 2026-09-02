@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-08-31** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
+**Last updated: 2026-09-01** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -18,6 +18,12 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
 - Name snapshots: your server's name and the names of the channels CalCrony posts in, recorded
   by the bot so calendar feeds and the web app can label things. They refresh while the bot is
   in the server and freeze at their last-known values if it's removed.
+- Role-membership snapshots (only when a server uses role-restricted signup): for each role
+  that a live restriction names, the role's name and which members currently hold it, recorded
+  by the bot so the web app can tell whether you may pick a restricted RSVP option or vote in a
+  restricted poll. Nothing is recorded for roles no restriction names, or for members holding
+  none of them. This is the one fact about you that the bot writes rather than you handing it
+  over yourself, which is why it is scoped this narrowly.
 - Content you create: event titles/descriptions/locations, poll questions and options, RSVP
   choices, reminders, notification messages, and templates.
 - Preferences: per-user and per-server timezone, DM-confirmation setting, interface theme,
@@ -64,6 +70,11 @@ and **Google** (only for the free/busy lookups you enable).
   delete it, or until the bot is removed and the operator prunes the server's data on request.
 - **Operational records** (delivered notifications, consumed login/link tokens, expired session
   tokens) are automatically purged after **90 days**.
+- **Role-membership snapshots** are dropped automatically when a server's last role restriction
+  ends (the event ends, the poll closes, or the restriction is removed) and when the bot leaves
+  the server. While a server still has a restriction, its snapshot is trimmed to the roles still
+  named: a role that stops being named loses its rows, and a role deleted in Discord keeps only a
+  nameless marker (so the restriction naming it stops applying) with no member associations.
 - **Server activity log** entries record management actions by server members — creating,
   editing, deleting, or skipping events; adding or removing event reminders; changing or
   stopping a repeating event's schedule; creating, closing, converting, or deleting polls;

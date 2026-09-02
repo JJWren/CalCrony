@@ -60,7 +60,7 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             }
         }
 
-        await SubmitVotesAsync(pollId, userId, [.. next]);
+        await SubmitVotesAsync(current.Value, userId, [.. next]);
     }
 
     /// <summary>Vote select: submits the selection verbatim as the user's full vote set.</summary>
@@ -89,11 +89,21 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             optionIds.Add(optionId);
         }
 
-        await SubmitVotesAsync(pollId, (long)Context.User.Id, optionIds);
+        var current = await api.GetPollAsync(pollId);
+        if (!current.Success || current.Value is null)
+        {
+            await FollowupAsync("This poll no longer exists.", ephemeral: true);
+            return;
+        }
+
+        await SubmitVotesAsync(current.Value, (long)Context.User.Id, optionIds);
     }
 
     // No DeferAsync here: a modal must be the interaction's INITIAL response.
-    /// <summary>➕ button: opens the add-option modal — must be the initial response, so no DeferAsync first.</summary>
+    /// <summary>➕ button: opens the add-option modal — must be the initial response, so no DeferAsync
+    /// first, and no API call before it either: an API round-trip in front of the initial response
+    /// risks Discord's deadline, after which neither a modal nor a refusal can be delivered. The
+    /// authoritative live role check runs on submit, where the interaction can be deferred.</summary>
     /// <param name="pollIdRaw">The poll id from the component custom id.</param>
     [ComponentInteraction("polladd:*")]
     public async Task AddOptionButtonAsync(string pollIdRaw)
@@ -112,6 +122,21 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
         if (!Guid.TryParse(pollIdRaw, out var pollId))
         {
             await FollowupAsync("This poll no longer exists.", ephemeral: true);
+            return;
+        }
+
+        // The live check (ADR 0004) runs here, after the defer: the API trusts bot calls, so a
+        // failed lookup stops the submit rather than reaching the trusted mutation unchecked.
+        var current = await api.GetPollAsync(pollId);
+        if (!current.Success || current.Value is null)
+        {
+            await FollowupAsync(current.NotFound ? "This poll no longer exists." : $"❌ {current.Error}", ephemeral: true);
+            return;
+        }
+
+        if (RoleRestrictionCheck.Denied(Context.User, current.Value.CreatorId, current.Value.AllowedRoles, out var effective))
+        {
+            await FollowupAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
             return;
         }
 
@@ -172,13 +197,25 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             ephemeral: true);
     }
 
-    /// <summary>Submits the vote set, re-renders the embed, and confirms ephemerally.</summary>
-    /// <param name="pollId">The poll id.</param>
+    /// <summary>Submits the vote set, re-renders the embed, and confirms ephemerally. A restricted
+    /// poll is checked live first — adding a choice needs the role, removing choices never does,
+    /// so a member who lost the role can still toggle their way down to nothing.</summary>
+    /// <param name="current">The poll as it stands.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="optionIds">The full vote set to store.</param>
-    private async Task SubmitVotesAsync(Guid pollId, long userId, IReadOnlyList<Guid> optionIds)
+    private async Task SubmitVotesAsync(PollDto current, long userId, IReadOnlyList<Guid> optionIds)
     {
-        var result = await api.PutPollVotesAsync(pollId, userId, new PutPollVotesRequest(optionIds));
+        var alreadyHeld = current.Votes.Where(v => v.UserId == userId).Select(v => v.OptionId).ToHashSet();
+        if (optionIds.Any(id => !alreadyHeld.Contains(id))
+            && RoleRestrictionCheck.Denied(Context.User, current.CreatorId, current.AllowedRoles, out var effective))
+        {
+            await FollowupAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
+            return;
+        }
+
+        // The set this decision was made from rides along: the API refuses the replacement if
+        // the votes moved in between, so the live check above always covers what is committed.
+        var result = await api.PutPollVotesAsync(current.Id, userId, new PutPollVotesRequest(optionIds, [.. alreadyHeld]));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);

@@ -86,6 +86,14 @@ public static class PollEndpoints
                 $"A poll needs {MinOptions}-{MaxOptions} options, each 1-100 characters."));
         }
 
+        // Restrictions are configured in Discord (the web can't enumerate roles) — the same
+        // reason attendee roles are bot-only on events; a web caller's field is ignored.
+        if (!RsvpPolicy.TryNormalizeAllowedRoles(
+                isBot ? request.AllowedRoleIds : null, out var allowedRoleIds, out var restrictionError))
+        {
+            return Results.BadRequest(new ErrorResponse(restrictionError!));
+        }
+
         var zone = await EventEndpoints.ResolveZoneAsync(db, creatorId, guild, cancellationToken);
         var now = clock.GetCurrentInstant();
 
@@ -156,10 +164,15 @@ public static class PollEndpoints
             Status = PollStatus.Open,
             ClosesAt = closesAt,
             TimeZone = zone.Id,
+            AllowedRoleIds = allowedRoleIds,
             CreatedAt = now,
             Options = options,
         };
         db.Polls.Add(poll);
+
+        // Roles this poll newly restricts to fail closed on the web until the bot's post-create
+        // sync lands (ADR 0004); see RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync.
+        await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(db, guildId, allowedRoleIds, cancellationToken);
 
         if (!isBot)
         {
@@ -174,7 +187,7 @@ public static class PollEndpoints
             now);
 
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Created($"/polls/{poll.Id}", ToDto(poll, context));
+        return Results.Created($"/polls/{poll.Id}", await ToDtoAsync(db, poll, context, cancellationToken));
     }
 
     /// <summary>Lists a guild's polls, newest first, optionally filtered by status.</summary>
@@ -211,7 +224,11 @@ public static class PollEndpoints
         }
 
         var polls = await query.OrderByDescending(p => p.CreatedAt).Take(limit).ToListAsync(cancellationToken);
-        return Results.Ok(polls.Select(p => ToDto(p, context)));
+        // One guild-scoped name lookup for the page, so a deleted (vacuous) restriction reads as
+        // none in the list too.
+        var roleNames = await RoleNames.LoadAsync(
+            db, guildId, polls.SelectMany(p => p.AllowedRoleIds), cancellationToken);
+        return Results.Ok(polls.Select(p => p.ToDto(context.User.WebUserId(), context.User.IsBot(), roleNames)));
     }
 
     /// <summary>Fetches one poll with caller-aware anonymity shaping (non-members get 404).</summary>
@@ -235,7 +252,7 @@ public static class PollEndpoints
             return denied;
         }
 
-        return Results.Ok(ToDto(poll, context));
+        return Results.Ok(await ToDtoAsync(db, poll, context, cancellationToken));
     }
 
     /// <summary>Records where the bot posted the poll's embed (BotOnly).</summary>
@@ -257,7 +274,7 @@ public static class PollEndpoints
         poll.ChannelId = request.ChannelId;
         poll.MessageId = request.MessageId;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(ToDto(poll, context));
+        return Results.Ok(await ToDtoAsync(db, poll, context, cancellationToken));
     }
 
     /// <summary>Atomically replaces a user's vote set (self-only for web callers); a same-user race trips the unique index and returns 409.</summary>
@@ -280,6 +297,14 @@ public static class PollEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
+        // One user's vote replacements serialize (a transaction-scoped advisory lock keyed by
+        // poll + user, taken BEFORE the aggregate loads), so the entry-only decision below is made
+        // against that user's committed set: two concurrent replacements can't each look like a
+        // removal and together re-add a choice. Other voters on the same poll stay independent —
+        // their rows are disjoint, and the unique index still backstops a same-user double-submit.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockVoterAsync(db, id, userId, cancellationToken);
+
         var poll = await LoadPollAsync(db, id, cancellationToken);
         if (poll is null)
         {
@@ -294,6 +319,26 @@ public static class PollEndpoints
         if (!context.User.IsBot() && context.User.WebUserId() != userId)
         {
             return GuildAccessService.SelfOnly();
+        }
+
+        var alreadyHeld = poll.Votes.Where(v => v.UserId == userId).Select(v => v.OptionId).ToHashSet();
+        if (request.ExpectedOptionIds is { } expected && !alreadyHeld.SetEquals(expected))
+        {
+            // The caller computed this replacement — and, for the bot, ran its live role check —
+            // against a set that has since changed; it re-reads rather than committing blind.
+            return Results.Conflict(new ErrorResponse("Your vote changed at the same time — try again."));
+        }
+
+        // A restricted poll gates ENTRY only: adding a choice needs the role; removing choices —
+        // one at a time down to none — never does, the same rule as un-RSVPing a restricted
+        // option. Judged against the caller's committed votes, so a member who lost the role can
+        // always withdraw, whichever client's buttons they use.
+        if ((request.OptionIds ?? []).Any(id => !alreadyHeld.Contains(id))
+            && await RoleRestrictionGate.CheckAsync(
+                context, access, db, clock, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
+                "This poll", "vote", cancellationToken) is { } restricted)
+        {
+            return restricted;
         }
 
         if (poll.Status == PollStatus.Closed)
@@ -343,8 +388,22 @@ public static class PollEndpoints
             return Results.Conflict(new ErrorResponse("Your vote changed at the same time — try again."));
         }
 
+        await transaction.CommitAsync(cancellationToken);
         var fresh = await LoadPollAsync(db, id, cancellationToken);
-        return Results.Ok(ToDto(fresh!, context));
+        return Results.Ok(await ToDtoAsync(db, fresh!, context, cancellationToken));
+    }
+
+    /// <summary>Takes a transaction-scoped advisory lock keyed by (poll, user), so one voter's
+    /// replacements serialize without holding every other voter behind them. Released with the
+    /// transaction, so an early return never leaks it.</summary>
+    /// <param name="db">The database context (a transaction must be open).</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="userId">The voter's Discord id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    private static Task LockVoterAsync(CalCronyDbContext db, Guid id, long userId, CancellationToken cancellationToken)
+    {
+        var key = $"poll-votes:{id}:{userId}";
+        return db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", cancellationToken);
     }
 
     /// <summary>Adds an option to an open poll (any member when AllowUserOptions, else creator/manager); time polls parse the text as a slot.</summary>
@@ -383,6 +442,14 @@ public static class PollEndpoints
             await GuardPollMutateAsync(context, access, poll, cancellationToken) is { } mutateDenied)
         {
             return mutateDenied;
+        }
+
+        // A voter-added option is a form of participation, so the restriction gates it too.
+        if (await RoleRestrictionGate.CheckAsync(
+                context, access, db, clock, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
+                "This poll", "add options", cancellationToken) is { } restricted)
+        {
+            return restricted;
         }
 
         if (poll.Status == PollStatus.Closed)
@@ -433,7 +500,7 @@ public static class PollEndpoints
         await db.SaveChangesAsync(cancellationToken);
 
         var fresh = await LoadPollAsync(db, id, cancellationToken);
-        return Results.Created($"/polls/{poll.Id}", ToDto(fresh!, context));
+        return Results.Created($"/polls/{poll.Id}", await ToDtoAsync(db, fresh!, context, cancellationToken));
     }
 
     /// <summary>Closes a poll; idempotent — closing a closed poll returns it unchanged.</summary>
@@ -475,7 +542,7 @@ public static class PollEndpoints
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return Results.Ok(ToDto(poll, context));
+        return Results.Ok(await ToDtoAsync(db, poll, context, cancellationToken));
     }
 
     /// <summary>Converts a closed time poll's winning slot into an event posted to the poll's channel; ConvertedEventId makes it idempotent.</summary>
@@ -763,10 +830,23 @@ public static class PollEndpoints
             .Include(p => p.Votes)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
-    /// <summary>Projects the poll with anonymity shaping for the current caller.</summary>
+    /// <summary>Projects the poll with anonymity shaping for the current caller — the list form,
+    /// without role names (list rows skip the lookup, like events skip the channel name).</summary>
     /// <param name="poll">The poll.</param>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <returns>The caller-shaped poll DTO.</returns>
     private static PollDto ToDto(Poll poll, HttpContext context) =>
         poll.ToDto(context.User.WebUserId(), context.User.IsBot());
+
+    /// <summary>The single-poll form: anonymity shaping plus the restriction's role names.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="poll">The poll.</param>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The caller-shaped poll DTO.</returns>
+    private static async Task<PollDto> ToDtoAsync(
+        CalCronyDbContext db, Poll poll, HttpContext context, CancellationToken cancellationToken) =>
+        poll.ToDto(
+            context.User.WebUserId(), context.User.IsBot(),
+            await RoleNames.LoadAsync(db, poll.GuildId, poll.AllowedRoleIds, cancellationToken));
 }

@@ -7,9 +7,10 @@ namespace CalCrony.Bot.Modules;
 
 /// <summary>/poll — create standard and time polls, close them, and convert time-poll winners.</summary>
 /// <param name="api">The CalCrony API client.</param>
+/// <param name="roleSnapshots">The role-snapshot pusher (synced after a create that names roles).</param>
 [RequireContext(ContextType.Guild)]
 [Group("poll", "Create and manage polls")]
-public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
+public class PollModule(CalCronyApiClient api, RoleSnapshotService roleSnapshots) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Creates a standard poll from comma-separated options.</summary>
     /// <param name="question">The poll question.</param>
@@ -18,6 +19,7 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     /// <param name="anonymous">When true, embeds show counts without voter names.</param>
     /// <param name="allowOptions">When true, voters may add options.</param>
     /// <param name="closes">Optional natural-language close deadline.</param>
+    /// <param name="restrictTo">Role mentions limiting who may vote (see <see cref="RoleRestrictionSpec"/>).</param>
     [SlashCommand("create", "Create a poll")]
     public async Task CreateAsync(
         [Summary(description: "The question to ask")] string question,
@@ -25,9 +27,10 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
         [Summary("single-vote", "Each person may pick only one option")] bool singleVote = false,
         [Summary(description: "Hide who voted — show counts only")] bool anonymous = false,
         [Summary("allow-options", "Let voters add their own options")] bool allowOptions = false,
-        [Summary(description: "When voting ends, e.g. \"friday 5pm\" — leave empty for manual close")] string? closes = null)
+        [Summary(description: "When voting ends, e.g. \"friday 5pm\" — leave empty for manual close")] string? closes = null,
+        [Summary("restrict-to", "Only members with one of these roles can vote, e.g. \"@Raiders\"")] string? restrictTo = null)
     {
-        await CreateCoreAsync(question, options, isTimePoll: false, singleVote, anonymous, allowOptions, closes);
+        await CreateCoreAsync(question, options, isTimePoll: false, singleVote, anonymous, allowOptions, closes, restrictTo);
     }
 
     /// <summary>Creates a time poll whose options are natural-language slots (always multi-vote).</summary>
@@ -36,15 +39,17 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     /// <param name="anonymous">When true, embeds show counts without voter names.</param>
     /// <param name="allowOptions">When true, voters may add options.</param>
     /// <param name="closes">Optional natural-language close deadline.</param>
+    /// <param name="restrictTo">Role mentions limiting who may vote (see <see cref="RoleRestrictionSpec"/>).</param>
     [SlashCommand("time", "Create a time poll — vote for the best time")]
     public async Task TimeAsync(
         [Summary(description: "What are you scheduling?")] string question,
         [Summary(description: "Comma-separated times, e.g. \"friday 7pm, saturday 3pm, sunday noon\"")] string slots,
         [Summary(description: "Hide who voted — show counts only")] bool anonymous = false,
         [Summary("allow-options", "Let voters add their own times")] bool allowOptions = false,
-        [Summary(description: "When voting ends, e.g. \"thursday noon\" — leave empty for manual close")] string? closes = null)
+        [Summary(description: "When voting ends, e.g. \"thursday noon\" — leave empty for manual close")] string? closes = null,
+        [Summary("restrict-to", "Only members with one of these roles can vote, e.g. \"@Raiders\"")] string? restrictTo = null)
     {
-        await CreateCoreAsync(question, slots, isTimePoll: true, singleVote: false, anonymous, allowOptions, closes);
+        await CreateCoreAsync(question, slots, isTimePoll: true, singleVote: false, anonymous, allowOptions, closes, restrictTo);
     }
 
     /// <summary>Closes an open poll by name (creator or manager) and re-renders its embed.</summary>
@@ -140,8 +145,10 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
     /// <param name="anonymous">When true, embeds show counts without voter names.</param>
     /// <param name="allowOptions">When true, voters may add options.</param>
     /// <param name="closes">Optional natural-language close deadline.</param>
+    /// <param name="restrictTo">Role mentions limiting who may vote, or null.</param>
     private async Task CreateCoreAsync(
-        string question, string optionsCsv, bool isTimePoll, bool singleVote, bool anonymous, bool allowOptions, string? closes)
+        string question, string optionsCsv, bool isTimePoll, bool singleVote, bool anonymous, bool allowOptions,
+        string? closes, string? restrictTo)
     {
         await DeferAsync(ephemeral: true);
 
@@ -151,10 +158,28 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
             return;
         }
 
+        List<long>? restrictedTo = null;
+        if (restrictTo is not null)
+        {
+            if (!RoleRestrictionSpec.TryParseMentions(restrictTo, out var parsed, out var restrictionProblem))
+            {
+                await FollowupAsync($"❌ {restrictionProblem}", ephemeral: true);
+                return;
+            }
+
+            if (RoleRestrictionCheck.Validate(Context.Guild, parsed) is { } roleProblem)
+            {
+                await FollowupAsync(roleProblem, ephemeral: true);
+                return;
+            }
+
+            restrictedTo = parsed;
+        }
+
         var options = optionsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var result = await api.CreatePollAsync((long)Context.Guild.Id, new CreatePollRequest(
             (long)Context.User.Id, question, (long)channel.Id, options,
-            isTimePoll, singleVote, anonymous, allowOptions, closes));
+            isTimePoll, singleVote, anonymous, allowOptions, closes, restrictedTo));
 
         if (!result.Success || result.Value is null)
         {
@@ -168,8 +193,17 @@ public class PollModule(CalCronyApiClient api) : InteractionModuleBase<SocketInt
             components: PollEmbedBuilder.BuildComponents(poll));
         await api.SetPollMessageAsync(poll.Id, new SetPollMessageRequest((long)channel.Id, (long)message.Id));
 
+        if (restrictedTo is not null)
+        {
+            // The web answers votes from the API's role snapshot — make it authoritative now.
+            await roleSnapshots.SyncGuildAsync(Context.Guild);
+        }
+
+        var restrictionNote = poll.IsRestricted
+            ? $" · 🔒 limited to {RoleRestrictionSpec.Mentions(poll.AllowedRoles!.Select(r => r.Id))}"
+            : "";
         await FollowupAsync(
-            $"📊 **{poll.Question}** is live in {channel.Mention}" +
+            $"📊 **{poll.Question}** is live in {channel.Mention}{restrictionNote}" +
             (poll.ClosesAtUnix is { } unix ? $" — closes <t:{unix}:R>." : "."),
             ephemeral: true);
     }
