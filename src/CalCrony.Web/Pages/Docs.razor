@@ -189,7 +189,8 @@
     </li>
     <li class="mb-2">
         <b>Discord native events</b> (<b>opt-in</b> per server) — <code>/settings native-events
-        enabled:true</code> mirrors events into the server's built-in Events tab through their whole
+        enabled:true</code>, or the toggle on the server settings page here, mirrors events into
+        the server's built-in Events tab through their whole
         lifecycle (created, updated, deleted, active at start, completed at end). The native
         description points at the RSVP embed so "Interested" isn't mistaken for an RSVP. Needs
         <b>Manage Events</b>; existing events mirror when next edited.
@@ -205,7 +206,9 @@
         with timezone-aware math, so 8pm stays 8pm across DST. When one occurrence ends or is
         skipped, the next posts itself; end by date or count, or never. Edits and reminders ask
         "this occurrence or the whole series?"; <code>/series edit</code> changes the rule or end
-        condition afterwards, and editing an ended series revives it.
+        condition afterwards, and editing an ended series revives it. On the web: pick the schedule
+        on the event form (repeat controls with live previews), and skip, stop, or change the rule
+        from the event page.
     </li>
     <li class="mb-2">
         <b>Live list</b> — <code>/livelist create</code> posts an upcoming-events embed the bot
@@ -218,10 +221,11 @@
 <h3 class="h6 mt-3">Reminders &amp; calendars</h3>
 <ul class="text-body-secondary" style="max-width:66ch">
     <li class="mb-2">
-        <b>Scheduled pings and reminders</b> — <code>/notify</code> adds up to five pings before an
-        event starts (with an optional message and mention), and every event announces its start;
-        <code>/remind</code> is a one-off reminder in the current channel. All of it goes through
-        a crash-safe outbox, so a restart never loses a ping.
+        <b>Scheduled pings and reminders</b> — <code>/notify</code>, or <b>Scheduled notifications</b>
+        on an event page here, adds up to five pings before an event starts (with an optional
+        message and mention), and every event announces its start; <code>/remind</code>, or the
+        <b>Remind me</b> form on a server's events page, is a one-off reminder in a channel. All of
+        it goes through a crash-safe outbox, so a restart never loses a ping.
     </li>
     <li class="mb-2">
         <b>DM reminders</b> (<b>opt-in</b> per user, off by default) — <code>/settings dm-reminders

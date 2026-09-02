@@ -723,3 +723,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 5 addressed.
 
 ---
+## Construction — docs PR #157 Copilot round 6
+**Timestamp**: 2026-09-02T18:03:34Z
+**User Input**: (none — continuation)
+**AI Response**: Two comments plus one note, all accepted — three entries lacked their web routes: native events (the server settings toggle), recurring events (the form's repeat controls; skip, stop and rule changes from the event page), scheduled pings and reminders ("Scheduled notifications" on an event page, the "Remind me" form on a server's events page). Labels verified against EventDetail.razor, GuildEvents.razor and GuildSettings.razor. Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 6 addressed.
+
+---
