@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/JJWren/CalCrony/compare/v0.34.0...v0.35.0) (2026-09-02)
+
+
+### Features
+
+* multiple RSVPs per user ([#154](https://github.com/JJWren/CalCrony/issues/154)) ([278e1eb](https://github.com/JJWren/CalCrony/commit/278e1ebb87cf485c863f75f59ca372b7cc332356))
+
 ## [0.34.0](https://github.com/JJWren/CalCrony/compare/v0.33.0...v0.34.0) (2026-09-02)
 
 
