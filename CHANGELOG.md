@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/JJWren/CalCrony/compare/v0.33.0...v0.34.0) (2026-09-02)
+
+
+### Features
+
+* role-restricted signup for RSVPs and polls ([#150](https://github.com/JJWren/CalCrony/issues/150)) ([d4121de](https://github.com/JJWren/CalCrony/commit/d4121de6c58ee464fa4656a882fb12f73f564fcd))
+
 ## [0.33.0](https://github.com/JJWren/CalCrony/compare/v0.32.0...v0.33.0) (2026-09-01)
 
 
