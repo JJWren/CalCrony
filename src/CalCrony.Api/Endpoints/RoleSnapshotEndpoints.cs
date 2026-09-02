@@ -8,8 +8,9 @@ namespace CalCrony.Api.Endpoints;
 
 /// <summary>Bot-only role snapshot endpoints (ADR 0004). The API never asks Discord who holds a
 /// role; the bot, which runs the GuildMembers intent, writes snapshots here and the API reads
-/// them to answer WEB callers' signup restrictions. Rows exist only for watched roles — roles a
-/// live restriction names — and only for members holding at least one of them, following the
+/// them to answer WEB callers' signup restrictions and to name the roles events grant (#167).
+/// Rows exist only for watched roles — roles a live restriction names or a live event or running
+/// series grants — and only for members holding at least one of them, following the
 /// channel-snapshot model: the API publishes what it references, the bot pushes exactly that.</summary>
 public static class RoleSnapshotEndpoints
 {
@@ -219,16 +220,17 @@ public static class RoleSnapshotEndpoints
     }
 
     /// <summary>Drops whatever snapshot rows exist for roles a request is about to make NEWLY
-    /// watched — named by it but by no live restriction before it — so the web fails closed on
-    /// them until the bot's post-command sync lands. Rows for such a role can only be leftovers
+    /// watched — named or granted by it but by nothing live before it — so the web fails closed on
+    /// a restriction (and shows a granted role's id) until the bot's post-command sync lands. Rows for such a role can only be leftovers
     /// from an earlier watch interval (they are trimmed by the next reconcile or retention, but
     /// that may not have happened yet); with a fresh lease they would otherwise answer for the
-    /// new restriction with old membership if the best-effort sync failed. Roles already watched
-    /// keep their rows — those are maintained live. Call before the request's own SaveChanges,
-    /// while the new restriction is not yet visible to the watch list.</summary>
+    /// new restriction with old membership (or show a granted role's stale name) if the best-effort
+    /// sync failed. Roles already watched keep their rows — those are maintained live. Call before
+    /// the request's own SaveChanges, while the newly named roles are not yet visible to the watch
+    /// list.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
-    /// <param name="namedRoleIds">Every role the request's restrictions name.</param>
+    /// <param name="namedRoleIds">Every role the request's restrictions name or its options grant.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     internal static async Task InvalidateNewlyWatchedAsync(
         CalCronyDbContext db, long guildId, IEnumerable<long> namedRoleIds, CancellationToken cancellationToken)
@@ -276,11 +278,11 @@ public static class RoleSnapshotEndpoints
         db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Guilds" WHERE "Id" = {guildId} FOR UPDATE""", cancellationToken);
 
     /// <summary>The retention step for one guild, under its row lock with the watch set re-read
-    /// inside: a guild with no live restriction left — or one the bot has left, whatever
-    /// restrictions it still carries — loses its snapshot outright; one that still has some keeps
-    /// it, trimmed to exactly the roles those restrictions name. Reading the decision inputs
+    /// inside: a guild with no watched role left — or one the bot has left, whatever restrictions
+    /// and granted roles it still carries — loses its snapshot outright; one that still has some
+    /// keeps it, trimmed to exactly the roles still named or granted. Reading the decision inputs
     /// inside the same lock the snapshot writes take is what stops a sweep that started before a
-    /// restriction was created and synced from dropping that fresh snapshot.</summary>
+    /// restriction or granted role was created and synced from dropping that fresh snapshot.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildId">The guild to reconcile.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -308,14 +310,15 @@ public static class RoleSnapshotEndpoints
         return removed;
     }
 
-    /// <summary>Trims one guild's snapshot to the roles its live restrictions still name: rows for
-    /// roles no restriction names anymore go, and members lose those ids (a member left holding
-    /// nothing watched loses the row). An ended event or a closed poll does not trigger a bot
-    /// sync, so without this the roles it named would stay held until the next full sync — and
-    /// the API must not keep who-holds-what for a role nothing references (ADR 0004).</summary>
+    /// <summary>Trims one guild's snapshot to the roles still watched — named by a live restriction
+    /// or granted by a live event or running series: rows for roles nothing names or grants anymore
+    /// go, and members lose those ids (a member left holding nothing watched loses the row). An
+    /// ended event, a stopped series or a closed poll does not trigger a bot sync, so without this
+    /// the roles it named would stay held until the next full sync — and the API must not keep
+    /// who-holds-what for a role nothing references (ADR 0004).</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildId">The guild to trim.</param>
-    /// <param name="watchedRoleIds">The roles the guild's live restrictions name.</param>
+    /// <param name="watchedRoleIds">The guild's watched roles (restricted and granted).</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>How many role rows and member rows were removed.</returns>
     internal static async Task<int> PruneSnapshotAsync(
@@ -352,7 +355,7 @@ public static class RoleSnapshotEndpoints
     }
 
     /// <summary>Drops the role snapshots of the given guilds and clears their sync markers — the
-    /// bot-left path and the retention purge for guilds with no live restriction. Executes
+    /// bot-left path and the retention purge for guilds with no watched role left. Executes
     /// immediately (bulk statements), outside any pending SaveChanges.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="guildIds">The guilds whose snapshots go.</param>

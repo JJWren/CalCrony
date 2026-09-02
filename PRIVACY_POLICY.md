@@ -19,11 +19,11 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
   by the bot so calendar feeds and the web app can label things. They refresh while the bot is
   in the server and freeze at their last-known values if it's removed.
 - Role-membership snapshots (only when a server uses role-restricted signup or attendee roles):
-  for each role that a live restriction names or that a live event grants to attendees, the
+  for each role that a live restriction names or that a live or repeating event grants to attendees, the
   role's name and which members currently hold it, recorded by the bot so the web app can tell
   whether you may pick a restricted RSVP option or vote in a restricted poll, and can show a
-  granted role by name. Nothing is recorded for roles no live restriction names and no live event
-  grants, or for members holding none of them. This is the one fact about you that the bot writes
+  granted role by name. Nothing is recorded for roles no live restriction names and no live or
+  repeating event grants, or for members holding none of them. This is the one fact about you that the bot writes
   rather than you handing it over yourself, which is why it is scoped this narrowly.
 - Content you create: event titles/descriptions/locations, poll questions and options, RSVP
   choices, reminders, notification messages, and templates.
