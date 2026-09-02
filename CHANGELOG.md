@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.3](https://github.com/JJWren/CalCrony/compare/v0.36.2...v0.36.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **api:** name an event's attendee role on the web by watching granted roles ([#168](https://github.com/JJWren/CalCrony/issues/168)) ([98150f9](https://github.com/JJWren/CalCrony/commit/98150f9b174b86c1e2e9c41f3d51a1a72ce70010)), closes [#167](https://github.com/JJWren/CalCrony/issues/167)
+
 ## [0.36.2](https://github.com/JJWren/CalCrony/compare/v0.36.1...v0.36.2) (2026-09-02)
 
 
