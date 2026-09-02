@@ -184,6 +184,8 @@ Go-live checklist:
    https://discord.com/oauth2/authorize?client_id=<your-app-id>&permissions=335275969536&scope=bot+applications.commands
    ```
 
+   Give the application's **Default Install Settings** (Developer Portal → Installation) the same scopes and permissions for Guild Install: Discord's in-client "Add App" button uses those, and a commands-only install leaves the bot unable to see the server, so its commands answer with the invite link instead of working. User Install can stay on or off — it only ever exposes `/help`, `/timestamp`, and `/calendar`.
+
 6. For web login, `{Api__PublicBaseUrl}/auth/discord/callback` added to the same application's OAuth2 redirect URIs and its client id/secret in `Auth__Discord__*`.
 7. The application's **Terms of Service** and **Privacy Policy** URLs in the Discord Developer Portal pointed at [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) and [PRIVACY_POLICY.md](PRIVACY_POLICY.md) in this repository.
 

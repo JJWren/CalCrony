@@ -7,7 +7,9 @@ namespace CalCrony.Bot.Modules;
 
 /// <summary>/availability — free/busy grids for a role's members or an event's attending list.</summary>
 /// <param name="api">The CalCrony API client.</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 [Group("availability", "Check group calendar availability")]
 public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {

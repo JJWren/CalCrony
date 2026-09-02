@@ -9,7 +9,9 @@ namespace CalCrony.Bot.Modules;
 /// One per channel; the bot rewrites it (debounced through the outbox) whenever the guild's
 /// events change, and a manually deleted message simply ends the list.</summary>
 /// <param name="api">The CalCrony API client.</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 [Group("livelist", "A persistent events list the bot keeps up to date")]
 public class LiveListModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {

@@ -28,7 +28,9 @@ public enum EditScopeChoice
 /// <param name="mirror">The native scheduled-event mirror.</param>
 /// <param name="threadManager">The event-thread manager.</param>
 /// <param name="roleSnapshots">The role-snapshot pusher (synced after any command that names roles).</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 public class EventModule(
     CalCronyApiClient api, NativeEventMirror mirror, EventThreadManager threadManager, RoleSnapshotService roleSnapshots)
     : InteractionModuleBase<SocketInteractionContext>

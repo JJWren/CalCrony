@@ -7,7 +7,9 @@ namespace CalCrony.Bot.Modules;
 
 /// <summary>/notify — scheduled pings before an event starts.</summary>
 /// <param name="api">The CalCrony API client.</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Adds a pre-event notification to an event found by name/picker.</summary>

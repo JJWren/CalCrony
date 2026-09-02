@@ -30,7 +30,9 @@ public enum SeriesRepeatChoice
 /// <param name="api">The CalCrony API client.</param>
 /// <param name="mirror">The native scheduled-event mirror.</param>
 /// <param name="roleSnapshots">The role-snapshot pusher (synced after a revival, whose template may restrict).</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 [Group("series", "Manage repeating events")]
 public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror, RoleSnapshotService roleSnapshots)
     : InteractionModuleBase<SocketInteractionContext>

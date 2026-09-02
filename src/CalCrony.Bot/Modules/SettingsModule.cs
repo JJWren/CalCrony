@@ -7,7 +7,9 @@ namespace CalCrony.Bot.Modules;
 
 /// <summary>/settings — view and change server and personal preferences.</summary>
 /// <param name="api">The CalCrony API client.</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 [Group("settings", "View and change CalCrony settings")]
 public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {

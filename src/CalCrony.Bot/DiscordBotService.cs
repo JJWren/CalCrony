@@ -32,6 +32,7 @@ public sealed class DiscordBotService(
     {
         client.Log += OnLogAsync;
         interactions.Log += OnLogAsync;
+        interactions.InteractionExecuted += OnInteractionExecutedAsync;
         client.Ready += OnReadyAsync;
         client.InteractionCreated += OnInteractionAsync;
         client.JoinedGuild += OnJoinedGuildAsync;
@@ -250,6 +251,50 @@ public sealed class DiscordBotService(
         if (!result.IsSuccess)
         {
             logger.LogWarning("Interaction failed: {Error} — {Reason}", result.Error, result.ErrorReason);
+        }
+    }
+
+    /// <summary>Answers failures that would otherwise leave the caller staring at "The application
+    /// did not respond" or an endless "CalCrony is thinking..." (issue #163): an unmet precondition
+    /// gets its reason, an exception gets a generic apology — as a follow-up when the command had
+    /// already deferred. The interaction service logs the exception itself; this only adds the
+    /// context that log lacks (who, where).</summary>
+    /// <param name="command">The command that ran, or null when the lookup failed.</param>
+    /// <param name="context">The interaction context.</param>
+    /// <param name="result">The execution result.</param>
+    private async Task OnInteractionExecutedAsync(ICommandInfo? command, IInteractionContext context, IResult result)
+    {
+        if (result.IsSuccess)
+        {
+            return;
+        }
+
+        // The command is null when the lookup itself failed (a stale registration).
+        var label = InteractionFailureReply.Describe(command);
+        logger.LogWarning(
+            "{Command} failed for user {UserId} in guild {GuildId}: {Error} — {Reason}",
+            label, context.User.Id, context.Interaction.GuildId, result.Error, result.ErrorReason);
+
+        // Autocomplete can only answer with choices, and a failed handler already answered with none.
+        if (context.Interaction is IAutocompleteInteraction || InteractionFailureReply.For(result) is not { } text)
+        {
+            return;
+        }
+
+        try
+        {
+            if (context.Interaction.HasResponded)
+            {
+                await context.Interaction.FollowupAsync(text, ephemeral: true);
+            }
+            else
+            {
+                await context.Interaction.RespondAsync(text, ephemeral: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not report the failure of {Command} to the caller.", label);
         }
     }
 

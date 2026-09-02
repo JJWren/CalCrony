@@ -4,8 +4,11 @@ using Microsoft.Extensions.Configuration;
 
 namespace CalCrony.Bot.Modules;
 
+// Reachable from DMs and user installs: nothing here needs the bot's view of a server.
 /// <summary>/help — what CalCrony is, first steps, and where to go next.</summary>
 /// <param name="configuration">The application configuration.</param>
+[CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm, InteractionContextType.PrivateChannel)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall)]
 public class HelpModule(IConfiguration configuration) : InteractionModuleBase<SocketInteractionContext>
 {
     private static readonly string Version =
