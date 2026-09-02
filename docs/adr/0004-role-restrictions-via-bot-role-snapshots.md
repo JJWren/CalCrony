@@ -63,9 +63,10 @@ sweep, no delivery type, and no background reconciliation of past RSVPs against 
 **This is the first per-user Discord fact the API stores that the user did not hand over.** Name
 snapshots covered guilds and channels; `UserGuildMembership` comes from the user's own OAuth login.
 Role membership is written *about* someone by the bot, so it needs disclosure in the privacy policy
-alongside the name snapshots. A guild's rows must go when its last restriction ends and when the
-bot leaves; while restrictions remain, the rows are trimmed to the roles still named, and a role
-deleted in Discord keeps only its nameless tombstone (see below) with no member associations.
+alongside the name snapshots. A guild's rows must go when its last watched role — a restriction
+or, since #167, a granted attendee role — ends and when the bot leaves; while any remain, the rows
+are trimmed to the roles still named or granted, and a role deleted in Discord keeps only its
+nameless tombstone (see below) with no member associations.
 
 ## Refinements made during implementation (PR #150)
 
@@ -89,5 +90,9 @@ event that merely *granted* a role kept printing `role #123456` on the web — t
 web's only source of role names. Attendee roles on live events and running series templates now
 join the watched set (`RoleWatchList.NamedBy`), the API invalidates a newly granted role's leftover
 rows the way it does a newly restricted one, and the bot's immediate post-`/create` and `/edit`
-sync fires for a named attendee role as well. Membership rows for attendee roles cost nothing new:
-the bot grants them itself, and each grant is the existing per-member push.
+sync fires for a named attendee role as well. The cost is a wider per-user fact: `GuildMemberRoles`
+now also records who holds a granted role — including members who hold it independently of
+CalCrony — so the privacy policy's role-snapshot bullet names granted roles alongside restricted
+ones, and the same retention rules (last watched role ends, bot leaves, trim to the roles still
+named or granted) apply. The write load is nothing new: the bot grants attendee roles itself, and
+each grant is the existing per-member push.
