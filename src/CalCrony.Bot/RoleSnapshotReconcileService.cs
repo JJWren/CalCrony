@@ -1,3 +1,5 @@
+using CalCrony.Bot.Api;
+using CalCrony.Contracts;
 using Discord;
 using Discord.WebSocket;
 
@@ -10,17 +12,23 @@ namespace CalCrony.Bot;
 /// closed rather than trusting the stale rows. After the first sync every member is cached, so a
 /// reconcile costs one watched-roles lookup plus one PUT per restricted guild.</summary>
 /// <param name="client">The Discord socket client.</param>
+/// <param name="api">The CalCrony API client.</param>
 /// <param name="roleSnapshots">The role-snapshot pusher.</param>
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The host logger.</param>
 public sealed class RoleSnapshotReconcileService(
     DiscordSocketClient client,
+    CalCronyApiClient api,
     RoleSnapshotService roleSnapshots,
     IConfiguration configuration,
     ILogger<RoleSnapshotReconcileService> logger) : BackgroundService
 {
     /// <summary>Reconciles every watched guild each tick (Roles:ReconcileMinutes, default 10 —
-    /// a third of the API's lease, so one missed tick never expires a marker).</summary>
+    /// a third of the API's lease, so one missed tick never expires a marker). Presence is
+    /// reconciled first: a guild the API still records as bot-absent (a transient failure of
+    /// the Ready-time presence sync) is excluded from the watched list and refuses snapshot
+    /// writes, so without this a single startup failure would keep its web RSVPs fail-closed
+    /// until the next Ready.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -39,6 +47,13 @@ public sealed class RoleSnapshotReconcileService(
 
                 try
                 {
+                    var presence = await api.SyncGuildPresenceAsync(
+                        [.. client.Guilds.Select(g => new GuildSnapshotDto((long)g.Id, g.Name))], stoppingToken);
+                    if (!presence.Success)
+                    {
+                        logger.LogWarning("Periodic guild presence sync failed: {Error}", presence.Error);
+                    }
+
                     await roleSnapshots.ReconcileAllAsync();
                 }
                 catch (Exception ex)

@@ -297,11 +297,13 @@ public static class PollEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
-        // Vote replacements serialize on the poll row (taken BEFORE the aggregate loads), so the
-        // entry-only decision below is made against the committed set: two concurrent
-        // replacements can't each look like a removal and together re-add a choice.
+        // One user's vote replacements serialize (a transaction-scoped advisory lock keyed by
+        // poll + user, taken BEFORE the aggregate loads), so the entry-only decision below is made
+        // against that user's committed set: two concurrent replacements can't each look like a
+        // removal and together re-add a choice. Other voters on the same poll stay independent —
+        // their rows are disjoint, and the unique index still backstops a same-user double-submit.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await LockPollRowAsync(db, id, cancellationToken);
+        await LockVoterAsync(db, id, userId, cancellationToken);
 
         var poll = await LoadPollAsync(db, id, cancellationToken);
         if (poll is null)
@@ -391,14 +393,18 @@ public static class PollEndpoints
         return Results.Ok(await ToDtoAsync(db, fresh!, context, cancellationToken));
     }
 
-    /// <summary>Takes a FOR UPDATE lock on the poll row inside the ambient transaction, so
-    /// competing vote replacements for one poll serialize. A missing poll locks nothing and
-    /// falls through to the 404.</summary>
+    /// <summary>Takes a transaction-scoped advisory lock keyed by (poll, user), so one voter's
+    /// replacements serialize without holding every other voter behind them. Released with the
+    /// transaction, so an early return never leaks it.</summary>
     /// <param name="db">The database context (a transaction must be open).</param>
     /// <param name="id">The poll id.</param>
+    /// <param name="userId">The voter's Discord id.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    private static Task LockPollRowAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
-        db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Polls" WHERE "Id" = {id} FOR UPDATE""", cancellationToken);
+    private static Task LockVoterAsync(CalCronyDbContext db, Guid id, long userId, CancellationToken cancellationToken)
+    {
+        var key = $"poll-votes:{id}:{userId}";
+        return db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", cancellationToken);
+    }
 
     /// <summary>Adds an option to an open poll (any member when AllowUserOptions, else creator/manager); time polls parse the text as a slot.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>

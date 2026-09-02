@@ -445,3 +445,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 21 addressed
+**Timestamp**: 2026-09-02T04:40:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 21 (on 15ac477): zero new comments; two suppressed notes taken. The poll-row lock serialized every voter on a poll though only one user's replacements need ordering — replaced by a transaction-scoped advisory lock keyed by poll and user. A transient failure of the Ready-time presence sync would have left a guild recorded as bot-absent, excluded from the watched list and refusing snapshot writes until the next Ready — the periodic reconcile now re-runs the presence sync before reconciling snapshots. The round-20 thread drew no new comment and is resolved. 480 API, 113 bot green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---
