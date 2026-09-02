@@ -101,12 +101,18 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
                 // place under a fresh lease, they would answer for a role restricted again within
                 // the lease with membership from the earlier watch — before the post-command sync
                 // lands, or if that best-effort sync fails. An empty sync leaves no row to answer
-                // from, so a re-restriction fails closed until it is synced.
-                watched.TryRemove(guild.Id, out _);
+                // from, so a re-restriction fails closed until it is synced. The cache entry goes
+                // only once the clear has landed: kept, it makes the next reconcile (which unions
+                // cached guilds in) retry a clear that failed, since an unrestricted guild is
+                // absent from the API's own listing.
                 var cleared = await api.SyncGuildRolesAsync((long)guild.Id, new RoleSyncRequest([], []));
-                if (!cleared.Success)
+                if (cleared.Success)
                 {
-                    logger.LogWarning("Role snapshot clear failed for guild {GuildId}: {Error}", guild.Id, cleared.Error);
+                    watched.TryRemove(guild.Id, out _);
+                }
+                else
+                {
+                    logger.LogWarning("Role snapshot clear failed for guild {GuildId}; the next reconcile retries: {Error}", guild.Id, cleared.Error);
                 }
 
                 return;

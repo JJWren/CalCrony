@@ -205,6 +205,39 @@ public static class RoleSnapshotEndpoints
     internal static Task LockGuildRowAsync(CalCronyDbContext db, long guildId, CancellationToken cancellationToken) =>
         db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Guilds" WHERE "Id" = {guildId} FOR UPDATE""", cancellationToken);
 
+    /// <summary>The retention step for one guild, under its row lock with the watch set re-read
+    /// inside: a guild with no live restriction left — or one the bot has left, whatever
+    /// restrictions it still carries — loses its snapshot outright; one that still has some keeps
+    /// it, trimmed to exactly the roles those restrictions name. Reading the decision inputs
+    /// inside the same lock the snapshot writes take is what stops a sweep that started before a
+    /// restriction was created and synced from dropping that fresh snapshot.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="guildId">The guild to reconcile.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>How many snapshot rows were removed.</returns>
+    internal static async Task<int> ReconcileSnapshotAsync(
+        CalCronyDbContext db, long guildId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockGuildRowAsync(db, guildId, cancellationToken);
+        var guild = await db.Guilds
+            .Where(g => g.Id == guildId)
+            .Select(g => new { g.BotPresent, g.RolesSyncedAt })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (guild?.RolesSyncedAt is null)
+        {
+            // Nothing to reconcile — the leave or another sweep got here first.
+            return 0;
+        }
+
+        var watched = await RoleWatchList.WatchedForGuildAsync(db, guildId, cancellationToken);
+        var removed = !guild.BotPresent || watched.Count == 0
+            ? await DropSnapshotsAsync(db, [guildId], cancellationToken)
+            : await PruneSnapshotAsync(db, guildId, watched, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return removed;
+    }
+
     /// <summary>Trims one guild's snapshot to the roles its live restrictions still name: rows for
     /// roles no restriction names anymore go, and members lose those ids (a member left holding
     /// nothing watched loses the row). An ended event or a closed poll does not trigger a bot

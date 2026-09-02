@@ -45,23 +45,17 @@ public sealed class RetentionService(
             .Where(a => a.CreatedAt < actionLogCutoff)
             .ExecuteDeleteAsync(cancellationToken);
 
-        var watched = await RoleWatchList.WatchedByGuildAsync(db, cancellationToken);
-        var liveRestrictionGuilds = watched.Keys.ToHashSet();
+        // Role snapshots, one guild at a time under that guild's row lock — the same lock the
+        // snapshot writes take — with the watch set re-read inside it, so a restriction created
+        // and synced after this sweep started is never mistaken for a stale one and dropped.
         var syncedGuilds = await db.Guilds
             .Where(g => g.RolesSyncedAt != null)
-            .Select(g => new { g.Id, g.BotPresent })
+            .Select(g => g.Id)
             .ToListAsync(cancellationToken);
-        // A guild with no live restriction left — or one the bot has left, whatever restrictions
-        // it still carries — loses its snapshot outright; one that still has some keeps it,
-        // trimmed to exactly the roles those restrictions name.
-        var roleSnapshots = await Endpoints.RoleSnapshotEndpoints.DropSnapshotsAsync(
-            db,
-            [.. syncedGuilds.Where(g => !g.BotPresent || !liveRestrictionGuilds.Contains(g.Id)).Select(g => g.Id)],
-            cancellationToken);
-        foreach (var guild in syncedGuilds.Where(g => g.BotPresent && liveRestrictionGuilds.Contains(g.Id)))
+        var roleSnapshots = 0;
+        foreach (var guildId in syncedGuilds)
         {
-            roleSnapshots += await Endpoints.RoleSnapshotEndpoints.PruneSnapshotAsync(
-                db, guild.Id, watched[guild.Id], cancellationToken);
+            roleSnapshots += await Endpoints.RoleSnapshotEndpoints.ReconcileSnapshotAsync(db, guildId, cancellationToken);
         }
 
         var total = deliveries + loginStates + refreshTokens + linkTokens + actionLog + roleSnapshots;

@@ -389,3 +389,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 13 addressed
+**Timestamp**: 2026-09-02T02:30:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 13 (on b421a49): zero new comments, no open threads; two suppressed notes taken. Retention now reconciles each guild's snapshot under that guild's row lock with the watch set re-read inside it (ReconcileSnapshotAsync), so a sweep that started before a restriction was created and synced can never drop the fresh snapshot. The bot now drops its cache entry only after the empty sync that clears an unwatched guild has succeeded, so a failed clear is retried by the next reconcile rather than forgotten. 477 API, 113 bot green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---
