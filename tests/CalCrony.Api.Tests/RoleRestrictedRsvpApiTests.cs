@@ -298,6 +298,30 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
             $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
     }
 
+    [Fact]
+    public async Task Restricting_to_a_role_again_discards_rows_left_from_its_earlier_watch()
+    {
+        const long guild = 12290;
+        var (kim, session) = await fixture.LoginAsync(12291, (guild, "G", false));
+        // Kim held the role during an earlier restriction, which has since ended; nothing has
+        // trimmed the rows yet (no reconcile, no retention run).
+        var earlier = await CreateAsync("Earlier", allowedRoleIds: [RaiderRole], guildId: guild);
+        await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
+        (await Client.PatchAsJsonAsync($"/events/{earlier.Id}", new UpdateEventRequest(
+            CreatorId, Status: EventStatus.Ended))).EnsureSuccessStatusCode();
+
+        // The same role is restricted again. Even with the marker fresh, those rows must not
+        // answer for the new restriction — Kim may well have lost the role since — so the web
+        // fails closed until the bot's post-create sync lands.
+        var again = await CreateAsync("Again", allowedRoleIds: [RaiderRole], guildId: guild);
+        var stale = await kim.PutAsJsonAsync($"/events/{again.Id}/rsvps/{session.UserId}", new RsvpRequest(again.AttendingOption!.Id));
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+        await SyncAsync(guild, [(RaiderRole, "Raider")], [(session.UserId, [RaiderRole])]);
+        Assert.Equal(HttpStatusCode.OK, (await kim.PutAsJsonAsync(
+            $"/events/{again.Id}/rsvps/{session.UserId}", new RsvpRequest(again.AttendingOption.Id))).StatusCode);
+    }
+
     private async Task<EventDto> CreateAsync(
         string title, long[]? allowedRoleIds = null, IReadOnlyList<RsvpOptionSpec>? options = null,
         long guildId = GuildId, long creatorId = CreatorId, bool weekly = false)

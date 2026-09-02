@@ -178,9 +178,11 @@ else
 
     private void OnVoteChanged(PollDto updated)
     {
-        var before = poll?.Votes.Count(v => v.UserId == UserId) ?? 0;
+        // Entry = a choice held now that wasn't held before; a single-vote switch counts (the
+        // count stays one, the option changes), a pure removal doesn't.
+        var before = poll?.Votes.Where(v => v.UserId == UserId).Select(v => v.OptionId).ToHashSet() ?? [];
         poll = updated;
-        if (updated.Votes.Count(v => v.UserId == UserId) > before)
+        if (updated.Votes.Any(v => v.UserId == UserId && !before.Contains(v.OptionId)))
         {
             voteRefused = false;
         }

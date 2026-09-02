@@ -403,3 +403,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 15 addressed
+**Timestamp**: 2026-09-02T03:00:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 15 (on 838e60c): two new threads, both taken. Rows left from an earlier watch interval could answer for a role restricted again within the lease if the post-command sync failed; a request that makes a role newly watched (create/edit with restrictions, poll create) now drops that role's snapshot rows atomically before saving (InvalidateNewlyWatchedAsync), so the web fails closed on it until the fresh sync lands — tested. The poll page compared vote counts to decide "a vote landed as entry", so a single-vote switch never re-showed the add-option form; it now compares option sets. 478 API, 110 web green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

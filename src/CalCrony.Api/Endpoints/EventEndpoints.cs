@@ -659,6 +659,11 @@ public static class EventEndpoints
         // path that knows which channels host one.
         await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
 
+        // Roles this event newly restricts to fail closed on the web until the bot's post-create
+        // sync lands (ADR 0004) — leftover rows from an earlier watch must not answer for them.
+        await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
+            db, guildId, options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
+
         ActionLog.Record(
             db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.EventCreated,
             ActionTargetType.Event, ev.Id,
@@ -1166,6 +1171,14 @@ public static class EventEndpoints
 
         await EnqueueEmbedSyncAsync(context, db, ev, clock, cancellationToken);
         await LiveListSync.EnqueueSyncForGuildAsync(db, ev.GuildId, roleSyncNow, cancellationToken);
+
+        // Same rule as create for roles this edit newly restricts to (see there). The watch list
+        // still reflects the pre-edit rows here, since nothing has been saved yet.
+        if (request.AllowedRoleIds is not null || request.RsvpOptions is not null)
+        {
+            await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
+                db, ev.GuildId, ev.Options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
+        }
 
         // The log names the fields the request touched (not their values — the log outlives
         // the content) and rides the same transaction as the edit itself.

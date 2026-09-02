@@ -196,6 +196,54 @@ public static class RoleSnapshotEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Drops whatever snapshot rows exist for roles a request is about to make NEWLY
+    /// watched — named by it but by no live restriction before it — so the web fails closed on
+    /// them until the bot's post-command sync lands. Rows for such a role can only be leftovers
+    /// from an earlier watch interval (they are trimmed by the next reconcile or retention, but
+    /// that may not have happened yet); with a fresh lease they would otherwise answer for the
+    /// new restriction with old membership if the best-effort sync failed. Roles already watched
+    /// keep their rows — those are maintained live. Call before the request's own SaveChanges,
+    /// while the new restriction is not yet visible to the watch list.</summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="guildId">The Discord guild (server) id.</param>
+    /// <param name="namedRoleIds">Every role the request's restrictions name.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    internal static async Task InvalidateNewlyWatchedAsync(
+        CalCronyDbContext db, long guildId, IEnumerable<long> namedRoleIds, CancellationToken cancellationToken)
+    {
+        var named = namedRoleIds.Distinct().ToList();
+        if (named.Count == 0)
+        {
+            return;
+        }
+
+        var watchedBefore = await RoleWatchList.WatchedForGuildAsync(db, guildId, cancellationToken);
+        var newlyWatched = named.Where(id => !watchedBefore.Contains(id)).ToList();
+        if (newlyWatched.Count == 0)
+        {
+            return;
+        }
+
+        await db.GuildRoles
+            .Where(r => r.GuildId == guildId && newlyWatched.Contains(r.RoleId))
+            .ExecuteDeleteAsync(cancellationToken);
+        var holders = await db.GuildMemberRoles
+            .Where(m => m.GuildId == guildId && m.RoleIds.Any(id => newlyWatched.Contains(id)))
+            .ToListAsync(cancellationToken);
+        foreach (var member in holders)
+        {
+            var kept = member.RoleIds.Where(id => !newlyWatched.Contains(id)).ToArray();
+            if (kept.Length == 0)
+            {
+                db.GuildMemberRoles.Remove(member);
+            }
+            else
+            {
+                member.RoleIds = kept;
+            }
+        }
+    }
+
     /// <summary>Takes a FOR UPDATE lock on the guild row inside the ambient transaction, so the
     /// snapshot writers and the presence routes for one guild serialize. A guild with no row yet
     /// locks nothing — it has no snapshot a leave could have dropped.</summary>

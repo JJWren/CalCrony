@@ -170,6 +170,10 @@ public static class PollEndpoints
         };
         db.Polls.Add(poll);
 
+        // Roles this poll newly restricts to fail closed on the web until the bot's post-create
+        // sync lands (ADR 0004); see RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync.
+        await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(db, guildId, allowedRoleIds, cancellationToken);
+
         if (!isBot)
         {
             db.Deliveries.Add(NewDelivery(DeliveryType.PostPollMessage, channelId,
