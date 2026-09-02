@@ -41,4 +41,11 @@ public class InteractionFailureReplyTests
     {
         Assert.Null(InteractionFailureReply.For(ExecuteResult.FromError(InteractionCommandError.UnknownCommand, "stale")));
     }
+
+    [Fact]
+    public void A_failed_lookup_has_no_command_and_still_gets_a_log_label()
+    {
+        // Discord.Net raises the executed events with a null command when the lookup itself failed.
+        Assert.Equal("unknown command", InteractionFailureReply.Describe(null));
+    }
 }

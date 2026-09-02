@@ -15,6 +15,12 @@ public static class InteractionFailureReply
     public const string Unexpected =
         "❌ Something went wrong on CalCrony's side. Please try again in a moment, or run /help for support links.";
 
+    /// <summary>The command's name for the log, or a placeholder when the interaction service
+    /// reported a failed lookup with no command (a stale registration Discord still offers).</summary>
+    /// <param name="command">The command that ran, or null.</param>
+    /// <returns>The log label.</returns>
+    public static string Describe(ICommandInfo? command) => command?.Name ?? "unknown command";
+
     /// <summary>The ephemeral text for a failed result, or null when there is nothing to say.</summary>
     /// <param name="result">The result the interaction service reported.</param>
     /// <returns>The reply text, or null.</returns>

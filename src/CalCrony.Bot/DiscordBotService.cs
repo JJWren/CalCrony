@@ -259,19 +259,21 @@ public sealed class DiscordBotService(
     /// gets its reason, an exception gets a generic apology — as a follow-up when the command had
     /// already deferred. The interaction service logs the exception itself; this only adds the
     /// context that log lacks (who, where).</summary>
-    /// <param name="command">The command that ran.</param>
+    /// <param name="command">The command that ran, or null when the lookup failed.</param>
     /// <param name="context">The interaction context.</param>
     /// <param name="result">The execution result.</param>
-    private async Task OnInteractionExecutedAsync(ICommandInfo command, IInteractionContext context, IResult result)
+    private async Task OnInteractionExecutedAsync(ICommandInfo? command, IInteractionContext context, IResult result)
     {
         if (result.IsSuccess)
         {
             return;
         }
 
+        // The command is null when the lookup itself failed (a stale registration).
+        var label = InteractionFailureReply.Describe(command);
         logger.LogWarning(
             "{Command} failed for user {UserId} in guild {GuildId}: {Error} — {Reason}",
-            command.Name, context.User.Id, context.Interaction.GuildId, result.Error, result.ErrorReason);
+            label, context.User.Id, context.Interaction.GuildId, result.Error, result.ErrorReason);
 
         // Autocomplete can only answer with choices, and a failed handler already answered with none.
         if (context.Interaction is IAutocompleteInteraction || InteractionFailureReply.For(result) is not { } text)
@@ -292,7 +294,7 @@ public sealed class DiscordBotService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Could not report the failure of {Command} to the caller.", command.Name);
+            logger.LogWarning(ex, "Could not report the failure of {Command} to the caller.", label);
         }
     }
 

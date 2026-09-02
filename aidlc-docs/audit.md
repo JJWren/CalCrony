@@ -831,7 +831,7 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 
 ---
 ## Construction — guild-context guard implemented (#163)
-**Timestamp**: 2026-09-02T21:05:00Z
+**Timestamp**: 2026-09-02T20:40:00Z
 **User Input**: (none — continuation of the remediate loop)
 **AI Response**: Issue #163 filed with the log evidence and the Discord.Net 3.20.1 source chain. Branch fix/guild-context-guard: server modules now carry [CommandContextType(Guild)] + [IntegrationType(GuildInstall)] + [RequireBotInGuild] (the old [RequireContext(Guild)] is gone — it passes on a bare guild id); /help, /timestamp, /calendar declare their DM/user-install reach explicitly; RequireBotInGuildAttribute answers a DM or a bot-less server with a pointer or the invoked application's invite link; DiscordBotService hooks InteractionExecuted and replies ephemerally to unmet preconditions and post-defer exceptions (InteractionFailureReply); DiscordInvite moved from Web to Contracts so bot and web share the scopes/permissions. A probe against the test app confirmed Discord accepts (and drops) the context fields on guild-scoped registration, so the test stack's guild registration is unaffected. README go-live item 5 and the Docs page note the Default Install Settings / user-install reach. Build 0 errors, no new warnings; 806 tests green (170 bot incl. 13 new, 129 web, 507 API). Next: PR, Copilot rounds, REST merge, release, test then prod.
 **Context**: Construction — code generation complete for the single unit; PR gate next.
