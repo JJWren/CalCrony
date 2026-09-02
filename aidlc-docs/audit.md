@@ -466,3 +466,10 @@
 **Context**: Delivery — step 8.3; this and the following entries ride a docs-only PR off master (docs/125-shipped).
 
 ---
+## Delivery — release 0.34.0 (§3.5) cut
+**Timestamp**: 2026-09-02T05:25:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: release-please's #152 "chore(master): release 0.34.0" merged as adf30da once its approved CI run was green; the changelog carries #150. The release workflow tags v0.34.0 and publishes the 0.34.0 images; the Docker rollout (test on `:main`, then prod with a pg_dump and the CALCRONY_IMAGE_TAG bump) follows once the build completes.
+**Context**: Delivery — step 8.3, rollout next.
+
+---
