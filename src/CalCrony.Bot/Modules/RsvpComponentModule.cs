@@ -32,7 +32,8 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             return;
         }
 
-        // Clicking your current choice clears it; clicking another switches to it.
+        // Clicking a choice you hold clears THAT choice; clicking another switches to it (single
+        // choice, the default) or adds it (an event allowing multiple RSVPs).
         var alreadyOnOption = current.Value.Rsvps.Any(r => r.UserId == userId && r.OptionId == optionId);
 
         // Signup restriction, checked live before the API call (ADR 0004): the socket cache is
@@ -48,8 +49,10 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
         // The restriction the live check ran against rides along, so an edit that restricted
         // the option in between makes the API refuse and this click re-read rather than bypass.
         var checkedRoles = current.Value.Options.FirstOrDefault(o => o.Id == optionId)?.AllowedRoles ?? [];
+        // The withdrawal is option-scoped in every mode: in single-choice mode the one row IS on
+        // this option, and with multiple RSVPs the member's other seats must survive the click.
         var result = alreadyOnOption
-            ? await api.DeleteRsvpAsync(eventId, userId)
+            ? await api.DeleteRsvpOptionAsync(eventId, userId, optionId)
             : await api.PutRsvpAsync(eventId, userId, new RsvpRequest(optionId, [.. checkedRoles.Select(r => r.Id)]));
 
         if (!result.Success || result.Value is null)
@@ -70,14 +73,14 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
 
         var option = ev.Options.FirstOrDefault(o => o.Id == optionId);
         // A full attending option queues instead of seating — tell the clicker where they stand.
-        var waitlistPosition = ev.Waitlist.ToList().FindIndex(r => r.UserId == userId);
+        // Judged on the row for THIS option: with multiple RSVPs a member queued elsewhere can
+        // still land a seat here, and that must not read as "still waitlisted".
+        var waitlistPosition = RsvpReplyText.WaitlistPosition(ev, userId, optionId) ?? -1;
         var confirmation = (alreadyOnOption, waitlistPosition) switch
         {
-            (true, _) => $"Removed your RSVP for **{ev.Title}**.",
-            (false, >= 0) =>
-                $"{option?.Emote} **{option?.Label}** is full — you're **#{waitlistPosition + 1} on the waitlist** " +
-                $"for **{ev.Title}** and will be moved up automatically when a spot frees.",
-            _ => $"You're marked {option?.Emote} **{option?.Label}** for **{ev.Title}** (<t:{ev.StartsAtUnix}:F>).",
+            (true, _) => RsvpReplyText.Removed(ev, option, userId),
+            (false, >= 0) => RsvpReplyText.Waitlisted(ev, option, userId, waitlistPosition),
+            _ => RsvpReplyText.Marked(ev, option, userId),
         };
         await FollowupAsync(confirmation, ephemeral: true);
 

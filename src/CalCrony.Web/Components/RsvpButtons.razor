@@ -1,12 +1,14 @@
-@* One button per RSVP option; clicking your current choice clears it (bot parity). Buttons
-   freeze once the RSVP cutoff passes, and a full attending option reads as "join waitlist". A
-   role-restricted option stays enabled and marked 🔒 — the web can't see the caller's roles, so
-   there is no client-side prediction: the API's refusal (403 or 409) lands in the line below. *@
+@* One button per RSVP option; clicking a choice you hold clears THAT choice (bot parity), and
+   clicking another switches to it — or, on an event that allows multiple RSVPs, adds it beside
+   the ones you hold, so several buttons can be selected at once. Buttons freeze once the RSVP
+   cutoff passes, and a full attending option reads as "join waitlist". A role-restricted option
+   stays enabled and marked 🔒 — the web can't see the caller's roles, so there is no client-side
+   prediction: the API's refusal (403 or 409) lands in the line below. *@
 @implements IDisposable
 <div class="d-flex flex-wrap gap-2">
     @foreach (var option in Event.Options.OrderBy(o => o.SortOrder))
     {
-        var isMine = MyOptionId == option.Id;
+        var isMine = MyOptionIds.Contains(option.Id);
         <button type="button"
                 class="rsvp-btn @(isMine ? "selected" : null)"
                 disabled="@(busy || Closed)"
@@ -23,6 +25,10 @@
 else if (MyWaitlistPosition is int position)
 {
     <div class="meta-mono mt-2">⏳ You're #@(position + 1) on the waitlist — you'll be moved up automatically when a spot frees.</div>
+}
+@if (Event.AllowMultipleRsvps && !Closed)
+{
+    <div class="meta-mono mt-2">☑️ Pick every option that applies — click a selected one to remove it.</div>
 }
 @if (error is not null)
 {
@@ -47,7 +53,10 @@ else if (MyWaitlistPosition is int position)
     private System.Threading.Timer? closeTimer;
     private DateTimeOffset? announcedClosedFor;
 
-    private Guid? MyOptionId => Event.Rsvps.FirstOrDefault(r => r.UserId == UserId)?.OptionId;
+    /// <summary>Every option the viewer holds — one at most in single-choice mode, any number when
+    /// the event allows multiple RSVPs; waitlisted rows count as held (the button is selected and
+    /// clicking it withdraws from the queue).</summary>
+    private HashSet<Guid> MyOptionIds => [.. Event.RsvpsFor(UserId).Select(r => r.OptionId)];
 
     private bool Closed => Event.RsvpsClosed(DateTimeOffset.UtcNow);
 
@@ -138,8 +147,10 @@ else if (MyWaitlistPosition is int position)
     {
         busy = true;
         error = null;
+        // Withdrawal is option-scoped in every mode: in single-choice mode the one row IS on this
+        // option, and with multiple RSVPs the viewer's other seats must survive the click.
         var result = isMine
-            ? await Api.DeleteRsvpAsync(Event.Id, UserId)
+            ? await Api.DeleteRsvpOptionAsync(Event.Id, UserId, optionId)
             : await Api.PutRsvpAsync(Event.Id, UserId, optionId);
         busy = false;
 

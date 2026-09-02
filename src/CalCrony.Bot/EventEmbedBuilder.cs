@@ -78,6 +78,12 @@ public static class EventEmbedBuilder
                     restricted.Select(o => $"{o.Label} — {RoleRestrictionSpec.Mentions(o.AllowedRoles!.Select(r => r.Id))} only")));
         }
 
+        // Multiple RSVPs: say so, or a click on a second button reads as a switch that failed.
+        if (ev.AllowMultipleRsvps)
+        {
+            description.AppendLine("☑️ Pick every option that applies — click a choice again to remove it");
+        }
+
         if (ev.RsvpCloseUnix is long closeUnix)
         {
             // The line reads correctly live either way (<t:R> keeps counting), but a re-render

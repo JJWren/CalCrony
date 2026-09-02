@@ -146,6 +146,12 @@ public class Event
     /// <summary>The Discord thread-channel id once the bot created the thread; null until then.</summary>
     public long? ThreadId { get; set; }
 
+    /// <summary>Opt-in: a member may hold an RSVP on more than one option at once (Tank AND
+    /// Healer). Off (the default) is single-choice mode, where picking another option moves the
+    /// member's one row. Enforced by PutRsvp under the event lock — the unique index only forbids
+    /// two rows on the SAME option.</summary>
+    public bool AllowMultipleRsvps { get; set; }
+
     /// <summary>Relative RSVP cutoff: minutes before start after which RSVPs reject changes.
     /// Tracks start-time edits automatically. Mutually exclusive with RsvpClosesAt.</summary>
     public int? RsvpCloseMinutesBefore { get; set; }
@@ -226,6 +232,11 @@ public class EventSeries
 
     /// <summary>Template field: each spawned occurrence opens its own discussion thread.</summary>
     public bool WantsThread { get; set; }
+
+    /// <summary>Template field: spawned occurrences allow multiple RSVPs per member. Written at
+    /// create and by Series-scoped edits that carry the flag only — an Occurrence-scoped toggle
+    /// diverges and the next spawn reverts to this value, matching every other template field.</summary>
+    public bool AllowMultipleRsvps { get; set; }
 
     /// <summary>Template field: relative RSVP cutoff copied to spawned occurrences. Absolute
     /// cutoffs are occurrence-only (a fixed instant makes no sense across a schedule).</summary>
@@ -321,8 +332,9 @@ public class RsvpOption
     public long[] AllowedRoleIds { get; set; } = [];
 }
 
-/// <summary>A user's RSVP to one event (unique per user per event). CreatedAt doubles as the
-/// waitlist queue position, so it only moves when the user changes option.</summary>
+/// <summary>A user's RSVP to one option of one event (unique per user per option; one row per
+/// user per event in single-choice mode, enforced by PutRsvp rather than the index). CreatedAt
+/// doubles as the waitlist queue position, so it only moves when the user changes option.</summary>
 public class Rsvp
 {
     public Guid Id { get; set; }

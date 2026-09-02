@@ -480,3 +480,141 @@
 **Context**: Operations — RSVP v2 §3.5 delivered end to end; only §3.3 (multi-RSVP) remains on #125.
 
 ---
+## Session resume — RSVP v2 §3.3 (multi-RSVP) design pass
+**Timestamp**: 2026-09-02T12:00:00Z
+**User Input**: "resume"
+**AI Response**: Workspace detection: brownfield, `aidlc-state.md` found; master at b75a67b (#153, §3.5 shipped and rolled out). No open PRs. #125's only remaining box is §3.3 multiple RSVPs per user, and unlike §3.5 it has no hand-off comment yet — the design pass has not happened. Entering Requirements Analysis (comprehensive depth: the change drops a unique index and rewrites the seat/waitlist/role model) — surveying every site that assumes one RSVP per user, then presenting design questions in the A–E format for Joshua's decisions before any code.
+**Context**: Inception — workspace detection + requirements analysis for §3.3.
+
+---
+## Inception — RSVP v2 §3.3 requirements analysis presented
+**Timestamp**: 2026-09-02T12:40:00Z
+**User Input**: "It looks like there was an open task on this issue for it https://github.com/JJWren/CalCrony/issues/125"
+**AI Response**: Confirmed: the open task is §3.3 multiple RSVPs per user, the last box on #125, with no hand-off comment yet. Surveyed every site that assumes one RSVP per user (the `(EventId, UserId)` unique index, PutRsvp's move-the-row switch, DeleteRsvp's option-less route, `SeatedRoles`' user→one-role map, `AttendeeRoleSync.Decide`, the bot's click-to-switch component module, the web buttons' single `MyOptionId`) and every consumer that is already multi-safe (capacity counts rows; waitlist, DM fan-out, availability, live list, threads, CSV, restriction gate all key on the attending option or on rows). Wrote `aidlc-docs/inception/requirements/rsvp-v2-multi-rsvp-requirements.md` (comprehensive depth): intent, the verified impact table, draft FR1–FR12, five design questions (Q1 switch scope, Q2 attending semantics, Q3 exclusive options, Q4 turning off with multi-holders, Q5 non-attending waitlists) each with a recommendation, the accepted assumptions (naming, web may configure, option-scoped DELETE, index swap, set-based role diff, series template field, Down collapse), out-of-scope follow-ups and risks (the migration is not additive — a prod rollback loses second seats). Presented Q1–Q5 in the A–E format and stopped for Joshua's answers.
+**Context**: Inception — Requirements Analysis awaiting approval; next: ADR (if the index-swap/rollback trade-off warrants one) + application design, then the code generation plan and the #125 hand-off comment.
+
+---
+## Inception — RSVP v2 §3.3 design decisions locked
+**Timestamp**: 2026-09-02T13:05:00Z
+**User Input**: "Use your recommendeds for these answers"
+**AI Response**: Locked Q1 A (per-event opt-in flag, default off, series template field), Q2 A (attending semantics unchanged: the one flagged option), Q3 A (no exclusive-option rule; every option independent), Q4 A (turning multi off with multi-holders refuses with 409), Q5 A (waitlist stays attending-only; a full non-attending option refuses). Assumptions in section 5 of the requirements doc stand. Recording the answers in the requirements doc, then presenting the application design and the code generation plan; no ADR (no API/Discord boundary decision — the notable trade-off, a non-additive index swap, is recorded in the plan and the PR body instead).
+**Context**: Inception — Requirements Analysis approved by answer; Application Design next.
+
+---
+## Inception — RSVP v2 §3.3 application design + code generation plan presented
+**Timestamp**: 2026-09-02T13:30:00Z
+**User Input**: (none — continuation after "Use your recommendeds for these answers")
+**AI Response**: Wrote `aidlc-docs/construction/plans/rsvp-v2-multi-rsvp-code-generation-plan.md`: locked decisions Q1–Q5, data model (`AllowMultipleRsvps` on Event/EventSeries/requests/EventDto; the `(EventId, UserId)` unique index replaced by `(EventId, UserId, OptionId)`), the PutRsvp/DeleteRsvp rules (per-option no-op; single-mode switch path verbatim; multi-mode add; roles as a per-user set difference via new `AttendeeRoleSync.RolesHeld`/`Diff`; option-scoped DELETE route with the bare route meaning "remove every RSVP"; PromoteAsync skipping an already-held role), the edit rules (409 on turning off with multi-holders, series template written only when the request carried the flag, action-log field), the list of consumers that are already multi-safe and must not change, verified file/line anchors across API, bot, web, docs and tests, and the 40-step checkbox plan in layer order (contracts → data → API → bot → web → docs → tests → delivery). Corrected the requirements doc's rollback risk: rolling the image back is safe (0.34.0's code ignores the new columns and never inserts a second row); only the Down migration collapses rows. Updated `aidlc-state.md`'s §3.3 line. No ADR (no boundary decision). Presented the design and plan for approval.
+**Context**: Inception — Application Design + Construction Code Generation Part 1 (plan) awaiting approval; on approval the plan is posted as the #125 hand-off comment for a fresh session, matching §3.5.
+
+---
+## Inception — §3.3 plan checked against the #125 body and the §3.5 hand-off
+**Timestamp**: 2026-09-02T13:50:00Z
+**User Input**: "I would say continue to next stage, but I want to confirm, does this line up with all of the tasks written in the issue (https://github.com/JJWren/CalCrony/issues/125#issue-5303166317 and https://github.com/JJWren/CalCrony/issues/125#issuecomment-5501383420)"
+**AI Response**: Checked both. Issue body: the two shipped boxes are ticked and the §3.3 box names four ripples (DM reminder fan-out, availability, CSV export, the embed) plus the index drop and the seat/waitlist/role rewrite — every one is covered by a design rule and a test step; the body's standing rule (any new role-carrying request field gets the strip/carry-over guard) does not apply because the flag carries no role, and the plan says so. The §3.5 hand-off comment: all 47 steps are ticked in its local plan file and nothing in it or in ADR 0004 defers work to §3.3; its seams (entry-only gating, CheckedRoleIds, the lease, invalidation, ErrorResponse.Code) are reused untouched. Added two explicit tests to the plan so each named ripple has one: availability lists a two-seat member once (7.2) and the embed shows a two-seat member in both columns (7.4). Awaiting B.
+**Context**: Inception — Application Design / Code Generation Part 1 approval pending.
+
+---
+## Construction — RSVP v2 §3.3 code generation plan approved; generation handed off
+**Timestamp**: 2026-09-02T14:05:00Z
+**User Input**: "I approve of the plan."
+**AI Response**: Plan approved; no code generated (generation is delegated to a fresh session, as with §3.5). Posting the full hand-off on #125: locked decisions Q1–Q5 and assumptions, data model, PutRsvp/DeleteRsvp/edit/create rules, the untouched-by-design list, verified file/line anchors, the uncommitted working-tree state (the four design docs to commit first on feature/125-multi-rsvp), the delivery conventions (env -u GITHUB_TOKEN, REST merge, release-please, test-then-prod with pg_dump and a clean-shell tag bump), and the 42-step checkbox plan. Rewriting the #125 §3.3 bullet to point at that comment with a one-line summary and a fresh-session start instruction.
+**Context**: Construction — Code Generation Part 1 complete (plan approved). Part 2 (generation) deferred to a new session per the established pattern.
+
+---
+## Construction — §3.3 hand-off posted on #125
+**Timestamp**: 2026-09-02T14:20:00Z
+**User Input**: (none — completing the approved hand-off)
+**AI Response**: Posted the hand-off as https://github.com/JJWren/CalCrony/issues/125#issuecomment-5511795855 (the plan has 36 checkbox steps — the previous entry said 42; 36 is right). Rewrote the #125 §3.3 bullet to point at the comment with a one-line summary and a fresh-session start instruction (branch feature/125-multi-rsvp, commit the four design docs first). aidlc-state.md records plan approval and the comment URL; the local plan file carries the same reference. Nothing committed on master: the requirements doc, the plan, aidlc-state.md and audit.md stay uncommitted for the next session's first commit, exactly as §3.5 was handed off.
+**Context**: Construction — Code Generation Part 1 complete; Part 2 (generation, review loop, release, rollout) runs in a new session from the hand-off comment.
+
+---
+## Construction — RSVP v2 §3.3 code generation (Part 2) session start
+**Timestamp**: 2026-09-02T15:00:00Z
+**User Input**: "Build RSVP v2 §3.3 (multiple RSVPs per user) for CalCrony, issue #125:
+https://github.com/JJWren/CalCrony/issues/125
+The design is done and approved. The complete spec is the hand-off comment on that issue:
+https://github.com/JJWren/CalCrony/issues/125#issuecomment-5511795855
+Read it top to bottom before touching code. It has the locked decisions, data model, the
+PutRsvp/DeleteRsvp/edit rules, verified file/line anchors, the reason each uncommitted file in the
+working tree exists, and a 36-step checkbox plan. Do not re-derive or re-litigate the design; if
+something in the plan turns out to be wrong against the code, say so and ask.
+Local master has FOUR UNCOMMITTED files under aidlc-docs/ from the planning session. Run git status
+first. Commit them as the first commit on feature/125-multi-rsvp:
+\"docs: RSVP v2 §3.3 design — requirements and code generation plan\". Build against them.
+Tick the plan's checkboxes as steps complete; append to audit.md, never rewrite it.
+Execute the plan in layer order (contracts → data → API → bot → web → docs → tests), each layer
+building and its tests green before the next starts. Run the migration Up and Down against
+postgres:17-alpine over seeded multi-RSVP rows and record it in the PR body. Full-solution dotnet
+test green before opening the PR. PR title \"feat: multiple RSVPs per user\"; body in the style of
+PR #150; no ADR for this one.
+Conventions: squash-only GitHub Flow, conventional-commit titles (feat:, not feat!:). The env
+GITHUB_TOKEN cannot create PRs or comment; prefix gh writes with `env -u GITHUB_TOKEN`. Drive the
+Copilot review loop to zero comments, re-querying PR state each turn. Merge through the REST merge
+call (gh pr merge refuses). Then release: let release-please cut the release (approve its CI/CodeQL
+runs), merge its PR, then upgrade the Docker stacks: test first (Z:\docker\test-calcrony, tag stays
+`main`: docker compose pull && docker compose up -d), then prod (Z:\docker\calcrony: pg_dump to
+backups\ first, bump CALCRONY_IMAGE_TAG in .env from a CLEAN shell, pull, up -d). Verify /health
+reports the new version on prod and that the new migration tops __EFMigrationsHistory. Rolling the
+image back is safe if needed; only the Down migration collapses second seats. Then tick the §3.3
+box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
+**AI Response**: Fresh session. Ran `git status` (master at b75a67b, the four design docs uncommitted, `.claude/` untracked as expected). Read the #125 hand-off comment top to bottom, the requirements doc, the plan file, and the aidlc-state/audit diffs. Entering Construction — Code Generation Part 2: creating `feature/125-multi-rsvp`, committing the four design docs as the first commit, then executing the 36-step plan in layer order, ticking boxes as steps complete.
+**Context**: Construction — Code Generation Part 2 (generation) started from the hand-off comment.
+
+---
+## Construction — §3.3 code generation: layers 1–7 complete on feature/125-multi-rsvp
+**Timestamp**: 2026-09-02T15:20:00Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Executed the plan in layer order, each layer built and its tests green before the next. Contracts: `AllowMultipleRsvps` on `CreateEventRequest` (bool), `UpdateEventRequest` (bool?) and `EventDto` (after `AllowedRoles`), plus `EventDto.RsvpsFor(userId)`. Data: `Event.AllowMultipleRsvps`, `EventSeries.AllowMultipleRsvps`, the `Rsvp` unique index widened to `(EventId, UserId, OptionId)`, migration `20260902152200_AllowMultipleRsvps` with a data-collapsing Down (`ROW_NUMBER() OVER (PARTITION BY "EventId","UserId" ORDER BY "CreatedAt","Id")`), executed Up → seeded 3 extra seats → Down → Up against `postgres:17-alpine` (rows 3 → 6 → 3; each member kept their earliest row; both index swaps verified). API: `AttendeeRoleSync.Decide`/`AttendeeRoleChange`/`ApplyRoleChangeAsync` retired for `RolesHeld`/`Diff`/`AttendeeRoleDiff`/`ApplyRoleDiffAsync`; `SeatedRoles` returns user → role set and the edit-path diff is a per-user set difference through the same one-query batch load; `PutRsvp` per the rules (per-option no-op, single-mode switch verbatim, multi-mode add, promotion only on a vacated attending seat); `DeleteRsvp` and the new `DELETE /events/{id}/rsvps/{userId}/options/{optionId}` share `RemoveRsvpsAsync`; `PromoteAsync` skips a grant the promoted user already holds through another seat; create/edit/series template/materializer/mapping/action log wired; the 409 on turning off reads "N members hold more than one RSVP — keep multiple RSVPs on, or ask them to pick one." (singular form for one). Bot: `/create multi-rsvp:` and `/edit multi-rsvp:`, `DeleteRsvpOptionAsync` (bare `DeleteRsvpAsync` dropped, no callers), new pure `RsvpReplyText`, embed ☑️ line. Web: `DeleteRsvpOptionAsync`, `RsvpButtons` holds a set (several selected, option-scoped withdrawal, helper line), `EventForm` checkbox on create and edit (sent on update only when changed), `EventDetail` chip, Docs page; README updated. Tests: `AttendeeRoleSyncTests` migrated to the set matrix, new `MultiRsvpApiTests` (22, the whole 7.2 list), bot `RsvpReplyTextTests` (4) + two embed tests, web `MultiRsvpComponentTests` (8). Per-project runs: API 506, bot 119, web 122 — all green. One refinement to the plan, recorded here: the 409 text pluralizes ("1 member holds…" / "N members hold…"). Two test-authoring slips fixed in-session (a web create needs the guild's default channel; an expected-order typo). Full-solution `dotnet test` running before the PR opens.
+**Context**: Construction — Code Generation Part 2 through step 7.6; 7.7 (full-solution run) in progress; delivery (8.2, 8.3) next.
+
+---
+## Construction — PR #154 opened; Copilot review round 1
+**Timestamp**: 2026-09-02T15:55:00Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Full-solution `dotnet test` green (747), branch pushed, PR #154 `feat: multiple RSVPs per user` opened with the #150-style body; CI, CodeQL and GitGuardian green. Copilot's first review left four comments, all accepted as valid: (1) the Down migration deleted seats without revoking the roles they carried — Down now enqueues one `RevokeAttendeeRole` per (event, member, role) for each discarded seated row on a live event whose role the kept seat does not carry, before collapsing rows; re-verified on postgres:17-alpine (Tank+Healer @555, DPS @777: exactly one revoke, member 100 / role 777). (2) The "image rollback is safe" claim in the design was wrong once multi rows exist — 0.34.0's PutRsvp moves the member's first row onto the clicked option and would collide with the new unique index; the migration comment, PR body and the requirements doc (FR11, §7) now say rollback is safe only while nobody holds more than one row, otherwise run Down first. (3) `EnqueueRoleFanOutAll` (end/delete/skip/cancel sweep) enqueued one revoke per seat — now de-duplicated by (member, role); `EnqueueRoleFanOutForOption` removed (no other caller); new API test deleting an event with a two-seat shared-role member → one revoke. (4) The bot's confirmation judged "waitlisted" by member, not by the clicked option — new pure `RsvpReplyText.WaitlistPosition(ev, userId, optionId)` used by the module, with a test. Suites: 507 API / 120 bot / 122 web = 749. Pushing, replying to each thread, re-requesting Copilot.
+**Context**: Construction — delivery step 8.3, Copilot loop round 1 addressed.
+
+---
+## Construction — Copilot review round 2
+**Timestamp**: 2026-09-02T16:05:00Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 2 ("needs a closer look", 0 new inline comments, one previously-missed note): `EventForm.razor` kept an edit's `allowMultipleRsvps = true` when the routable component was reused for a fresh create route — now reset (with its loaded twin) inside the existing create-route guard, with a bUnit test that edits a multi event then renders the create route and asserts the request carries false. The review summary also noted two audit timestamps in the future: the 17:30Z and 19:00Z stamps on this session's two earlier entries were guesses and are corrected in place to 15:20Z and 15:55Z (the real clock at the time; entries otherwise untouched). Web suite 123 green; total 750. Pushing and re-requesting Copilot.
+**Context**: Construction — delivery step 8.3, Copilot loop round 2 addressed.
+
+---
+## Construction — Copilot review round 3
+**Timestamp**: 2026-09-02T16:12:00Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 3 (two comments, both accepted): (1) Down could discard a member's seated attending row (when an earlier row was on another option) and leave a freed attending seat behind a waitlist the downgraded app never promotes — the survivor is now the member's seated attending row when they hold one, else their earliest (one ranking CTE shared by the revoke insert and the delete); re-verified on postgres:17-alpine with a member seated on Healer first and Tank later (kept Tank; still exactly one revoke overall). This refines the plan's "keep the earliest" wording. (2) The create-route reset for the multi flag was keyed on the per-guild template cache, so create(G) → edit(G) → create(G) leaked `true` — now an edit→create transition is tracked on its own (`loadedEventId`) and resets the flag every time; the bUnit test exercises that exact sequence. Web 123 green; API rebuilt clean.
+**Context**: Construction — delivery step 8.3, Copilot loop round 3 addressed.
+
+---
+## Construction — Copilot review round 4
+**Timestamp**: 2026-09-02T16:17:41Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 4 (one comment + one previously-missed note): (1) the round-3 reset covered edit→create but no longer create→create across guilds (round 2's reset had lived in the per-guild block and round 3 moved it) — the flag now resets in BOTH places, with a bUnit test for create(guild 1, ticked) → create(guild 2) → request carries false. (2) Q3's "design option sets that combine" advice was missing from the docs — the Docs page bullet, the /create row, the README bullet and the form's help text now say no option is exclusive (with the default set a member could be Going and Not going). The review also flagged documentation metadata: the round-3 audit stamp (16:25Z) was again ahead of the clock and is corrected to 16:12Z; stamps from here on come from `date -u`. Web 124 green; total 751.
+**Context**: Construction — delivery step 8.3, Copilot loop round 4 addressed.
+
+---
+## Construction — Copilot review round 5
+**Timestamp**: 2026-09-02T16:24:08Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 5 (one comment + one previously-missed note): (1) Down collapsed rows without asking the bot to re-render posted embeds, which would keep showing discarded choices — Down now enqueues one SyncEventMessage (type 3) per affected event that has a MessageId, before the delete; re-verified on postgres:17-alpine (one sync for the collapsed event, none for a second event with a message but no multi rows; revokes unchanged). (2) Docs /create row wording "design choices that combine" → "choose options that combine sensibly". Pushing and re-requesting Copilot.
+**Context**: Construction — delivery step 8.3, Copilot loop round 5 addressed.
+
+---
+## Construction — Copilot review round 6
+**Timestamp**: 2026-09-02T16:31:04Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 6 (two comments + four previously-missed notes, all documentation): (1) the old-client compatibility claim was too broad — a pre-0.35 bot or web withdraws through the bare DELETE, which now clears every seat, so it is equivalent only on single-choice events; the PR body and the route's doc comment say so and advise upgrading clients with the API and not switching an event to multi before every client is on 0.35.0. (2) The requirements doc (FR11, §5 assumption, §7 risk) and the plan (2.3, 7.6, 8.2) still described Down as "keep the earliest" and rollback as unconditionally safe — aligned with the delivered behaviour (attending-first survivor, owed revokes, embed re-renders, rollback safe only before multi rows). The #125 hand-off comment keeps its original text as the historical record; the plan file in the repo is the maintained copy.
+**Context**: Construction — delivery step 8.3, Copilot loop round 6 addressed.
+
+---
+## Construction — Copilot review round 7
+**Timestamp**: 2026-09-02T16:37:36Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Round 7 ("needs a closer look", two minor items): (1) `RsvpReplyText` rendered a bare " ** **" when the clicked option had vanished between the bot's read and the click — it now says "that option", with a test. (2) The Docs page's attendee-role sentence claimed removing an RSVP always removes the role — qualified for the shared-role case with multiple RSVPs on. Bot 121 green; total 752. The review's headline asks for human validation of the data-collapsing rollback and the cross-layer role semantics — both are covered by the migration verification and the API/bot tests recorded in the PR body, and are flagged for Joshua in the final report.
+**Context**: Construction — delivery step 8.3, Copilot loop round 7 addressed.
+
+---

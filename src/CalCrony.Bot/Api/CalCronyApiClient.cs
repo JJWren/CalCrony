@@ -124,13 +124,16 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<EventDto>> PutRsvpAsync(Guid eventId, long userId, RsvpRequest request, CancellationToken ct = default) =>
         SendAsync<EventDto>(http.PutAsJsonAsync($"/events/{eventId}/rsvps/{userId}", request, ct), ct);
 
-    /// <summary>Clears a user's RSVP.</summary>
+    /// <summary>Clears a user's RSVP on ONE option, leaving any other seats they hold on the event
+    /// alone — what a click on a held button means in every mode (in single-choice mode the one
+    /// row is on that option). The API's bare DELETE, which clears every seat, has no bot caller.</summary>
     /// <param name="eventId">The event id.</param>
     /// <param name="userId">The Discord user id.</param>
+    /// <param name="optionId">The RSVP option to withdraw from.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
-    public Task<ApiResult<EventDto>> DeleteRsvpAsync(Guid eventId, long userId, CancellationToken ct = default) =>
-        SendAsync<EventDto>(http.DeleteAsync($"/events/{eventId}/rsvps/{userId}", ct), ct);
+    public Task<ApiResult<EventDto>> DeleteRsvpOptionAsync(Guid eventId, long userId, Guid optionId, CancellationToken ct = default) =>
+        SendAsync<EventDto>(http.DeleteAsync($"/events/{eventId}/rsvps/{userId}/options/{optionId}", ct), ct);
 
     /// <summary>Registers a live list the bot just posted (one per channel — 409 on a duplicate).</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>

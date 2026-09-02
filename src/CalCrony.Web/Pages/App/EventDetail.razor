@@ -50,6 +50,10 @@ else
                         <span title="Only members holding one of these roles can pick @restricted.Label">🔒 @restricted.Label limited to @RoleText.List(restricted.AllowedRoles!)</span>
                     }
                 }
+                @if (ev.AllowMultipleRsvps)
+                {
+                    <span title="Members can pick several options at once; clicking a selected one removes it">☑️ multiple RSVPs</span>
+                }
                 @if (ev.RsvpClosesAtUtc is { } closesAt)
                 {
                     @if (ev.RsvpsClosed(DateTimeOffset.UtcNow))

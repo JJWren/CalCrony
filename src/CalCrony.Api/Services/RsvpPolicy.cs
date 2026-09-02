@@ -575,7 +575,10 @@ public static partial class RsvpPolicy
         var now = clock.GetCurrentInstant();
         foreach (var rsvp in promoting)
         {
-            if (attendingRole is { } grantedRole)
+            // A user promoted onto the attending seat may already hold its role through another
+            // seat (Healer and Tank both granting "Raider", on an event allowing multiple RSVPs)
+            // — a duplicate grant is harmless at the bot but noise in the outbox, so it is skipped.
+            if (attendingRole is { } grantedRole && !HoldsRoleElsewhere(ev, rsvp, grantedRole))
             {
                 AttendeeRoleSync.EnqueueRoleChange(
                     db, ev, DeliveryType.GrantAttendeeRole, grantedRole, rsvp.UserId, pendingRoles, now);
@@ -602,4 +605,16 @@ public static partial class RsvpPolicy
 
         return promoting.Count;
     }
+
+    /// <summary>Whether the user of <paramref name="seat"/> already holds <paramref name="roleId"/>
+    /// through one of their OTHER seated RSVPs on the event.</summary>
+    /// <param name="ev">The event (Options and Rsvps loaded).</param>
+    /// <param name="seat">The RSVP row being seated.</param>
+    /// <param name="roleId">The role that seat's option grants.</param>
+    /// <returns>True when another seat of the same user carries the role.</returns>
+    private static bool HoldsRoleElsewhere(Event ev, Rsvp seat, long roleId) =>
+        AttendeeRoleSync.RolesHeld(
+                ev.Options,
+                ev.Rsvps.Where(r => r.UserId == seat.UserId && r.Id != seat.Id && !r.Waitlisted).Select(r => r.OptionId))
+            .Contains(roleId);
 }
