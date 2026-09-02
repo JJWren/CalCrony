@@ -340,3 +340,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 5 pending.
 
 ---
+## Delivery — PR #150 Copilot round 5 addressed
+**Timestamp**: 2026-09-02T00:50:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: One new comment and one suppressed note, both taken. A member leaving (or being kicked/banned) raises UserLeft, not GuildMemberUpdated, so their row would have stayed authoritative until the next reconcile while their web membership snapshot can outlive the departure by days; the bot now pushes an empty role set on UserLeft under the per-guild lock. The periodic reconcile applied a watched set fetched before any lock, so a restriction created while the loop was on another guild could be overwritten by the older listing; every full sync now reads its watched set inside the guild's lock, and the reconcile's listing only enumerates guilds (plus any the bot still caches), each of which re-reads its own set. Bot suite 113 green.
+**Context**: Delivery — step 8.3, Copilot loop round 6 pending.
+
+---

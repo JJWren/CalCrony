@@ -38,9 +38,10 @@ public sealed class DiscordBotService(
         client.LeftGuild += OnLeftGuildAsync;
         client.GuildUpdated += OnGuildUpdatedAsync;
         client.ChannelUpdated += OnChannelUpdatedAsync;
-        // Role snapshots (ADR 0004): a member's watched-role delta, a watched role deleted or
-        // renamed — each keeps the API's snapshot current between full syncs.
+        // Role snapshots (ADR 0004): a member's watched-role delta, a member leaving, a watched
+        // role deleted or renamed — each keeps the API's snapshot current between full syncs.
         client.GuildMemberUpdated += roleSnapshots.OnMemberUpdatedAsync;
+        client.UserLeft += roleSnapshots.OnUserLeftAsync;
         client.RoleDeleted += roleSnapshots.OnRoleDeletedAsync;
         client.RoleUpdated += roleSnapshots.OnRoleUpdatedAsync;
 
