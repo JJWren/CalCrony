@@ -20,37 +20,37 @@ flowchart LR
 
 ## Features
 
-Everything works from Discord and from the web app; anything marked **opt-in** stays off until a manager (or you) turns it on. The [user docs](https://calcrony.app/docs#features) describe each feature in full: how to reach it, the permission it needs, defaults and caveats.
+Most features work from both Discord and the web app; roles and restrictions are set in Discord, themes and the activity log live on the web. Anything marked **opt-in** stays off until turned on. The [user docs](https://calcrony.app/docs#features) cover each feature in full: how to reach it, the permission it needs, defaults and caveats.
 
 **Events & RSVPs**
-- Events from plain English ("tomorrow 6pm"), timezone-aware per user and per server; creators and server managers edit and delete.
-- RSVP buttons with live attendee lists; custom options (any emoji + label, up to 10), one of them the *attending* option that roles, threads and availability key on.
+- Events from plain English ("tomorrow 6pm"), timezone-aware per user and server; creators and managers edit.
+- RSVP buttons with live attendee lists; custom options (any emoji + label, up to 10), one marked *attending* for roles, threads and availability.
 - Attendee limits with an automatic waitlist (`attendee-limit:6`, or `xN` per option); close RSVPs early with `rsvp-close:"2h before"`.
 - Multiple RSVPs per member, **opt-in** per event (`multi-rsvp:true`): be Tank *and* Healer; clicking a chosen option again removes it.
-- Discussion threads (`thread:true`) that Going RSVPers join automatically and that archive when the event ends.
+- Discussion threads (`thread:true`) that attending RSVPers join automatically; archived when the event ends.
 - Event templates (`/template save`, then `/create template:`), up to 25 per server.
-- Discord native events, **opt-in** per server (`/settings native-events on`), mirrored through their whole lifecycle.
+- Discord native events, **opt-in** per server (`/settings native-events on`).
 
 **Schedules**
-- Recurring events every N days, weeks, months or years, with day sets and nth-weekday rules, DST-safe; the next occurrence posts itself, and edits ask "this occurrence or the whole series?"
+- Recurring events every N days, weeks, months or years, with day sets and nth-weekday rules, DST-safe; the next occurrence posts itself.
 - Live list (`/livelist create`): an upcoming-events embed the bot keeps current, one per channel.
 
 **Reminders & calendars**
-- Up to 5 scheduled pings per event (`/notify`) plus a start announcement, and one-off `/remind`, all through a crash-safe outbox.
-- DM reminders, **opt-in** per user and never turned on for you by anyone else.
-- An ICS subscribe feed per server (`/link`) carrying full recurrence, and an **opt-in** public web calendar behind an unguessable link.
-- Google Calendar free/busy grids (`/availability`) for a role or an event's attendees, using the free/busy scope only.
+- Up to 5 scheduled pings per event (`/notify`), a start announcement, and one-off `/remind`, all crash-safe.
+- DM reminders, **opt-in** per user only.
+- ICS subscribe feed per server (`/link`) with full recurrence; **opt-in** public web calendar behind an unguessable link.
+- Google Calendar free/busy grids (`/availability`) for a role or an event's attendees, free/busy scope only.
 
 **Polls**
-- Standard and time polls: up to 10 options, single or multi vote, anonymous mode, voter-added options, auto-close and live result bars; a time poll's winner converts into an event.
+- Standard and time polls: up to 10 options, single or multi vote, anonymous, voter-added options, auto-close, live bars; a time poll's winner becomes an event.
 
 **Roles & access**
 - Attendee roles: a role granted on RSVP and revoked on leaving or at event end, event-wide (`attendee-role:`) or per option (`rsvp-options:"🛡️ Tank @tank, 💚 Healer @healer"`).
-- Role-restricted signup for events and polls (`restrict-to:@Raiders`, or `only: @role` inside an option); the web fails closed when it can't confirm your roles.
+- Role-restricted signup for events and polls (`restrict-to:@Raiders`, or `only: @role` per option); the web fails closed.
 
 **Web app & admin**
-- Sign in with Discord (identify + guilds scopes only) and run everything — events, RSVPs, polls, templates, notifications, settings — from a mobile-first UI with five themes.
-- A server activity log (90 days) and a CSV export of every event with its RSVPs, for managers.
+- Sign in with Discord (identify + guilds only) and manage events, RSVPs, polls, templates, notifications and settings from a mobile-first UI with five themes.
+- Activity log (90 days) and CSV export of every event and RSVP, for managers.
 
 ## Commands
 

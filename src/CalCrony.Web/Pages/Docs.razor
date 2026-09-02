@@ -122,11 +122,15 @@
 
 <h2 class="h5 mt-4 mb-2" id="features">Features in depth</h2>
 <p class="text-body-secondary" style="max-width:66ch">
-    Every feature, with how to reach it from Discord and from this web app, the Discord permission
-    it needs, and what is on by default. Anything <b>opt-in</b> stays off until a server manager
-    (or, for DM reminders, you) turns it on. The three permissions mentioned below — <b>Manage
-    Events</b>, <b>Manage Roles</b>, <b>Create Public Threads</b> — are on the current invite
-    link; a server that added the bot earlier must re-invite it or grant them to the bot's role.
+    Every feature: where it lives, the Discord permission it needs, and what is on by default.
+    Most work from Discord and from this web app; a few live on one side only — attendee roles
+    and signup restrictions are set in Discord, themes and the activity log are web-only — and
+    each entry says which. Anything <b>opt-in</b> stays off until someone turns it on: a server
+    manager for server-wide switches (native events, the public calendar), the event's creator or
+    a manager for per-event ones (multiple RSVPs), and only you for DM reminders. The three
+    permissions mentioned below — <b>Manage Events</b>, <b>Manage Roles</b>, <b>Create Public
+    Threads</b> — are on the current invite link; a server that added the bot earlier must
+    re-invite it or grant them to the bot's role.
 </p>
 
 <h3 class="h6 mt-3">Events &amp; RSVPs</h3>
@@ -167,7 +171,8 @@
     </li>
     <li class="mb-2">
         <b>Event threads</b> — <code>thread:true</code> or the form's "Create a discussion thread"
-        box opens a thread on the event message; Going RSVPers are added automatically so they get
+        box opens a thread on the event message; members seated on the attending option (Going by
+        default) are added automatically so they get
         its notifications, and it archives when the event ends, is deleted, skipped, or cancelled —
         history stays readable. Needs <b>Create Public Threads</b>.
     </li>

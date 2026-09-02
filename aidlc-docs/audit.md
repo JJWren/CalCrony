@@ -688,3 +688,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — steps 1–5 ticked; 6 (bookkeeping, PR, release, rollout) next.
 
 ---
+## Construction — docs PR #157 Copilot round 1
+**Timestamp**: 2026-09-02T17:37:43Z
+**User Input**: (none — continuation)
+**AI Response**: Four comments, all accepted: (1) the README's "everything works from both surfaces" overstated parity — now "most features work from both; roles and restrictions are set in Discord, themes and the activity log live on the web"; (2) "Going RSVPers join the thread" → members seated on the attending option (Going by default), README and Docs page; (3) the 400-word budget was missed at 440 — bullets tightened to 392 words, so plan step 1.2 now holds as written; (4) the Docs intro promised a Discord and web route for every feature and reserved opt-ins to managers or users — it now says most features work from both surfaces with the exceptions named, and that server-wide switches are a manager's, per-event ones the creator's or a manager's, DM reminders only yours. Web 126 green. Pushing, replying, re-requesting Copilot.
+**Context**: Construction — step 6.2, Copilot loop round 1 addressed.
+
+---
