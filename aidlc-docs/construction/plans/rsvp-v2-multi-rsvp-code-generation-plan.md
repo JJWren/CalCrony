@@ -163,7 +163,7 @@ turn a step completes.
 - [x] 7.4 Bot: `RsvpReplyTextTests` (six texts), `EventEmbedBuilderTests` (☑️ line present/absent; a member seated on two options appears in both columns and is counted once per column; the waitlist column still lists them once).
 - [x] 7.5 Web (bUnit): several selected buttons; click held sends the option-scoped delete; helper line; create form sends the flag; edit form sends it only when changed; detail chip.
 - [x] 7.6 Migration Up/Down against `postgres:17-alpine` (Down collapses seeded multi rows to the earliest).
-- [ ] 7.7 Full-solution `dotnet test` green before the PR opens.
+- [x] 7.7 Full-solution `dotnet test` green before the PR opens.
 
 **8. Delivery**
 - [x] 8.1 First commit on the branch: `docs: RSVP v2 §3.3 design — requirements and code generation plan` (this file, the requirements doc, `aidlc-state.md`, `audit.md`).
