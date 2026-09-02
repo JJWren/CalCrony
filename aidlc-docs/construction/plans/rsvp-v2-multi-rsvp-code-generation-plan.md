@@ -145,15 +145,15 @@ turn a step completes.
 - [x] 4.5 `EventEmbedBuilder`: `☑️ Pick every option that applies — click a choice again to remove it` after the 🔒 lines, before the cutoff line, when `AllowMultipleRsvps`.
 
 **5. Web** (`src/CalCrony.Web`)
-- [ ] 5.1 `CalCronyWebApiClient`: `DeleteRsvpOptionAsync`; drop the bare `DeleteRsvpAsync` if unused.
-- [ ] 5.2 `RsvpButtons.razor`: `MyOptionIds` from `Event.RsvpsFor(UserId)`; several `selected`; click held → option-scoped delete; helper line in multi mode `☑️ Pick every option that applies — click a selected one to remove it.`
-- [ ] 5.3 `EventForm.razor`: checkbox "☑️ Allow more than one RSVP per member" under the options editor, create **and** edit; edit prefill from the event; sent on update only when changed; form-text mentions the refusal while anyone holds more than one. The API's 409 lands in the existing error line.
-- [ ] 5.4 `EventDetail.razor`: meta chip `☑️ multiple RSVPs` beside the 🔒 chips.
-- [ ] 5.5 `Docs.razor` 128 and 155: `multi-rsvp:true` / the web checkbox, toggle semantics, the turn-off rule.
+- [x] 5.1 `CalCronyWebApiClient`: `DeleteRsvpOptionAsync`; drop the bare `DeleteRsvpAsync` if unused.
+- [x] 5.2 `RsvpButtons.razor`: `MyOptionIds` from `Event.RsvpsFor(UserId)`; several `selected`; click held → option-scoped delete; helper line in multi mode `☑️ Pick every option that applies — click a selected one to remove it.`
+- [x] 5.3 `EventForm.razor`: checkbox "☑️ Allow more than one RSVP per member" under the options editor, create **and** edit; edit prefill from the event; sent on update only when changed; form-text mentions the refusal while anyone holds more than one. The API's 409 lands in the existing error line.
+- [x] 5.4 `EventDetail.razor`: meta chip `☑️ multiple RSVPs` beside the 🔒 chips.
+- [x] 5.5 `Docs.razor` 128 and 155: `multi-rsvp:true` / the web checkbox, toggle semantics, the turn-off rule.
 
 **6. Docs and bookkeeping**
-- [ ] 6.1 `README.md` 24 / 57 / 60: the switch, `multi-rsvp`, "clicking a chosen option again removes it", turn-off rule.
-- [ ] 6.2 `CalCronyDbContext` comment and any "switching revokes the previous choice" wording (README 36, Docs 58/65 describe single-mode role swaps — still true in single mode; qualify with "in single-RSVP mode" only where the text would otherwise mislead).
+- [x] 6.1 `README.md` 24 / 57 / 60: the switch, `multi-rsvp`, "clicking a chosen option again removes it", turn-off rule.
+- [x] 6.2 `CalCronyDbContext` comment and any "switching revokes the previous choice" wording (README 36, Docs 58/65 describe single-mode role swaps — still true in single mode; qualify with "in single-RSVP mode" only where the text would otherwise mislead).
 - [ ] 6.3 `aidlc-state.md` marks §3.3 shipped on merge; `audit.md` entries throughout.
 
 **7. Tests** (each layer's tests pass before the next layer starts)
@@ -161,7 +161,7 @@ turn a step completes.
 - [x] 7.2 API `MultiRsvpApiTests` (new): single-mode behaviour unchanged (switch, re-click no-op, bare delete); multi add leaves other seats alone; option-scoped delete; bare delete clears all; capacity counts seats (one member takes a seat on two capped options); attending waitlist while seated elsewhere; promotion when the attending seat is removed via the option route and NOT when a non-attending seat is; Tank+Healer both granting `@raider` → one grant, no revoke on dropping one; Tank(@tank)+Healer(@healer) → two grants, dropping one revokes only its role; promotion skips an already-held role; edit-path diff with multi-holders (role moved between options, option dropped); turning off with multi-holders → 409 with the count, turning off with none → 200; turning on never fails; series template carries the flag to the next occurrence; Series-scope edit writes the template only when the request carried the flag; Occurrence-scope leaves it; restriction gate still per option (entry to a second option is gated, re-click is not); DM fan-out sends one DM per member; `/calendar/availability` for the event lists a member with two seats once; CSV export emits one row per seat; action log names "multiple RSVPs"; concurrent PUTs by one member to two options both land (no unique violation), concurrent PUTs to the same option yield one row.
 - [x] 7.3 `RsvpPromotionQueryCountTests` still pin the same counts.
 - [x] 7.4 Bot: `RsvpReplyTextTests` (six texts), `EventEmbedBuilderTests` (☑️ line present/absent; a member seated on two options appears in both columns and is counted once per column; the waitlist column still lists them once).
-- [ ] 7.5 Web (bUnit): several selected buttons; click held sends the option-scoped delete; helper line; create form sends the flag; edit form sends it only when changed; detail chip.
+- [x] 7.5 Web (bUnit): several selected buttons; click held sends the option-scoped delete; helper line; create form sends the flag; edit form sends it only when changed; detail chip.
 - [x] 7.6 Migration Up/Down against `postgres:17-alpine` (Down collapses seeded multi rows to the earliest).
 - [ ] 7.7 Full-solution `dotnet test` green before the PR opens.
 

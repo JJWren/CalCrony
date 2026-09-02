@@ -106,6 +106,20 @@ else
             </div>
         </div>
 
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="ev-multi-rsvp" @bind="allowMultipleRsvps" />
+            <label class="form-check-label" for="ev-multi-rsvp">☑️ Allow more than one RSVP per member</label>
+            <div class="form-text">
+                Members can pick several options at once (Tank <i>and</i> Healer, dinner <i>and</i> movie)
+                and click a selected one again to remove it; off, picking another option switches. Only
+                the attending option keeps a waitlist.
+                @if (IsEdit)
+                {
+                    <text>Turning it off is refused while anyone holds more than one RSVP.</text>
+                }
+            </div>
+        </div>
+
         <div class="mb-3">
             <label class="form-label" for="ev-rsvp-close">RSVPs close <span class="text-body-secondary">(optional)</span></label>
             <input id="ev-rsvp-close" class="form-control" placeholder="2h before · friday 5pm"
@@ -304,6 +318,11 @@ else
     private List<RsvpOptionDto> restrictedOptions = [];
     private bool clearRestriction;
     private bool wantsThread;
+    private bool allowMultipleRsvps;
+
+    /// <summary>The flag as loaded for an edit, so the update carries it only when it changed —
+    /// a no-op resend would still be refused while members hold several RSVPs.</summary>
+    private bool loadedAllowMultipleRsvps;
     private List<OptionRow> optionRows = DefaultOptionRows();
     private List<RsvpOptionSpec>? loadedOptionSpecs;
     private string rsvpClose = "";
@@ -495,6 +514,8 @@ else
             clearRsvpClose = false;
             rsvpClose = "";
             currentRsvpClose = ev.RsvpClosesAtUtc;
+            allowMultipleRsvps = ev.AllowMultipleRsvps;
+            loadedAllowMultipleRsvps = ev.AllowMultipleRsvps;
             optionRows = [.. ev.Options.OrderBy(o => o.SortOrder).Select(o => new OptionRow
             {
                 Emote = o.Emote,
@@ -668,7 +689,9 @@ else
                 // The disabled textbox keeps its value once "remove" is ticked — clear wins, or the
                 // API would reject the pair as contradictory.
                 RsvpCloseText: clearRsvpClose || string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose,
-                ClearRsvpClose: clearRsvpClose));
+                ClearRsvpClose: clearRsvpClose,
+                // Only a changed switch is sent — null leaves it alone (see loadedAllowMultipleRsvps).
+                AllowMultipleRsvps: allowMultipleRsvps == loadedAllowMultipleRsvps ? null : allowMultipleRsvps));
             busy = false;
             if (!result.Success || result.Value is null)
             {
@@ -702,7 +725,8 @@ else
                 NoRecurrence: SelectedTemplate?.Recurrence is not null && repeatKind == RepeatKind.None,
                 WantsThread: wantsThread,
                 RsvpOptions: optionSpecs,
-                RsvpCloseText: string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose));
+                RsvpCloseText: string.IsNullOrWhiteSpace(rsvpClose) ? null : rsvpClose,
+                AllowMultipleRsvps: allowMultipleRsvps));
             busy = false;
             if (!result.Success || result.Value is null)
             {
