@@ -154,7 +154,7 @@ turn a step completes.
 **6. Docs and bookkeeping**
 - [x] 6.1 `README.md` 24 / 57 / 60: the switch, `multi-rsvp`, "clicking a chosen option again removes it", turn-off rule.
 - [x] 6.2 `CalCronyDbContext` comment and any "switching revokes the previous choice" wording (README 36, Docs 58/65 describe single-mode role swaps — still true in single mode; qualify with "in single-RSVP mode" only where the text would otherwise mislead).
-- [ ] 6.3 `aidlc-state.md` marks §3.3 shipped on merge; `audit.md` entries throughout.
+- [x] 6.3 `aidlc-state.md` marks §3.3 shipped on merge; `audit.md` entries throughout.
 
 **7. Tests** (each layer's tests pass before the next layer starts)
 - [x] 7.1 API `AttendeeRoleSyncTests`: `RolesHeld` / `Diff` matrix — same role via two seats nets to nothing, dropping one of two different roles revokes only that one, empty↔set.
@@ -168,4 +168,4 @@ turn a step completes.
 **8. Delivery**
 - [x] 8.1 First commit on the branch: `docs: RSVP v2 §3.3 design — requirements and code generation plan` (this file, the requirements doc, `aidlc-state.md`, `audit.md`).
 - [x] 8.2 PR `feat: multiple RSVPs per user` with the #150-style body: what it does, shape of the change, behaviour changes for existing servers (none — opt-in; the index swap is invisible to single-mode events), rollback note (rolling the image back is safe only while no member holds more than one row — 0.34.0's PutRsvp would move a member's first row onto an option they already hold and hit the widened index; once multi rows exist, run Down first, which collapses seats, revokes the roles they carried and re-renders the embeds), migration verification, test counts. Conventional title `feat:` (never `feat!:`).
-- [ ] 8.3 Copilot review loop to zero comments (re-query PR state each turn; `env -u GITHUB_TOKEN` for gh writes; merge via the REST call); squash-merge; release-please release; upgrade test (`:main`) then prod (pg_dump to `backups/` first, bump `CALCRONY_IMAGE_TAG` in a clean shell); verify `/health` and `__EFMigrationsHistory`; tick §3.3 on #125 and close it (all three boxes done); mark shipped in `aidlc-state.md`.
+- [x] 8.3 Copilot review loop to zero comments (re-query PR state each turn; `env -u GITHUB_TOKEN` for gh writes; merge via the REST call); squash-merge; release-please release; upgrade test (`:main`) then prod (pg_dump to `backups/` first, bump `CALCRONY_IMAGE_TAG` in a clean shell); verify `/health` and `__EFMigrationsHistory`; tick §3.3 on #125 and close it (all three boxes done); mark shipped in `aidlc-state.md`.
