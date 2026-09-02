@@ -238,15 +238,17 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<Unit>> SetChannelNameAsync(long channelId, string name, CancellationToken ct = default) =>
         SendAsync<Unit>(http.PutAsJsonAsync($"/channels/{channelId}/name", new ChannelNameRequest(name), ct), ct);
 
-    /// <summary>Lists, per bot-present guild, the roles the API's live signup restrictions name —
-    /// what the role snapshots must cover (the Ready-time reconcile and post-command syncs).</summary>
+    /// <summary>Lists, per bot-present guild, the roles the API watches — those its live signup
+    /// restrictions name and those live events and running series grant — i.e. what the role
+    /// snapshots must cover
+    /// (the Ready-time reconcile and post-command syncs).</summary>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
     public Task<ApiResult<WatchedRolesResponse>> GetWatchedRolesAsync(CancellationToken ct = default) =>
         SendAsync<WatchedRolesResponse>(http.GetAsync("/guilds/roles/watched", ct), ct);
 
-    /// <summary>One guild's watched roles (empty when it has no live restriction) — what a
-    /// single-guild sync resolves against.</summary>
+    /// <summary>One guild's watched roles, restricted and granted (empty when it has none) — what
+    /// a single-guild sync resolves against.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>

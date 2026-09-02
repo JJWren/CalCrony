@@ -5,7 +5,7 @@
 
 <p class="meta-mono text-uppercase mb-2">CalCrony</p>
 <h1 class="h3">Privacy Policy</h1>
-<p class="meta-mono">Last updated: 2026-09-01</p>
+<p class="meta-mono">Last updated: 2026-09-02</p>
 
 <div class="text-body-secondary" style="max-width:70ch">
     <p>
@@ -26,12 +26,14 @@
         <li>Name snapshots: your server's name and the names of the channels CalCrony posts in,
             recorded by the bot so calendar feeds and this web app can label things. They refresh
             while the bot is in the server and freeze at their last-known values if it's removed.</li>
-        <li>Role-membership snapshots (only when a server uses role-restricted signup): for each
-            role that a live restriction names, the role's name and which members currently hold it,
-            recorded by the bot so this web app can tell whether you may pick a restricted RSVP option
-            or vote in a restricted poll. Nothing is recorded for roles no restriction names, or for
-            members holding none of them. This is the one fact about you that the bot writes rather
-            than you handing it over yourself, which is why it is scoped this narrowly.</li>
+        <li>Role-membership snapshots (only when a server uses role-restricted signup or attendee
+            roles): for each role that a live restriction names or that a live or repeating event
+            grants to attendees, the role's name and which members currently hold it, recorded by the bot so
+            this web app can tell whether you may pick a restricted RSVP option or vote in a
+            restricted poll, and can show a granted role by name. Nothing is recorded for roles no
+            live restriction names and no live or repeating event grants, or for members holding none of them.
+            This is the one fact about you that the bot writes rather than you handing it over
+            yourself, which is why it is scoped this narrowly.</li>
         <li>Content you create: event titles, descriptions and locations, poll questions and options,
             RSVP choices, reminders, notification messages, and templates.</li>
         <li>Preferences: per-user and per-server timezone, DM-confirmation and DM-reminder settings
@@ -96,11 +98,13 @@
         <li><b>Operational records</b> (delivered notifications, consumed login/link tokens, expired
             session tokens) are automatically purged after <b>90 days</b>.</li>
         <li><b>Role-membership snapshots</b> are dropped automatically when a server's last role
-            restriction ends (the event ends, the poll closes, or the restriction is removed) and when
-            the bot leaves the server. While a server still has a restriction, its snapshot is trimmed
-            to the roles still named: a role that stops being named loses its rows, and a role deleted
-            in Discord keeps only a nameless marker (so the restriction naming it stops applying) with
-            no member associations.</li>
+            restriction or granted attendee role ends (the event ends, the poll closes, or the
+            restriction or role is removed) and when the bot leaves the server. A repeating event
+            keeps its roles watched between occurrences — the next one inherits them — so its
+            template's roles stay watched until the series is stopped, and an already scheduled
+            occurrence's until that occurrence ends. While a server still has a watched role, its snapshot is trimmed to the roles still named or granted: a role that
+            stops being named loses its rows, and a role deleted in Discord keeps only a nameless
+            marker (so the restriction naming it stops applying) with no member associations.</li>
         <li><b>Server activity log</b> entries record management actions by server members — creating,
             editing, deleting, or skipping events; adding or removing event reminders; changing or
             stopping a repeating event's schedule; creating, closing, converting, or deleting polls;

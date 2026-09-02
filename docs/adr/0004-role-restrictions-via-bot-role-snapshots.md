@@ -11,13 +11,13 @@ We keep ADR 0001's invariant that the API never calls Discord: the bot, which al
 Two tables, both following the `Channels` model — rows exist only for what CalCrony references:
 
 - **`GuildRoles`** — name snapshots for *watched* roles only (a role named by at least one live
-  restriction). Gives the web real role names instead of the raw `#123456` the §3.6 chip prints
-  today. A row with no name is the bot's tombstone for a role it checked and found deleted; no
+  restriction, or — since #167 — granted as an attendee role by a live event or running series).
+  Gives the web real role names instead of the raw `#123456` the §3.6 chip printed before. A row with no name is the bot's tombstone for a role it checked and found deleted; no
   row at all means the role has not been checked since it became watched (see the refinement
   below — the two must not be confused).
 - **`GuildMemberRoles`** — for each member holding at least one watched role, which ones. Members
-  holding none of them have no row at all, so the table stays proportional to restrictions in use,
-  not to server size.
+  holding none of them have no row at all, so the table stays proportional to the watched roles'
+  holders (restrictions in use and, since #167, granted attendee roles), not to server size.
 
 `Guild.RolesSyncedAt` plus the watched set recorded on `GuildRoles` is what makes an *absent* row
 readable as "holds none of them" rather than "we have never looked". Without that marker the two
@@ -63,9 +63,10 @@ sweep, no delivery type, and no background reconciliation of past RSVPs against 
 **This is the first per-user Discord fact the API stores that the user did not hand over.** Name
 snapshots covered guilds and channels; `UserGuildMembership` comes from the user's own OAuth login.
 Role membership is written *about* someone by the bot, so it needs disclosure in the privacy policy
-alongside the name snapshots. A guild's rows must go when its last restriction ends and when the
-bot leaves; while restrictions remain, the rows are trimmed to the roles still named, and a role
-deleted in Discord keeps only its nameless tombstone (see below) with no member associations.
+alongside the name snapshots. A guild's rows must go when its last watched role — a restriction
+or, since #167, a granted attendee role — ends and when the bot leaves; while any remain, the rows
+are trimmed to the roles still named or granted, and a role deleted in Discord keeps only its
+nameless tombstone (see below) with no member associations.
 
 ## Refinements made during implementation (PR #150)
 
@@ -82,4 +83,22 @@ seconds rather than at the next reconcile.
 it runs. Without a bound, a bot that has been down for a day would still answer for members who
 lost a role in the meantime. The marker therefore expires 30 minutes after the last sync; the bot's
 periodic reconcile keeps a live bot well inside it, and retention trims each guild's rows to the
-roles its live restrictions still name.
+roles its live restrictions still name and its live events and running series still grant.
+
+## Refinements after release (PR #168)
+
+**Attendee roles are watched too (#167).** The first cut watched restriction roles only, so an
+event that merely *granted* a role kept printing `role #123456` on the web — the snapshot is the
+web's only source of role names. Attendee roles on live events and running series templates now
+join the watched set (`RoleWatchList.NamedBy`), the API invalidates a newly granted role's leftover
+rows the way it does a newly restricted one, and the bot's immediate post-`/create` and `/edit`
+sync fires for a named attendee role as well. The cost is a wider per-user fact: `GuildMemberRoles`
+now also records who holds a granted role — including members who hold it independently of
+CalCrony — so the privacy policy's role-snapshot bullet names granted roles alongside restricted
+ones, and the same retention rules (last watched role ends, bot leaves, trim to the roles still
+named or granted) apply. The write cost is real, not new in kind: the ten-minute reconcile already
+sends every holder of every watched role and `SyncGuild` replaces the guild's member rows
+wholesale, so a pre-existing, widely held role chosen as an attendee role adds rows proportional
+to its holders and rewrites them each cycle — the same cost a restriction naming that role has
+always carried. A role CalCrony creates for the purpose stays proportional to the event's RSVPs,
+and each grant the bot makes is the existing per-member push.

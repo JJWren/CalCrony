@@ -694,8 +694,9 @@ public static class EventEndpoints
 
         // Roles this event newly restricts to fail closed on the web until the bot's post-create
         // sync lands (ADR 0004) — leftover rows from an earlier watch must not answer for them.
+        // The roles it grants are watched for their names by the same rule (#167).
         await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
-            db, guildId, options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
+            db, guildId, options.SelectMany(RoleWatchList.NamedBy), cancellationToken);
 
         ActionLog.Record(
             db, guildId, ActionLog.ActorFor(context, request.CreatorId), ActionLogAction.EventCreated,
@@ -1244,10 +1245,11 @@ public static class EventEndpoints
         // role a NON-LIVE event brings back by going live again — its restrictions were not
         // watched while it was ended or cancelled, so its rows may be leftovers. The watch list
         // still reflects the pre-edit rows here, since nothing has been saved yet.
-        if (request.AllowedRoleIds is not null || request.RsvpOptions is not null || (!isLive && staysLive))
+        if (request.AllowedRoleIds is not null || request.RsvpOptions is not null || request.AttendeeRoleId is not null
+            || (!isLive && staysLive))
         {
             await RoleSnapshotEndpoints.InvalidateNewlyWatchedAsync(
-                db, ev.GuildId, ev.Options.SelectMany(o => o.AllowedRoleIds), cancellationToken);
+                db, ev.GuildId, ev.Options.SelectMany(RoleWatchList.NamedBy), cancellationToken);
         }
 
         // The log names the fields the request touched (not their values — the log outlives

@@ -865,3 +865,25 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Operations — #163 fixed end to end (report → issue → fix PR #164 → 0.36.2 → test → prod).
 
 ---
+## Defect report — web shows "role #id" for attendee roles
+**Timestamp**: 2026-09-02T22:02:06Z
+**User Input**: "Looking at an event from the web app I see an event grants the role shows \"{tag emoji} grants the role #1544822050655314021\" instead of stating the role. I don't think that is intended."
+**User Input**: "yes" (to filing the issue and running the fix → PR → Copilot → release → test → prod loop)
+**AI Response**: Diagnosis: the web names a role only from the API's GuildRoles snapshot, and per ADR 0004 the watch list that drives the bot's snapshots (RoleWatchList) and the API's write-time trim (SyncGuild) covers roles named by live restrictions only. RoleNames.ForOptionsAsync already asks for attendee-role names, so the intent existed; the attendee role (kids-calls-attendee, test guild) never gets a row. Plan: attendee roles from live events and running series templates join the watch list; the bot's immediate sync on /create and /edit also fires when an attendee role is named; ADR 0004 amended; tests on the watch list, the write path and the web chip.
+**Context**: Inception (brownfield) — diagnosis complete; construction as a single-unit fix next.
+
+---
+## Construction — attendee-role names implemented (#167)
+**Timestamp**: 2026-09-02T22:08:25Z
+**User Input**: (none — continuation of the remediate loop)
+**AI Response**: Issue #167 filed. Branch fix/attendee-role-names: RoleWatchList now includes attendee roles from live events' options and running series templates (new public NamedBy(option) helper reused by EventEndpoints' newly-watched invalidation on create and edit, the edit path also triggering on a named AttendeeRoleId); the bot's NamesRestrictions/TouchesRestrictions became NamesWatchedRoles/TouchesWatchedRoles so /create and /edit sync the guild at once when an attendee role is named or cleared; ADR 0004 amended (bullet + refinement paragraph). Tests: the watched-list test covers a grant-only event and a granting series, plus two new tests (sync keeps the granted role's name and GET /events reports it; retention keeps a snapshot alive for a granted role alone). Build 0 errors, no new warnings; 809 tests green at that head (171 bot, 129 web, 509 API) — the Copilot rounds below add a third test and re-verify. Next: PR, Copilot rounds, REST merge, release, test then prod.
+**Context**: Construction — code generation complete for the single unit; PR gate next.
+
+---
+## Construction — fix PR #168 Copilot rounds 1–2
+**Timestamp**: 2026-09-02T22:24:18Z
+**User Input**: (none — continuation)
+**AI Response**: Round 1 (three findings, all taken): series revival now invalidates granted roles through RoleWatchList.NamedBy; the RoleNames and RsvpOptionDto.AttendeeRoleName XML docs describe the widened contract; a new test seeds a stale name and proves create, edit and revival each discard it (pushed as e42746b). Round 2 (summary-level): the widened watch set means GuildMemberRoles also records who holds a granted role, so PRIVACY_POLICY.md and the web Privacy page name granted attendee roles alongside restricted ones (collection and retention bullets) and ADR 0004's member-data consequence says the same; the earlier verification figures are marked as of their head. Re-verified at the current head: build 0 errors, no new warnings; 810 tests green (171 bot, 129 web, 510 API — 3 new in RoleSnapshotEndpointTests).
+**Context**: Construction — PR gate in progress.
+
+---
