@@ -761,7 +761,14 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 ## Operations — prod rolled 0.35.0 → 0.36.0; docs pass shipped
 **Timestamp**: 2026-09-02T18:25:37Z
 **User Input**: (none — continuation)
-**AI Response**: All three 0.36.0 images and release v0.36.0 published. Prod (Z:\docker\calcrony): pg_dump to backups/calcrony-prod-pre-0.36.0-20260902T182446Z.sql (70,052 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.0 by sed in a clean shell (config --images confirmed), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.36.0; no migration in this release (history still tops 20260902152200_AllowMultipleRsvps); no API errors beyond the known noise; bot Gateway Ready. Plan step 6.3 ticked (all 14 done); aidlc-state.md marks the docs pass shipped. Bookkeeping goes out as a docs PR.
+**AI Response**: All three 0.36.0 images and release v0.36.0 published. Prod (Z:\docker\calcrony): pg_dump to backups/calcrony-prod-pre-0.36.0-20260902T182446Z.sql (70,052 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.0 by sed in a clean shell (config --images confirmed), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.36.0; no migration in this release (history still tops 20260902152200_AllowMultipleRsvps); no API errors beyond the known noise; bot Gateway Ready. Plan step 6.3 ticked (all 15 done); aidlc-state.md marks the docs pass shipped. Bookkeeping goes out as a docs PR.
 **Context**: Operations — docs readability pass delivered end to end.
+
+---
+## Operations — bookkeeping PR #159 Copilot round 1
+**Timestamp**: 2026-09-02T18:29:15Z
+**User Input**: (none — continuation)
+**AI Response**: Copilot counted the plan: 15 numbered steps (1.1–1.4, 2.1–2.4, 3.1, 4.1, 5.1–5.2, 6.1–6.3), not the 14 the completion entry and aidlc-state.md claimed — both corrected in place (the earlier "14-step" wording in this session's plan-presentation entry was the same miscount; the plan file itself was always complete). PR body corrected too.
+**Context**: Operations — bookkeeping PR round 1 addressed.
 
 ---
