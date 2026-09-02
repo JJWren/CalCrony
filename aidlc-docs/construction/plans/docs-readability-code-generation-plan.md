@@ -38,28 +38,28 @@ Commands table rows carry the same semantics again (`/create` ~100 words, `/edit
 ## Execution plan
 
 **1. README.md**
-- [ ] 1.1 Intro line: "Hosted at calcrony.app, or run your own — an event & calendar suite for Discord …"; the architecture paragraph and diagram unchanged.
-- [ ] 1.2 Features: the six groups above as `###`-less bold group leads with one-line bullets; opt-in features say "opt-in" inline; the section ends with one line linking https://calcrony.app/docs for permissions, defaults and caveats. Budget ≤ 400 words.
-- [ ] 1.3 Commands table: each row keeps "what it does" plus its flag names in code and drops the semantics sentences (they live on the Docs page); the first-steps block above the table stays.
-- [ ] 1.4 Configuration, Running locally, Deploying, Community, Contributing sections untouched.
+- [x] 1.1 Intro line: "Hosted at calcrony.app, or run your own — an event & calendar suite for Discord …"; the architecture paragraph and diagram unchanged.
+- [x] 1.2 Features: the six groups above as `###`-less bold group leads with one-line bullets; opt-in features say "opt-in" inline; the section ends with one line linking https://calcrony.app/docs for permissions, defaults and caveats. Budget ≤ 400 words.
+- [x] 1.3 Commands table: each row keeps "what it does" plus its flag names in code and drops the semantics sentences (they live on the Docs page); the first-steps block above the table stays.
+- [x] 1.4 Configuration, Running locally, Deploying, Community, Contributing sections untouched.
 
 **2. `src/CalCrony.Web/Pages/Docs.razor`**
-- [ ] 2.1 New "Features in depth" section after the worked example: the same six groups as `h2`s, one short `h3` per feature carrying the long-form text migrated from the README bullets and today's "The web app" bullets — what it does, how to invoke it in Discord and on the web, the Discord permission it needs, its default (opt-in or not) and caveats. Nothing said today is lost; duplication between the two pages ends.
-- [ ] 2.2 "The web app" section shrinks to sign-in scope, what the browser can do, themes and the server re-sync link, pointing into the features section for the rest.
-- [ ] 2.3 Slash commands table rows trimmed the same way as the README's.
-- [ ] 2.4 First steps, interest-role guidance, the worked example and "Good to know" unchanged.
+- [x] 2.1 New "Features in depth" section after the worked example: the same six groups as `h2`s, one short `h3` per feature carrying the long-form text migrated from the README bullets and today's "The web app" bullets — what it does, how to invoke it in Discord and on the web, the Discord permission it needs, its default (opt-in or not) and caveats. Nothing said today is lost; duplication between the two pages ends.
+- [x] 2.2 "The web app" section shrinks to sign-in scope, what the browser can do, themes and the server re-sync link, pointing into the features section for the rest.
+- [x] 2.3 Slash commands table rows trimmed the same way as the README's.
+- [x] 2.4 First steps, interest-role guidance, the worked example and "Good to know" unchanged.
 
 **3. `src/CalCrony.Web/Pages/Landing.razor`**
-- [ ] 3.1 Tagline "self-hosted · open source · for your Discord server" → "open source · use calcrony.app or run your own · for your Discord server"; the purpose sentence with "free/busy availability" (test-pinned) stays.
+- [x] 3.1 Tagline "self-hosted · open source · for your Discord server" → "open source · use calcrony.app or run your own · for your Discord server"; the purpose sentence with "free/busy availability" (test-pinned) stays.
 
 **4. `docs/research/sesh-fyi-feature-gap.md`**
-- [ ] 4.1 Dated status note at the top: RSVP v2 shipped (§3.6 v0.32.0, §3.5 v0.34.0, §3.3 v0.35.0); the three rows' status cells say so instead of "Missing"/"Partial".
+- [x] 4.1 Dated status note at the top: RSVP v2 shipped (§3.6 v0.32.0, §3.5 v0.34.0, §3.3 v0.35.0); the three rows' status cells say so instead of "Missing"/"Partial".
 
 **5. Tests**
-- [ ] 5.1 bUnit: the Docs page renders the six group headings and the RSVP v2 features by name; Landing tests still pass.
-- [ ] 5.2 Full web test project green; README rendered once through a markdown check (no broken links or fences).
+- [x] 5.1 bUnit: the Docs page renders the six group headings and the RSVP v2 features by name; Landing tests still pass.
+- [x] 5.2 Full web test project green; README rendered once through a markdown check (no broken links or fences).
 
 **6. Bookkeeping and delivery**
-- [ ] 6.1 `audit.md` entries throughout; `aidlc-state.md` gains a line for the docs pass.
+- [x] 6.1 `audit.md` entries throughout; `aidlc-state.md` gains a line for the docs pass.
 - [ ] 6.2 PR opened with a short body (what changed, why `feat:`, before/after word counts); Copilot loop to zero comments; REST merge.
 - [ ] 6.3 release-please cuts the release (approve its runs, REST merge); test stack pulls `:main`; prod bumps the tag (no migration in this release, backup taken anyway as the standing procedure); `/health` verified.

@@ -681,3 +681,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — Code Generation Part 2 (generation) started.
 
 ---
+## Construction — docs readability: steps 1–5 generated
+**Timestamp**: 2026-09-02T17:30:47Z
+**User Input**: (none — continuation)
+**AI Response**: README: intro reworded ("Hosted at calcrony.app, or run your own"), Features rebuilt as six groups of one-line bullets — 440 words, down from ~1,430 (the plan's ≤ 400 target missed by 40; every group kept one bullet per feature rather than merging features) — ending with a link to calcrony.app/docs#features; command rows keep "what it does" plus flag names. Docs.razor: new "Features in depth" section (six h2 groups, one h3 entry per feature) carrying every detail from the README bullets and the old web-app list — invocation from Discord and web, required permission, default, caveats; "The web app" shrunk to five lines; command rows trimmed to flag lists. Landing tagline reworded. Gap analysis: dated status note plus the three RSVP v2 rows marked shipped with versions. Tests: new DocsPageTests (six groups, #features anchor, RSVP v2 features and the three permissions by name); web suite 126 green. README fences balanced and relative links resolve.
+**Context**: Construction — steps 1–5 ticked; 6 (bookkeeping, PR, release, rollout) next.
+
+---

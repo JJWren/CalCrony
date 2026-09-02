@@ -2,6 +2,8 @@
 
 *Research date: 2026-08-31. Method: CalCrony features inventoried from this repo's source and README; sesh features confirmed only on sesh-owned pages (home page, manual, premium page, Time Finder page, official roadmap). Third-party sources were not used as evidence.*
 
+> **Status 2026-09-02:** the RSVP v2 batch this analysis motivated has shipped — §3.6 per-option attendee roles in v0.32.0 (#144), §3.5 role-restricted signup in v0.34.0 (#150), §3.3 multiple RSVPs per user in v0.35.0 (#154). The three rows below say so; the rest of the table is the 2026-08-31 snapshot.
+
 **Sesh sources (first-party):**
 
 - Home: <https://sesh.fyi/>
@@ -54,10 +56,10 @@ This is CalCrony's largest gap cluster. CalCrony's RSVP options are hardcoded to
 |---|---|---|---|
 | 3.1 | **Custom RSVP options** — "Create unique RSVP options using any emoji" (premium) | <https://sesh.fyi/manual/>; <https://sesh.fyi/premium> | **Missing** (hardcoded 3 options, `EventEndpoints.cs:112-114`). |
 | 3.2 | **RSVP attendee limits + waitlist management** (premium) | <https://sesh.fyi/premium> ("attendee limits/waitlists", "RSVP slot limits with waitlist management" on <https://sesh.fyi/>) | **Partial foundation.** `RsvpOptionDto` already carries an optional `Capacity` (`src/CalCrony.Contracts/Events.cs:88`) and the API rejects RSVPs to a full option (`EventEndpoints.cs:894-899`) — but nothing surfaces capacity at creation/edit in either UI, and there is no waitlist. |
-| 3.3 | **Multiple RSVPs per user** — RSVP to more than one option (premium) | <https://sesh.fyi/manual/> ("Multiple RSVPs") | **Missing.** CalCrony RSVP is single-choice (switching revokes the previous choice — `RsvpComponentModule.cs`, `AttendeeRoleManager` semantics in README). |
+| 3.3 | **Multiple RSVPs per user** — RSVP to more than one option (premium) | <https://sesh.fyi/manual/> ("Multiple RSVPs") | **Shipped v0.35.0** (#154, 2026-09-02): per-event opt-in `multi-rsvp:true`; a PUT adds a seat, clicking a chosen option again removes it, roles are a per-member set. |
 | 3.4 | **Close RSVPs early** — close all RSVPs a set time before the event (premium) | <https://sesh.fyi/premium> | **Missing.** |
-| 3.5 | **Role-based restrictions** — control who can RSVP to events / vote in polls (premium) | <https://sesh.fyi/> ("Role-based restrictions for RSVPs and voting"); <https://sesh.fyi/manual/> | **Missing.** CalCrony restricts *edit/delete* to creator/manager (`EventModule.cs`) but any member can RSVP/vote. |
-| 3.6 | **Per-RSVP-option attendee roles** — "add Discord roles to users who RSVP to *specific options*" (premium) | <https://sesh.fyi/manual/> | **Partial.** CalCrony grants one role, only for "Going" (`AttendeeRoleManager.cs`, `Events.cs:32`). |
+| 3.5 | **Role-based restrictions** — control who can RSVP to events / vote in polls (premium) | <https://sesh.fyi/> ("Role-based restrictions for RSVPs and voting"); <https://sesh.fyi/manual/> | **Shipped v0.34.0** (#150, 2026-09-02): `restrict-to:` on events and polls, `only:` per option; bot checks live, web fails closed on role snapshots (ADR 0004). |
+| 3.6 | **Per-RSVP-option attendee roles** — "add Discord roles to users who RSVP to *specific options*" (premium) | <https://sesh.fyi/manual/> | **Shipped v0.32.0** (#144, 2026-09-01): the role lives on the option (`rsvp-options:"🛡️ Tank @tank, …"`); the event-level role is shorthand for the attending option's. |
 
 ## 4. Gaps — recurrence
 
