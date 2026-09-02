@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/JJWren/CalCrony/compare/v0.35.0...v0.36.0) (2026-09-02)
+
+
+### Features
+
+* readable feature docs — grouped README and an in-depth web docs page ([#157](https://github.com/JJWren/CalCrony/issues/157)) ([817f947](https://github.com/JJWren/CalCrony/commit/817f9476d00e15ac81484072f2429a3b5aff8590))
+
 ## [0.35.0](https://github.com/JJWren/CalCrony/compare/v0.34.0...v0.35.0) (2026-09-02)
 
 
