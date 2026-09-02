@@ -838,28 +838,28 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 
 ---
 ## Construction — fix PR #164 merged
-**Timestamp**: 2026-09-02T20:58:00Z
+**Timestamp**: 2026-09-02T20:54:04Z
 **User Input**: (none — continuation of the remediate loop)
 **AI Response**: Copilot round 1 raised one finding (null-safe log label when a command lookup fails — made null-safe with InteractionFailureReply.Describe plus a test; in 3.20.1 that path fires the per-type events rather than InteractionExecuted, so defensive) and flagged the future timestamp on the previous audit entry (corrected). Round 2 approved with zero comments; build-test and pr-title green; thread resolved; squash-merged through the REST call as 8163d02, issue #163 auto-closed. Next: release-please 0.36.2, test stack on :main, then prod with the standing backup.
 **Context**: Construction — fix delivered; release and rollout next.
 
 ---
 ## Operations — release 0.36.2 merged
-**Timestamp**: 2026-09-02T21:00:00Z
+**Timestamp**: 2026-09-02T20:57:34Z
 **User Input**: (none — continuation)
 **AI Response**: release-please opened #165 (chore(master): release 0.36.2); its held CI and CodeQL runs approved; build-test and pr-title green; squash-merged through the REST call as b0733f0. Waiting for the master CI run (:main images) to refresh the test stack and for the three 0.36.2 images to roll prod with a pg_dump first.
 **Context**: Operations — release cut; test then prod rollout next.
 
 ---
 ## Operations — test stack refreshed to :main (8163d02)
-**Timestamp**: 2026-09-02T21:04:00Z
+**Timestamp**: 2026-09-02T20:59:00Z
 **User Input**: (none — continuation)
 **AI Response**: Master CI published the :main images for the fix commit; test stack pulled and restarted with up -d --wait — all four containers healthy, /health and /health/ready report 0.0.0-main.8163d02, the test bot logged "Registered slash commands to guild 1328382412383715378", presence sync and Gateway Ready with no errors (guild-scoped registration silently drops the new context fields, as probed). Prod waits on the three 0.36.2 images.
 **Context**: Operations — test rollout done; prod next.
 
 ---
 ## Operations — prod rolled 0.36.1 → 0.36.2; guild-context guard shipped
-**Timestamp**: 2026-09-02T21:03:30Z
+**Timestamp**: 2026-09-02T21:03:00Z
 **User Input**: (none — continuation)
 **AI Response**: All three 0.36.2 images and release v0.36.2 published. Prod: pg_dump to backups/calcrony-prod-pre-0.36.2-20260902T210203Z.sql (70,894 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.2 in a clean shell (config --images confirmed), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.36.2; the bot logged "Registered slash commands globally", presence sync (3 present, 1 absent) and Gateway Ready with no errors. Discord's global command list for the prod app now carries contexts [0] / integration_types [0] on the 13 server commands and [0,1,2] / [0,1] on help, timestamp and calendar. Remaining for Joshua (Developer Portal, not code): Guild Install default settings → bot + applications.commands, permissions 335275969536; decide whether User Install stays on.
 **Context**: Operations — #163 fixed end to end (report → issue → fix PR #164 → 0.36.2 → test → prod).
