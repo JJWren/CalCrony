@@ -46,7 +46,7 @@ public sealed class RetentionService(
             .ExecuteDeleteAsync(cancellationToken);
 
         var watched = await RoleWatchList.WatchedByGuildAsync(db, cancellationToken);
-        var liveRestrictionGuilds = watched.Keys.ToList();
+        var liveRestrictionGuilds = watched.Keys.ToHashSet();
         var syncedGuilds = await db.Guilds
             .Where(g => g.RolesSyncedAt != null)
             .Select(g => g.Id)

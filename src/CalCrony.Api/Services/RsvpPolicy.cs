@@ -244,7 +244,10 @@ public static partial class RsvpPolicy
             return null;
         }
 
-        if (eventRestriction.Length > 0 && specs.Any(s => s.AllowedRoleIds is { Count: > 0 }))
+        // Supplied at all — an explicit empty set included, since on an edit that is "restrict
+        // every option to nobody", i.e. clear — the shorthand owns every option, and a spec that
+        // also carries a restriction is two answers to one question.
+        if (allowedRoleIds is not null && specs.Any(s => s.AllowedRoleIds is { Count: > 0 }))
         {
             error = "Set the signup restriction on the options or via the event-level restriction, not both.";
             return null;
@@ -260,7 +263,7 @@ public static partial class RsvpPolicy
             IsAttending = index == attendingIndex,
             AttendeeRoleId = index == attendingIndex ? spec.AttendeeRoleId ?? attendeeRoleId : spec.AttendeeRoleId,
             // Validated above, so the per-spec normalization can't fail here.
-            AllowedRoleIds = eventRestriction.Length > 0 ? eventRestriction : [.. (spec.AllowedRoleIds ?? []).Distinct()],
+            AllowedRoleIds = allowedRoleIds is not null ? eventRestriction : [.. (spec.AllowedRoleIds ?? []).Distinct()],
         })];
     }
 

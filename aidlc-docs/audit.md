@@ -347,3 +347,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 6 pending.
 
 ---
+## Delivery — PR #150 Copilot round 6 addressed
+**Timestamp**: 2026-09-02T01:02:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Zero new comments; four suppressed notes. Three taken: retention's live-guild set is a HashSet; an explicit empty event-level AllowedRoleIds now counts as the shorthand for the "not both" rule (an edit's [] clears every option, so pairing it with a restricted spec is two answers to one question — tested); a duplicate @using removed. The fourth restated the reconcile ordering race against the pre-round-5 code (the current sync reads its watched set under the guild lock and the reconcile has no cleanup loop), so no change. The round-5 thread drew no new comment and is resolved. 475 API, 110 web green.
+**Context**: Delivery — step 8.3, Copilot loop round 7 pending.
+
+---

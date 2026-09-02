@@ -119,6 +119,15 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         Assert.Equal(HttpStatusCode.BadRequest, twice.StatusCode);
         Assert.Contains("not both", (await Error(twice)).Error);
 
+        // An explicit empty shorthand is still the shorthand (on an edit it clears every option),
+        // so it conflicts with a restricted spec the same way.
+        var emptyTwice = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Empty twice", "in 3 hours", ChannelId,
+            AllowedRoleIds: [],
+            RsvpOptions: [new RsvpOptionSpec("✅", "Going", IsAttending: true, AllowedRoleIds: [OfficerRole])]));
+        Assert.Equal(HttpStatusCode.BadRequest, emptyTwice.StatusCode);
+        Assert.Contains("not both", (await Error(emptyTwice)).Error);
+
         var wide = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
             CreatorId, "Wide", "in 3 hours", ChannelId, AllowedRoleIds: [1, 2, 3, 4, 5, 6]));
         Assert.Equal(HttpStatusCode.BadRequest, wide.StatusCode);
