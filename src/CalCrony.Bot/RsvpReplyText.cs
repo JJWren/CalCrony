@@ -47,6 +47,25 @@ public static class RsvpReplyText
                + (others.Count == 0 ? "" : $" You're still marked: {string.Join(", ", others)}.");
     }
 
+    /// <summary>The member's zero-based place in the waitlist for THE OPTION THEY CLICKED, or null
+    /// when that row is seated or absent. Keyed on the option, not just the member: with multiple
+    /// RSVPs a member already queued for the attending option can add another seat, and that click
+    /// must read as an add, not as "still waitlisted".</summary>
+    /// <param name="ev">The event as returned by the API AFTER the change.</param>
+    /// <param name="userId">The clicking member's Discord id.</param>
+    /// <param name="optionId">The option clicked.</param>
+    /// <returns>The zero-based queue position, or null.</returns>
+    public static int? WaitlistPosition(EventDto ev, long userId, Guid optionId)
+    {
+        if (ev.RsvpsFor(userId).FirstOrDefault(r => r.OptionId == optionId) is not { Waitlisted: true })
+        {
+            return null;
+        }
+
+        var index = ev.Waitlist.ToList().FindIndex(r => r.UserId == userId && r.OptionId == optionId);
+        return index >= 0 ? index : null;
+    }
+
     private static string AlsoMarked(EventDto ev, RsvpOptionDto? option, long userId)
     {
         var others = Others(ev, option, userId);

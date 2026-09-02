@@ -73,7 +73,9 @@ public class RsvpComponentModule(CalCronyApiClient api) : InteractionModuleBase<
 
         var option = ev.Options.FirstOrDefault(o => o.Id == optionId);
         // A full attending option queues instead of seating — tell the clicker where they stand.
-        var waitlistPosition = ev.Waitlist.ToList().FindIndex(r => r.UserId == userId);
+        // Judged on the row for THIS option: with multiple RSVPs a member queued elsewhere can
+        // still land a seat here, and that must not read as "still waitlisted".
+        var waitlistPosition = RsvpReplyText.WaitlistPosition(ev, userId, optionId) ?? -1;
         var confirmation = (alreadyOnOption, waitlistPosition) switch
         {
             (true, _) => RsvpReplyText.Removed(ev, option, userId),

@@ -64,8 +64,11 @@ Tests that encode the single-choice rule: `RsvpV1ApiTests`, `PerOptionRoleApiTes
 - **FR9** Web: buttons toggle, several can be selected, helper text explains.
 - **FR10** Turning multi off while members hold several seats: per Q4.
 - **FR11** Migration swaps the unique index; Down must collapse extra rows before restoring the old
-  index (recorded in the PR body). Rolling the image back is safe — 0.34.0's code ignores the new columns
-  and never inserts a second row; only running the Down migration collapses rows.
+  index and enqueue a revoke for each role a discarded seat carried that the kept seat does not
+  (recorded in the PR body). Rolling the image back is safe only while no member holds more than one
+  row — 0.34.0's PutRsvp moves a member's first row onto the clicked option, which collides with
+  their other row when they already hold it (found in review, PR #154); once multi rows exist, run
+  Down first.
 - **FR12** CSV export unchanged in shape (more rows); README, Docs page updated; PRIVACY unaffected.
 
 ## 4. Design questions
@@ -174,10 +177,12 @@ choices ("🎬 Movie x10").
 
 ## 7. Risks
 
-- **Not additive**: the migration swaps a unique index. Rolling the prod image back to 0.34.0 is still
-  safe (old code ignores the columns, never inserts a second row, and its DELETE removes one row, leaving
-  the rest harmless); only the Down migration collapses members' extra seats to the earliest. Say so in
-  the PR body and the rollout note.
+- **Not additive**: the migration swaps a unique index. Rolling the prod image back to 0.34.0 is safe
+  only while no member holds more than one row (old code ignores the columns and never inserts a second
+  row, but its PutRsvp would move a member's first row onto an option they already hold and hit the new
+  index — found in review, PR #154); once multi rows exist, run Down first — it collapses members' extra
+  seats to the earliest and enqueues the revokes for roles those seats carried. Say so in the PR body
+  and the rollout note.
 - Slightly more outbox traffic on toggle-happy events (each seat change is its own role delivery);
   coalescing already nets never-served pairs to zero.
 - Larger embeds (a member can appear in every column); the existing per-list budget bounds it.

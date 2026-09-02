@@ -229,10 +229,12 @@ public static class AttendeeRoleSync
         }
     }
 
-    /// <summary>Fans one delivery per seated user over EVERY role-bearing option — the event-wide
-    /// sweep used when an event leaves the live states (end / delete / skip / cancel) and every
-    /// role it handed out has to come back. Waitlisted users never held a role, so they're
-    /// skipped, and there is no coalescing: these paths are one-shot.</summary>
+    /// <summary>Fans one delivery per (user, role) over EVERY seated RSVP on a role-bearing option —
+    /// the event-wide sweep used when an event leaves the live states (end / delete / skip /
+    /// cancel) and every role it handed out has to come back. A member seated on two options that
+    /// grant the same role (allowed with multiple RSVPs) holds it once and gets one delivery, the
+    /// same set semantics <see cref="RolesHeld"/> gives the per-RSVP paths. Waitlisted users never
+    /// held a role, so they're skipped, and there is no coalescing: these paths are one-shot.</summary>
     /// <param name="db">The database context.</param>
     /// <param name="ev">The event (Options and Rsvps loaded).</param>
     /// <param name="type">Grant or revoke.</param>
@@ -240,35 +242,19 @@ public static class AttendeeRoleSync
     /// <returns>How many deliveries were enqueued.</returns>
     public static int EnqueueRoleFanOutAll(CalCronyDbContext db, Event ev, DeliveryType type, Instant now)
     {
-        var count = 0;
-        foreach (var option in ev.Options.Where(o => o.AttendeeRoleId is not null))
+        var rolesByOption = ev.Options
+            .Where(o => o.AttendeeRoleId is not null)
+            .ToDictionary(o => o.Id, o => o.AttendeeRoleId!.Value);
+        var enqueued = new HashSet<(long UserId, long RoleId)>();
+        foreach (var rsvp in ev.Rsvps.Where(r => !r.Waitlisted))
         {
-            count += EnqueueRoleFanOutForOption(db, ev, type, option.AttendeeRoleId!.Value, option.Id, now);
+            if (rolesByOption.TryGetValue(rsvp.OptionId, out var roleId) && enqueued.Add((rsvp.UserId, roleId)))
+            {
+                AddDelivery(db, ev, type, RolePayloadJson(ev, roleId, rsvp.UserId), now);
+            }
         }
 
-        return count;
-    }
-
-    /// <summary>Fan-out over one option's seated RSVPs. The role id is passed explicitly so a
-    /// role-change edit can revoke the OLD role after the option row was already updated.</summary>
-    /// <param name="db">The database context.</param>
-    /// <param name="ev">The event (Rsvps loaded).</param>
-    /// <param name="type">Grant or revoke.</param>
-    /// <param name="roleId">The Discord role id to grant or revoke.</param>
-    /// <param name="optionId">The option whose seated RSVPs are fanned over.</param>
-    /// <param name="now">The current instant.</param>
-    /// <returns>How many deliveries were enqueued.</returns>
-    public static int EnqueueRoleFanOutForOption(
-        CalCronyDbContext db, Event ev, DeliveryType type, long roleId, Guid optionId, Instant now)
-    {
-        var count = 0;
-        foreach (var rsvp in ev.Rsvps.Where(r => r.OptionId == optionId && !r.Waitlisted))
-        {
-            AddDelivery(db, ev, type, RolePayloadJson(ev, roleId, rsvp.UserId), now);
-            count++;
-        }
-
-        return count;
+        return enqueued.Count;
     }
 
     private static Delivery AddDelivery(

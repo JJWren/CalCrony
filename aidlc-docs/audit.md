@@ -569,3 +569,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — Code Generation Part 2 through step 7.6; 7.7 (full-solution run) in progress; delivery (8.2, 8.3) next.
 
 ---
+## Construction — PR #154 opened; Copilot review round 1
+**Timestamp**: 2026-09-02T19:00:00Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Full-solution `dotnet test` green (747), branch pushed, PR #154 `feat: multiple RSVPs per user` opened with the #150-style body; CI, CodeQL and GitGuardian green. Copilot's first review left four comments, all accepted as valid: (1) the Down migration deleted seats without revoking the roles they carried — Down now enqueues one `RevokeAttendeeRole` per (event, member, role) for each discarded seated row on a live event whose role the kept seat does not carry, before collapsing rows; re-verified on postgres:17-alpine (Tank+Healer @555, DPS @777: exactly one revoke, member 100 / role 777). (2) The "image rollback is safe" claim in the design was wrong once multi rows exist — 0.34.0's PutRsvp moves the member's first row onto the clicked option and would collide with the new unique index; the migration comment, PR body and the requirements doc (FR11, §7) now say rollback is safe only while nobody holds more than one row, otherwise run Down first. (3) `EnqueueRoleFanOutAll` (end/delete/skip/cancel sweep) enqueued one revoke per seat — now de-duplicated by (member, role); `EnqueueRoleFanOutForOption` removed (no other caller); new API test deleting an event with a two-seat shared-role member → one revoke. (4) The bot's confirmation judged "waitlisted" by member, not by the clicked option — new pure `RsvpReplyText.WaitlistPosition(ev, userId, optionId)` used by the module, with a test. Suites: 507 API / 120 bot / 122 web = 749. Pushing, replying to each thread, re-requesting Copilot.
+**Context**: Construction — delivery step 8.3, Copilot loop round 1 addressed.
+
+---

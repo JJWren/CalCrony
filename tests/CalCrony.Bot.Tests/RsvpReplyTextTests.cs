@@ -82,4 +82,16 @@ public class RsvpReplyTextTests
         var queuedElsewhere = Event(multi: true, new RsvpDto(7, Tank.Id), new RsvpDto(Me, Tank.Id, Waitlisted: true), new RsvpDto(Me, Healer.Id), new RsvpDto(8, Dps.Id));
         Assert.EndsWith("You're also marked: 🛡️ **Tank** (waitlisted).", RsvpReplyText.Marked(queuedElsewhere, Healer, Me));
     }
+
+    [Fact]
+    public void Waitlist_position_is_judged_on_the_clicked_option_not_on_the_member()
+    {
+        // Queued for Tank behind 7, seated on Healer.
+        var ev = Event(multi: true, new RsvpDto(7, Tank.Id), new RsvpDto(9, Tank.Id, Waitlisted: true), new RsvpDto(Me, Tank.Id, Waitlisted: true), new RsvpDto(Me, Healer.Id));
+
+        Assert.Equal(1, RsvpReplyText.WaitlistPosition(ev, Me, Tank.Id));      // second in the queue
+        Assert.Null(RsvpReplyText.WaitlistPosition(ev, Me, Healer.Id));       // that seat is a seat
+        Assert.Null(RsvpReplyText.WaitlistPosition(ev, Me, Dps.Id));          // not held at all
+        Assert.Null(RsvpReplyText.WaitlistPosition(ev, 7, Tank.Id));          // seated, not queued
+    }
 }

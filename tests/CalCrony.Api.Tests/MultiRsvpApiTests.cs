@@ -242,6 +242,32 @@ public class MultiRsvpApiTests(WebAuthFixture fixture) : IClassFixture<WebAuthFi
     }
 
     [Fact]
+    public async Task Ending_or_deleting_the_event_revokes_a_shared_role_once_per_member()
+    {
+        var ev = await CreateAsync("Shared role sweep", multi: true, options:
+        [
+            new RsvpOptionSpec("🛡️", "Tank", IsAttending: true, AttendeeRoleId: RaiderRole),
+            new RsvpOptionSpec("💚", "Healer", AttendeeRoleId: RaiderRole),
+            new RsvpOptionSpec("⚔️", "DPS", AttendeeRoleId: TankRole),
+        ]);
+        var (tank, healer, dps) = Roles(ev);
+        await RsvpAsync(ev.Id, 841, tank.Id);   // Raider via two seats…
+        await RsvpAsync(ev.Id, 841, healer.Id);
+        await RsvpAsync(ev.Id, 841, dps.Id);    // …plus a different role via a third
+        await RsvpAsync(ev.Id, 842, healer.Id); // Raider once
+        await MarkServedAsync(ev.Id, DeliveryType.GrantAttendeeRole);
+
+        // The event-wide sweep on delete hands back one delivery per (member, role), never one
+        // per seat — the same set semantics the per-RSVP paths use.
+        (await Client.DeleteAsync($"/events/{ev.Id}")).EnsureSuccessStatusCode();
+
+        var revokes = await RoleDeliveriesAsync(ev.Id, DeliveryType.RevokeAttendeeRole);
+        Assert.Equal(
+            [(841L, RaiderRole), (841L, TankRole), (842L, RaiderRole)],
+            revokes.Select(r => (r.UserId, r.RoleId)).Order());
+    }
+
+    [Fact]
     public async Task Promotion_skips_the_grant_for_a_member_whose_other_seat_already_carries_the_role()
     {
         var ev = await CreateAsync("Promote an already-raider", multi: true, options:
