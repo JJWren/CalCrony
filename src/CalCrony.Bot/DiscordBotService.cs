@@ -185,7 +185,12 @@ public sealed class DiscordBotService(
         if (!result.Success)
         {
             logger.LogWarning("Failed to record join of guild {GuildId}: {Error}", guild.Id, result.Error);
+            return;
         }
+
+        // A re-invited guild may still carry live restrictions whose snapshot the leave dropped —
+        // restore it now, so its web members aren't refused until the next reconcile.
+        await roleSnapshots.SyncGuildAsync(guild);
     }
 
     /// <summary>Keeps the guild-name snapshot fresh when a server renames itself.</summary>
