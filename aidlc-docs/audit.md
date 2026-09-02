@@ -618,3 +618,24 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — delivery step 8.3, Copilot loop round 7 addressed.
 
 ---
+## Construction — PR #154 merged
+**Timestamp**: 2026-09-02T16:43:32Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: Copilot round 8 returned zero new comments (its standing "needs a closer look" headline asks for human validation of the non-additive migration and the role/waitlist semantics; no actionable items). Eight rounds in all: four code fixes (Down revokes + attending-first survivor + embed re-renders, de-duplicated lifecycle fan-out, option-keyed waitlist reply, vanished-option fallback), two form-state fixes (reset across edit→create and cross-guild create reuse), and documentation alignment (rollback rule, old-client compatibility, no-exclusive-option warning, design docs). All ten review threads resolved; CI, CodeQL and GitGuardian green on c79bbeb; squash-merged through the REST merge call as 278e1eb with the PR body as the commit message (the #150 pattern). Final counts: 752 tests (507 API, 121 bot, 124 web). Next: release-please's release PR, then the test and prod stacks.
+**Context**: Construction — delivery step 8.3, merge done; release and rollout next.
+
+---
+## Operations — release 0.35.0 cut; test stack upgraded
+**Timestamp**: 2026-09-02T16:49:03Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: release-please opened #155 (chore(master): release 0.35.0 — changelog: "multiple RSVPs per user (#154)"); approved its CI and CodeQL runs (they start in action_required), checks green, squash-merged through the REST call as 6919327. Test stack (Z:\docker\test-calcrony, tag main): docker compose pull && up -d --wait — all four containers healthy, /health and /health/ready report 0.0.0-main.278e1eb, __EFMigrationsHistory tops 20260902152200_AllowMultipleRsvps, Rsvps indexes now IX_Rsvps_EventId_Id, IX_Rsvps_EventId_UserId_OptionId, PK_Rsvps. Waiting for the release workflow to publish the 0.35.0 images before prod (pg_dump first, clean-shell tag bump).
+**Context**: Operations — release cut, test rolled; prod rollout next.
+
+---
+## Operations — prod rolled 0.34.0 → 0.35.0; §3.3 shipped
+**Timestamp**: 2026-09-02T16:53:43Z
+**User Input**: (none — continuation of the generation session)
+**AI Response**: All three 0.35.0 images and the GitHub release v0.35.0 published (the web image landed last). Prod (Z:\docker\calcrony): pg_dump to backups/calcrony-prod-pre-0.35.0-20260902T165244Z.sql (69,818 bytes, Rsvps table present), CALCRONY_IMAGE_TAG bumped to 0.35.0 by sed in a clean shell (`docker compose config --images` confirmed all three at 0.35.0), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.35.0; __EFMigrationsHistory tops 20260902152200_AllowMultipleRsvps; Rsvps indexes IX_Rsvps_EventId_Id, IX_Rsvps_EventId_UserId_OptionId, PK_Rsvps; 2 RSVP rows intact; no API errors beyond the known noise; bot Gateway Ready. Ticking §3.3 on #125 and closing it; aidlc-state.md marks §3.3 and the whole RSVP v2 line shipped; plan steps 6.3 and 8.3 ticked (all 36 done). Bookkeeping goes out as a docs PR, never onto the merged feature branch.
+**Context**: Operations — RSVP v2 §3.3 delivered end to end; #125 complete.
+
+---
