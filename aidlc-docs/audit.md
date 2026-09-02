@@ -730,3 +730,10 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — step 6.2, Copilot loop round 6 addressed.
 
 ---
+## Construction — docs PR #157 Copilot round 7
+**Timestamp**: 2026-09-02T18:08:01Z
+**User Input**: (none — continuation)
+**AI Response**: "Needs a closer look", zero new comments, one previously-missed note: the cutoff half of the limits entry now names the form's "RSVPs close" field beside the rsvp-close flag. Web 126 green. Pushing and re-requesting.
+**Context**: Construction — step 6.2, Copilot loop round 7 addressed.
+
+---
