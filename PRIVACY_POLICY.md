@@ -71,8 +71,10 @@ and **Google** (only for the free/busy lookups you enable).
 - **Operational records** (delivered notifications, consumed login/link tokens, expired session
   tokens) are automatically purged after **90 days**.
 - **Role-membership snapshots** are dropped automatically when a server's last role restriction
-  ends (the event ends, the poll closes, or the restriction is removed), when a restricted role
-  is deleted in Discord, and when the bot leaves the server.
+  ends (the event ends, the poll closes, or the restriction is removed) and when the bot leaves
+  the server. While a server still has a restriction, its snapshot is trimmed to the roles still
+  named: a role that stops being named loses its rows, and a role deleted in Discord keeps only a
+  nameless marker (so the restriction naming it stops applying) with no member associations.
 - **Server activity log** entries record management actions by server members — creating,
   editing, deleting, or skipping events; adding or removing event reminders; changing or
   stopping a repeating event's schedule; creating, closing, converting, or deleting polls;

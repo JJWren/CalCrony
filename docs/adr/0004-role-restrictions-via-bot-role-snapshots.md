@@ -63,8 +63,9 @@ sweep, no delivery type, and no background reconciliation of past RSVPs against 
 **This is the first per-user Discord fact the API stores that the user did not hand over.** Name
 snapshots covered guilds and channels; `UserGuildMembership` comes from the user's own OAuth login.
 Role membership is written *about* someone by the bot, so it needs disclosure in the privacy policy
-alongside the name snapshots, and rows must be dropped when the restrictions referencing a role go
-away, when the role is deleted, and when the bot leaves the guild.
+alongside the name snapshots. A guild's rows must go when its last restriction ends and when the
+bot leaves; while restrictions remain, the rows are trimmed to the roles still named, and a role
+deleted in Discord keeps only its nameless tombstone (see below) with no member associations.
 
 ## Refinements made during implementation (PR #150)
 

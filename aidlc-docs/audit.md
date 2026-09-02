@@ -333,3 +333,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 4 pending.
 
 ---
+## Delivery — PR #150 Copilot round 4 addressed
+**Timestamp**: 2026-09-02T00:38:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Zero new comments; of six suppressed notes, three were restatements of round 3 (already fixed and now resolved) and three were taken: the add-option button no longer makes an API call ahead of its initial response (a slow API would have missed Discord's deadline for both the modal and a refusal — the submit is the authoritative live check); the privacy policy, its hosted copy, and one ADR sentence overstated what a role deletion drops (a deleted role keeps a nameless tombstone with no member associations until the restriction ends; whole snapshots go only when the last restriction ends or the bot leaves). Bot suite 113 green.
+**Context**: Delivery — step 8.3, Copilot loop round 5 pending.
+
+---
