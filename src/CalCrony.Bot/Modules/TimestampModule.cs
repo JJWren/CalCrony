@@ -1,11 +1,15 @@
 using CalCrony.Bot.Api;
 using CalCrony.Contracts;
+using Discord;
 using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
+// Reachable from DMs and user installs: nothing here needs the bot's view of a server.
 /// <summary>/timestamp — natural language to Discord timestamp codes.</summary>
 /// <param name="api">The CalCrony API client.</param>
+[CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm, InteractionContextType.PrivateChannel)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall, ApplicationIntegrationType.UserInstall)]
 public class TimestampModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Replies with the &lt;t:...&gt; variants for the parsed instant.</summary>

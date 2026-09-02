@@ -1,12 +1,15 @@
 using CalCrony.Bot.Api;
 using CalCrony.Contracts;
+using Discord;
 using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/remind — one-off reminders in the current channel.</summary>
 /// <param name="api">The CalCrony API client.</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 public class ReminderModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
     /// <summary>Schedules a reminder from natural-language text.</summary>

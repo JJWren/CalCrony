@@ -8,7 +8,9 @@ namespace CalCrony.Bot.Modules;
 
 /// <summary>/template — save, list, edit, and delete reusable event templates.</summary>
 /// <param name="api">The CalCrony API client.</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 [Group("template", "Reusable event templates")]
 public class TemplateModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {

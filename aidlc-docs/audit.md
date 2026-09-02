@@ -821,3 +821,19 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Operations — the /docs fragment-link defect fixed end to end (report → fix → 0.36.1 → test → prod).
 
 ---
+## Defect report — Discord /create hangs on "CalCrony is thinking..."
+**Timestamp**: 2026-09-02T20:38:00Z
+**User Input**: "For CalCrony, I am attempting to create event. It is seeming to hang (CalCrony is thinking...) and not finishing. Check the docker logs from the prod stack and see what is going on."
+**User Input (mid-turn)**: "To be clear, I am trying to do this from Discord."
+**User Input (mid-turn)**: "When you narrowe everything down, write up the issue, work the issue, get PR complete after doing rounds with copilot PRs, get it merged to main, then see the deployment through to test and prod"
+**AI Response**: Prod stack (0.36.1) healthy; the bot log at 2026-09-02T20:15:36Z shows `/create` throwing NullReferenceException at EventModule.cs:157 — `Context.Guild` is null. Discord.Net 3.20.1 builds the context's Guild from `(interaction.User as SocketGuildUser)?.Guild`, and when the interaction carries a guild id the bot has no cached guild for (user-install context, or a commands-only install), the user is a SocketGlobalUser, so Guild is null while `[RequireContext(ContextType.Guild)]` still passes (it only checks `!IsDMInteraction`). The command had already deferred, RunMode.Async surfaces the exception only through the interaction-service Log event, and nothing sends a follow-up — hence the eternal "thinking...". The prod app has User Install enabled (5 user installs) and its Guild Install default install params carry only `applications.commands`, so both paths are reachable in production. Filing the issue, then fixing via the remediate loop (branch → PR → Copilot rounds → REST merge → release → test → prod).
+**Context**: Inception (brownfield, aidlc-state resumed) — diagnosis from prod logs and library source; construction next as a single-unit fix (no design stages).
+
+---
+## Construction — guild-context guard implemented (#163)
+**Timestamp**: 2026-09-02T21:05:00Z
+**User Input**: (none — continuation of the remediate loop)
+**AI Response**: Issue #163 filed with the log evidence and the Discord.Net 3.20.1 source chain. Branch fix/guild-context-guard: server modules now carry [CommandContextType(Guild)] + [IntegrationType(GuildInstall)] + [RequireBotInGuild] (the old [RequireContext(Guild)] is gone — it passes on a bare guild id); /help, /timestamp, /calendar declare their DM/user-install reach explicitly; RequireBotInGuildAttribute answers a DM or a bot-less server with a pointer or the invoked application's invite link; DiscordBotService hooks InteractionExecuted and replies ephemerally to unmet preconditions and post-defer exceptions (InteractionFailureReply); DiscordInvite moved from Web to Contracts so bot and web share the scopes/permissions. A probe against the test app confirmed Discord accepts (and drops) the context fields on guild-scoped registration, so the test stack's guild registration is unaffected. README go-live item 5 and the Docs page note the Default Install Settings / user-install reach. Build 0 errors, no new warnings; 806 tests green (170 bot incl. 13 new, 129 web, 507 API). Next: PR, Copilot rounds, REST merge, release, test then prod.
+**Context**: Construction — code generation complete for the single unit; PR gate next.
+
+---

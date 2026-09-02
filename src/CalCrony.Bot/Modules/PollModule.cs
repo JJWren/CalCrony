@@ -8,7 +8,9 @@ namespace CalCrony.Bot.Modules;
 /// <summary>/poll — create standard and time polls, close them, and convert time-poll winners.</summary>
 /// <param name="api">The CalCrony API client.</param>
 /// <param name="roleSnapshots">The role-snapshot pusher (synced after a create that names roles).</param>
-[RequireContext(ContextType.Guild)]
+[CommandContextType(InteractionContextType.Guild)]
+[IntegrationType(ApplicationIntegrationType.GuildInstall)]
+[RequireBotInGuild]
 [Group("poll", "Create and manage polls")]
 public class PollModule(CalCronyApiClient api, RoleSnapshotService roleSnapshots) : InteractionModuleBase<SocketInteractionContext>
 {
