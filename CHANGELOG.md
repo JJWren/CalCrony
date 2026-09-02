@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/JJWren/CalCrony/compare/v0.36.0...v0.36.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **web:** in-page docs links stay on /docs and scroll to the section ([#160](https://github.com/JJWren/CalCrony/issues/160)) ([c65cc01](https://github.com/JJWren/CalCrony/commit/c65cc010463d051e740fff87909e67bc1eb4c31b))
+
 ## [0.36.0](https://github.com/JJWren/CalCrony/compare/v0.35.0...v0.36.0) (2026-09-02)
 
 
