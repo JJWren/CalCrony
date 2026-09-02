@@ -105,16 +105,27 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     [ComponentInteraction("polladd:*")]
     public async Task AddOptionButtonAsync(string pollIdRaw)
     {
-        // A restricted poll refuses here, as the initial response, instead of opening the modal.
-        if (Guid.TryParse(pollIdRaw, out var pollId))
+        // The live check needs the poll; without it there is nothing to check against, and the
+        // API trusts bot calls — so a failed lookup answers instead of opening the modal, rather
+        // than letting the submit run unchecked.
+        if (!Guid.TryParse(pollIdRaw, out var pollId))
         {
-            var current = await api.GetPollAsync(pollId);
-            if (current is { Success: true, Value: { } poll }
-                && RoleRestrictionCheck.Denied(Context.User, poll.CreatorId, poll.AllowedRoles, out var effective))
-            {
-                await RespondAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
-                return;
-            }
+            await RespondAsync("This poll no longer exists.", ephemeral: true);
+            return;
+        }
+
+        var current = await api.GetPollAsync(pollId);
+        if (!current.Success || current.Value is null)
+        {
+            await RespondAsync(current.NotFound ? "This poll no longer exists." : $"❌ {current.Error}", ephemeral: true);
+            return;
+        }
+
+        // A restricted poll refuses here, as the initial response, instead of opening the modal.
+        if (RoleRestrictionCheck.Denied(Context.User, current.Value.CreatorId, current.Value.AllowedRoles, out var effective))
+        {
+            await RespondAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
+            return;
         }
 
         await RespondWithModalAsync<AddPollOptionModal>($"polladdmodal:{pollIdRaw}");
@@ -135,9 +146,15 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
         }
 
         // Re-checked at submit: the modal may have been opened before the restriction applied.
+        // A failed lookup stops here — the API trusts the bot, so the live check must have run.
         var current = await api.GetPollAsync(pollId);
-        if (current is { Success: true, Value: { } poll }
-            && RoleRestrictionCheck.Denied(Context.User, poll.CreatorId, poll.AllowedRoles, out var effective))
+        if (!current.Success || current.Value is null)
+        {
+            await FollowupAsync(current.NotFound ? "This poll no longer exists." : $"❌ {current.Error}", ephemeral: true);
+            return;
+        }
+
+        if (RoleRestrictionCheck.Denied(Context.User, current.Value.CreatorId, current.Value.AllowedRoles, out var effective))
         {
             await FollowupAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
             return;

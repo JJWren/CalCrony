@@ -326,3 +326,10 @@
 **Context**: Delivery — step 8.3, Copilot loop round 3 pending.
 
 ---
+## Delivery — PR #150 Copilot round 3 addressed
+**Timestamp**: 2026-09-02T00:25:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Two findings, both taken. (1) In the bot, a failed poll lookup at the add-option button or modal submit fell through to the bot-trusted AddPollOption call, skipping the live role check; both paths now stop on a failed lookup. (2) A full guild sync could capture the member list before a role loss, then land after that loss's per-member push and restore the stale row under a fresh lease; syncs and member pushes now serialize on a per-guild lock, the watched set is registered before the member capture so a mid-sync update is judged against it and queues behind the lock, and the push re-reads the member's roles from the live cache once inside. The round-2 thread was not re-flagged and is resolved. Bot suite 113 green.
+**Context**: Delivery — step 8.3, Copilot loop round 4 pending.
+
+---

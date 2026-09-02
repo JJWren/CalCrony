@@ -19,9 +19,17 @@ namespace CalCrony.Bot;
 /// <param name="logger">The host logger.</param>
 public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiClient api, ILogger<RoleSnapshotService> logger)
 {
-    /// <summary>The existing watched roles per guild as of the last sync — what a member update
-    /// is compared against. Absent or empty = nothing to push for that guild.</summary>
+    /// <summary>The existing watched roles per guild — what a member update is compared against.
+    /// Registered at the START of a sync, before the member list is captured, so an update that
+    /// arrives mid-sync is judged against the set the sync is about to write. Absent or empty =
+    /// nothing to push for that guild.</summary>
     private readonly ConcurrentDictionary<ulong, HashSet<ulong>> watched = new();
+
+    /// <summary>One lock per guild, held by a full sync for the whole capture-and-PUT and by a
+    /// member push for its PUT. Without it a full sync that captured the member list BEFORE a
+    /// role loss could land AFTER that loss's push and restore the stale row under a fresh lease;
+    /// serialized, the push runs after the sync and rewrites the row from the live cache.</summary>
+    private readonly ConcurrentDictionary<ulong, SemaphoreSlim> guildLocks = new();
 
     /// <summary>Full reconcile at Ready: syncs every guild the API lists. Heals a fresh database
     /// and catches role and membership changes missed while offline.</summary>
@@ -86,6 +94,8 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// <param name="watchedRoleIds">The roles the API wants snapshots for.</param>
     public async Task SyncGuildAsync(SocketGuild guild, IReadOnlyList<long> watchedRoleIds)
     {
+        var gate = LockFor(guild.Id);
+        await gate.WaitAsync();
         try
         {
             if (!guild.HasAllMembers)
@@ -102,6 +112,10 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
                 }
             }
 
+            // Registered before the capture: a member update arriving from here on is judged
+            // against this set and queues behind the lock, so it lands after this PUT.
+            watched[guild.Id] = [.. existing.Keys.Select(id => (ulong)id)];
+
             var request = BuildSyncRequest(
                 watchedRoleIds, existing,
                 guild.Users.Select(u => ((long)u.Id, (IReadOnlyCollection<long>)[.. u.Roles.Select(r => (long)r.Id)])));
@@ -109,16 +123,19 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
             if (!result.Success)
             {
                 logger.LogWarning("Role snapshot sync failed for guild {GuildId}: {Error}", guild.Id, result.Error);
-                return;
             }
-
-            watched[guild.Id] = [.. existing.Keys.Select(id => (ulong)id)];
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Best-effort role snapshot sync failed for guild {GuildId}.", guild.Id);
         }
+        finally
+        {
+            gate.Release();
+        }
     }
+
+    private SemaphoreSlim LockFor(ulong guildId) => guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
 
     /// <summary>The sync payload, pure: a row for EVERY watched role — with the name when it exists
     /// and null when the guild no longer has it, the tombstone that makes a restriction on a deleted
@@ -165,12 +182,24 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
                 return;
             }
 
-            var held = afterRoles.Where(set.Contains).Select(id => (long)id).Order().ToList();
-            var result = await api.PutMemberRolesAsync((long)after.Guild.Id, (long)after.Id, held);
-            if (!result.Success)
+            // Behind the guild lock, and re-read from the live cache once inside it: if a full
+            // sync is mid-flight this lands after it, with the member's current roles.
+            var gate = LockFor(after.Guild.Id);
+            await gate.WaitAsync();
+            try
             {
-                logger.LogWarning(
-                    "Member role push failed for user {UserId} in guild {GuildId}: {Error}", after.Id, after.Guild.Id, result.Error);
+                var current = watched.TryGetValue(after.Guild.Id, out var latest) ? latest : set;
+                var held = after.Roles.Select(r => r.Id).Where(current.Contains).Select(id => (long)id).Order().ToList();
+                var result = await api.PutMemberRolesAsync((long)after.Guild.Id, (long)after.Id, held);
+                if (!result.Success)
+                {
+                    logger.LogWarning(
+                        "Member role push failed for user {UserId} in guild {GuildId}: {Error}", after.Id, after.Guild.Id, result.Error);
+                }
+            }
+            finally
+            {
+                gate.Release();
             }
         }
         catch (Exception ex)
