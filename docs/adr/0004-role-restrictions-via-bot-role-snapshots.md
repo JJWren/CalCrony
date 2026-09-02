@@ -11,8 +11,8 @@ We keep ADR 0001's invariant that the API never calls Discord: the bot, which al
 Two tables, both following the `Channels` model — rows exist only for what CalCrony references:
 
 - **`GuildRoles`** — name snapshots for *watched* roles only (a role named by at least one live
-  restriction). Gives the web real role names instead of the raw `#123456` the §3.6 chip prints
-  today. A row with no name is the bot's tombstone for a role it checked and found deleted; no
+  restriction, or — since #167 — granted as an attendee role by a live event or running series).
+  Gives the web real role names instead of the raw `#123456` the §3.6 chip printed before. A row with no name is the bot's tombstone for a role it checked and found deleted; no
   row at all means the role has not been checked since it became watched (see the refinement
   below — the two must not be confused).
 - **`GuildMemberRoles`** — for each member holding at least one watched role, which ones. Members
@@ -83,3 +83,11 @@ it runs. Without a bound, a bot that has been down for a day would still answer 
 lost a role in the meantime. The marker therefore expires 30 minutes after the last sync; the bot's
 periodic reconcile keeps a live bot well inside it, and retention trims each guild's rows to the
 roles its live restrictions still name.
+
+**Attendee roles are watched too (#167).** The first cut watched restriction roles only, so an
+event that merely *granted* a role kept printing `role #123456` on the web — the snapshot is the
+web's only source of role names. Attendee roles on live events and running series templates now
+join the watched set (`RoleWatchList.NamedBy`), the API invalidates a newly granted role's leftover
+rows the way it does a newly restricted one, and the bot's immediate post-`/create` and `/edit`
+sync fires for a named attendee role as well. Membership rows for attendee roles cost nothing new:
+the bot grants them itself, and each grant is the existing per-member push.

@@ -191,8 +191,8 @@ public class EventModule(
 
         // Discord clicks are checked live, but the web answers from the API's role snapshot — sync
         // it now so the snapshot is authoritative before anyone can click the embed (ADR 0004).
-        // A create can only ADD to the watched set, so only one that named a restriction syncs.
-        if (NamesRestrictions(restrictedTo, optionSpecs))
+        // A create can only ADD to the watched set, so only one that named a role syncs.
+        if (NamesWatchedRoles(restrictedTo, optionSpecs, attendeeRole))
         {
             await roleSnapshots.SyncGuildAsync(Context.Guild);
         }
@@ -413,7 +413,7 @@ public class EventModule(
 
         await TryUpdateMessageAsync(result.Value);
         await mirror.TryUpsertAsync(result.Value);
-        if (TouchesRestrictions(restrictedTo, optionSpecs, clearRestriction))
+        if (TouchesWatchedRoles(restrictedTo, optionSpecs, clearRestriction, attendeeRole, clearAttendeeRole))
         {
             // Same reason as /create: the web's snapshot must cover any newly named role at once.
             await roleSnapshots.SyncGuildAsync(Context.Guild);
@@ -451,22 +451,31 @@ public class EventModule(
         return problem is null;
     }
 
-    /// <summary>Whether a request named a restriction at all — event-level or on any spec.</summary>
+    /// <summary>Whether a request named a role the API watches (ADR 0004): a restriction or an
+    /// attendee role, event-level or on any spec. Attendee roles count because the web names a
+    /// role only from the snapshot (#167).</summary>
     /// <param name="restrictedTo">The event-level restriction, when given.</param>
     /// <param name="specs">The option specs, when given.</param>
+    /// <param name="attendeeRole">The event-level attendee role, when given.</param>
     /// <returns>True when a role is named.</returns>
-    private static bool NamesRestrictions(List<long>? restrictedTo, List<RsvpOptionSpec>? specs) =>
-        restrictedTo is not null || (specs?.Any(s => s.AllowedRoleIds is { Count: > 0 }) ?? false);
+    private static bool NamesWatchedRoles(List<long>? restrictedTo, List<RsvpOptionSpec>? specs, IRole? attendeeRole) =>
+        restrictedTo is not null
+        || attendeeRole is not null
+        || (specs?.Any(s => s.AllowedRoleIds is { Count: > 0 } || s.AttendeeRoleId is not null) ?? false);
 
     /// <summary>Whether an EDIT could have changed the guild's watched set, which is when its role
-    /// snapshot must be re-synced: a restriction named or cleared, or ANY option-set replacement —
-    /// a new set with no <c>only:</c> clauses may have just removed the old ones.</summary>
+    /// snapshot must be re-synced: a restriction or attendee role named or cleared, or ANY
+    /// option-set replacement — a new set with no <c>only:</c> clauses or roles may have just
+    /// removed the old ones.</summary>
     /// <param name="restrictedTo">The event-level restriction, when given.</param>
     /// <param name="specs">The option specs, when given.</param>
-    /// <param name="cleared">Whether the restriction was cleared.</param>
+    /// <param name="clearedRestriction">Whether the restriction was cleared.</param>
+    /// <param name="attendeeRole">The replacement attendee role, when given.</param>
+    /// <param name="clearedAttendeeRole">Whether the attendee role was cleared.</param>
     /// <returns>True when a sync is due.</returns>
-    private static bool TouchesRestrictions(List<long>? restrictedTo, List<RsvpOptionSpec>? specs, bool cleared) =>
-        NamesRestrictions(restrictedTo, specs) || cleared || specs is not null;
+    private static bool TouchesWatchedRoles(
+        List<long>? restrictedTo, List<RsvpOptionSpec>? specs, bool clearedRestriction, IRole? attendeeRole, bool clearedAttendeeRole) =>
+        NamesWatchedRoles(restrictedTo, specs, attendeeRole) || clearedRestriction || clearedAttendeeRole || specs is not null;
 
     /// <summary>The reply chip for a restriction: one when every option shares a set, else one per
     /// restricted option; empty for an unrestricted event.</summary>

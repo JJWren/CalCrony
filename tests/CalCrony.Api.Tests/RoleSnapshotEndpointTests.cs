@@ -10,9 +10,9 @@ using NodaTime;
 namespace CalCrony.Api.Tests;
 
 /// <summary>The bot-written role snapshots behind role-restricted signup (ADR 0004): the watched
-/// list the bot reconciles at Ready, the guild sync that replaces a snapshot wholesale, the
-/// member push, and the two paths that drop a snapshot again — retention (no live restriction
-/// left) and the bot leaving.</summary>
+/// list the bot reconciles at Ready — restriction roles and, since #167, the attendee roles an
+/// event grants — the guild sync that replaces a snapshot wholesale, the member push, and the two
+/// paths that drop a snapshot again — retention (no watched role left) and the bot leaving.</summary>
 public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<WebAuthFixture>
 {
     private const long GuildId = 12100;
@@ -23,14 +23,18 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
     private const long SeriesRole = 995103;
     private const long OpenPollRole = 995104;
     private const long ClosedPollRole = 995105;
+    private const long GrantedOnlyRole = 995106;
+    private const long SeriesGrantedRole = 995107;
 
     private HttpClient Client => fixture.Client;
 
     [Fact]
-    public async Task The_watched_list_names_roles_from_live_events_running_series_and_open_polls_only()
+    public async Task The_watched_list_names_restricted_and_granted_roles_from_live_events_running_series_and_open_polls_only()
     {
-        // A scheduled event's restriction is watched…
+        // A scheduled event's restriction is watched, and so is a role an event merely grants —
+        // the web has no other source for its name (#167)…
         await CreateEventAsync(GuildId, "Live", [LiveEventRole]);
+        await CreateEventAsync(GuildId, "Grants only", [], attendeeRoleId: GrantedOnlyRole);
 
         // …an ended one's is not…
         var ended = await CreateEventAsync(GuildId, "Ended", [EndedEventRole]);
@@ -41,6 +45,9 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         // carry it)…
         var series = await CreateEventAsync(GuildId, "Weekly", [SeriesRole], weekly: true);
         (await Client.PatchAsJsonAsync($"/events/{series.Id}", new UpdateEventRequest(
+            CreatorId, Status: EventStatus.Ended, Scope: EditScope.Occurrence))).EnsureSuccessStatusCode();
+        var grantingSeries = await CreateEventAsync(GuildId, "Weekly grants", [], weekly: true, attendeeRoleId: SeriesGrantedRole);
+        (await Client.PatchAsJsonAsync($"/events/{grantingSeries.Id}", new UpdateEventRequest(
             CreatorId, Status: EventStatus.Ended, Scope: EditScope.Occurrence))).EnsureSuccessStatusCode();
 
         // …an open poll's is, a closed poll's is not.
@@ -58,7 +65,9 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
 
         var guild = Assert.Single(response!.Guilds, g => g.GuildId == GuildId);
         Assert.Contains(LiveEventRole, guild.RoleIds);
+        Assert.Contains(GrantedOnlyRole, guild.RoleIds);
         Assert.Contains(SeriesRole, guild.RoleIds);
+        Assert.Contains(SeriesGrantedRole, guild.RoleIds);
         Assert.Contains(OpenPollRole, guild.RoleIds);
         Assert.DoesNotContain(EndedEventRole, guild.RoleIds);
         Assert.DoesNotContain(ClosedPollRole, guild.RoleIds);
@@ -174,6 +183,45 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
     }
 
     [Fact]
+    public async Task Sync_keeps_a_granted_roles_name_and_the_event_reports_it()
+    {
+        const long guild = 12181;
+        const long role = 995181;
+        var ev = await CreateEventAsync(guild, "Grants", [], attendeeRoleId: role);
+
+        // Before #167 the sync trimmed this role away (it restricts nothing), and the web printed
+        // "role #995181" for it.
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(role, "Raider")], []))).EnsureSuccessStatusCode();
+
+        Assert.Equal(new[] { role }, (await RolesAsync(guild)).Keys);
+        var fetched = await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}");
+        var granting = Assert.Single(fetched!.Options, o => o.AttendeeRoleId == role);
+        Assert.Equal("Raider", granting.AttendeeRoleName);
+    }
+
+    [Fact]
+    public async Task Retention_keeps_a_snapshot_alive_for_a_granted_role_alone()
+    {
+        const long guild = 12182;
+        const long role = 995182;
+        await CreateEventAsync(guild, "Grants only", [], attendeeRoleId: role);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(role, "Raider")], [new MemberRolesDto(1710, [role])]))).EnsureSuccessStatusCode();
+
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
+            await retention.PurgeAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
+        }
+
+        // No restriction anywhere, but the granted role still needs its name — the snapshot stays.
+        Assert.Single(await RolesAsync(guild));
+        Assert.Single(await MembersAsync(guild));
+        Assert.NotNull(await SyncedAtAsync(guild));
+    }
+
+    [Fact]
     public async Task Retention_drops_the_snapshot_of_a_guild_with_no_live_restriction_left()
     {
         const long idle = 12140;
@@ -282,12 +330,14 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         Assert.Null(await SyncedAtAsync(guild));
     }
 
-    private async Task<EventDto> CreateEventAsync(long guildId, string title, long[] allowedRoleIds, bool weekly = false)
+    private async Task<EventDto> CreateEventAsync(
+        long guildId, string title, long[] allowedRoleIds, bool weekly = false, long? attendeeRoleId = null)
     {
         var response = await Client.PostAsJsonAsync($"/guilds/{guildId}/events", new CreateEventRequest(
             CreatorId, title, "in 3 hours", ChannelId,
             Recurrence: weekly ? new RecurrenceRuleDto(RecurrenceUnit.Week) : null,
-            AllowedRoleIds: allowedRoleIds));
+            AttendeeRoleId: attendeeRoleId,
+            AllowedRoleIds: allowedRoleIds.Length == 0 ? null : allowedRoleIds));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<EventDto>())!;
     }
