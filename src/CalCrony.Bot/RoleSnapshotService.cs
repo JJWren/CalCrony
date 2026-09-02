@@ -81,8 +81,9 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// is read inside the guild's lock, after any sync or member push already in flight, so two
     /// syncs can never land out of order; and it is read per guild, so a sync costs that guild's
     /// watched roles, not every guild's. A guild with nothing watched (its last restriction or
-    /// granted role was cleared) is dropped from the cache; the API's retention drops its rows in
-    /// due course.</summary>
+    /// granted role was cleared) gets an empty sync at once, so no row is left to answer from, and
+    /// leaves the cache only once that clear has landed — a failed clear is retried by the next
+    /// reconcile.</summary>
     /// <param name="guild">The guild to sync.</param>
     public async Task SyncGuildAsync(SocketGuild guild)
     {

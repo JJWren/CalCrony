@@ -239,7 +239,8 @@ public sealed class CalCronyApiClient(HttpClient http)
         SendAsync<Unit>(http.PutAsJsonAsync($"/channels/{channelId}/name", new ChannelNameRequest(name), ct), ct);
 
     /// <summary>Lists, per bot-present guild, the roles the API watches — those its live signup
-    /// restrictions name and those live events grant — i.e. what the role snapshots must cover
+    /// restrictions name and those live events and running series grant — i.e. what the role
+    /// snapshots must cover
     /// (the Ready-time reconcile and post-command syncs).</summary>
     /// <param name="ct">Cancels the request.</param>
     /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>

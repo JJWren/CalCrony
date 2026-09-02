@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-09-01** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
+**Last updated: 2026-09-02** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -74,8 +74,9 @@ and **Google** (only for the free/busy lookups you enable).
 - **Role-membership snapshots** are dropped automatically when a server's last role restriction
   or granted attendee role ends (the event ends, the poll closes, or the restriction or role is
   removed) and when the bot leaves the server. A repeating event keeps its roles watched between
-  occurrences — the next one inherits them — so for a series the trigger is stopping it, not one
-  occurrence ending. While a server still has a watched role, its snapshot is trimmed to the
+  occurrences — the next one inherits them — so its template's roles stay watched until the series
+  is stopped, and an already scheduled occurrence's until that occurrence ends. While a server
+  still has a watched role, its snapshot is trimmed to the
   roles still named or granted: a role that stops being named loses its rows, and a role deleted
   in Discord keeps only a nameless marker (so the restriction naming it stops applying) with no
   member associations.

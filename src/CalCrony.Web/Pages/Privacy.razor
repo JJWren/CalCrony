@@ -5,7 +5,7 @@
 
 <p class="meta-mono text-uppercase mb-2">CalCrony</p>
 <h1 class="h3">Privacy Policy</h1>
-<p class="meta-mono">Last updated: 2026-09-01</p>
+<p class="meta-mono">Last updated: 2026-09-02</p>
 
 <div class="text-body-secondary" style="max-width:70ch">
     <p>
@@ -100,9 +100,9 @@
         <li><b>Role-membership snapshots</b> are dropped automatically when a server's last role
             restriction or granted attendee role ends (the event ends, the poll closes, or the
             restriction or role is removed) and when the bot leaves the server. A repeating event
-            keeps its roles watched between occurrences — the next one inherits them — so for a
-            series the trigger is stopping it, not one occurrence ending. While a server still has a
-            watched role, its snapshot is trimmed to the roles still named or granted: a role that
+            keeps its roles watched between occurrences — the next one inherits them — so its
+            template's roles stay watched until the series is stopped, and an already scheduled
+            occurrence's until that occurrence ends. While a server still has a watched role, its snapshot is trimmed to the roles still named or granted: a role that
             stops being named loses its rows, and a role deleted in Discord keeps only a nameless
             marker (so the restriction naming it stops applying) with no member associations.</li>
         <li><b>Server activity log</b> entries record management actions by server members — creating,

@@ -85,6 +85,8 @@ lost a role in the meantime. The marker therefore expires 30 minutes after the l
 periodic reconcile keeps a live bot well inside it, and retention trims each guild's rows to the
 roles its live restrictions still name and its live events and running series still grant.
 
+## Refinements after release (PR #168)
+
 **Attendee roles are watched too (#167).** The first cut watched restriction roles only, so an
 event that merely *granted* a role kept printing `role #123456` on the web — the snapshot is the
 web's only source of role names. Attendee roles on live events and running series templates now
