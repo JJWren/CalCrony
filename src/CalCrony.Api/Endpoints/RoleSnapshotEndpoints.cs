@@ -59,7 +59,10 @@ public static class RoleSnapshotEndpoints
     /// was asked about gets a row — a null name is the tombstone for a role that no longer exists,
     /// which is what makes a restriction on a deleted role vacuous rather than unsatisfiable.
     /// Members are stored only with the existing watched roles they hold; a member holding none
-    /// gets no row, so after this call a missing member row means exactly that.</summary>
+    /// gets no row, so after this call a missing member row means exactly that. The API's own
+    /// watch list, read in the same transaction, decides what may be stored at all: a payload the
+    /// bot captured before a restriction was removed (a web clear, an event ending) is filtered
+    /// to the roles still watched, so a sync can never re-add rows for a role nothing names.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
@@ -91,7 +94,12 @@ public static class RoleSnapshotEndpoints
         await db.GuildRoles.Where(r => r.GuildId == guildId).ExecuteDeleteAsync(cancellationToken);
         await db.GuildMemberRoles.Where(m => m.GuildId == guildId).ExecuteDeleteAsync(cancellationToken);
 
-        var roles = request.Roles.GroupBy(r => r.RoleId).Select(g => g.First()).ToList();
+        var watchedNow = await RoleWatchList.WatchedForGuildAsync(db, guildId, cancellationToken);
+        var roles = request.Roles
+            .Where(r => watchedNow.Contains(r.RoleId))
+            .GroupBy(r => r.RoleId)
+            .Select(g => g.First())
+            .ToList();
         var existing = new HashSet<long>();
         foreach (var role in roles)
         {

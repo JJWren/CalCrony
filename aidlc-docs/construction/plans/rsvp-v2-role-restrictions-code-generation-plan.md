@@ -48,7 +48,7 @@ Steps run top to bottom; each layer builds and its tests pass before the next st
 - [x] 5.5 `EventCard` / `GuildPolls` rows: 🔒 badge when restricted.
 
 ## 6. Docs and policy
-- [x] 6.1 `PRIVACY_POLICY.md`: role-membership snapshots — what is stored, why (only roles named by a live restriction), retention (dropped when the restriction ends, the role is deleted, or the bot leaves).
+- [x] 6.1 `PRIVACY_POLICY.md`: role-membership snapshots — what is stored, why (only roles named by a live restriction), retention (a guild's snapshot is dropped when its last restriction ends or the bot leaves; while restrictions remain it is trimmed to the roles still named, and a deleted role keeps only a nameless tombstone with no member associations — the refinement recorded in ADR 0004).
 - [x] 6.2 `README.md` + web `Docs` page: `restrict-to:` syntax, per-option grammar, the "RSVP from Discord" web behaviour, manager/creator bypass, seats survive role loss.
 - [ ] 6.3 `aidlc-state.md` marks §3.5 shipped on merge; `audit.md` entries throughout.
 

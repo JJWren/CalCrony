@@ -382,3 +382,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 12 addressed
+**Timestamp**: 2026-09-02T02:15:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 12 (on d231cab): zero new comments, two suppressed notes, both taken. The sync endpoint now filters the bot's payload to the guild's watched set read in the same transaction, so a payload captured before a web-side clear or an event ending cannot re-add rows for a role nothing names (tested with an unwatched role in the payload). The plan's 6.1 line now describes the tombstone retention rather than the pre-refinement "dropped on deletion". The round-11 thread drew no new comment and is resolved. 477 API green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

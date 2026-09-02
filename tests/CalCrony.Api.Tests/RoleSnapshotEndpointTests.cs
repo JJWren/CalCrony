@@ -87,13 +87,16 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         const long guild = 12120;
         const long tank = 995120;
         const long deleted = 995121;
+        const long unwatched = 995122;
+        await CreateEventAsync(guild, "Watched", [tank, deleted]);
 
         var first = await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
-            [new RoleNameDto(tank, "Tank"), new RoleNameDto(deleted, null)],
+            [new RoleNameDto(tank, "Tank"), new RoleNameDto(deleted, null), new RoleNameDto(unwatched, "Stale")],
             [
-                new MemberRolesDto(1201, [tank]),
+                new MemberRolesDto(1201, [tank, unwatched]),
                 new MemberRolesDto(1202, []),          // holds none — no row
                 new MemberRolesDto(1203, [deleted]),   // holds only a deleted role — no row either
+                new MemberRolesDto(1205, [unwatched]), // holds only a role nothing names — no row
             ]));
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
@@ -101,7 +104,12 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         Assert.Equal("Tank", roles[tank]);
         Assert.True(roles.ContainsKey(deleted));
         Assert.Null(roles[deleted]); // checked and gone: the tombstone that makes it vacuous
-        Assert.Equal(new[] { 1201L }, (await MembersAsync(guild)).Keys);
+        // A role the API's own watch list doesn't name is never stored, however the bot's payload
+        // was captured — the API decides what a snapshot may hold.
+        Assert.False(roles.ContainsKey(unwatched));
+        var firstMembers = await MembersAsync(guild);
+        Assert.Equal(new[] { 1201L }, firstMembers.Keys);
+        Assert.Equal(new[] { tank }, firstMembers[1201]);
         Assert.NotNull(await SyncedAtAsync(guild));
 
         // A second sync is a replacement, not a merge: the old member and the tombstone go.
@@ -121,6 +129,7 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         const long guild = 12130;
         const long tank = 995130;
         const long deleted = 995131;
+        await CreateEventAsync(guild, "Watched", [tank, deleted]);
         (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
             [new RoleNameDto(tank, "Tank"), new RoleNameDto(deleted, null)], []))).EnsureSuccessStatusCode();
 
