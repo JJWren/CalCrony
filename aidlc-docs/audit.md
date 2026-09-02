@@ -859,7 +859,7 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 
 ---
 ## Operations — prod rolled 0.36.1 → 0.36.2; guild-context guard shipped
-**Timestamp**: 2026-09-02T21:06:00Z
+**Timestamp**: 2026-09-02T21:03:30Z
 **User Input**: (none — continuation)
 **AI Response**: All three 0.36.2 images and release v0.36.2 published. Prod: pg_dump to backups/calcrony-prod-pre-0.36.2-20260902T210203Z.sql (70,894 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.2 in a clean shell (config --images confirmed), pull, up -d --wait — all four containers healthy; /health and /health/ready report 0.36.2; the bot logged "Registered slash commands globally", presence sync (3 present, 1 absent) and Gateway Ready with no errors. Discord's global command list for the prod app now carries contexts [0] / integration_types [0] on the 13 server commands and [0,1,2] / [0,1] on help, timestamp and calendar. Remaining for Joshua (Developer Portal, not code): Guild Install default settings → bot + applications.commands, permissions 335275969536; decide whether User Install stays on.
 **Context**: Operations — #163 fixed end to end (report → issue → fix PR #164 → 0.36.2 → test → prod).
