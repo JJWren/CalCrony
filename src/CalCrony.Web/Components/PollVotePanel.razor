@@ -1,5 +1,7 @@
 @* Voting UI mirroring the bot's semantics: single-vote = click to set / click again to clear;
-   multi-vote = each click toggles that option within your set (submitted as a full set-replace). *@
+   multi-vote = each click toggles that option within your set (submitted as a full set-replace).
+   On a role-restricted poll the API gates additions only, so removing choices — down to none —
+   always works, and a member who lost the role can still withdraw one click at a time. *@
 <div class="d-flex flex-column gap-2">
     @foreach (var option in Poll.Options)
     {

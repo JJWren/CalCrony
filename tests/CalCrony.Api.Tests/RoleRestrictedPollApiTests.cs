@@ -37,7 +37,17 @@ public class RoleRestrictedPollApiTests(WebAuthFixture fixture) : IClassFixture<
         Assert.Equal(HttpStatusCode.Forbidden, (await bob.PostAsJsonAsync(
             $"/polls/{poll.Id}/options", new AddPollOptionRequest(0, "d"))).StatusCode);
 
-        // Withdrawing is not entry.
+        // Withdrawing is not entry — nor is removing one choice of several, which is how a
+        // toggle-button client gets a roleless member down to nothing. Bob holds a, b (given via
+        // the trusted bot path): dropping b passes, adding a fresh choice is refused, clearing passes.
+        (await Client.PutAsJsonAsync($"/polls/{poll.Id}/votes/{bobSession.UserId}",
+            new PutPollVotesRequest([poll.Options[0].Id, poll.Options[1].Id]))).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, (await bob.PutAsJsonAsync(
+            $"/polls/{poll.Id}/votes/{bobSession.UserId}", new PutPollVotesRequest([poll.Options[0].Id]))).StatusCode);
+        var added = await alice.GetFromJsonAsync<PollDto>($"/polls/{poll.Id}");
+        var fresh = added!.Options.Single(o => o.Text == "c").Id;
+        Assert.Equal(HttpStatusCode.Forbidden, (await bob.PutAsJsonAsync(
+            $"/polls/{poll.Id}/votes/{bobSession.UserId}", new PutPollVotesRequest([poll.Options[0].Id, fresh]))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await bob.PutAsJsonAsync(
             $"/polls/{poll.Id}/votes/{bobSession.UserId}", new PutPollVotesRequest([]))).StatusCode);
 

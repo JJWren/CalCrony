@@ -396,3 +396,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 14 addressed
+**Timestamp**: 2026-09-02T02:45:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 14 (on b4b3231): zero new comments, no open threads; two suppressed notes taken together. With toggle buttons a member who lost the role could never reach the empty vote set (each toggle left a non-empty set, which was refused), so "withdrawal is never gated" was only reachable through the select menu. The poll gate now applies to additions only — judged against the caller's current votes in the API and in the bot's live check — so any pure removal passes; the web page re-shows its add-option form only when a vote lands as a new entry. Tests: a roleless member drops one of two choices (200), adds a fresh one (403), clears (200). 477 API, 113 bot, 110 web green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

@@ -305,9 +305,12 @@ public static class PollEndpoints
             return GuildAccessService.SelfOnly();
         }
 
-        // A restricted poll gates entry only: casting votes needs the role, withdrawing them
-        // never does (the same rule as un-RSVPing a restricted option).
-        if ((request.OptionIds ?? []).Count > 0
+        // A restricted poll gates ENTRY only: adding a choice needs the role; removing choices —
+        // one at a time down to none — never does, the same rule as un-RSVPing a restricted
+        // option. Judged against the caller's current votes, so a member who lost the role can
+        // always withdraw, whichever client's buttons they use.
+        var alreadyHeld = poll.Votes.Where(v => v.UserId == userId).Select(v => v.OptionId).ToHashSet();
+        if ((request.OptionIds ?? []).Any(id => !alreadyHeld.Contains(id))
             && await RoleRestrictionGate.CheckAsync(
                 context, access, db, clock, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
                 "This poll", "vote", cancellationToken) is { } restricted)

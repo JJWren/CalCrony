@@ -198,13 +198,15 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
     }
 
     /// <summary>Submits the vote set, re-renders the embed, and confirms ephemerally. A restricted
-    /// poll is checked live first — casting needs the role, clearing never does.</summary>
+    /// poll is checked live first — adding a choice needs the role, removing choices never does,
+    /// so a member who lost the role can still toggle their way down to nothing.</summary>
     /// <param name="current">The poll as it stands.</param>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="optionIds">The full vote set to store.</param>
     private async Task SubmitVotesAsync(PollDto current, long userId, IReadOnlyList<Guid> optionIds)
     {
-        if (optionIds.Count > 0
+        var alreadyHeld = current.Votes.Where(v => v.UserId == userId).Select(v => v.OptionId).ToHashSet();
+        if (optionIds.Any(id => !alreadyHeld.Contains(id))
             && RoleRestrictionCheck.Denied(Context.User, current.CreatorId, current.AllowedRoles, out var effective))
         {
             await FollowupAsync(RoleRestrictionCheck.Refusal("This poll", effective), ephemeral: true);
