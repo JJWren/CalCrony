@@ -424,3 +424,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 18 addressed
+**Timestamp**: 2026-09-02T03:48:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 18 (on a74a35e): one new thread and one suppressed note, both taken. The poll's entry-only decision was made from an unlocked read, so two concurrent replacements could each look like a removal and together re-add a choice, and the bot's GET-then-PUT had the same gap; vote replacements now serialize on a FOR UPDATE lock of the poll row, and PutPollVotesRequest carries the set the caller decided from (ExpectedOptionIds — sent by the bot's component module and the web panel), which the API refuses with 409 when the committed set differs. A PUT for the RSVP option the caller already holds is no longer gated (it is the no-op it always was). The two round-17 threads drew no new comment and are resolved. 479 API, 113 bot, 110 web green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

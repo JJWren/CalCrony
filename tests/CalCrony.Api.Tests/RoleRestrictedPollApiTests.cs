@@ -51,6 +51,17 @@ public class RoleRestrictedPollApiTests(WebAuthFixture fixture) : IClassFixture<
         Assert.Equal(HttpStatusCode.OK, (await bob.PutAsJsonAsync(
             $"/polls/{poll.Id}/votes/{bobSession.UserId}", new PutPollVotesRequest([]))).StatusCode);
 
+        // A replacement decided from a stale set is refused rather than committed blind — the
+        // entry-only rule is only sound against the set actually being replaced.
+        (await Client.PutAsJsonAsync($"/polls/{poll.Id}/votes/{bobSession.UserId}",
+            new PutPollVotesRequest([poll.Options[0].Id, poll.Options[1].Id]))).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await bob.PutAsJsonAsync(
+            $"/polls/{poll.Id}/votes/{bobSession.UserId}",
+            new PutPollVotesRequest([poll.Options[0].Id], ExpectedOptionIds: [poll.Options[0].Id]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await bob.PutAsJsonAsync(
+            $"/polls/{poll.Id}/votes/{bobSession.UserId}",
+            new PutPollVotesRequest([poll.Options[0].Id], ExpectedOptionIds: [poll.Options[0].Id, poll.Options[1].Id]))).StatusCode);
+
         // The single-poll DTO names the role; the mirror is poll-level, not per option.
         var named = await alice.GetFromJsonAsync<PollDto>($"/polls/{poll.Id}");
         Assert.True(named!.IsRestricted);

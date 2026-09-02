@@ -98,7 +98,9 @@
         }
 
         busy = true;
-        var result = await Api.PutPollVotesAsync(Poll.Id, UserId, new PutPollVotesRequest([.. next]));
+        // The set the toggle was computed from rides along, so a stale page re-reads instead of
+        // committing a replacement against votes that moved meanwhile.
+        var result = await Api.PutPollVotesAsync(Poll.Id, UserId, new PutPollVotesRequest([.. next], [.. myOptionIds]));
         busy = false;
 
         if (!result.Success || result.Value is null)

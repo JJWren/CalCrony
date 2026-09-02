@@ -244,6 +244,10 @@ public class RoleRestrictedRsvpApiTests(WebAuthFixture fixture) : IClassFixture<
         var still = await heidi.GetFromJsonAsync<EventDto>($"/events/{ev.Id}");
         Assert.Contains(still!.Rsvps, r => r.UserId == session.UserId && r.OptionId == going);
 
+        // …a re-click on the option already held is not entry either…
+        Assert.Equal(HttpStatusCode.OK, (await heidi.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(going))).StatusCode);
+
         // …but switching to another restricted option is a new entry, and withdrawing is free.
         Assert.Equal(HttpStatusCode.Forbidden, (await heidi.PutAsJsonAsync(
             $"/events/{ev.Id}/rsvps/{session.UserId}", new RsvpRequest(maybe))).StatusCode);

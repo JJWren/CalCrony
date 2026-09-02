@@ -293,6 +293,12 @@ public static class PollEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
+        // Vote replacements serialize on the poll row (taken BEFORE the aggregate loads), so the
+        // entry-only decision below is made against the committed set: two concurrent
+        // replacements can't each look like a removal and together re-add a choice.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockPollRowAsync(db, id, cancellationToken);
+
         var poll = await LoadPollAsync(db, id, cancellationToken);
         if (poll is null)
         {
@@ -309,11 +315,18 @@ public static class PollEndpoints
             return GuildAccessService.SelfOnly();
         }
 
+        var alreadyHeld = poll.Votes.Where(v => v.UserId == userId).Select(v => v.OptionId).ToHashSet();
+        if (request.ExpectedOptionIds is { } expected && !alreadyHeld.SetEquals(expected))
+        {
+            // The caller computed this replacement — and, for the bot, ran its live role check —
+            // against a set that has since changed; it re-reads rather than committing blind.
+            return Results.Conflict(new ErrorResponse("Your vote changed at the same time — try again."));
+        }
+
         // A restricted poll gates ENTRY only: adding a choice needs the role; removing choices —
         // one at a time down to none — never does, the same rule as un-RSVPing a restricted
-        // option. Judged against the caller's current votes, so a member who lost the role can
+        // option. Judged against the caller's committed votes, so a member who lost the role can
         // always withdraw, whichever client's buttons they use.
-        var alreadyHeld = poll.Votes.Where(v => v.UserId == userId).Select(v => v.OptionId).ToHashSet();
         if ((request.OptionIds ?? []).Any(id => !alreadyHeld.Contains(id))
             && await RoleRestrictionGate.CheckAsync(
                 context, access, db, clock, poll.GuildId, poll.CreatorId, poll.AllowedRoleIds,
@@ -369,9 +382,19 @@ public static class PollEndpoints
             return Results.Conflict(new ErrorResponse("Your vote changed at the same time — try again."));
         }
 
+        await transaction.CommitAsync(cancellationToken);
         var fresh = await LoadPollAsync(db, id, cancellationToken);
         return Results.Ok(await ToDtoAsync(db, fresh!, context, cancellationToken));
     }
+
+    /// <summary>Takes a FOR UPDATE lock on the poll row inside the ambient transaction, so
+    /// competing vote replacements for one poll serialize. A missing poll locks nothing and
+    /// falls through to the 404.</summary>
+    /// <param name="db">The database context (a transaction must be open).</param>
+    /// <param name="id">The poll id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    private static Task LockPollRowAsync(CalCronyDbContext db, Guid id, CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Polls" WHERE "Id" = {id} FOR UPDATE""", cancellationToken);
 
     /// <summary>Adds an option to an open poll (any member when AllowUserOptions, else creator/manager); time polls parse the text as a slot.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>

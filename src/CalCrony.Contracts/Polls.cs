@@ -104,7 +104,11 @@ public record PollDto(
 
 /// <summary>Atomic set-replacement of one user's votes; empty clears them.</summary>
 /// <param name="OptionIds">The full vote set to store.</param>
-public record PutPollVotesRequest(IReadOnlyList<Guid> OptionIds);
+/// <param name="ExpectedOptionIds">The vote set the caller decided from, when it decided from
+/// one: the API refuses (409) if the stored set differs, so a replacement computed against
+/// stale votes — a toggle, or the bot's live role check — is re-read rather than committed
+/// blind. Null skips the check.</param>
+public record PutPollVotesRequest(IReadOnlyList<Guid> OptionIds, IReadOnlyList<Guid>? ExpectedOptionIds = null);
 
 /// <summary>Voter-added option; Text is a natural-language datetime for time polls.</summary>
 /// <param name="UserId">The Discord user id.</param>

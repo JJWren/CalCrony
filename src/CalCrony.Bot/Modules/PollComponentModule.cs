@@ -213,7 +213,9 @@ public class PollComponentModule(CalCronyApiClient api) : InteractionModuleBase<
             return;
         }
 
-        var result = await api.PutPollVotesAsync(current.Id, userId, new PutPollVotesRequest(optionIds));
+        // The set this decision was made from rides along: the API refuses the replacement if
+        // the votes moved in between, so the live check above always covers what is committed.
+        var result = await api.PutPollVotesAsync(current.Id, userId, new PutPollVotesRequest(optionIds, [.. alreadyHeld]));
         if (!result.Success || result.Value is null)
         {
             await FollowupAsync($"❌ {result.Error}", ephemeral: true);
