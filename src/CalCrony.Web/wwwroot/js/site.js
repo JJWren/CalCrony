@@ -176,3 +176,15 @@ window.calcronyDownload = async function (fileName, streamRef, contentType) {
         return "failed";
     }
 };
+
+// Page helpers invoked from Blazor. scrollToFragment: bring the element whose id matches the
+// URL fragment into view after the page has rendered — a fresh load of /docs#features has no
+// such element yet when the browser does its own fragment scroll, so the page asks once it does.
+(function () {
+    var page = window.calcronyPage = window.calcronyPage || {};
+    page.scrollToFragment = function (id) {
+        if (!id) { return; }
+        var el = document.getElementById(id);
+        if (el && typeof el.scrollIntoView === "function") { el.scrollIntoView(); }
+    };
+})();

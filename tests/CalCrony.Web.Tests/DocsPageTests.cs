@@ -24,6 +24,19 @@ public class DocsPageTests : TestContext
     }
 
     [Fact]
+    public void In_page_links_to_the_reference_stay_on_the_docs_route()
+    {
+        var cut = Render<Docs>();
+
+        // A fragment-only href ("#features") resolves against <base href="/"> and the router
+        // would land on the home page; every in-page link must carry the /docs path.
+        var links = cut.FindAll("a").Where(a => a.TextContent.Contains("Features in depth")).ToList();
+        Assert.NotEmpty(links);
+        Assert.All(links, a => Assert.Equal("/docs#features", a.GetAttribute("href")));
+        Assert.Empty(cut.FindAll("a[href^='#']"));
+    }
+
+    [Fact]
     public void Docs_page_names_the_rsvp_v2_features_and_their_permissions()
     {
         var cut = Render<Docs>();
