@@ -887,3 +887,24 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Construction — PR gate in progress.
 
 ---
+## Construction — fix PR #168 merged (attendee-role names)
+**Timestamp**: 2026-09-02T23:03:37Z
+**User Input**: (none — continuation)
+**AI Response**: Nine Copilot rounds. Round 1: three code/test findings (series revival invalidation, two XML docs, a stale-row invalidation test) — all taken. Rounds 2–8: documentation consistency only, the code unchanged since round 1 — privacy policy (granted roles, running series, template-vs-occurrence retention, revision date), ADR 0004 (member-data consequence, reconcile cost stated accurately, a post-release refinements section), and every restriction-only XML summary in the API, bot client and bot service. From round 2 to 7 I mis-filtered inline comments by author login and treated real threads as summary-level; caught at round 8 via the GraphQL reviewThreads query, six open threads answered and fixed in one push (b71db5d). Round 9 approved with zero comments and no unresolved threads; build-test and pr-title green; squash-merged through the REST call as 98150f9, issue #167 auto-closed. 810 tests green at the merged head. Next: release-please, test stack on :main, then prod.
+**Context**: Construction — fix delivered; release and rollout next.
+
+---
+## Operations — test stack on :main (98150f9); release 0.36.3 merged
+**Timestamp**: 2026-09-02T23:08:16Z
+**User Input**: (none — continuation)
+**AI Response**: Master CI published the :main images for 98150f9; test stack pulled and restarted with up -d --wait — all four containers healthy, /health and /health/ready report 0.0.0-main.98150f9, the test bot registered its guild commands, synced presence and reached Gateway Ready with no errors (the test database holds no role-granting event, so the functional check lands on prod's "Kids Calls" event). release-please opened #169 (chore(master): release 0.36.3); its held CI and CodeQL runs approved; build-test and pr-title green; squash-merged through the REST call. Waiting for the three 0.36.3 images, then prod with a pg_dump first.
+**Context**: Operations — test done, release cut; prod next.
+
+---
+## Operations — prod rolled 0.36.2 → 0.36.3; attendee-role names shipped
+**Timestamp**: 2026-09-02T23:14:11Z
+**User Input**: (none — continuation)
+**AI Response**: All three 0.36.3 images and release v0.36.3 published. Prod: pg_dump to backups/calcrony-prod-pre-0.36.3-20260902T231228Z.sql (77,201 bytes), CALCRONY_IMAGE_TAG bumped to 0.36.3 in a clean shell (config --images confirmed); docker compose pull hit a transient GHCR TLS timeout on one image, and up -d --wait pulled it itself — all four containers healthy on the 0.36.3 image tags; /health and /health/ready report 0.36.3. The bot registered globally, synced presence (4 present) and, at Ready, reconciled role snapshots for the test guild: GuildRoles now holds kids-calls AND kids-calls-attendee, and GET /events/53475b9f… reports attendeeRoleName "kids-calls-attendee" on the Going option — the web chip reads "Going grants @kids-calls-attendee" instead of "role #1544822050655314021".
+**Context**: Operations — #167 fixed end to end (report → issue → fix PR #168 → 0.36.3 → test → prod).
+
+---
