@@ -139,12 +139,26 @@ public class RoleRestrictionComponentTests : TestContext
         cut.WaitForAssertion(() => Assert.Contains("We can't confirm your roles right now — vote from Discord.", cut.Markup));
         Assert.DoesNotContain("Add an option", cut.Markup);
 
-        // The snapshot catches up (or the role arrives): a vote that now succeeds shows it again.
+        // A successful CLEAR is not entry (withdrawing is never gated): the form stays hidden...
         handler.Respond = req => req.RequestUri!.AbsolutePath switch
         {
             "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(
                 new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(poll.GuildId, "G", null, false)]), JsonWeb)),
             _ => (HttpStatusCode.OK, JsonSerializer.Serialize(poll, JsonWeb)),
+        };
+        await cut.FindAll("button").First(b => b.TextContent.Contains("a")).ClickAsync(new());
+        cut.WaitForAssertion(() => Assert.DoesNotContain("We can't confirm", cut.Markup));
+        Assert.DoesNotContain("Add an option", cut.Markup);
+
+        // ...whereas a vote that now lands (the snapshot caught up, or the role arrived) shows it again.
+        // The page reads its user id from the session, which this harness leaves unset (0), so the
+        // vote that proves entry belongs to user 0.
+        var voted = poll with { Votes = [new PollVoteDto(0, poll.Options[0].Id)] };
+        handler.Respond = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/me/guilds" => (HttpStatusCode.OK, JsonSerializer.Serialize(
+                new WebGuildListResponse(DateTimeOffset.UtcNow, [new WebGuildDto(poll.GuildId, "G", null, false)]), JsonWeb)),
+            _ => (HttpStatusCode.OK, JsonSerializer.Serialize(voted, JsonWeb)),
         };
         await cut.FindAll("button").First(b => b.TextContent.Contains("a")).ClickAsync(new());
 

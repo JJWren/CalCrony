@@ -29,6 +29,12 @@ public class RoleRestrictionSpecTests
 
         Assert.False(RoleRestrictionSpec.TryParseMentions("", out _, out var empty));
         Assert.Contains("at least one role", empty);
+
+        // A mention too large for a snowflake fails the whole input rather than being dropped
+        // beside a valid one — that would silently weaken the restriction.
+        Assert.False(RoleRestrictionSpec.TryParseMentions("<@&11> <@&99999999999999999999>", out var weakened, out var overflow));
+        Assert.Contains("99999999999999999999", overflow);
+        Assert.Empty(weakened);
     }
 
     [Fact]

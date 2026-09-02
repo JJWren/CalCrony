@@ -375,3 +375,10 @@
 **Context**: Delivery — step 8.3, Copilot loop continues.
 
 ---
+## Delivery — PR #150 Copilot round 11 addressed
+**Timestamp**: 2026-09-02T02:00:00Z
+**User Input**: (none — autonomous execution of the approved plan)
+**AI Response**: Round 11 (on 3f1b7c0): one new comment and two suppressed notes, all taken. When a guild's watched set empties, the bot now pushes an empty sync so the API's rows go too — otherwise a role restricted again within the lease could be answered from the earlier watch's membership before the post-command sync lands. An out-of-range role mention now fails the whole restrict-to parse instead of being dropped beside a valid one. A successful vote CLEAR no longer re-shows the poll's add-option form (withdrawing is never gated); only a vote that lands does. Rounds 10 and 11 re-flagged none of the four older threads, which are resolved. Bot 113, web 110 green.
+**Context**: Delivery — step 8.3, Copilot loop continues.
+
+---

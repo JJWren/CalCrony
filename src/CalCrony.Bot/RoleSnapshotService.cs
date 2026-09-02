@@ -97,7 +97,18 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
 
             if (entry.RoleIds.Count == 0)
             {
+                // Nothing watched anymore: clear the API's rows too, not just the cache. Left in
+                // place under a fresh lease, they would answer for a role restricted again within
+                // the lease with membership from the earlier watch — before the post-command sync
+                // lands, or if that best-effort sync fails. An empty sync leaves no row to answer
+                // from, so a re-restriction fails closed until it is synced.
                 watched.TryRemove(guild.Id, out _);
+                var cleared = await api.SyncGuildRolesAsync((long)guild.Id, new RoleSyncRequest([], []));
+                if (!cleared.Success)
+                {
+                    logger.LogWarning("Role snapshot clear failed for guild {GuildId}: {Error}", guild.Id, cleared.Error);
+                }
+
                 return;
             }
 

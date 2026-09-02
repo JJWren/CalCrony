@@ -30,6 +30,7 @@ public static partial class RoleRestrictionSpec
         error = null;
 
         var parsed = new List<long>();
+        string? unreadable = null;
         var leftover = Mention().Replace(input, match =>
         {
             if (long.TryParse(
@@ -38,9 +39,21 @@ public static partial class RoleRestrictionSpec
             {
                 parsed.Add(id);
             }
+            else
+            {
+                unreadable ??= match.Value;
+            }
 
             return " ";
         });
+
+        if (unreadable is not null)
+        {
+            // A mention that doesn't fit a snowflake fails the whole input: dropping it while
+            // keeping the others would silently weaken the restriction the caller asked for.
+            error = $"Role \"{unreadable}\" isn't a role CalCrony can read.";
+            return false;
+        }
 
         var junk = leftover.Trim().Trim(',').Trim();
         if (junk.Any(c => !char.IsWhiteSpace(c) && c != ','))

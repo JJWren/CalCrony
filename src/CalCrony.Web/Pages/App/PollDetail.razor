@@ -171,14 +171,18 @@ else
 
     // A refused vote (the caller lacks the role, or the API couldn't confirm it) hides the
     // add-option form: adding an option is participation too, and would be refused the same way.
-    // A later successful vote — the snapshot caught up, or the role arrived — shows it again.
+    // A later successful ENTRY — the snapshot caught up, or the role arrived — shows it again;
+    // a successful clear is not entry (withdrawing is never gated), so it changes nothing.
     private bool CanAddOption =>
         poll is { Status: PollStatus.Open, Options.Count: < 10 } && (poll.AllowUserOptions || CanManage) && !voteRefused;
 
     private void OnVoteChanged(PollDto updated)
     {
         poll = updated;
-        voteRefused = false;
+        if (updated.Votes.Any(v => v.UserId == UserId))
+        {
+            voteRefused = false;
+        }
     }
 
     protected override async Task OnParametersSetAsync()
