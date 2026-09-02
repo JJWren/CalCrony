@@ -83,7 +83,7 @@ seconds rather than at the next reconcile.
 it runs. Without a bound, a bot that has been down for a day would still answer for members who
 lost a role in the meantime. The marker therefore expires 30 minutes after the last sync; the bot's
 periodic reconcile keeps a live bot well inside it, and retention trims each guild's rows to the
-roles its live restrictions still name and its live events still grant.
+roles its live restrictions still name and its live events and running series still grant.
 
 **Attendee roles are watched too (#167).** The first cut watched restriction roles only, so an
 event that merely *granted* a role kept printing `role #123456` on the web — the snapshot is the
