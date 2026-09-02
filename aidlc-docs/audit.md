@@ -639,3 +639,101 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Operations — RSVP v2 §3.3 delivered end to end; #125 complete.
 
 ---
+## Operations — #125 hand-off comment checkboxes ticked after the fact
+**Timestamp**: 2026-09-02T17:13:58Z
+**User Input**: "Explain why the issue checkboxes were not all marked off. It's okay if they are complete, but there is ambiguity with closing the issue and leaving them unchecked."
+**AI Response**: The issue body's three sub-feature boxes were ticked, but the two hand-off comments still carried only unchecked boxes: the §3.3 plan (36 steps, issuecomment-5511795855) and the §3.5 plan (43 steps, issuecomment-5501383420). Cause: both hand-offs named the repo plan file as "the copy to tick", so the boxes were ticked there as each step landed and the comment copies were never touched; closing #125 then left them reading as unfinished. Fixed by ticking every box in both comments and adding a completion banner to each (shipped PR, release, pointer to the ticked repo copy; the §3.3 banner also names the two review-loop refinements that differ from the comment's text — the Down survivor rule and the rollback caveat). Nothing in the repo changed for this beyond this entry, which is left uncommitted on master for the next docs commit.
+**Context**: Operations — post-close tidy-up on #125.
+
+---
+## Inception — docs review requested; README Features readability
+**Timestamp**: 2026-09-02T17:16:27Z
+**User Input**: "Yep, let's go ahead and do a docs review and update. One thing I would like to note is that the Features section of our README is a bit difficult to read. We should discuss how we can make this more readable."
+**AI Response**: New workflow (documentation-only: user stories skipped, requirements at minimal depth). Workspace detection: brownfield, master at 12f2a19 (v0.35.0 shipped), one uncommitted audit entry. Reviewing README.md, the web Docs page, PRIVACY and the docs/ tree for accuracy after §3.3 and for staleness, then presenting a readability diagnosis of the README Features section with A–E options before changing its structure.
+**Context**: Inception — workspace detection + requirements analysis (minimal) for a docs review.
+
+---
+## Inception — docs review findings and README readability options presented
+**Timestamp**: 2026-09-02T17:17:47Z
+**User Input**: (none — continuation)
+**AI Response**: Findings: README Features is 17 bullets / ~1,430 words with four bullets over 130 words each (RSVPs 166, Web app 157, Role-restricted signup 156, Attendee roles 136), each mixing capability, invocation, permissions and caveats; the web Docs page's "The web app" list (Custom RSVPs 155 words) and its /create table row (~120 words) have the same shape. Stale: docs/research/sesh-fyi-feature-gap.md still marks §3.3 and §3.5 "Missing" and §3.6 "Partial" though all three shipped. Positioning: README and landing page say "self-hosted" while calcrony.app is the first-party hosted instance (ADR 0002). Accurate as-is: PRIVACY_POLICY, CONTRIBUTING, /help blurb, the Deploying section (matches the repo's compose file). Presented five A–E questions: Features restructure shape (recommend grouped one-liners linking to a long-form page), where the long form lives (recommend the web Docs page), whether Docs.razor gets the same treatment, the positioning line, and the gap-analysis rows. Waiting for answers before editing.
+**Context**: Inception — Requirements Analysis (minimal) awaiting decisions.
+
+---
+## Inception — docs review decisions locked
+**Timestamp**: 2026-09-02T17:23:10Z
+**User Input**: "Use your recommendeds for all of these"
+**AI Response**: Locked Q1 A (README Features → five or six themed groups of one-line bullets linking to the long form), Q2 A (the web Docs page is the single long form; README links to calcrony.app/docs), Q3 A (the Docs page gets the same grouping and shorter command rows in this PR), Q4 A (intro reworded to "hosted at calcrony.app, or run your own"), Q5 A (gap-analysis rows fixed to the shipped versions plus a dated status note). Next: a short checkbox plan for approval (workflow planning + code generation part 1 in one step — a single docs unit, no design stages).
+**Context**: Inception — Requirements approved by answer; Workflow Planning next.
+
+---
+## Construction — docs readability plan presented for approval
+**Timestamp**: 2026-09-02T17:24:15Z
+**User Input**: (none — continuation)
+**AI Response**: Wrote `aidlc-docs/construction/plans/docs-readability-code-generation-plan.md`: the five locked decisions, the findings (word counts), the six shared groups, and a 14-step checkbox plan — README (intro, grouped Features ≤ 400 words, trimmed command rows), Docs.razor ("Features in depth" absorbing the long form, slimmer web-app list, trimmed command rows), Landing tagline, gap-analysis status, tests, bookkeeping and delivery. Noted that CONTRIBUTING classes Docs.razor/Landing as product surface, so the PR is `feat:` and cuts a release that then rolls to test and prod. Presented the two-option completion prompt (workflow planning and code generation part 1 combined for a single docs unit).
+**Context**: Construction — Code Generation Part 1 awaiting approval.
+
+---
+## Construction — docs readability plan approved
+**Timestamp**: 2026-09-02T17:25:45Z
+**User Input**: "b"
+**AI Response**: Plan approved. Creating `feat/readable-docs`, committing the plan and the pending audit entries first, then executing steps 1–6 in order, ticking each as it lands.
+**Context**: Construction — Code Generation Part 2 (generation) started.
+
+---
+## Construction — docs readability: steps 1–5 generated
+**Timestamp**: 2026-09-02T17:30:47Z
+**User Input**: (none — continuation)
+**AI Response**: README: intro reworded ("Hosted at calcrony.app, or run your own"), Features rebuilt as six groups of one-line bullets — 440 words, down from ~1,430 (the plan's ≤ 400 target missed by 40; every group kept one bullet per feature rather than merging features) — ending with a link to calcrony.app/docs#features; command rows keep "what it does" plus flag names. Docs.razor: new "Features in depth" section (six h2 groups, one h3 entry per feature) carrying every detail from the README bullets and the old web-app list — invocation from Discord and web, required permission, default, caveats; "The web app" shrunk to five lines; command rows trimmed to flag lists. Landing tagline reworded. Gap analysis: dated status note plus the three RSVP v2 rows marked shipped with versions. Tests: new DocsPageTests (six groups, #features anchor, RSVP v2 features and the three permissions by name); web suite 126 green. README fences balanced and relative links resolve.
+**Context**: Construction — steps 1–5 ticked; 6 (bookkeeping, PR, release, rollout) next.
+
+---
+## Construction — docs PR #157 Copilot round 1
+**Timestamp**: 2026-09-02T17:37:43Z
+**User Input**: (none — continuation)
+**AI Response**: Four comments, all accepted: (1) the README's "everything works from both surfaces" overstated parity — now "most features work from both; roles and restrictions are set in Discord, themes and the activity log live on the web"; (2) "Going RSVPers join the thread" → members seated on the attending option (Going by default), README and Docs page; (3) the 400-word budget was missed at 440 — bullets tightened to 392 words, so plan step 1.2 now holds as written; (4) the Docs intro promised a Discord and web route for every feature and reserved opt-ins to managers or users — it now says most features work from both surfaces with the exceptions named, and that server-wide switches are a manager's, per-event ones the creator's or a manager's, DM reminders only yours. Web 126 green. Pushing, replying, re-requesting Copilot.
+**Context**: Construction — step 6.2, Copilot loop round 1 addressed.
+
+---
+## Construction — docs PR #157 Copilot round 2
+**Timestamp**: 2026-09-02T17:42:06Z
+**User Input**: (none — continuation)
+**AI Response**: Five accuracy points, all accepted: the one-surface exceptions now include live lists (Discord-only) and the CSV export (web-only) on both pages; the Docs page's /edit row enumerates the actual edit fields instead of claiming the /create flags; the web-app list no longer implies live sync from Discord (RSVPs made in Discord appear on the next page load); DocsPageTests asserts the six groups as h3 headings and the h2#features anchor; aidlc-state.md's word count corrected to 392. Web 126 green. Pushing, replying, re-requesting Copilot.
+**Context**: Construction — step 6.2, Copilot loop round 2 addressed.
+
+---
+## Construction — docs PR #157 Copilot round 3
+**Timestamp**: 2026-09-02T17:47:50Z
+**User Input**: (none — continuation)
+**AI Response**: Two comments plus two notes, all accepted: the ICS entry restores the calendar name ("CalCrony · Your Server"), RRULE, and the recurring-series exception (they link to the server's events page, not the RSVP embed); the attendee-roles entry names the delete/skip/cancel lifecycle again; DocsPageTests asserts each permission inside its own feature entry, scoped to the lists after #features; plan step 2.1 describes the delivered hierarchy (one h2#features, six h3 groups, one list entry per feature). Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 3 addressed.
+
+---
+## Construction — docs PR #157 Copilot round 4
+**Timestamp**: 2026-09-02T17:53:22Z
+**User Input**: (none — continuation)
+**AI Response**: One comment plus five notes, all accepted and all pre-existing inaccuracies the rewrite carried over: `/settings native-events` takes `enabled:true` (not `on`) — fixed in the README, the Docs first steps and the in-depth entry; `/settings public-calendar` takes `mode:on|off|new-link` — fixed on both pages the same way; the multi-RSVP entry's /edit example shows `multi-rsvp:true` and `false`; the Docs /create row lists description, duration, channel, location and image too; the poll row names `single-vote` for /poll create; the Docs lead no longer claims everything works from Discord. Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 4 addressed.
+
+---
+## Construction — docs PR #157 Copilot round 5
+**Timestamp**: 2026-09-02T17:58:14Z
+**User Input**: (none — continuation)
+**AI Response**: Two comments plus one note, all accepted: the custom-options entry now carries the /edit semantics the trimmed command row dropped (label matching keeps RSVPs, an option with RSVPs can't be removed, each sent entry replaces that option's role and restriction, the web editor keeps them); the DM-reminders entry says the one-time prompt follows a Discord-button RSVP only (a web RSVP never prompts); the activity-log retention reads "90 days by default (Retention__ActionLogDays)". Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 5 addressed.
+
+---
+## Construction — docs PR #157 Copilot round 6
+**Timestamp**: 2026-09-02T18:03:34Z
+**User Input**: (none — continuation)
+**AI Response**: Two comments plus one note, all accepted — three entries lacked their web routes: native events (the server settings toggle), recurring events (the form's repeat controls; skip, stop and rule changes from the event page), scheduled pings and reminders ("Scheduled notifications" on an event page, the "Remind me" form on a server's events page). Labels verified against EventDetail.razor, GuildEvents.razor and GuildSettings.razor. Web 126 green.
+**Context**: Construction — step 6.2, Copilot loop round 6 addressed.
+
+---
+## Construction — docs PR #157 Copilot round 7
+**Timestamp**: 2026-09-02T18:08:01Z
+**User Input**: (none — continuation)
+**AI Response**: "Needs a closer look", zero new comments, one previously-missed note: the cutoff half of the limits entry now names the form's "RSVPs close" field beside the rsvp-close flag. Web 126 green. Pushing and re-requesting.
+**Context**: Construction — step 6.2, Copilot loop round 7 addressed.
+
+---

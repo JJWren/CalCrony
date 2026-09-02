@@ -6,7 +6,8 @@
 <p class="meta-mono text-uppercase mb-2">User documentation</p>
 <h1>Using CalCrony</h1>
 <p class="lead text-body-secondary" style="max-width:58ch">
-    Everything works from Discord; this web app adds a friendlier view of the same data.
+    Most things work from both Discord and this web app, and a few live on one side only — see
+    Features in depth for which.
     Sign in with Discord and you'll see exactly the servers you share with the bot.
 </p>
 
@@ -30,7 +31,7 @@
     </li>
 </ol>
 <p class="text-body-secondary" style="max-width:66ch">
-    Optional third step: <code>/settings native-events on</code> mirrors events into the server's
+    Optional third step: <code>/settings native-events enabled:true</code> mirrors events into the server's
     built-in Events tab (the bot must hold <b>Manage Events</b>; existing events mirror when next
     edited). Check everything anytime with <code>/settings view</code> or from the server's
     settings page here.
@@ -120,6 +121,205 @@
     repeat rule.
 </p>
 
+<h2 class="h5 mt-4 mb-2" id="features">Features in depth</h2>
+<p class="text-body-secondary" style="max-width:66ch">
+    Every feature: where it lives, the Discord permission it needs, and what is on by default.
+    Most work from Discord and from this web app; a few live on one side only — attendee roles,
+    signup restrictions and live lists are set in Discord; themes, the activity log and the CSV
+    export are web-only — and each entry says which. Anything <b>opt-in</b> stays off until someone turns it on: a server
+    manager for server-wide switches (native events, the public calendar), the event's creator or
+    a manager for per-event ones (multiple RSVPs), and only you for DM reminders. The three
+    permissions mentioned below — <b>Manage Events</b>, <b>Manage Roles</b>, <b>Create Public
+    Threads</b> — are on the current invite link; a server that added the bot earlier must
+    re-invite it or grant them to the bot's role.
+</p>
+
+<h3 class="h6 mt-3">Events &amp; RSVPs</h3>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Events</b> — <code>/create</code> or the web form; times are plain English ("tomorrow
+        6pm", "in 5 hours") parsed in your personal timezone, else the server's. The embed carries
+        the time as a Discord timestamp, so everyone sees it in their own zone. Only the creator or
+        a server manager can edit or delete. Web-created events post to the server's default
+        channel (<code>/settings default-channel</code>).
+    </li>
+    <li class="mb-2">
+        <b>RSVP buttons and custom options</b> — ✅ Going / ❌ Not going / 🤔 Maybe by default,
+        with live attendee lists on the embed and the event page. Define your own with
+        <code>rsvp-options:"⚔️ Raider x10, 🛡️ Standby, ❌ Out"</code> or the form's option editor:
+        any emoji and label, up to ten. Exactly one option is the <i>attending</i> one — the first,
+        or the one marked with a trailing <code>*</code> (the form's radio) — and it is what
+        roles, threads, availability and the waitlist key on. On <code>/edit</code>,
+        <code>rsvp-options</code> matches existing options by label so their RSVPs survive, an
+        option that has RSVPs can't be removed, and each entry you send replaces that option's
+        role and restriction — so restate them; the web form's editor keeps them as they were.
+    </li>
+    <li class="mb-2">
+        <b>Attendee limits, the waitlist, and closing early</b> — <code>attendee-limit:6</code>
+        caps the attending option (or <code>xN</code> on any option, or the form's capacity box).
+        RSVPs past the cap on the attending option queue on a waitlist shown on the embed and the
+        event page; when a spot frees, the first in line is seated and pinged automatically. A
+        full non-attending option simply refuses. <code>rsvp-close:"2h before"</code> (or an
+        absolute time), or the form's "RSVPs close" field, freezes RSVP changes before start;
+        raising a cap seats the waitlist in order, and a cap can't go below the seats already taken.
+    </li>
+    <li class="mb-2">
+        <b>Multiple RSVPs per member</b> (<b>opt-in</b> per event) — <code>multi-rsvp:true</code>
+        on <code>/create</code>, <code>multi-rsvp:true</code> or <code>multi-rsvp:false</code> on
+        <code>/edit</code>, or the form's
+        "Allow more than one RSVP per member" box. Members can hold several options at once (Tank
+        <i>and</i> Healer, dinner <i>and</i> movie): clicking another button adds it, clicking a
+        chosen one again removes it, and only the attending option keeps a waitlist. No option is
+        exclusive — with the default set a member could hold Going <i>and</i> Not going — so choose
+        options that combine sensibly. Turning it back off is refused while anyone holds more than
+        one RSVP.
+    </li>
+    <li class="mb-2">
+        <b>Event threads</b> — <code>thread:true</code> or the form's "Create a discussion thread"
+        box opens a thread on the event message; members seated on the attending option (Going by
+        default) are added automatically so they get
+        its notifications, and it archives when the event ends, is deleted, skipped, or cancelled —
+        history stays readable. Needs <b>Create Public Threads</b>.
+    </li>
+    <li class="mb-2">
+        <b>Event templates</b> — <code>/template save</code> (or Save as template on an event page)
+        keeps an event's content, reminders and repeat rule under a name; start from it with
+        <code>/create template:</code> or the form's picker. Up to 25 per server; the creator or a
+        manager edits or deletes one, and reminder lists are edited on the Templates tab here.
+    </li>
+    <li class="mb-2">
+        <b>Discord native events</b> (<b>opt-in</b> per server) — <code>/settings native-events
+        enabled:true</code>, or the toggle on the server settings page here, mirrors events into
+        the server's built-in Events tab through their whole
+        lifecycle (created, updated, deleted, active at start, completed at end). The native
+        description points at the RSVP embed so "Interested" isn't mistaken for an RSVP. Needs
+        <b>Manage Events</b>; existing events mirror when next edited.
+    </li>
+</ul>
+
+<h3 class="h6 mt-3">Schedules</h3>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Recurring events</b> — every N days, weeks, months (by date or nth weekday, "3rd
+        Friday") or years; weekly schedules can tick a set of days (Tue + Thu, or the Weekdays
+        preset) and still repeat every N weeks. The schedule is anchored on the first occurrence
+        with timezone-aware math, so 8pm stays 8pm across DST. When one occurrence ends or is
+        skipped, the next posts itself; end by date or count, or never. Edits and reminders ask
+        "this occurrence or the whole series?"; <code>/series edit</code> changes the rule or end
+        condition afterwards, and editing an ended series revives it. On the web: pick the schedule
+        on the event form (repeat controls with live previews), and skip, stop, or change the rule
+        from the event page.
+    </li>
+    <li class="mb-2">
+        <b>Live list</b> — <code>/livelist create</code> posts an upcoming-events embed the bot
+        keeps current: it rewrites when events are created, edited, deleted, or RSVPed, when an
+        occurrence rolls, and at bot startup, debounced so busy servers don't hammer Discord. One
+        per channel, managers only; deleting the message removes the list.
+    </li>
+</ul>
+
+<h3 class="h6 mt-3">Reminders &amp; calendars</h3>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Scheduled pings and reminders</b> — <code>/notify</code>, or <b>Scheduled notifications</b>
+        on an event page here, adds up to five pings before an event starts (with an optional
+        message and mention), and every event announces its start; <code>/remind</code>, or the
+        <b>Remind me</b> form on a server's events page, is a one-off reminder in a channel. All of
+        it goes through a crash-safe outbox, so a restart never loses a ping.
+    </li>
+    <li class="mb-2">
+        <b>DM reminders</b> (<b>opt-in</b> per user, off by default) — <code>/settings dm-reminders
+        enabled:true</code> or My settings here: reminders and start announcements for events
+        you're attending also arrive by DM. The bot offers the toggle exactly once, as an ephemeral
+        prompt after your first attending RSVP made with a Discord button (a web RSVP never
+        prompts — use My settings here) — never an unsolicited DM — and if your DMs are
+        closed to it, it switches the setting off instead of retrying. Servers and event creators
+        can never turn it on for you.
+    </li>
+    <li class="mb-2">
+        <b>ICS subscribe feed</b> — <code>/link</code> (or the server settings page) gives a
+        tokenized URL for Google, Apple, and Outlook calendars; the calendar is named after the
+        server ("CalCrony · Your Server"). Repeating events carry their full schedule (RRULE), so
+        subscribers see every future occurrence. Each entry's description names its channel and
+        links to the event's web page and to the RSVP embed in Discord — except recurring series,
+        which link to the server's events page instead, since their live occurrence rotates.
+        Calendar apps refresh on their own schedule (see Good to know below).
+    </li>
+    <li class="mb-2">
+        <b>Public web calendar</b> (<b>opt-in</b> per server, managers) — <code>/settings
+        public-calendar mode:on</code> or Server settings here: a login-free month view of the server's
+        events behind an unguessable link, including upcoming occurrences of repeating ones, with
+        entries that jump to the Discord message. It shows titles, start times, durations,
+        locations, and channel names only — never descriptions, RSVPs, or member names — and asks
+        search engines not to index it. <code>mode:new-link</code> retires a leaked link;
+        <code>mode:off</code> closes it.
+    </li>
+    <li class="mb-2">
+        <b>Google Calendar availability</b> — link your calendar with <code>/calendar connect</code>
+        or under My settings (free/busy scope only: CalCrony never sees event titles or details,
+        and tokens are encrypted at rest). Then <code>/availability role</code> or
+        <code>/availability event</code> — and the grid on every event page — show who's free,
+        Scheduling-Assistant style. Read-only: it never blocks creating or RSVPing.
+    </li>
+</ul>
+
+<h3 class="h6 mt-3">Polls</h3>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Polls and time polls</b> — <code>/poll create</code> or the Polls tab: up to ten
+        options, single or multi vote, anonymous mode, voter-added options (➕ opens a modal), a
+        natural-language close deadline with automatic closing, and live bar-graph results on the
+        embed. <code>/poll time</code> pits candidate times against each other; voters pick every
+        time they can make, and a closed time poll's winner converts into a real event with one
+        click (<code>/poll convert</code> or the button here).
+    </li>
+</ul>
+
+<h3 class="h6 mt-3">Roles &amp; access</h3>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Attendee roles</b> — an existing role given to whoever is seated on an option and taken
+        back when they leave it, or from everyone when the event ends, is deleted, skipped, or
+        cancelled. Event-wide with <code>attendee-role:</code>, or
+        per option by mentioning the role inside <code>rsvp-options</code> (see Set up your interest
+        roles above for the Tank/Healer/DPS pattern). Grants land within about 15 seconds; with
+        multiple RSVPs on, a member seated on two options holds both roles until their last seat
+        carrying one goes. Roles are picked in Discord only — the event page lists them. Needs
+        <b>Manage Roles</b>, with the roles below the bot's own.
+    </li>
+    <li class="mb-2">
+        <b>Role-restricted signup</b> — <code>restrict-to:@@raiders</code> limits every option (or
+        a poll's votes) to holders of the named roles, up to five; <code>only: @@role</code> inside
+        an option limits just that one. In Discord the bot checks your roles live. Here the API
+        answers from role snapshots the bot keeps and <b>fails closed</b>: if it can't confirm them
+        (no snapshot yet, or the bot has been offline for more than half an hour) it asks you to
+        RSVP or vote from Discord. Restricted options show a 🔒 chip naming the roles and stay
+        clickable. The creator and managers always pass; a restriction only gates entry, so losing
+        the role later never costs a seat; setting one happens in Discord, and the edit form here
+        can only remove one.
+    </li>
+</ul>
+
+<h3 class="h6 mt-3">Web app &amp; admin</h3>
+<ul class="text-body-secondary" style="max-width:66ch">
+    <li class="mb-2">
+        <b>Everything from the browser</b> — sign in with Discord (identify and server list only,
+        never your messages) and create, edit, and delete events, RSVP, run polls, manage templates,
+        notifications, and server and personal settings; embeds post, update, and disappear in
+        Discord within about 15 seconds. Pick one of five interface themes, each with a dark and a
+        light face, under My settings — it follows your account across devices.
+    </li>
+    <li class="mb-2">
+        <b>Activity log &amp; CSV export</b> (managers) — the Activity tab shows every
+        user-initiated management action (events, series, polls, templates, settings, live lists),
+        who did it and from where (Discord or web), filterable by action and member, kept for 90
+        days by default (self-hosters set <code>Retention__ActionLogDays</code>). Its <b>Export
+        events (CSV)</b> button downloads every event with its RSVPs — one row
+        per RSVP, custom options and waitlist status included. Free for every server; there is no
+        premium tier.
+    </li>
+</ul>
+
 <h2 class="h5 mt-4 mb-3">Slash commands</h2>
 <div class="table-responsive border rounded">
     <table class="table table-sm mb-0 align-middle">
@@ -127,17 +327,17 @@
             <tr><th class="meta-mono text-uppercase">Command</th><th class="meta-mono text-uppercase">What it does</th></tr>
         </thead>
         <tbody>
-            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language ("tomorrow 6pm"); <code>repeat</code> options make it recurring (<code>repeat:weekly repeat-days:tue,thu</code> or <code>repeat:weekly repeat-days:weekdays</code> for day sets — <code>repeat-days</code> always needs <code>repeat:weekly</code>); <code>attendee-role</code> grants a role to attending RSVPs until the event ends; <code>thread</code> opens a discussion thread on the event message; <code>rsvp-options:"⚔️ Raider x10, ❌ Out"</code> customizes the RSVP buttons (the first entry — or one marked with a trailing <code>*</code> — counts as attending; <code>xN</code> caps it; mentioning a role gives that option its own attendee role; <code>only: @@role</code> at the end limits who may pick it); <code>attendee-limit</code> caps attendance (extras join a waitlist and move up automatically); <code>rsvp-close:"2h before"</code> stops RSVP changes before start; <code>restrict-to:@@role</code> limits every option to holders of the named roles; <code>multi-rsvp:true</code> lets each member pick more than one option (clicking a chosen option again removes it; no option is exclusive, so choose options that combine sensibly)</td></tr>
-            <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> can change or clear the attendee role, change or clear the signup restriction (<code>restrict-to</code> / <code>clear-restriction</code> — existing RSVPs stay), reshape <code>rsvp-options</code> (same labels keep their RSVPs, and each entry's role and restriction are re-applied from what you send), set or clear <code>attendee-limit</code> / <code>rsvp-close</code>, and switch <code>multi-rsvp</code> on or off (off is refused while anyone holds more than one RSVP)</td></tr>
+            <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; options: <code>description</code>, <code>duration</code>, <code>channel</code>, <code>location</code>, <code>image</code>, <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="#features">Features in depth</a>)</td></tr>
+            <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
             <tr><td><code>/availability role|event</code></td><td>Free/busy grid for a role or an event's Going list</td></tr>
             <tr><td><code>/calendar connect</code></td><td>Link your Google Calendar (free/busy scope only)</td></tr>
             <tr><td><code>/link</code></td><td>Your server's calendar-subscribe URL</td></tr>
-            <tr><td><code>/poll create</code> · <code>/poll time</code></td><td>Polls with live vote bars — <code>time</code> pits candidate times against each other; <code>restrict-to:@@role</code> limits voting and voter-added options to the role's holders</td></tr>
+            <tr><td><code>/poll create</code> · <code>/poll time</code></td><td>Polls with live vote bars · candidate times against each other; both take <code>closes</code>, <code>anonymous</code>, <code>allow-options</code>, <code>restrict-to</code>, and <code>/poll create</code> also <code>single-vote</code></td></tr>
             <tr><td><code>/poll close</code> · <code>/poll convert</code></td><td>Close voting · turn a time poll's winning slot into an event</td></tr>
-            <tr><td><code>/template save</code> · <code>/template list</code> · <code>/template edit</code> · <code>/template delete</code></td><td>Save an event's setup (content, reminders, repeat rule) for reuse with <code>/create template:</code>; edit or delete it later (creator or manager — reminder lists are edited on the web Templates tab)</td></tr>
-            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td>Timezones, the personal DM-reminders opt-in (<code>dm-reminders</code>, off by default), default channel, native-event mirroring, the public calendar link (<code>public-calendar on|off|new-link</code>) · Discord timestamp helper</td></tr>
+            <tr><td><code>/template save</code> · <code>/template list</code> · <code>/template edit</code> · <code>/template delete</code></td><td>Save an event's setup for reuse with <code>/create template:</code> · browse · edit · delete (creator or manager)</td></tr>
+            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td><code>view</code> · <code>timezone</code> · <code>server-timezone</code> · <code>default-channel</code> · <code>dm-reminders</code> · <code>native-events</code> · <code>public-calendar mode:on|off|new-link</code> · Discord timestamp helper</td></tr>
             <tr><td><code>/help</code></td><td>What CalCrony is, first steps, and links to docs, the community server, and support</td></tr>
         </tbody>
     </table>
@@ -146,19 +346,10 @@
 <h2 class="h5 mt-4 mb-2">The web app</h2>
 <ul class="text-body-secondary">
     <li><b>Sign in</b> with Discord — CalCrony only asks for your identity and server list, never your messages.</li>
-    <li><b>RSVP from any page</b>: your choice syncs to the Discord embed within about 15 seconds.</li>
-    <li><b>Link your Google Calendar</b> under My settings; the availability grid on each event shows who's free.</li>
-    <li><b>Subscribe</b> to a server's calendar from its settings page — works with Google, Apple, and Outlook. Repeating events carry their full schedule, so your calendar shows every future occurrence.</li>
-    <li><b>DM reminders</b> (off by default): turn them on under My settings to also get event reminders and start pings by DM for events you're attending. Only you can enable it, and if your DMs are closed to the bot it switches itself off.</li>
-    <li><b>Public calendar</b> (managers; off by default): turn it on under Server settings to get a login-free link to a month view of the server's events — titles, start times, durations, locations, and channel names only — never descriptions or RSVPs — and search engines are asked not to index it. Generate a new link any time to retire the old one.</li>
-    <li><b>Run polls</b> from the Polls tab: create, vote, add options, close, and convert a time poll's winner into an event — all synced to the Discord embed.</li>
-    <li><b>Templates</b>: save any event's setup from its page, browse them on the Templates tab, and start new events prefilled from one.</li>
-    <li><b>Activity log &amp; CSV export</b> (managers): the Activity tab shows who created, edited, deleted, or skipped events, changed repeat schedules, ran polls, saved templates, or changed server settings — from Discord or the web — filterable by action and member, kept for 90 days. The same tab's <b>Export events (CSV)</b> button downloads every event with its RSVPs (one row per RSVP, custom options and waitlist status included) for spreadsheets.</li>
-    <li><b>Custom RSVPs, limits &amp; waitlists</b>: the event form lets you define your own RSVP buttons (any emoji + label), mark which one counts as <i>attending</i>, and give it a capacity — RSVPs past the cap queue on a waitlist shown on the event page and the Discord embed, and the first in line is seated and pinged automatically when a spot frees. An optional "RSVPs close" cutoff ("2h before" or an absolute time) freezes RSVP changes before start. Tick <b>Allow more than one RSVP per member</b> and members can pick several options at once (Tank <i>and</i> Healer) — clicking a selected one removes it, only the attending option keeps a waitlist, and turning it back off is refused while anyone holds more than one. No option is exclusive (with the default Going / Not going / Maybe set a member could hold Going <i>and</i> Not going), so pair it with choices that make sense together.</li>
-    <li><b>Attendee roles</b>: events created with one (via <code>/create attendee-role:</code>, or a role mentioned per option inside <code>rsvp-options</code>) grant it to whoever is seated on that option within ~15 seconds, swap it when someone switches options, and remove it when the event ends. The event page lists every option that grants a role; picking them happens in Discord.</li>
-    <li><b>Role-restricted signup</b>: options and polls limited by role show a 🔒 chip naming the roles, and the buttons stay clickable. The web app can't see your Discord roles, so the API answers from role snapshots the bot keeps — and if it can't confirm them (the bot has been offline for more than half an hour, or the restriction was just created) it refuses and asks you to RSVP or vote from Discord rather than guessing. Creators and managers always pass. The edit form can remove a restriction; setting one happens in Discord with <code>restrict-to:</code>.</li>
-    <li><b>Event threads</b>: check "Create a discussion thread" when creating an event and a thread opens on its Discord message — "Going" RSVPers are added automatically, and it archives when the event ends.</li>
-    <li><b>Repeating events</b>: pick a schedule when creating (daily/weekly/monthly — by date or nth weekday — or yearly); weekly schedules can tick a set of days (Tue + Thu, or the Weekdays preset) and still repeat every N weeks. When one occurrence ends the next posts automatically. Skip or stop from the event page; edits ask whether they apply to one occurrence or the whole series.</li>
+    <li><b>Do everything here</b>: events (create, edit, delete, RSVP), polls, templates, notifications, availability grids, calendar linking, the ICS subscribe URL, and server and personal settings — each feature's web side is described under <a href="#features">Features in depth</a>.</li>
+    <li><b>One source of truth</b>: RSVP here and the Discord embed updates within about 15 seconds; RSVPs made in Discord show up here on the next page load (pages don't refresh themselves).</li>
+    <li><b>Themes</b>: pick one of five under My settings — the choice follows your account across devices.</li>
+    <li><b>Managers</b> get the Activity log, the CSV export, and the server settings page (default channel, timezone, native events, public calendar).</li>
 </ul>
 
 <h2 class="h5 mt-4 mb-2">Good to know</h2>
