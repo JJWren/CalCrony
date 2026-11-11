@@ -117,8 +117,8 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     [SlashCommand("slots", "Find free time slots for a member or role over one or more days")]
     public async Task SlotsAsync(
         [Summary("who", "A member or a role")] IMentionable who,
-        [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)")] string? when = null,
-        [Summary("days", "How many days to list, 1-14 (default 7)"), MinValue(1), MaxValue(FreeSlotLimits.MaxDays)] int? days = null,
+        [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)"), MaxLength(FreeSlotLimits.MaxWhenLength)] string? when = null,
+        [Summary("days", "How many days to list, 1-14 (default 7)"), MinValue(FreeSlotLimits.MinDays), MaxValue(FreeSlotLimits.MaxDays)] int? days = null,
         [Summary("duration", "Shortest slot worth listing, in minutes (default 60)"), MinValue(FreeSlotLimits.MinMinimumMinutes), MaxValue(FreeSlotLimits.MaxMinimumMinutes)] int? duration = null)
     {
         await DeferAsync(ephemeral: true);

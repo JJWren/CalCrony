@@ -1,3 +1,4 @@
+using CalCrony.Contracts;
 using NodaTime;
 
 namespace CalCrony.Api.Services;
@@ -20,8 +21,11 @@ public sealed record MemberAvailability(
 
 /// <summary>One requested day and the slots that start on it.</summary>
 /// <param name="Date">The calendar day in the caller's zone.</param>
-/// <param name="Slots">The slots starting on that day, in order; empty when nothing is free.</param>
-public sealed record FreeSlotDay(LocalDate Date, IReadOnlyList<(Instant Start, Instant End)> Slots);
+/// <param name="Slots">The slots starting on that day, in order; empty when none does.</param>
+/// <param name="OpenUntil">When the day begins inside a slot that started on an earlier day, the
+/// instant that slot ends; null when the day begins outside any slot.</param>
+public sealed record FreeSlotDay(
+    LocalDate Date, IReadOnlyList<(Instant Start, Instant End)> Slots, Instant? OpenUntil);
 
 /// <summary>Pure free-slot math: no clock, no database. A slot is a stretch in which every member
 /// is inside their own available hours and has no busy interval, at least the minimum long. Days
@@ -47,8 +51,10 @@ public static class FreeSlotCalculator
     }
 
     /// <summary>The slots of each requested day. A slot belongs to the caller's day it starts on,
-    /// and one that runs past midnight is not cut there. Every requested day is returned, in
-    /// order, with or without slots.</summary>
+    /// and one that runs past midnight is not cut there: the day it runs into says how long it
+    /// stays open instead (<see cref="FreeSlotDay.OpenUntil"/>), so a day with no slot of its own
+    /// is not mistaken for one with nothing free. Every requested day is returned, in order, with
+    /// or without slots.</summary>
     /// <param name="query">The lookup.</param>
     /// <param name="members">The counted members. With none, every day comes back empty.</param>
     /// <returns>One entry per requested day.</returns>
@@ -71,13 +77,39 @@ public static class FreeSlotCalculator
             }
         }
 
-        var slotsByDay = free
+        var listed = free
             .Where(slot => slot.Start < lastStart && slot.End - slot.Start >= query.Minimum)
-            .ToLookup(slot => slot.Start.InZone(query.CallerZone).Date);
+            .ToList();
+        var slotsByDay = listed.ToLookup(slot => slot.Start.InZone(query.CallerZone).Date);
 
         return [.. Enumerable.Range(0, query.Days)
             .Select(offset => query.FirstDay.PlusDays(offset))
-            .Select(day => new FreeSlotDay(day, [.. slotsByDay[day]]))];
+            .Select(day => new FreeSlotDay(
+                day, [.. slotsByDay[day]], OpenUntil(listed, StartOfDay(day, query.CallerZone))))];
+    }
+
+    /// <summary>When the listed slot a day begins inside ends, if there is one: a slot that
+    /// started on an earlier day and is still running at the day's first instant. A slot that
+    /// starts exactly then is the day's own, and one that ends exactly then is over.</summary>
+    /// <param name="listed">The listed slots, sorted and disjoint.</param>
+    /// <param name="dayStart">The day's first instant.</param>
+    /// <returns>The instant that slot ends, or null when the day begins outside any slot.</returns>
+    private static Instant? OpenUntil(List<(Instant Start, Instant End)> listed, Instant dayStart)
+    {
+        foreach (var (start, end) in listed)
+        {
+            if (start >= dayStart)
+            {
+                break;
+            }
+
+            if (end > dayStart)
+            {
+                return end;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The first instant of a calendar day in a zone.</summary>
@@ -141,7 +173,7 @@ public static class FreeSlotCalculator
     /// <returns>The instant.</returns>
     private static Instant AtMinute(LocalDate date, int minute, DateTimeZone zone)
     {
-        var local = minute == WeeklyHours.MinutesPerDay
+        var local = minute == AvailableHoursLimits.MinutesPerDay
             ? date.PlusDays(1).AtMidnight()
             : date.AtMidnight().PlusMinutes(minute);
         return local.InZoneLeniently(zone).ToInstant();

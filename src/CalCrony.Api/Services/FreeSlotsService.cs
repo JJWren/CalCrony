@@ -131,5 +131,6 @@ public sealed class FreeSlotsService(
     /// <returns>The projected DTO.</returns>
     private static FreeSlotDayDto ToDto(FreeSlotDay day) => new(
         day.Date.ToDateOnly(),
-        [.. day.Slots.Select(slot => new FreeSlotDto(slot.Start.ToDateTimeOffset(), slot.End.ToDateTimeOffset()))]);
+        [.. day.Slots.Select(slot => new FreeSlotDto(slot.Start.ToDateTimeOffset(), slot.End.ToDateTimeOffset()))],
+        day.OpenUntil?.ToDateTimeOffset());
 }

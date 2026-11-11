@@ -318,7 +318,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         {
             // The recognizer ends a calendar unit exclusively ("this week" ends on next Monday),
             // so its last day is the day before. A range the text spells out ("nov 11 to nov 13",
-            // a timex in parentheses) ends on the last day that was named.
+            // a timex in parentheses counted in days) ends on the last day that was named.
             var endsExclusively = end.IsBareDate && !IsSpelledOutRange(value);
             if (today <= (endsExclusively ? endDay.PlusDays(-1) : endDay))
             {
@@ -330,12 +330,16 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     }
 
     /// <summary>Whether a range value was spelled out by the text ("monday to friday", "nov 11-13")
-    /// rather than being a calendar unit ("this week", "december"). The recognizer writes the
-    /// former as a timex in parentheses — (start,end,duration).</summary>
+    /// rather than being a calendar unit ("this week", "december", "last quarter"). The recognizer
+    /// writes the former as a timex in parentheses whose length is counted in days —
+    /// (start,end,PnD). A quarter is written in parentheses too, but its length is in months, and
+    /// like every other calendar unit it ends exclusively.</summary>
     /// <param name="value">One recognizer resolution value.</param>
     /// <returns>True for a spelled-out range.</returns>
     private static bool IsSpelledOutRange(Dictionary<string, string> value) =>
-        value.TryGetValue("timex", out var timex) && timex.StartsWith('(');
+        value.TryGetValue("timex", out var timex)
+        && timex.StartsWith('(')
+        && timex.EndsWith("D)", StringComparison.Ordinal);
 
     /// <summary>Reads the day out of one recognizer value text: a full datetime, a bare date, or a
     /// bare time, which carries no day.</summary>

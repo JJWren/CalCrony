@@ -145,7 +145,7 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
             await SeedProfileAsync(caller, callerTimeZone);
         }
 
-        var slots = await GetAsync(new FreeSlotsRequest([guildId + 50], caller, guildId, null, 1, 60));
+        var slots = await GetAsync(new FreeSlotsRequest([guildId + 300], caller, guildId, null, 1, 60));
         var parsed = await Client.PostAsJsonAsync("/tools/parse-datetime", new ParseDateTimeRequest("tomorrow 6pm", caller, guildId));
         parsed.EnsureSuccessStatusCode();
 
@@ -188,21 +188,21 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         Assert.Contains(expected, (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
     }
 
-    [Theory]
-    [InlineData("year 5000", 9190)]
-    [InlineData("in 416018 weeks", 9191)]   // lands in the last days of year 9999, where day arithmetic overflows
-    public async Task A_first_day_more_than_a_year_away_is_refused_not_looked_up(string when, long member)
+    [Fact]
+    public async Task A_first_day_more_than_a_year_away_is_refused_not_looked_up()
     {
-        var accessToken = $"access-slots-{member}";
-        await SeedConnectionAsync(member, accessToken);
+        await AssertRefusedAsTooFarAheadAsync("year 5000", member: 9190);
+    }
 
-        var response = await Client.PostAsJsonAsync(
-            "/calendar/free-slots", new FreeSlotsRequest([member], 9193, 9194, when, 14, 60));
+    [Fact]
+    public async Task A_first_day_in_the_last_days_of_the_calendar_is_refused_not_a_500()
+    {
+        // The last days of year 9999, where adding the requested days would overflow. The number
+        // of weeks is counted from today, so the text lands there whenever the suite runs: a fixed
+        // number stops being a date at all once today plus that many weeks is past the year's end.
+        var weeks = Period.DaysBetween(Today(DateTimeZone.Utc), new LocalDate(9999, 12, 25)) / 7;
 
-        // Natural language reaches any year. A refusal, not a 500 — and no calendar is asked.
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("more than a year away", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
-        Assert.DoesNotContain(fixture.Provider.FreeBusyCalls, call => call.AccessToken == accessToken);
+        await AssertRefusedAsTooFarAheadAsync($"in {weeks} weeks", member: 9191);
     }
 
     [Fact]
@@ -220,6 +220,56 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         var outside = await Client.PostAsJsonAsync("/calendar/free-slots", new FreeSlotsRequest(
             [9195], 9196, 9197, Iso(today.PlusDays(FreeSlotLimits.MaxDaysAhead + 2)), 14, 60));
         Assert.Equal(HttpStatusCode.BadRequest, outside.StatusCode);
+        Assert.Contains("more than a year away", (await outside.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+    }
+
+    [Fact]
+    public async Task First_day_text_over_its_length_limit_is_refused_and_text_at_the_limit_is_read()
+    {
+        // Padding keeps both texts a day the recognizer reads, so they differ in length alone:
+        // if the limit were not checked, the longer one would be answered like the shorter.
+        var atLimit = "tomorrow".PadRight(FreeSlotLimits.MaxWhenLength);
+        var overLimit = "tomorrow".PadRight(FreeSlotLimits.MaxWhenLength + 1);
+
+        var read = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([9310], 9311, 9312, atLimit, 1, 60));
+        read.EnsureSuccessStatusCode();
+
+        var refused = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([9310], 9311, 9312, overLimit, 1, 60));
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains(
+            $"when must be at most {FreeSlotLimits.MaxWhenLength} characters",
+            (await refused.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+    }
+
+    [Fact]
+    public async Task A_day_that_begins_inside_a_slot_from_the_day_before_says_until_when_it_is_free()
+    {
+        // A caller in Tokyo looks at a member on Chicago time. The member's 8 AM–11 PM starts late
+        // in the caller's evening and ends the next afternoon, so each stretch is listed under one
+        // of the caller's days and runs well into the next.
+        const long guildId = 9300, caller = 9301, member = 9302;
+        var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedProfileAsync(caller, "Asia/Tokyo");
+        await SeedConnectionAsync(member, "access-slots-9302");
+        var day = DayAhead(tokyo);
+
+        // Busy for the whole stretch that would have started on the caller's second day.
+        fixture.Provider.BusyBlocksByAccessToken["access-slots-9302"] =
+            [(At(Chicago, day.PlusDays(1), 8), At(Chicago, day.PlusDays(1), 23))];
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 2, 60));
+
+        // The first day ends with the stretch that starts that evening; nothing ran into it.
+        Assert.Equal("Asia/Tokyo", result.TimeZone);
+        Assert.Equal(Slot(At(Chicago, day, 8), At(Chicago, day, 23)), result.Days[0].Slots[^1]);
+        Assert.Null(result.Days[0].OpenUntilUtc);
+
+        // The second day has no slot of its own — and is free until that stretch ends.
+        Assert.Empty(result.Days[1].Slots);
+        Assert.Equal(At(Chicago, day, 23).ToDateTimeOffset(), result.Days[1].OpenUntilUtc);
     }
 
     [Theory]
@@ -307,6 +357,21 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
 
         // Nothing offered starts in the past.
         Assert.All(result.Days.SelectMany(d => d.Slots), slot => Assert.True(slot.StartUtc >= before.ToDateTimeOffset()));
+    }
+
+    /// <summary>A first day beyond the horizon: a refusal with its reason, not a 500 — and the
+    /// member's calendar is never asked. Natural language reaches any year.</summary>
+    private async Task AssertRefusedAsTooFarAheadAsync(string when, long member)
+    {
+        var accessToken = $"access-slots-{member}";
+        await SeedConnectionAsync(member, accessToken);
+
+        var response = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([member], 9193, 9194, when, 14, 60));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("more than a year away", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        Assert.DoesNotContain(fixture.Provider.FreeBusyCalls, call => call.AccessToken == accessToken);
     }
 
     private async Task<FreeSlotsResponse> GetAsync(FreeSlotsRequest request)

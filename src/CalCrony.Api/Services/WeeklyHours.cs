@@ -9,9 +9,6 @@ namespace CalCrony.Api.Services;
 /// Immutable.</summary>
 public sealed class WeeklyHours
 {
-    /// <summary>Minutes in a day — the latest a range may end.</summary>
-    public const int MinutesPerDay = 1440;
-
     private readonly Dictionary<IsoDayOfWeek, (int StartMinute, int EndMinute)> ranges;
 
     /// <summary>Builds a week from its ranges. Only what makes a range meaningful is checked here —
@@ -31,10 +28,10 @@ public sealed class WeeklyHours
                 throw new ArgumentException($"{day} is not a weekday.", nameof(ranges));
             }
 
-            if (startMinute < 0 || endMinute > MinutesPerDay || startMinute >= endMinute)
+            if (startMinute < 0 || endMinute > AvailableHoursLimits.MinutesPerDay || startMinute >= endMinute)
             {
                 throw new ArgumentException(
-                    $"{day}: {startMinute}–{endMinute} is not a range inside one day (0–{MinutesPerDay}, start before end).",
+                    $"{day}: {startMinute}–{endMinute} is not a range inside one day (0–{AvailableHoursLimits.MinutesPerDay}, start before end).",
                     nameof(ranges));
             }
         }

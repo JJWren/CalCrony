@@ -211,9 +211,31 @@ public class NaturalDateTimeParserTests
         Assert.Contains("already passed", error);
     }
 
+    [Fact]
+    public void A_quarter_is_a_calendar_unit_although_it_is_written_like_a_spelled_out_range()
+    {
+        // The recognizer gives a quarter a timex in parentheses, as it does "jul 15 to jul 17" —
+        // but counted in months, and ending, exclusively, on the first day of the next quarter.
+        var parser = CreateParser();
+        var firstOfOctober = Instant.FromUtc(2026, 10, 1, 15, 0);
+
+        // Mid-quarter it is under way, so it means today.
+        Assert.True(parser.TryResolveDay("this quarter", Chicago, out var day, out var error), error);
+        Assert.Equal(new LocalDate(2026, 7, 15), day);
+
+        // On October 1 the quarter that ended the day before is over, not "ending today"…
+        Assert.False(parser.TryResolveDay("last quarter", Chicago, out _, out error, firstOfOctober));
+        Assert.Contains("already passed", error);
+
+        // …and the one that begins that day is that day.
+        Assert.True(parser.TryResolveDay("this quarter", Chicago, out day, out error, firstOfOctober), error);
+        Assert.Equal(new LocalDate(2026, 10, 1), day);
+    }
+
     [Theory]
     [InlineData("this week")]       // began on Monday the 13th
     [InlineData("this month")]      // began on the 1st
+    [InlineData("july")]            // the month by name: this year's, not last year's or next
     public void A_range_already_under_way_means_from_today(string text)
     {
         var parser = CreateParser();

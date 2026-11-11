@@ -66,6 +66,9 @@ public static class FreeSlotLimits
     /// <summary>Most members one lookup may cover — each linked one costs a provider query.</summary>
     public const int MaxUsers = 50;
 
+    /// <summary>Fewest days one lookup may list.</summary>
+    public const int MinDays = 1;
+
     /// <summary>Days listed when the caller names none.</summary>
     public const int DefaultDays = 7;
 
@@ -75,6 +78,10 @@ public static class FreeSlotLimits
     /// <summary>How far ahead the first day may lie, in days. A date typed without its year that
     /// has already passed rolls to next year, which is never further than this.</summary>
     public const int MaxDaysAhead = 366;
+
+    /// <summary>Longest first-day text accepted, in characters. A day takes a few words, and the
+    /// date recognizer's cost grows steeply with length, so longer text is refused unread.</summary>
+    public const int MaxWhenLength = 100;
 
     /// <summary>Shortest slot listed, in minutes, when the caller names none.</summary>
     public const int DefaultMinimumMinutes = 60;
@@ -91,6 +98,10 @@ public static class FreeSlotLimits
 /// zone. A time of day is minutes from midnight.</summary>
 public static class AvailableHoursLimits
 {
+    /// <summary>Minutes in a day — the latest a time of day can be, where it stands for the
+    /// midnight that ends the day.</summary>
+    public const int MinutesPerDay = 1440;
+
     /// <summary>8:00 AM.</summary>
     public const int DefaultStartMinute = 480;
 
@@ -102,8 +113,9 @@ public static class AvailableHoursLimits
 /// <param name="UserIds">The Discord user ids to look at (1 to <see cref="FreeSlotLimits.MaxUsers"/> distinct).</param>
 /// <param name="RequesterId">The Discord user who asked; days start and end in their zone.</param>
 /// <param name="GuildId">The server the command ran in; its timezone stands in for members who have set none.</param>
-/// <param name="When">The first day in natural language ("saturday", "nov 12"); null or blank means today.</param>
-/// <param name="Days">How many days to list (1 to <see cref="FreeSlotLimits.MaxDays"/>).</param>
+/// <param name="When">The first day in natural language ("saturday", "nov 12"), at most
+/// <see cref="FreeSlotLimits.MaxWhenLength"/> characters; null or blank means today.</param>
+/// <param name="Days">How many days to list (<see cref="FreeSlotLimits.MinDays"/> to <see cref="FreeSlotLimits.MaxDays"/>).</param>
 /// <param name="MinimumMinutes">The shortest slot worth listing, in minutes.</param>
 public record FreeSlotsRequest(
     IReadOnlyList<long> UserIds, long RequesterId, long GuildId, string? When, int Days, int MinimumMinutes);
@@ -149,10 +161,13 @@ public record FreeSlotDto(DateTimeOffset StartUtc, DateTimeOffset EndUtc)
 }
 
 /// <summary>One requested day and the slots that start on it, in order. A slot that runs past
-/// midnight stays with the day it starts on.</summary>
+/// midnight stays with the day it starts on, so the day after can begin inside it.</summary>
 /// <param name="Date">The calendar day, in the zone the response names.</param>
-/// <param name="Slots">The slots starting on that day; empty when nothing is free.</param>
-public record FreeSlotDayDto(DateOnly Date, IReadOnlyList<FreeSlotDto> Slots);
+/// <param name="Slots">The slots starting on that day; empty when none does.</param>
+/// <param name="OpenUntilUtc">When the day begins inside a slot that started on an earlier day, the
+/// instant that slot ends: the day is free until then, although the slot is listed under the day
+/// it started on. Null when the day begins outside any slot.</param>
+public record FreeSlotDayDto(DateOnly Date, IReadOnlyList<FreeSlotDto> Slots, DateTimeOffset? OpenUntilUtc = null);
 
 /// <summary>Free slots for the requested days, plus how each requested member entered the answer.</summary>
 /// <param name="TimeZone">The IANA zone the days were cut in: the requester's, else the server's, else UTC.</param>

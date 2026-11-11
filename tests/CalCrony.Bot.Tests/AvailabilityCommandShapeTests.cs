@@ -44,15 +44,17 @@ public class AvailabilityCommandShapeTests : IAsyncLifetime
         Assert.Equal(ApplicationCommandOptionType.Mentionable, who.DiscordOptionType);
         Assert.True(who.IsRequired);
 
+        // The bounds come from the same constants the API validates against. Discord turns down
+        // first-day text over the length limit before the command ever runs.
         var when = slots.Parameters[1];
         Assert.Equal(ApplicationCommandOptionType.String, when.DiscordOptionType);
         Assert.False(when.IsRequired);
+        Assert.Equal(FreeSlotLimits.MaxWhenLength, when.MaxLength);
 
-        // The bounds come from the same constants the API validates against.
         var days = slots.Parameters[2];
         Assert.Equal(ApplicationCommandOptionType.Integer, days.DiscordOptionType);
         Assert.False(days.IsRequired);
-        Assert.Equal(1, days.MinValue);
+        Assert.Equal(FreeSlotLimits.MinDays, days.MinValue);
         Assert.Equal(FreeSlotLimits.MaxDays, days.MaxValue);
 
         var duration = slots.Parameters[3];
@@ -60,6 +62,18 @@ public class AvailabilityCommandShapeTests : IAsyncLifetime
         Assert.False(duration.IsRequired);
         Assert.Equal(FreeSlotLimits.MinMinimumMinutes, duration.MinValue);
         Assert.Equal(FreeSlotLimits.MaxMinimumMinutes, duration.MaxValue);
+    }
+
+    [Fact]
+    public void The_option_descriptions_state_the_limits_and_defaults_the_code_applies()
+    {
+        // An attribute takes literals only, so the numbers in a description are typed by hand.
+        // This is what notices when a limit or a default moves and the description does not.
+        var slots = Command("slots");
+
+        Assert.Contains($"{FreeSlotLimits.MinDays}-{FreeSlotLimits.MaxDays}", slots.Parameters[2].Description);
+        Assert.Contains($"default {FreeSlotLimits.DefaultDays}", slots.Parameters[2].Description);
+        Assert.Contains($"default {FreeSlotLimits.DefaultMinimumMinutes}", slots.Parameters[3].Description);
     }
 
     [Fact]

@@ -73,6 +73,9 @@ only implied — by a detached time or a range under way — beat a day the text
    began before today and has not ended is *under way*. Its last day is the day before the
    recognizer's end for a calendar unit (`this week` ends, exclusively, on next Monday), the end
    itself for a range the text spells out (`nov 11 to nov 13`), and the date of a date-and-time end.
+   A spelled-out range is told apart by its timex: in parentheses, with a length counted in days.
+   A quarter is in parentheses too, but its length is in months, and it is a calendar unit —
+   narrowed in review round 1 (section 9), when `last quarter` on October 1 read as today.
 3. The recognizer offers several readings of a phrase whose year or week is open (`saturday`,
    `nov 5`, `nov 11 to nov 13`). They are alternatives for that phrase: if one of them is a range
    under way, the phrase means today; otherwise it names the earliest of its days that is today or
@@ -121,6 +124,7 @@ The endpoint validates, in this order:
 | distinct `UserIds`: 1 to 50 | `userIds must have between 1 and 50 distinct entries.` (the existing route's wording) |
 | `Days`: 1 to 14 | `days must be between 1 and 14.` |
 | `MinimumMinutes`: 15 to 1440 | `minimumMinutes must be between 15 and 1440.` |
+| `When`: at most 100 characters (`FreeSlotLimits.MaxWhenLength`) | `when must be at most 100 characters.` — added in review round 1 (section 9): what the recognizer costs grows steeply with the length of the text |
 
 `FreeSlotsService.GetAsync` then, with one clock read used throughout:
 
@@ -178,21 +182,25 @@ and `Days` is empty.
    merged.
 5. **Slots.** An interval is a slot when it starts before `lastStart` and is at least the minimum
    long. It belongs to the caller's local date of its start. Every requested day is returned in
-   order, with its slots in order or with none.
+   order, with its slots in order or with none. A day that begins inside a slot listed under an
+   earlier day also carries the instant that slot ends (`OpenUntil`) — added in review round 1
+   (section 9), so that such a day is not reported as having nothing free. A slot that starts
+   exactly at the day's first instant is the day's own; one that ends exactly then is over.
 6. `Compute` with no members returns every day empty; the service never calls it that way.
 
 What follows from these: today's first slot starts at the rounded `now`, and what is left of a
 stretch is dropped if it is shorter than the minimum (FR2); in the last minutes of a one-day
 request `rangeStart` can equal `lastStart`, and the day is listed with nothing free; a member in another
 zone shifts the hours the caller sees, so a slot can run past the caller's midnight — it stays one
-slot, under the day it starts on (FR4), including on the last requested day (D5).
+slot, under the day it starts on (FR4), including on the last requested day (D5), and the day it
+runs into says until when it is free.
 
 ### 4.6 The command
 
 | Option | Type | Required | Bounds | Description in Discord |
 |---|---|---|---|---|
 | `who` | member or role (the mentionable picker) | yes | — | `A member or a role` |
-| `when` | text | no | default: today | `First day, e.g. "today", "saturday", "nov 12" (default: today)` |
+| `when` | text | no | at most 100 characters (review round 1); default: today | `First day, e.g. "today", "saturday", "nov 12" (default: today)` |
 | `days` | integer | no | 1–14, default 7 | `How many days to list, 1-14 (default 7)` |
 | `duration` | integer | no | 15–1440, default 60 | `Shortest slot worth listing, in minutes (default 60)` |
 
@@ -204,8 +212,8 @@ Resolving `who`, after the ephemeral defer:
 
 | `who` is | Members asked about | Title subject | Refusal |
 |---|---|---|---|
-| a role | its holders that are not bots, through the member download `role` already uses | `@{role name}` | none left → `Nobody currently has the {role mention} role.`; more than 50 → `The {role mention} role has {n} members; free-slot lists support at most 50 at a time.` |
-| a member of this server | that member | `@{display name}` | — |
+| a role | its holders that are not bots, through the member download `role` already uses | `@{role name}` | nobody holds it → `Nobody currently has the {role mention} role.`; only bots do → `Only bots have the {role mention} role, and bots don't keep a calendar.` (review round 1); more than 50 → `The {role mention} role has {n} members; free-slot lists support at most 50 at a time.` |
+| a member of this server | that member | `@{display name}` — one at sign, as for a role, when the name already starts with one (review round 1) | — |
 | a bot | — | — | `Bots don't keep a calendar — pick a member or a role.` |
 | a user who is not in this server | — | — | `That user isn't a member of this server.` (R3) |
 
@@ -217,7 +225,7 @@ subcommands.
 ```text
 Free slots for @GM
 🗓️ Thu Nov 12 – Wed Nov 18, 2026 · 60 min or longer
-When all 3 counted members are free on their linked calendars, each between 8 AM and 11 PM in their own timezone.
+When all 3 counted members are free on their linked calendars, each between 8 AM and 11 PM in their own timezone (the server's for anyone who hasn't set one).
 
 **Thu Nov 12** · 6:00 PM–8:00 PM
 **Fri Nov 13** · 6:00 PM–11:00 PM
@@ -240,27 +248,38 @@ Days are in America/Chicago · times show in your local time
 
   | Case | Sentence |
   |---|---|
-  | one member asked about, counted | `Free on their linked calendar, between 8 AM and 11 PM in their timezone.` |
-  | several asked about, two or more counted | `When all {n} counted members are free on their linked calendars, each between 8 AM and 11 PM in their own timezone.` |
-  | several asked about, one counted | `When the one counted member is free on their linked calendar, between 8 AM and 11 PM in their timezone.` |
-  | nobody counted | `Nobody could be counted, so there are no slots to list. A member is counted once they link a calendar with /calendar connect.` (the command in code style) — and no day lines |
+  | one member asked about, counted | `Free on their linked calendar, between 8 AM and 11 PM in their timezone (the server's if they haven't set one).` |
+  | several asked about, two or more counted | `When all {n} counted members are free on their linked calendars, each between 8 AM and 11 PM in their own timezone (the server's for anyone who hasn't set one).` |
+  | several asked about, one counted | `When the one counted member is free on their linked calendar, between 8 AM and 11 PM in their timezone (the server's if they haven't set one).` |
+  | nobody counted, none of them with a calendar | `Nobody could be counted, so there are no slots to list. A member is counted once they link a calendar with /calendar connect.` (the command in code style) — and no day lines |
+  | nobody counted, at least one for another reason | `Nobody could be counted, so there are no slots to list. The reasons are listed below.` — and no day lines |
 
-  This is how unit 1 meets FR13's "names the members the default was applied to": the default
-  applies to every counted member, and the sentence says so. Unit 2 names them one by one, once
-  some members have hours of their own.
+  The zone fallback in the first three, and the second "nobody counted" sentence, were added in
+  review round 1 (section 9). This is how unit 1 meets FR13's "names the members the default was
+  applied to": the default applies to every counted member, and the sentence says so. Unit 2
+  names them one by one, once some members have hours of their own.
 - **Day lines**: the day in bold, then its slots joined by ` · `, each `<t:start:t>–<t:end:t>` — a
   Discord timestamp, shown in the reader's local time — or `nothing free`. At most six slots, then
   `+N more` (FR6). A slot of 24 hours or more ends with `<t:end:f>`, which carries the date (R7).
+  A day with no slot of its own that begins inside one listed under an earlier day reads
+  `free until <t:end:t> (started Thu)` instead of `nothing free`, with the same rule for the
+  end's style (review round 1). A day with slots of its own lists only those.
+- **Closing line**, only when no day has a slot and the minimum is above the smallest allowed:
+  ``Nothing {n} min or longer is free in this range — a shorter `duration` may find something.``
+  (review round 1).
 - **Field "Not counted"**, only when someone is not: one line per reason that has members, in this
   order — `⚪ No calendar linked`, ``🔄 Needs to reconnect with `/calendar connect` ``,
   `⚠️ Couldn't check right now` — then ` — ` and the members as mentions. The emoji match the
-  existing grid's. The field's 1,024 characters are shared equally between the lines present; a
-  line that would overflow its share ends with `+N more`.
+  existing grid's. When the field's 1,024 characters hold every line in full, everyone is named.
+  When they do not, the lines share the field: shortest first, each keeps its full length while
+  that is within an equal share of the room left, and a line that is cut ends with `+N more`
+  (review round 1 — the shares were equal before, which cut a long list while a short one left
+  most of the field empty).
 - **Footer**: `Days are in {zone id} · times show in your local time`.
 - **Colour**: the existing availability embed's.
 - **Budget**: fourteen days at six slots each with `+N more`, the longest range line and sentence
-  come to about 3,560 characters of description against Discord's 4,096; with the longest title,
-  a full field and the footer the embed is about 4,800 against 6,000. A test builds that case, and
+  come to about 3,600 characters of description against Discord's 4,096; with the longest title,
+  a full field and the footer the embed is about 4,750 against 6,000. A test builds that case, and
   Discord.Net itself refuses to build an embed over either limit.
 
 ### 4.8 Docs copy
@@ -536,6 +555,50 @@ Counts after the fixes: 963 tests green — 617 API, 216 bot, 130 web (810 befor
 The Release build has the same 22 warnings as the baseline, all in existing test code and the test
 project's package references; none from new code. The reply's worst case, measured on the real
 builder: 3,556 of 4,096 description characters and 4,710 of 6,000 for the whole embed.
+
+### Review round 1 — two review agents in Copilot's place (2026-11-11)
+
+Copilot's review did not start on PR #172 (step 8.4), so on Joshua's instruction two review agents
+read the whole branch at `7e6ba41`, one for security and privacy and one for correctness and code
+quality. Neither had seen the code before, and neither changed anything; every finding was
+confirmed here before it was acted on, by reading or by running the real code. Their findings are
+numbered S1–S5 and Q1–Q10.
+
+Fixed in this round:
+
+| Finding | Change |
+|---|---|
+| S2, and noted by both reviewers — `when` had no length limit on either layer. Measured on the real parser: text of a hostile shape (`1-` repeated, `from 1 to 2 ` repeated, an ISO date-and-`T` repeated) takes 7 ms to 49 ms at 100 characters, 1.3 s to 6.9 s at 1,000, and more than 30 s at Discord's 6,000. | `FreeSlotLimits.MaxWhenLength` (100): Discord enforces it on the option, and the route refuses longer text before anything reads it (4.2, 4.6). A route test and the command-shape test pin both. The other commands' `when:` options and the web's date route share the recognizer and have no limit; that is older than this branch and is raised separately. |
+| Q1 — a route test asked for `in 416018 weeks` to land in the last days of year 9999. From 2026-11-14 that text is past the end of the calendar and is no longer read as a date, so the test would have begun failing on its own. | The number of weeks is counted from the day the test runs. |
+| Q4 — a day with no slot of its own read `nothing free` even when it began inside a slot listed under the day before. A caller in Tokyo looking at a member on Chicago time sees the member's day as 11 PM–2 PM: with the member busy for all of their Friday, the caller's Friday was free until 2 PM and said `nothing free`. | `FreeSlotDay.OpenUntil` and `FreeSlotDayDto.OpenUntilUtc` (4.5 step 5); the day line reads `free until … (started Thu)` (4.7). Calculator, route and reply tests, and both seeded tests now check it. Not done here, for unit 2's plan: with hours that run from midnight to midnight a slot can reach the end of the window, where its real end is not known. |
+| Q2 — the "Not counted" field gave each reason an equal share, so 25 members under one reason and 1 under another were cut at 20 names with over 400 of the field's 1,024 characters unused. | Everyone is named when the field holds them; otherwise a short line keeps its length and the long ones split the rest (4.7). |
+| Q3 — the sentence said "in their timezone" for a member who has set none, whose hours are read in the server's zone (UTC by default). | The sentence states the fallback (4.7). Naming the members it applied to, with the zone, is left for unit 2, where the reply names members one by one anyway. |
+| Q8 — "A member is counted once they link a calendar" was said to a member whose linked calendar needs reconnecting; a role held only by bots was "nobody has the role"; a display name starting with `@` was titled `@@name`; a minimum longer than anyone's hours gave a run of `nothing free` with no hint. | The second "nobody counted" sentence, the bots-only refusal, one at sign, and the closing line (4.6, 4.7). |
+| Q9 — `last quarter` on the first day of a quarter read as today: the recognizer writes a quarter with a timex in parentheses, which was taken for a spelled-out range ending that day. | A spelled-out range is one whose length is counted in days (4.1 rule 2). `past 3 days` still reads as today, as 4.1 records. |
+| Q7 — `MinutesPerDay` existed twice, the lower bound for days was a literal on both sides, and no test tied the numbers in the option descriptions to the limits. | `AvailableHoursLimits.MinutesPerDay` and `FreeSlotLimits.MinDays` in Contracts; a test reads the descriptions against the limits. |
+| Q5, Q6 — the new route was missing from the list of calendar routes that need a credential; a comment gave the wrong reason for an empty answer; one assertion could not fail; one refusal was asserted by status alone; two tests shared a member id; no test pinned a month by name; the clock-change test had no zone that changes at midnight. | Each corrected or added; America/Santiago joins the clock-change test. |
+| S5, and step 1 of S1 — the privacy sentence said "members of your Discord server", and the places where a calendar is linked said less than what linking allows. | Both privacy copies say "members of the Discord servers you share with CalCrony"; the web's calendar card and the `/calendar connect` reply say that those members can check when you are free or busy. |
+
+Confirmed and not changed in this round:
+
+- **S1** (with S3) — `who:<member>` lets any member of a server list any linked member of it, up
+  to a year ahead, without the target knowing; before, a linked member could be looked up only
+  through a role of 50 or fewer or an event they had answered. The requirements (section 7 there)
+  and step 8.3 above call the exposure the same as `/availability role`'s: that holds for the kind
+  of data, not for who can be reached. A list of one member also shows where their day starts and
+  ends, and so roughly their timezone. Whether to gate lookups about another member, add a
+  per-member switch, or keep the design with the clearer wording is Joshua's decision.
+- **S4** — nothing throttles a command that can cause 50 Google queries. `/availability role` has
+  the same fan-out; a limit belongs across all three commands and is raised separately.
+- **Q10** — the audit entry stamped 18:04:33Z says "committed locally in four commits"; the commits
+  are stamped 18:05:23Z. The entry was written just before they were made. It is left as written.
+- Older than this branch, from the security review, each raised separately: no bounds on
+  `/availability role`'s `duration`; a calendar token that cannot be decrypted fails a whole
+  lookup with a 500; an unreachable API shows its internal address in the bot's error text.
+
+Counts after round 1: 985 tests green — 625 API, 230 bot, 130 web. The Release build has the same
+22 warnings. The reply's worst case on the real builder: 3,601 of 4,096 description characters and
+4,749 of 6,000 for the whole embed.
 
 ## 10. Plan checklist
 

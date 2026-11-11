@@ -29,7 +29,8 @@ public class CalendarModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         await FollowupAsync(
             "📅 Connect your Google Calendar:\n" +
             $"```{result.Value.StartUrl}```\n" +
-            "This link expires in 10 minutes and works once. Only free/busy blocks are ever read — never event titles or details.",
+            "This link expires in 10 minutes and works once. Only free/busy blocks are ever read — never event titles or details. " +
+            "Once it's linked, members of the servers you share with CalCrony can check when you're free or busy.",
             ephemeral: true);
     }
 

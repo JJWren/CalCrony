@@ -15,13 +15,17 @@ public sealed record FreeSlotTarget(IReadOnlyList<long> UserIds, string Subject,
     /// <param name="roleName">The role's name.</param>
     /// <param name="roleMention">The role's mention markup, for the refusal text.</param>
     /// <param name="holders">Everyone holding the role, with whether each is a bot.</param>
-    /// <returns>The target, or the refusal when nobody holds the role or too many do.</returns>
+    /// <returns>The target, or the refusal when nobody holds the role, only bots do, or too many
+    /// members do.</returns>
     public static FreeSlotTarget ForRole(string roleName, string roleMention, IEnumerable<(long UserId, bool IsBot)> holders)
     {
-        var userIds = holders.Where(holder => !holder.IsBot).Select(holder => holder.UserId).Distinct().ToList();
+        var everyHolder = holders.ToList();
+        var userIds = everyHolder.Where(holder => !holder.IsBot).Select(holder => holder.UserId).Distinct().ToList();
         if (userIds.Count == 0)
         {
-            return Refused($"Nobody currently has the {roleMention} role.");
+            return Refused(everyHolder.Count == 0
+                ? $"Nobody currently has the {roleMention} role."
+                : $"Only bots have the {roleMention} role, and bots don't keep a calendar.");
         }
 
         if (userIds.Count > FreeSlotLimits.MaxUsers)
@@ -31,8 +35,7 @@ public sealed record FreeSlotTarget(IReadOnlyList<long> UserIds, string Subject,
         }
 
         // Plain name, not the mention: Discord never renders mention markup inside embed titles.
-        // The everyone role's name already starts with the sign.
-        return new FreeSlotTarget(userIds, roleName.StartsWith('@') ? roleName : $"@{roleName}", null);
+        return new FreeSlotTarget(userIds, WithAtSign(roleName), null);
     }
 
     /// <summary>One user. They must be a member of the server the command runs in: a user option
@@ -55,11 +58,17 @@ public sealed record FreeSlotTarget(IReadOnlyList<long> UserIds, string Subject,
             return Refused("That user isn't a member of this server.");
         }
 
-        return new FreeSlotTarget([userId], $"@{displayName}", null);
+        return new FreeSlotTarget([userId], WithAtSign(displayName), null);
     }
 
     /// <summary>A target that is turned down with the given reply.</summary>
     /// <param name="reason">The reply to give.</param>
     /// <returns>The refused target.</returns>
     public static FreeSlotTarget Refused(string reason) => new([], "", reason);
+
+    /// <summary>A name as the title shows it: behind an at sign, unless it already starts with one
+    /// — the everyone role's name does, and a display name may.</summary>
+    /// <param name="name">The role's or member's name.</param>
+    /// <returns>The name, with an at sign put in front when it has none.</returns>
+    private static string WithAtSign(string name) => name.StartsWith('@') ? name : $"@{name}";
 }

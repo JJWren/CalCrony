@@ -32,11 +32,19 @@ public class FreeSlotTargetTests
     public void A_role_nobody_holds_is_refused()
     {
         var empty = FreeSlotTarget.ForRole("GM", "<@&77>", []);
-        var botsOnly = FreeSlotTarget.ForRole("GM", "<@&77>", [(2, true)]);
 
         Assert.Equal("Nobody currently has the <@&77> role.", empty.Refusal);
-        Assert.Equal(empty.Refusal, botsOnly.Refusal);
         Assert.Empty(empty.UserIds);
+    }
+
+    [Fact]
+    public void A_role_held_only_by_bots_is_refused_for_that_reason()
+    {
+        // "Nobody has the role" would be untrue: the member list shows who does.
+        var botsOnly = FreeSlotTarget.ForRole("Helpers", "<@&77>", [(2, true), (3, true)]);
+
+        Assert.Equal("Only bots have the <@&77> role, and bots don't keep a calendar.", botsOnly.Refusal);
+        Assert.Empty(botsOnly.UserIds);
     }
 
     [Fact]
@@ -65,6 +73,14 @@ public class FreeSlotTargetTests
 
         Assert.Null(target.Refusal);
         Assert.Equal([42L], target.UserIds);
+        Assert.Equal("@Sam", target.Subject);
+    }
+
+    [Fact]
+    public void A_display_name_that_starts_with_an_at_sign_is_not_given_a_second()
+    {
+        var target = FreeSlotTarget.ForUser(42, "@Sam", isBot: false, isMemberOfThisServer: true);
+
         Assert.Equal("@Sam", target.Subject);
     }
 

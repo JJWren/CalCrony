@@ -167,8 +167,9 @@ public class FreeSlotCalculatorTests
     [Fact]
     public void Members_with_no_waking_hours_in_common_share_no_slot()
     {
-        // Tokyo's day ends (11 PM JST = 8 AM Chicago) at the very instant Chicago's begins: the
-        // two stretches touch and share nothing.
+        // Chicago and Berlin share 8 AM–4 PM Chicago time. Tokyo's day ends at 8 AM Chicago
+        // (11 PM JST) and its next begins at 5 PM, so it only touches that stretch at 8 AM: the
+        // three are never free together.
         var days = FreeSlotCalculator.Compute(
             Query(Chicago, Thursday, days: 3, minimumMinutes: 15),
             [Member(Chicago), Member(Berlin), Member(Tokyo)]);
@@ -192,11 +193,76 @@ public class FreeSlotCalculatorTests
             ],
             days[0].Slots);
 
-        // The last day's slot keeps its real end, past the midnight that closes the range…
+        // The last day's slot keeps its real end, past the midnight that closes the range — and
+        // it is the day's only slot: the stretch that starts at 11 AM the day after is inside the
+        // window, but starts after the last requested day.
         Assert.Equal([(At(NewYork, 2026, 11, 13, 11), At(NewYork, 2026, 11, 14, 2))], days[1].Slots);
 
-        // …and nothing that starts after that midnight is listed, although the window reaches it.
-        Assert.Equal(2, days.Count);
+        // Thursday's evening slot is still running when Friday begins. Nothing runs into the
+        // first day: what the range's first midnight cuts off is that day's own first slot.
+        Assert.Null(days[0].OpenUntil);
+        Assert.Equal(At(NewYork, 2026, 11, 13, 2), days[1].OpenUntil);
+    }
+
+    [Fact]
+    public void A_day_with_no_slot_of_its_own_still_says_until_when_it_is_free()
+    {
+        // A Chicago member's 8 AM–11 PM is 11 PM–2 PM for a caller in Tokyo. The member is busy
+        // for all of their Friday, so nothing starts on the caller's Friday — but the stretch that
+        // started on Thursday evening runs until 2 PM that day.
+        var member = Member(Chicago, (At(Chicago, 2026, 11, 13, 8), At(Chicago, 2026, 11, 13, 23)));
+
+        var days = FreeSlotCalculator.Compute(Query(Tokyo, Thursday, days: 3), [member]);
+
+        Assert.Equal(At(Tokyo, 2026, 11, 12, 23), days[0].Slots[^1].Start);
+        Assert.Equal(At(Tokyo, 2026, 11, 13, 14), days[0].Slots[^1].End);
+
+        Assert.Empty(days[1].Slots);
+        Assert.Equal(At(Tokyo, 2026, 11, 13, 14), days[1].OpenUntil);
+
+        // Saturday begins outside any slot — the member's Friday is busy to its end — and lists
+        // the stretch that starts that evening.
+        Assert.Null(days[2].OpenUntil);
+        Assert.Equal([(At(Tokyo, 2026, 11, 14, 23), At(Tokyo, 2026, 11, 15, 14))], days[2].Slots);
+    }
+
+    [Fact]
+    public void A_slot_that_ends_or_starts_exactly_at_midnight_does_not_run_into_the_day()
+    {
+        var friday = Thursday.PlusDays(1);
+
+        // Hours to midnight on Thursday and none on Friday: the slot is over as Friday begins.
+        var untilMidnight = FreeSlotCalculator.Compute(
+            Query(Chicago, Thursday, days: 2),
+            [new MemberAvailability(Chicago, Week((IsoDayOfWeek.Thursday, 1200, 1440)), [])]);
+
+        Assert.Equal([(At(Chicago, 2026, 11, 12, 20), At(Chicago, 2026, 11, 13, 0))], untilMidnight[0].Slots);
+        Assert.Empty(untilMidnight[1].Slots);
+        Assert.Null(untilMidnight[1].OpenUntil);
+
+        // Hours from midnight on Friday and none on Thursday: the slot is Friday's own.
+        var fromMidnight = FreeSlotCalculator.Compute(
+            Query(Chicago, Thursday, days: 2),
+            [new MemberAvailability(Chicago, Week((IsoDayOfWeek.Friday, 0, 120)), [])]);
+
+        Assert.Empty(fromMidnight[0].Slots);
+        Assert.Equal(friday, fromMidnight[1].Date);
+        Assert.Equal([(At(Chicago, 2026, 11, 13, 0), At(Chicago, 2026, 11, 13, 2))], fromMidnight[1].Slots);
+        Assert.Null(fromMidnight[1].OpenUntil);
+    }
+
+    [Fact]
+    public void A_stretch_too_short_to_list_does_not_make_the_next_day_free_either()
+    {
+        // 11:30 PM Thursday to 12:20 AM Friday: fifty minutes, under the hour asked for. It is not
+        // a slot, so Friday does not begin inside one.
+        var acrossMidnight = Week((IsoDayOfWeek.Thursday, 1410, 1440), (IsoDayOfWeek.Friday, 0, 20));
+
+        var days = FreeSlotCalculator.Compute(
+            Query(Chicago, Thursday, days: 2), [new MemberAvailability(Chicago, acrossMidnight, [])]);
+
+        Assert.All(days, day => Assert.Empty(day.Slots));
+        Assert.All(days, day => Assert.Null(day.OpenUntil));
     }
 
     [Fact]
@@ -258,9 +324,11 @@ public class FreeSlotCalculatorTests
             Query(Chicago, Thursday, days: 2), [new MemberAvailability(Chicago, lateNights, [])]);
 
         // One stretch from 8 PM Thursday to 2 AM Friday, listed under Thursday; Friday's early
-        // hours are part of it, not a slot of their own.
+        // hours are part of it, not a slot of their own — Friday says it is free until 2 AM.
         Assert.Equal([(At(Chicago, 2026, 11, 12, 20), At(Chicago, 2026, 11, 13, 2))], days[0].Slots);
         Assert.Empty(days[1].Slots);
+        Assert.Null(days[0].OpenUntil);
+        Assert.Equal(At(Chicago, 2026, 11, 13, 2), days[1].OpenUntil);
     }
 
     [Fact]
@@ -339,6 +407,9 @@ public class FreeSlotCalculatorTests
                 Assert.True(
                     expected[i].Slots.SequenceEqual(actual[i].Slots),
                     $"run {run}, {expected[i].Date}: the model finds [{Describe(expected[i].Slots)}], the calculator [{Describe(actual[i].Slots)}]");
+                Assert.True(
+                    expected[i].OpenUntil == actual[i].OpenUntil,
+                    $"run {run}, {expected[i].Date}: the model says free until {expected[i].OpenUntil}, the calculator {actual[i].OpenUntil}");
             }
         }
     }
@@ -348,17 +419,20 @@ public class FreeSlotCalculatorTests
     {
         // Around the nights the clocks change the minute-by-minute model above no longer applies
         // (an hour is skipped or runs twice), but what must hold of any answer still does. Zones
-        // with an ordinary one-hour change, a half-hour change (Lord Howe) and offsets on the
-        // half and three-quarter hour (St John's, Chatham); first days on and beside each change.
+        // with an ordinary one-hour change, a half-hour change (Lord Howe), offsets on the half
+        // and three-quarter hour (St John's, Chatham) and a change at midnight itself, where a day
+        // begins at 1 AM (Santiago); first days on and beside each change.
         var random = new Random(20261112);
         string[] zoneIds =
         [
-            "America/Chicago", "Europe/Berlin", "Australia/Lord_Howe", "America/St_Johns", "Pacific/Chatham", "UTC",
+            "America/Chicago", "Europe/Berlin", "Australia/Lord_Howe", "America/St_Johns", "Pacific/Chatham",
+            "America/Santiago", "UTC",
         ];
         var zones = zoneIds.Select(id => DateTimeZoneProviders.Tzdb[id]).ToArray();
         LocalDate[] changes =
         [
-            new(2026, 3, 8), new(2026, 3, 29), new(2026, 4, 5), new(2026, 9, 27), new(2026, 10, 4), new(2026, 10, 25), new(2026, 11, 1),
+            new(2026, 3, 8), new(2026, 3, 29), new(2026, 4, 5), new(2026, 9, 6), new(2026, 9, 27), new(2026, 10, 4),
+            new(2026, 10, 25), new(2026, 11, 1),
         ];
         int[] minimums = [15, 30, 60, 90, 240];
 
@@ -385,6 +459,19 @@ public class FreeSlotCalculatorTests
             var context = $"run {run}, {callerZone.Id} from {firstDay}";
 
             Assert.Equal(Enumerable.Range(0, days).Select(offset => firstDay.PlusDays(offset)), result.Select(day => day.Date));
+
+            // A day says it is free until some instant exactly when a listed slot from an earlier
+            // day is still running at its first instant — and that instant is the slot's end.
+            var listed = result.SelectMany(day => day.Slots).ToList();
+            foreach (var day in result)
+            {
+                var dayStart = day.Date.AtStartOfDayInZone(callerZone).ToInstant();
+                var running = listed.Where(slot => slot.Start < dayStart && dayStart < slot.End).ToList();
+                Assert.True(running.Count <= 1, $"{context}: {running.Count} slots are running as {day.Date} begins");
+                Assert.True(
+                    day.OpenUntil == (running.Count == 1 ? running[0].End : (Instant?)null),
+                    $"{context}: {day.Date} says free until {day.OpenUntil}, but [{Describe(running)}] is what runs into it");
+            }
 
             Instant? previousEnd = null;
             foreach (var day in result)
@@ -439,8 +526,9 @@ public class FreeSlotCalculatorTests
         })];
 
     /// <summary>The same answer the slow way: every minute of the window is free or not, runs of
-    /// free minutes are the slots, and the same keep-and-group rules apply.</summary>
-    private static List<(LocalDate Date, List<(Instant Start, Instant End)> Slots)> ModelSlots(
+    /// free minutes are the slots, and the same keep-and-group rules apply. A day is free until a
+    /// listed run's end when that run began before the day did and is still going as it begins.</summary>
+    private static List<(LocalDate Date, List<(Instant Start, Instant End)> Slots, Instant? OpenUntil)> ModelSlots(
         FreeSlotQuery query, List<MemberAvailability> members)
     {
         var firstMidnight = query.FirstDay.AtStartOfDayInZone(query.CallerZone).ToInstant();
@@ -480,12 +568,21 @@ public class FreeSlotCalculatorTests
             slots.Add((open, windowEnd));
         }
 
+        var listed = slots
+            .Where(slot => slot.Start < lastStart && slot.End - slot.Start >= query.Minimum)
+            .ToList();
+
         return [.. Enumerable.Range(0, query.Days)
             .Select(offset => query.FirstDay.PlusDays(offset))
-            .Select(day => (day, slots
-                .Where(slot => slot.Start < lastStart && slot.End - slot.Start >= query.Minimum)
-                .Where(slot => slot.Start.InZone(query.CallerZone).Date == day)
-                .ToList()))];
+            .Select(day =>
+            {
+                var dayStart = day.AtStartOfDayInZone(query.CallerZone).ToInstant();
+                var runningInto = listed
+                    .Where(slot => slot.Start < dayStart && dayStart < slot.End)
+                    .Select(slot => (Instant?)slot.End)
+                    .SingleOrDefault();
+                return (day, listed.Where(slot => slot.Start.InZone(query.CallerZone).Date == day).ToList(), runningInto);
+            })];
     }
 
     private static Instant At(DateTimeZone zone, int year, int month, int day, int hour, int minute = 0) =>

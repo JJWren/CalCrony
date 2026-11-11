@@ -185,9 +185,10 @@ public static class CalendarEndpoints
     }
 
     /// <summary>Lists when the requested users are free over a run of whole days (BotOnly — prevents
-    /// member probing). Shape errors are refused here; a first day that cannot be understood, has
-    /// passed, or lies more than a year ahead comes back from the service with its user-facing
-    /// reason.</summary>
+    /// member probing). Shape errors are refused here, among them first-day text over its length
+    /// limit, which is turned away before anything reads it; a first day that cannot be
+    /// understood, has passed, or lies more than a year ahead comes back from the service with
+    /// its user-facing reason.</summary>
     /// <param name="request">The request body.</param>
     /// <param name="freeSlots">The free-slots service.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -205,15 +206,23 @@ public static class CalendarEndpoints
             return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {FreeSlotLimits.MaxUsers} distinct entries."));
         }
 
-        if (request.Days is < 1 or > FreeSlotLimits.MaxDays)
+        if (request.Days is < FreeSlotLimits.MinDays or > FreeSlotLimits.MaxDays)
         {
-            return Results.BadRequest(new ErrorResponse($"days must be between 1 and {FreeSlotLimits.MaxDays}."));
+            return Results.BadRequest(new ErrorResponse(
+                $"days must be between {FreeSlotLimits.MinDays} and {FreeSlotLimits.MaxDays}."));
         }
 
         if (request.MinimumMinutes is < FreeSlotLimits.MinMinimumMinutes or > FreeSlotLimits.MaxMinimumMinutes)
         {
             return Results.BadRequest(new ErrorResponse(
                 $"minimumMinutes must be between {FreeSlotLimits.MinMinimumMinutes} and {FreeSlotLimits.MaxMinimumMinutes}."));
+        }
+
+        // Before anything reads the text: what the date recognizer costs grows steeply with
+        // length — seconds at a thousand characters of the wrong shape — and a day is a few words.
+        if (request.When is { Length: > FreeSlotLimits.MaxWhenLength })
+        {
+            return Results.BadRequest(new ErrorResponse($"when must be at most {FreeSlotLimits.MaxWhenLength} characters."));
         }
 
         var outcome = await freeSlots.GetAsync(request with { UserIds = userIds }, cancellationToken);
