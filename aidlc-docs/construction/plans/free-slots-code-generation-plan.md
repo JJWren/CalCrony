@@ -1,13 +1,13 @@
 # Free slots — unit 1 (`free-slots`): functional design and code-generation plan
 
-**Feature**: free slots and available hours (asked for in the community Discord on 2026-11-10; no
-issue yet). **Inputs**: the approved requirements
+**Feature**: free slots and available hours (asked for in the community Discord on 2026-11-10;
+tracked in #171). **Inputs**: the approved requirements
 (`inception/requirements/availability-free-slots-requirements.md`, FR1–FR18), workflow plan and
 application design (`inception/application-design/availability-free-slots-design.md`, D1–D10).
 **Baseline**: `master` 4911a1f (v0.36.3; the audit trail records 810 tests green at that release —
 re-run as step 0.1). **Branch**: `feature/availability-free-slots` → PR
 `feat: free slots for a member or role (/availability slots)`.
-**Status**: approved by Joshua 2026-11-11, as written; code generated and committed locally, awaiting approval at the completion gate (section 9 records what differs from the plan).
+**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivery under way (section 8).
 
 As the workflow plan set out, this file is the unit's functional design (sections 1–5) followed by
 its code-generation plan (sections 6–8), approved together. Unit 2 (`available-hours`) gets its own
@@ -458,7 +458,8 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
 - [x] 8.1 First commit on the branch: `docs: free slots and available hours — requirements,
       workflow plan, design and the unit 1 plan` (the four documents, `aidlc-state.md`, `audit.md`).
       Code commits follow by layer.
-- [ ] 8.2 *Go-ahead:* the tracking issue, one box per unit.
+- [x] 8.2 *Go-ahead:* the tracking issue, one box per unit. — #171, filed 2026-11-11 on Joshua's
+      "Continue" at the completion gate.
 - [ ] 8.3 *Go-ahead:* push and open the PR. Body: what it does; the shape of the change; behaviour
       for existing servers (none — a new subcommand); what a caller can now see (up to two weeks of
       a member's free time in one ephemeral reply — the same data `/availability role` gives window

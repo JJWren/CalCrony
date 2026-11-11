@@ -1,6 +1,7 @@
 # Free slots and available hours — `/availability slots`: requirements analysis
 
-**Issue**: none yet — the request came from the community Discord on 2026-11-10. **Depth**: standard —
+**Issue**: #171 (filed 2026-11-11, after this analysis was approved) — the request came from the
+community Discord on 2026-11-10. **Depth**: standard —
 additive: a new bot subcommand and bot-only API route beside the existing availability check, plus a
 per-member setting (one additive migration) with a surface in Discord and on the web.
 **Date**: 2026-11-10, revised 2026-11-11. **Baseline**: `master` 4911a1f (v0.36.3, the version prod

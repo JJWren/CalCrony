@@ -1016,3 +1016,17 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — Code Generation Part 2 complete, awaiting Joshua's approval; delivery (tracking issue, PR, Copilot review) next.
 
 ---
+## Construction — unit 1 code generation approved; delivery started
+**Timestamp**: 2026-11-11T19:57:26Z
+**User Input**: "Continue" (answer to "Code generation complete. Request changes or continue to the next stage?")
+**AI Response**: Code generation for unit 1 approved as built — no changes requested, the differences from the plan recorded in its section 9 included. The completion message said that continuing is the go-ahead for the next stage's outward steps, so this approval covers filing the tracking issue (step 8.2), pushing `feature/availability-free-slots` and opening the PR `feat: free slots for a member or role (/availability slots)` (8.3), and working Copilot's review rounds (8.4); the squash merge is asked for separately. Q8 stays at A: the community member's message remains word for word in this log. Checked before anything left the machine: no issue, PR or remote branch for this work existed yet; the four commits carry no attribution trailer and the same author as `master`; a scan of the diff found no credential and no e-mail address; and the full suite was started again on the committed head.
+**Context**: Construction, unit 1 (`free-slots`) — Code Generation approved; delivery steps 8.2–8.4 in progress.
+
+---
+## Construction — unit 1 delivery: tracking issue filed
+**Timestamp**: 2026-11-11T19:59:41Z
+**User Input**: (none — continuation of "Continue")
+**AI Response**: The run started before anything left the machine finished green on the committed head `964c63a`: 963 tests (617 API, 216 bot, 130 web), Release configuration. Filed the tracking issue, #171 `feat: free slots — /availability slots, with per-member available hours` (created 2026-11-11T19:59:07Z, label `enhancement`): what was asked and why today's command falls short of it, the command with a sample reply, one box per unit (1 — free slots, no migration; 2 — available hours, one additive migration), the release both ship in (0.37.0), the decisions from Q1–Q7 in plain words, what is out of scope, and where the design documents are. It quotes nobody and names no member. Recorded the issue number where the documents still said there was none — the requirements header, this unit's plan (header and step 8.2, now ticked) and `aidlc-state.md`. Next: one commit for this record, then the push and the PR (step 8.3), which carries `Refs #171` rather than `Closes`, since the issue stays open until unit 2 merges.
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.2 done; 8.3 (push and PR) next.
+
+---
