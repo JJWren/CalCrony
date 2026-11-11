@@ -1,0 +1,93 @@
+using CalCrony.Bot.Api;
+using CalCrony.Bot.Modules;
+using CalCrony.Contracts;
+using Discord;
+using Discord.Interactions;
+using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CalCrony.Bot.Tests;
+
+/// <summary>The /availability group as Discord.Net builds it for registration — no gateway
+/// connection needed. Pins the shape Discord is asked to accept: the member-or-role picker, the
+/// bounds Discord enforces before the command runs, and its description limits.</summary>
+public class AvailabilityCommandShapeTests : IAsyncLifetime
+{
+    private const int DiscordDescriptionLimit = 100;
+
+    private readonly DiscordSocketClient client = new();
+    private InteractionService interactions = null!;
+
+    public async Task InitializeAsync()
+    {
+        interactions = new InteractionService(client);
+        var services = new ServiceCollection()
+            .AddSingleton(new CalCronyApiClient(new HttpClient { BaseAddress = new Uri("http://localhost") }))
+            .BuildServiceProvider();
+        await interactions.AddModuleAsync(typeof(AvailabilityModule), services);
+    }
+
+    public async Task DisposeAsync()
+    {
+        interactions.Dispose();
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public void Slots_takes_a_member_or_role_and_bounds_its_numbers()
+    {
+        var slots = Command("slots");
+
+        Assert.Equal(["who", "when", "days", "duration"], slots.Parameters.Select(p => p.Name));
+
+        var who = slots.Parameters[0];
+        Assert.Equal(ApplicationCommandOptionType.Mentionable, who.DiscordOptionType);
+        Assert.True(who.IsRequired);
+
+        var when = slots.Parameters[1];
+        Assert.Equal(ApplicationCommandOptionType.String, when.DiscordOptionType);
+        Assert.False(when.IsRequired);
+
+        // The bounds come from the same constants the API validates against.
+        var days = slots.Parameters[2];
+        Assert.Equal(ApplicationCommandOptionType.Integer, days.DiscordOptionType);
+        Assert.False(days.IsRequired);
+        Assert.Equal(1, days.MinValue);
+        Assert.Equal(FreeSlotLimits.MaxDays, days.MaxValue);
+
+        var duration = slots.Parameters[3];
+        Assert.Equal(ApplicationCommandOptionType.Integer, duration.DiscordOptionType);
+        Assert.False(duration.IsRequired);
+        Assert.Equal(FreeSlotLimits.MinMinimumMinutes, duration.MinValue);
+        Assert.Equal(FreeSlotLimits.MaxMinimumMinutes, duration.MaxValue);
+    }
+
+    [Fact]
+    public void Role_and_event_keep_the_options_they_had()
+    {
+        var role = Command("role");
+        Assert.Equal(["role", "when", "duration"], role.Parameters.Select(p => p.Name));
+        Assert.Equal(ApplicationCommandOptionType.Role, role.Parameters[0].DiscordOptionType);
+        Assert.Equal([true, true, false], role.Parameters.Select(p => p.IsRequired));
+
+        var ev = Command("event");
+        Assert.Equal(["name"], ev.Parameters.Select(p => p.Name));
+        Assert.True(ev.Parameters[0].IsAutocomplete);
+    }
+
+    [Fact]
+    public void The_group_has_exactly_its_three_subcommands_within_discords_description_limit()
+    {
+        Assert.Equal(["event", "role", "slots"], interactions.SlashCommands.Select(c => c.Name).Order());
+
+        Assert.All(interactions.SlashCommands, command =>
+        {
+            Assert.Equal("availability", command.Module.SlashGroupName);
+            Assert.InRange(command.Description.Length, 1, DiscordDescriptionLimit);
+            Assert.All(command.Parameters, parameter =>
+                Assert.InRange(parameter.Description.Length, 1, DiscordDescriptionLimit));
+        });
+    }
+
+    private SlashCommandInfo Command(string name) => interactions.SlashCommands.Single(c => c.Name == name);
+}

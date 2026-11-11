@@ -6,7 +6,8 @@ namespace CalCrony.Bot;
 /// <summary>Renders free/busy results as a Discord embed.</summary>
 public static class AvailabilityEmbedBuilder
 {
-    private static readonly Color AvailabilityColor = new(0x57, 0xB9, 0xE2);
+    /// <summary>The colour of every availability reply — the grid here and the free-slots list.</summary>
+    internal static readonly Color AvailabilityColor = new(0x57, 0xB9, 0xE2);
 
     /// <summary>Builds the availability embed: window header plus one status line per member.</summary>
     /// <param name="subject">Display name for the checked group.</param>
