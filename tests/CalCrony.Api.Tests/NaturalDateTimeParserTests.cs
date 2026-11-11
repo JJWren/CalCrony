@@ -281,6 +281,7 @@ public class NaturalDateTimeParserTests
     [InlineData("yesterday")]
     [InlineData("last friday")]
     [InlineData("last week")]
+    [InlineData("last 2 weeks")]    // counted in weeks, so a calendar unit: it ended before today
     [InlineData("july 1 2026")]
     public void Day_resolution_refuses_a_day_that_has_passed(string text)
     {

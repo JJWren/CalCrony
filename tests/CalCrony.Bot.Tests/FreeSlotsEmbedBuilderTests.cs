@@ -200,6 +200,48 @@ public class FreeSlotsEmbedBuilderTests
         Assert.Equal($"**Fri Nov 13** · free until <t:{long30.EndUnix}:f> (started Thu)", friday);
     }
 
+    [Fact]
+    public void A_slot_that_runs_through_whole_days_is_named_on_each_day_it_covers()
+    {
+        // Midnight Thursday to midnight Sunday in Chicago, as hours saved round the clock give.
+        var threeDays = Slot(ThursdayMorning.AddHours(-8), hours: 72);
+        var response = new FreeSlotsResponse(
+            "America/Chicago", Thursday, Thursday.AddDays(2), 1,
+            [
+                new FreeSlotDayDto(Thursday, [threeDays]),
+                new FreeSlotDayDto(Thursday.AddDays(1), [], threeDays.EndUtc),
+                new FreeSlotDayDto(Thursday.AddDays(2), [], threeDays.EndUtc),
+            ],
+            [Counted(1)]);
+
+        var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
+
+        Assert.Equal($"**Fri Nov 13** · free until <t:{threeDays.EndUnix}:f> (started Thu)", lines[^2]);
+        Assert.Equal($"**Sat Nov 14** · free until <t:{threeDays.EndUnix}:f> (started Thu)", lines[^1]);
+    }
+
+    [Fact]
+    public void A_day_can_begin_inside_a_slot_that_the_day_before_folded_into_its_count()
+    {
+        // Thursday has seven slots: six are shown, and the seventh — which runs past midnight —
+        // is the "+1 more". Friday still says until when that one keeps it free.
+        var shown = Enumerable.Range(0, 6).Select(i => Slot(ThursdayMorning.AddHours(2 * i), hours: 1)).ToList();
+        var overnight = Slot(ThursdayMorning.AddHours(15), hours: 4);      // 11 PM Thursday to 3 AM Friday
+        var response = new FreeSlotsResponse(
+            "America/Chicago", Thursday, Thursday.AddDays(1), 1,
+            [
+                new FreeSlotDayDto(Thursday, [.. shown, overnight]),
+                new FreeSlotDayDto(Thursday.AddDays(1), [], overnight.EndUtc),
+            ],
+            [Counted(1)]);
+
+        var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
+
+        Assert.EndsWith(" · +1 more", lines[^2]);
+        Assert.DoesNotContain($"<t:{overnight.StartUnix}:t>", lines[^2]);
+        Assert.Equal($"**Fri Nov 13** · free until <t:{overnight.EndUnix}:t> (started Thu)", lines[^1]);
+    }
+
     [Theory]
     [InlineData(60, true)]
     [InlineData(1440, true)]

@@ -124,7 +124,7 @@ The endpoint validates, in this order:
 | distinct `UserIds`: 1 to 50 | `userIds must have between 1 and 50 distinct entries.` (the existing route's wording) |
 | `Days`: 1 to 14 | `days must be between 1 and 14.` |
 | `MinimumMinutes`: 15 to 1440 | `minimumMinutes must be between 15 and 1440.` |
-| `When`: at most 100 characters (`FreeSlotLimits.MaxWhenLength`) | `when must be at most 100 characters.` — added in review round 1 (section 9): what the recognizer costs grows steeply with the length of the text |
+| `When`: at most 100 characters (`FreeSlotLimits.MaxWhenLength`) | `when must be at most 100 characters.` — added in review round 1 (section 9); checked before the text is read |
 
 `FreeSlotsService.GetAsync` then, with one clock read used throughout:
 
@@ -568,7 +568,7 @@ Fixed in this round:
 
 | Finding | Change |
 |---|---|
-| S2, and noted by both reviewers — `when` had no length limit on either layer. Measured on the real parser: text of a hostile shape (`1-` repeated, `from 1 to 2 ` repeated, an ISO date-and-`T` repeated) takes 7 ms to 49 ms at 100 characters, 1.3 s to 6.9 s at 1,000, and more than 30 s at Discord's 6,000. | `FreeSlotLimits.MaxWhenLength` (100): Discord enforces it on the option, and the route refuses longer text before anything reads it (4.2, 4.6). A route test and the command-shape test pin both. The other commands' `when:` options and the web's date route share the recognizer and have no limit; that is older than this branch and is raised separately. |
+| S2, and noted by both reviewers — `when` had no length limit on either layer, and what the date recognizer costs grows with the length of the text it is given. | `FreeSlotLimits.MaxWhenLength` (100), chosen from timing the real parser: Discord enforces it on the option, and the route refuses longer text before anything reads it (4.2, 4.6). A route test and the command-shape test pin both. |
 | Q1 — a route test asked for `in 416018 weeks` to land in the last days of year 9999. From 2026-11-14 that text is past the end of the calendar and is no longer read as a date, so the test would have begun failing on its own. | The number of weeks is counted from the day the test runs. |
 | Q4 — a day with no slot of its own read `nothing free` even when it began inside a slot listed under the day before. A caller in Tokyo looking at a member on Chicago time sees the member's day as 11 PM–2 PM: with the member busy for all of their Friday, the caller's Friday was free until 2 PM and said `nothing free`. | `FreeSlotDay.OpenUntil` and `FreeSlotDayDto.OpenUntilUtc` (4.5 step 5); the day line reads `free until … (started Thu)` (4.7). Calculator, route and reply tests, and both seeded tests now check it. Not done here, for unit 2's plan: with hours that run from midnight to midnight a slot can reach the end of the window, where its real end is not known. |
 | Q2 — the "Not counted" field gave each reason an equal share, so 25 members under one reason and 1 under another were cut at 20 names with over 400 of the field's 1,024 characters unused. | Everyone is named when the field holds them; otherwise a short line keeps its length and the long ones split the rest (4.7). |
@@ -588,17 +588,39 @@ Confirmed and not changed in this round:
   of data, not for who can be reached. A list of one member also shows where their day starts and
   ends, and so roughly their timezone. Whether to gate lookups about another member, add a
   per-member switch, or keep the design with the clearer wording is Joshua's decision.
-- **S4** — nothing throttles a command that can cause 50 Google queries. `/availability role` has
-  the same fan-out; a limit belongs across all three commands and is raised separately.
+- **S4** — a point about what repeated lookups can cost. It applies to the availability commands
+  that already exist as much as to this one, so it is raised separately rather than changed here.
 - **Q10** — the audit entry stamped 18:04:33Z says "committed locally in four commits"; the commits
   are stamped 18:05:23Z. The entry was written just before they were made. It is left as written.
-- Older than this branch, from the security review, each raised separately: no bounds on
-  `/availability role`'s `duration`; a calendar token that cannot be decrypted fails a whole
-  lookup with a 500; an unreachable API shows its internal address in the bot's error text.
+- Further points from the security review concern code older than this branch. They are raised
+  separately with Joshua, and are not set out in this document until they are dealt with.
 
 Counts after round 1: 985 tests green — 625 API, 230 bot, 130 web. The Release build has the same
 22 warnings. The reply's worst case on the real builder: 3,601 of 4,096 description characters and
 4,749 of 6,000 for the whole embed.
+
+### Review round 2 — the commit that answered round 1 (2026-11-11)
+
+Both agents reviewed `b1452ba` on its own. Both found round 1's fixes right and complete: the
+security reviewer found no way around the limit on `when`, and the quality reviewer no wrong
+answer in the new code or its tests. Their new findings are S6–S7 and Q11–Q14.
+
+| Finding | Change |
+|---|---|
+| S6 (high) — this document and the audit log, as pushed with round 1, said more about code older than this branch than should be public before that code is dealt with. | The detail is taken out of both and out of two code comments; the points themselves are with Joshua. The commit already pushed still carries the earlier text, and whether to rewrite it is his decision. |
+| S7 (low) — the new sentence about who can check a linked member's free/busy was shown only to members who had not linked a calendar yet. | The web's calendar card says it after linking as well, and so does `/calendar status`. A web test covers both sides of the card. |
+| Q11 — the Docs page said that a day beginning inside a slot says until when it is free; the reply says so only for a day with no slot of its own. | The Docs page says "a day with none of its own". |
+| Q12 — two of the new live-script items could not be observed as written. | The member's zone is named (America/Chicago) with one whole day blocked, on the second day of the range or later; the wording check covers `/calendar status` and the card before and after linking. |
+| Q13 — `aidlc-state.md` put both reports on the security scale ("nothing critical or high"), where the quality report rated the date-dependent test major. | Reworded. |
+| Q14 — no test for a slot that runs through two day starts, or for a day that begins inside a slot the day before folded into its "+N more". | One calculator test and two reply tests. The first shape needs saved hours, so it cannot occur before unit 2. |
+| Noted by the quality reviewer — `last 2 weeks` is now refused as passed, which was not written down. | Pinned in the parser tests. It follows from 4.1 rule 2 as narrowed: its length is counted in weeks. |
+
+Also done on the security reviewer's suggestion: the limit on `when` was checked by running
+220,000 texts of exactly 100 characters through the real parser, built from date-like tokens and
+half of them a short unit repeated. None took as long as a fifth of a second.
+
+Counts after round 2: 991 tests green — 627 API, 232 bot, 132 web. The Release build has the same
+22 warnings.
 
 ## 10. Plan checklist
 

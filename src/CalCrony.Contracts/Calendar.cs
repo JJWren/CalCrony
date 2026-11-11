@@ -79,8 +79,8 @@ public static class FreeSlotLimits
     /// has already passed rolls to next year, which is never further than this.</summary>
     public const int MaxDaysAhead = 366;
 
-    /// <summary>Longest first-day text accepted, in characters. A day takes a few words, and the
-    /// date recognizer's cost grows steeply with length, so longer text is refused unread.</summary>
+    /// <summary>Longest first-day text accepted, in characters. A day takes a few words, and what
+    /// the date recognizer costs grows with length, so longer text is refused unread.</summary>
     public const int MaxWhenLength = 100;
 
     /// <summary>Shortest slot listed, in minutes, when the caller names none.</summary>

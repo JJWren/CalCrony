@@ -282,6 +282,32 @@ public class ThemeComponentTests : TestContext
         Assert.True(cut.Find("#us-dm-reminders").HasAttribute("disabled"));
     }
 
+    [Theory]
+    [InlineData(false, "Connect Google Calendar")]
+    [InlineData(true, "Disconnect")]
+    public async Task The_calendar_card_says_who_can_check_free_busy_before_and_after_linking(bool connected, string button)
+    {
+        // Linking is what lets other members see when you are free or busy, and the card says so
+        // on both sides of it: a member who linked long ago is the one most likely not to know.
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = req => req.RequestUri!.AbsolutePath switch
+        {
+            "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto("UTC", true, "slate"), JsonWeb),
+            "/calendar/connections/42" => JsonSerializer.Serialize(
+                new CalendarConnectionStatusDto(
+                    connected, connected ? CalendarProvider.Google : null, connected ? DateTimeOffset.UtcNow : null),
+                JsonWeb),
+            var p when p.Contains("timezone") => "[]",
+            _ => null,
+        };
+
+        var cut = Render<UserSettings>();
+
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("button"), b => b.TextContent.Trim() == button));
+        Assert.Contains("members of the servers you share with CalCrony can check when", cut.Markup);
+    }
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();

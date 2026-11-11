@@ -49,7 +49,8 @@ public class CalendarModule(CalCronyApiClient api) : InteractionModuleBase<Socke
 
         await FollowupAsync(
             result.Value.Connected
-                ? $"🟢 Connected to Google Calendar since <t:{result.Value.ConnectedAtUtc!.Value.ToUnixTimeSeconds()}:D>."
+                ? $"🟢 Connected to Google Calendar since <t:{result.Value.ConnectedAtUtc!.Value.ToUnixTimeSeconds()}:D>. " +
+                  "While it's linked, members of the servers you share with CalCrony can check when you're free or busy."
                 : "⚪ Not connected. Run `/calendar connect` to link your Google Calendar.",
             ephemeral: true);
     }

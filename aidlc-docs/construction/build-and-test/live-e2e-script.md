@@ -228,14 +228,16 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
 - [ ] `who:<a role>` holding a linked and an unlinked member → slots are the linked member's;
       the unlinked one is named under **Not counted**; a bot holding the role is not listed.
 - [ ] `who:<a member with no calendar>` → "Nobody could be counted", no day lines.
-- [ ] A caller whose timezone is many hours from the member's (set `/settings timezone` to
-      Asia/Tokyo and look at a member on US time): slots run past the caller's midnight under the
-      day they start on, and a day with nothing starting on it reads "free until … (started …)"
-      rather than "nothing free".
+- [ ] A caller many hours from the member: set the caller's `/settings timezone` to Asia/Tokyo
+      and look at a member whose timezone is America/Chicago, with one whole day (8 AM–11 PM
+      their time) blocked on their Google calendar — the second day of the range or later.
+      Slots run past the caller's midnight under the day they start on, and the caller's day
+      with nothing starting on it reads "free until … (started …)" rather than "nothing free".
 - [ ] `duration:1000` → every day "nothing free", then the line suggesting a shorter `duration`.
 - [ ] Discord does not let more than 100 characters be typed into `when`.
-- [ ] `/calendar connect` and the web's Google Calendar card both say that members of servers
-      shared with CalCrony can check when you're free or busy.
+- [ ] `/calendar connect`, `/calendar status` once linked, and the web's Google Calendar card
+      before and after linking all say that members of the servers you share with CalCrony can
+      check when you're free or busy.
 - [ ] `days:14` against a real Google account → slots, not "Couldn't check right now" (one
       15-day free/busy query per linked member).
 - [ ] `when:yesterday`, `when:banana` and `when:year 5000` → friendly refusals; a bot as `who`

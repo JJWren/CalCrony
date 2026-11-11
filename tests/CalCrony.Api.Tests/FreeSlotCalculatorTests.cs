@@ -252,6 +252,27 @@ public class FreeSlotCalculatorTests
     }
 
     [Fact]
+    public void A_slot_that_runs_through_whole_days_is_what_each_of_them_begins_inside()
+    {
+        // Hours from midnight to midnight three days running are one slot of seventy-two hours,
+        // listed under Thursday. Friday and Saturday both begin inside it, and both say when it
+        // ends. Only saved hours can do this; the default week has no slot over fifteen hours.
+        var roundTheClock = Week(
+            (IsoDayOfWeek.Thursday, 0, 1440), (IsoDayOfWeek.Friday, 0, 1440), (IsoDayOfWeek.Saturday, 0, 1440));
+
+        var days = FreeSlotCalculator.Compute(
+            Query(Chicago, Thursday, days: 3), [new MemberAvailability(Chicago, roundTheClock, [])]);
+
+        var end = At(Chicago, 2026, 11, 15, 0);
+        Assert.Equal([(At(Chicago, 2026, 11, 12, 0), end)], days[0].Slots);
+        Assert.Null(days[0].OpenUntil);
+        Assert.Empty(days[1].Slots);
+        Assert.Equal(end, days[1].OpenUntil);
+        Assert.Empty(days[2].Slots);
+        Assert.Equal(end, days[2].OpenUntil);
+    }
+
+    [Fact]
     public void A_stretch_too_short_to_list_does_not_make_the_next_day_free_either()
     {
         // 11:30 PM Thursday to 12:20 AM Friday: fifty minutes, under the hour asked for. It is not
