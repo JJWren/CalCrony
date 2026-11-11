@@ -489,7 +489,9 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       but Copilot's review did not start on opening or on a push, and requesting it by hand
       registered nothing. Joshua's decision the same day: two review agents in Copilot's place —
       one on security, one on code quality — reviewing each commit in a loop until a commit comes
-      back clean from both.
+      back clean from both. That review is complete (section 9): after five rounds both agents
+      had no findings on `9f13116`, the head of the PR. Still ahead: Joshua's two open decisions,
+      then his go-ahead for the merge.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
@@ -647,6 +649,14 @@ agreeing on what is open with Joshua.
 | Q17 (nit) — the note on checking the limit on `when` did not say how the check came out. | "And it held", above and in the round 4 audit entry. |
 
 Counts are unchanged: 991 tests green.
+
+### Review round 5 — the second records commit (2026-11-11)
+
+Both agents reviewed `9f13116` and had no findings. The loop ends there: it is the head of
+PR #172, and every check on it is green. Five rounds in all — the whole branch, then each commit
+that answered the round before — with ten findings on security and privacy (S1–S10) and seventeen
+on correctness and quality (Q1–Q17). The code and tests last changed in `c8ce2c9`, which both
+agents passed in round 3; rounds 4 and 5 were about these records alone.
 
 ## 10. Plan checklist
 
