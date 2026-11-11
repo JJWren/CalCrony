@@ -460,10 +460,11 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       Code commits follow by layer.
 - [x] 8.2 *Go-ahead:* the tracking issue, one box per unit. — #171, filed 2026-11-11 on Joshua's
       "Continue" at the completion gate.
-- [ ] 8.3 *Go-ahead:* push and open the PR. Body: what it does; the shape of the change; behaviour
+- [x] 8.3 *Go-ahead:* push and open the PR. Body: what it does; the shape of the change; behaviour
       for existing servers (none — a new subcommand); what a caller can now see (up to two weeks of
       a member's free time in one ephemeral reply — the same data `/availability role` gives window
-      by window — and only for members of the server); no migration; test counts.
+      by window — and only for members of the server); no migration; test counts. — PR #172, opened
+      2026-11-11 at head `cd30f84` with `Refs #171`; the body also lists the known limits.
 - [ ] 8.4 Copilot rounds until an approval with no open threads. *Go-ahead:* squash merge. The test
       stack picks up `:main`; the new §12 items are run there.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.

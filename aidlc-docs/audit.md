@@ -1030,3 +1030,10 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.2 done; 8.3 (push and PR) next.
 
 ---
+## Construction — unit 1 delivery: branch pushed, PR #172 opened
+**Timestamp**: 2026-11-11T20:03:40Z
+**User Input**: (none — continuation of "Continue")
+**AI Response**: Committed the approval record (`cd30f84`), pushed `feature/availability-free-slots` — five commits: the four from generation and that record — and opened PR #172, `feat: free slots for a member or role (/availability slots)`, against `master` (created 2026-11-11T20:02:28Z, head `cd30f84`). Its body follows step 8.3: what the command does with a sample reply; the shape of the change by layer; behaviour for existing servers (none); what a caller can now see and the two bounds on it (a single target must be a member of the server, and the route is bot-only); no migration; 963 tests against 810; and the known limits — `sat` and `sun` are not read as weekdays by any `when:`, and nothing has been run against Discord or Google yet. It ends in `Refs #171`, so the issue stays open for unit 2. Issue #171's first box now links the PR, and the sample reply there was corrected to the title the code produces for a member (`@Sam`). The session is bound to the PR and the app's Auto-fix watches its checks and review comments. First read of its state: `pr-title` and the secret scan green, `build-test` and CodeQL running, no review yet.
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.3 done; 8.4 (Copilot's review rounds) waiting on the first review.
+
+---
