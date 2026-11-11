@@ -43,6 +43,7 @@ builder.Services.AddSingleton<CalendarTokenProtector>();
 builder.Services.AddHttpClient<ICalendarProvider, GoogleCalendarProvider>(
     http => http.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<CalendarAvailabilityService>();
+builder.Services.AddScoped<FreeSlotsService>();
 
 builder.Services.AddScoped<WebTokenService>();
 builder.Services.AddScoped<GuildAccessService>();

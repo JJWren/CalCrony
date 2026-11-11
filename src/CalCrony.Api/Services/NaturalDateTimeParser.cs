@@ -167,4 +167,204 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
             yield return (today.PlusDays(1) + time).InZoneLeniently(zone).ToInstant();
         }
     }
+
+    /// <summary>Resolves text to a calendar day in the given zone — the day-level sibling of
+    /// <see cref="TryResolve"/>, for callers that want whole days. Today stays valid until it ends
+    /// ("today" at 11 PM is today, where TryResolve's 09:00 has long passed) and any time of day in
+    /// the text is ignored. Text can mean today without naming it — a time with no date ("6pm"), or
+    /// a range that is already under way ("this week" on a Wednesday, meaning the rest of it) —
+    /// but a day the text does name always outranks that: "friday at night" is Friday. A zone
+    /// abbreviation in the text does not move the day — days are always the caller's. False with a
+    /// user-facing error when nothing is recognized, or when the only days named have passed.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <param name="zone">The IANA zone whose calendar days are meant.</param>
+    /// <param name="day">The resolved day — today or later — when successful.</param>
+    /// <param name="error">The user-facing error text.</param>
+    /// <param name="referenceInstant">The "now" that decides which day is today. Null = read the clock.</param>
+    /// <returns>True when text resolved to today or a later day.</returns>
+    public bool TryResolveDay(
+        string text, DateTimeZone zone, out LocalDate day, out string? error, Instant? referenceInstant = null)
+    {
+        day = default;
+        error = null;
+
+        var now = referenceInstant ?? clock.GetCurrentInstant();
+        var localNow = now.InZone(zone).LocalDateTime;
+        var today = localNow.Date;
+
+        // What each recognized phrase says, one phrase at a time. The recognizer offers several
+        // readings of a phrase whose year or week is open ("saturday", "nov 5", "nov 11 to
+        // nov 13"); they are alternatives for that phrase, not separate days.
+        var daysAhead = new List<LocalDate>();
+        var rangeUnderWay = false;
+        var onlyPastDays = false;
+        var timeAlone = false;
+        foreach (var recognized in model.Parse(text, localNow.ToDateTimeUnspecified()))
+        {
+            if (recognized.Resolution is null ||
+                !recognized.Resolution.TryGetValue("values", out var rawValues) ||
+                rawValues is not List<Dictionary<string, string>> values)
+            {
+                continue;
+            }
+
+            var readings = values
+                .Select(value => ReadDay(value, today))
+                .OfType<(DayReading Reading, LocalDate? Day)>()
+                .ToList();
+            if (readings.Count == 0)
+            {
+                continue;
+            }
+
+            // If one reading is a range under way, that is what the phrase means: on Nov 13,
+            // "nov 11 to nov 13" is this year's, not next year's.
+            if (readings.Any(reading => reading.Reading == DayReading.RangeUnderWay))
+            {
+                rangeUnderWay = true;
+                continue;
+            }
+
+            var named = readings.Select(reading => reading.Day).OfType<LocalDate>().ToList();
+            if (named.Count == 0)
+            {
+                timeAlone = true;
+                continue;
+            }
+
+            // The earliest reading that hasn't passed ("saturday" offers last week's and this
+            // week's; "nov 5" offers this year's and next year's).
+            var ahead = named.Where(candidate => candidate >= today).ToList();
+            if (ahead.Count > 0)
+            {
+                daysAhead.Add(ahead.Min());
+            }
+            else
+            {
+                onlyPastDays = true;
+            }
+        }
+
+        // A day the text names outranks a today that is only implied: "friday at night" is Friday
+        // although "at night" alone would be tonight, and "friday, this week" is Friday.
+        if (daysAhead.Count > 0)
+        {
+            day = daysAhead.Min();
+            return true;
+        }
+
+        if (rangeUnderWay)
+        {
+            day = today;
+            return true;
+        }
+
+        // A day that has passed is not rescued by a time beside it: "yesterday 6pm" is yesterday.
+        if (onlyPastDays)
+        {
+            error = $"\"{text}\" is a day that has already passed.";
+            return false;
+        }
+
+        if (timeAlone)
+        {
+            day = today;
+            return true;
+        }
+
+        error = $"Could not understand \"{text}\" as a day. Try \"today\", \"saturday\" or \"nov 12\".";
+        return false;
+    }
+
+    /// <summary>What one recognizer value says about the day.</summary>
+    private enum DayReading
+    {
+        /// <summary>The value carries a date: that day is named.</summary>
+        Named,
+
+        /// <summary>A range that has begun and not ended — it means the rest of it, so today.</summary>
+        RangeUnderWay,
+
+        /// <summary>A time, or a stretch of times, with no date — it names no day, so today.</summary>
+        TimeAlone,
+    }
+
+    /// <summary>Reads one recognizer resolution for its day: a date is itself, a date with a time
+    /// is its date, a time alone names none, and a range is its first day — unless it has begun
+    /// and not ended.</summary>
+    /// <param name="value">One recognizer resolution value.</param>
+    /// <param name="today">Today's local date in the target zone.</param>
+    /// <returns>The reading and, when a day is named, that day; null when the value carries
+    /// nothing usable.</returns>
+    private static (DayReading Reading, LocalDate? Day)? ReadDay(Dictionary<string, string> value, LocalDate today)
+    {
+        if (!value.TryGetValue("type", out var type))
+        {
+            return null;
+        }
+
+        var isRange = type.EndsWith("range", StringComparison.Ordinal);
+        if (!value.TryGetValue(isRange ? "start" : "value", out var raw) || ParseDay(raw) is not { } start)
+        {
+            return null;
+        }
+
+        if (start.Day is not { } startDay)
+        {
+            return (DayReading.TimeAlone, null);
+        }
+
+        if (isRange && startDay < today && value.TryGetValue("end", out var rawEnd) && ParseDay(rawEnd) is { Day: { } endDay } end)
+        {
+            // The recognizer ends a calendar unit exclusively ("this week" ends on next Monday),
+            // so its last day is the day before. A range the text spells out ("nov 11 to nov 13",
+            // a timex in parentheses) ends on the last day that was named.
+            var endsExclusively = end.IsBareDate && !IsSpelledOutRange(value);
+            if (today <= (endsExclusively ? endDay.PlusDays(-1) : endDay))
+            {
+                return (DayReading.RangeUnderWay, null);
+            }
+        }
+
+        return (DayReading.Named, startDay);
+    }
+
+    /// <summary>Whether a range value was spelled out by the text ("monday to friday", "nov 11-13")
+    /// rather than being a calendar unit ("this week", "december"). The recognizer writes the
+    /// former as a timex in parentheses — (start,end,duration).</summary>
+    /// <param name="value">One recognizer resolution value.</param>
+    /// <returns>True for a spelled-out range.</returns>
+    private static bool IsSpelledOutRange(Dictionary<string, string> value) =>
+        value.TryGetValue("timex", out var timex) && timex.StartsWith('(');
+
+    /// <summary>Reads the day out of one recognizer value text: a full datetime, a bare date, or a
+    /// bare time, which carries no day.</summary>
+    /// <param name="raw">The recognizer's value text.</param>
+    /// <returns>The day (null for a bare time) and whether the text was a bare date; null when it
+    /// is none of the three forms.</returns>
+    private static (LocalDate? Day, bool IsBareDate)? ParseDay(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var full = LocalPattern.Parse(raw);
+        if (full.Success)
+        {
+            return (full.Value.Date, false);
+        }
+
+        if (DateTime.TryParseExact(raw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateOnly))
+        {
+            return (LocalDate.FromDateTime(dateOnly), true);
+        }
+
+        if (DateTime.TryParseExact(raw, "HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+        {
+            return (null, false);
+        }
+
+        return null;
+    }
 }

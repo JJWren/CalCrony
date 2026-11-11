@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using CalCrony.Api.Services;
 using NodaTime;
 
@@ -17,6 +18,10 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     public int RefreshCallCount { get; private set; }
 
     public List<string> RevokedTokens { get; } = [];
+
+    /// <summary>Every free/busy query made, in order — how a test pins the number of provider calls
+    /// a route makes and the window it asks for. Filter by access token: the fixture is shared.</summary>
+    public ConcurrentQueue<(string AccessToken, Instant Start, Instant End)> FreeBusyCalls { get; } = new();
 
     public string BuildAuthorizationUrl(string redirectUri, string state) =>
         $"https://accounts.google.com/o/oauth2/v2/auth?client_id=fake&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
@@ -50,6 +55,7 @@ public sealed class FakeCalendarProvider : ICalendarProvider
 
     public Task<CalendarFreeBusyResult> GetFreeBusyAsync(string accessToken, Instant start, Instant end, CancellationToken cancellationToken)
     {
+        FreeBusyCalls.Enqueue((accessToken, start, end));
         var blocks = BusyBlocksByAccessToken.GetValueOrDefault(accessToken, []);
         return Task.FromResult(CalendarFreeBusyResult.Success(blocks));
     }

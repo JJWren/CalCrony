@@ -1,0 +1,135 @@
+using CalCrony.Api.Data;
+using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
+
+namespace CalCrony.Api.Services;
+
+/// <summary>How a free-slots lookup ended: the answer, or a user-facing reason it could not be
+/// given (the first day was not understood, has already passed, or is more than a year away).</summary>
+/// <param name="Response">The answer, when the lookup succeeded.</param>
+/// <param name="Error">The user-facing reason, when it did not.</param>
+public sealed record FreeSlotsOutcome(FreeSlotsResponse? Response, string? Error);
+
+/// <summary>
+/// Answers "when are these members free?" over a run of whole days: resolves the caller's zone and
+/// first day, reads each linked calendar once for the whole range through
+/// <see cref="CalendarAvailabilityService"/>, and leaves the arithmetic to
+/// <see cref="FreeSlotCalculator"/>. Nothing a calendar returns is stored. Every counted member is
+/// on the default hours (<see cref="WeeklyHours.Default"/>), read in that member's own zone.
+/// </summary>
+/// <param name="db">The database context.</param>
+/// <param name="availability">The availability service.</param>
+/// <param name="parser">The natural-language datetime parser.</param>
+/// <param name="clock">The time source.</param>
+public sealed class FreeSlotsService(
+    CalCronyDbContext db,
+    CalendarAvailabilityService availability,
+    NaturalDateTimeParser parser,
+    IClock clock)
+{
+    /// <summary>Runs the lookup. The request's ids are expected distinct and its numbers in range —
+    /// the route checks both.</summary>
+    /// <param name="request">The request body.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The answer, or the reason the first day could not be used.</returns>
+    public async Task<FreeSlotsOutcome> GetAsync(FreeSlotsRequest request, CancellationToken cancellationToken)
+    {
+        // One reading of the clock decides which day is today, where today's first slot starts and
+        // what the calendars are asked for.
+        var now = clock.GetCurrentInstant();
+
+        // Read-only on purpose: a lookup must not create the guild or profile rows it finds missing.
+        var guildTimeZone = await db.Guilds.AsNoTracking()
+            .Where(g => g.Id == request.GuildId)
+            .Select(g => g.TimeZone)
+            .FirstOrDefaultAsync(cancellationToken);
+        var profileIds = request.UserIds.Append(request.RequesterId).Distinct().ToList();
+        var timeZones = await db.UserProfiles.AsNoTracking()
+            .Where(p => profileIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.TimeZone })
+            .ToDictionaryAsync(p => p.Id, p => p.TimeZone, cancellationToken);
+
+        var callerZone = MemberZone.Resolve(timeZones.GetValueOrDefault(request.RequesterId), guildTimeZone);
+
+        var today = now.InZone(callerZone).Date;
+        var firstDay = today;
+        if (!string.IsNullOrWhiteSpace(request.When))
+        {
+            if (!parser.TryResolveDay(request.When, callerZone, out firstDay, out var error, now))
+            {
+                return new FreeSlotsOutcome(null, error);
+            }
+
+            // Natural language reaches any year ("year 5000", "in 400000 weeks"). Nobody plans
+            // that far, the calendars would be asked about it all the same, and day arithmetic
+            // near the end of the calendar overflows.
+            if (Period.DaysBetween(today, firstDay) > FreeSlotLimits.MaxDaysAhead)
+            {
+                return new FreeSlotsOutcome(
+                    null, $"\"{request.When}\" is more than a year away; free slots can be listed up to a year ahead.");
+            }
+        }
+
+        var query = new FreeSlotQuery(
+            now, callerZone, firstDay, request.Days, Duration.FromMinutes(request.MinimumMinutes));
+
+        // One availability check — so one provider query per linked member — covers every day.
+        var (windowStart, windowEnd) = FreeSlotCalculator.QueryWindow(query);
+        var results = await availability.CheckAsync(request.UserIds, windowStart, windowEnd, cancellationToken);
+
+        var members = new List<FreeSlotMemberDto>(results.Count);
+        var counted = new List<MemberAvailability>();
+        foreach (var result in results)
+        {
+            var state = StateOf(result.Status);
+            members.Add(new FreeSlotMemberDto(result.UserId, state));
+            if (state != FreeSlotMemberState.DefaultHours)
+            {
+                continue;
+            }
+
+            counted.Add(new MemberAvailability(
+                MemberZone.Resolve(timeZones.GetValueOrDefault(result.UserId), guildTimeZone),
+                WeeklyHours.Default,
+                [.. result.BusyBlocks.Select(block =>
+                    (Instant.FromDateTimeOffset(block.StartUtc), Instant.FromDateTimeOffset(block.EndUtc)))]));
+        }
+
+        // Nobody counted means there is nothing to intersect: the answer carries no days at all
+        // rather than a run of days that would read as "nothing free".
+        IReadOnlyList<FreeSlotDayDto> days = counted.Count == 0
+            ? []
+            : [.. FreeSlotCalculator.Compute(query, counted).Select(ToDto)];
+
+        return new FreeSlotsOutcome(
+            new FreeSlotsResponse(
+                callerZone.Id,
+                firstDay.ToDateOnly(),
+                firstDay.PlusDays(request.Days - 1).ToDateOnly(),
+                counted.Count,
+                days,
+                members),
+            null);
+    }
+
+    /// <summary>How a member enters the answer, from what the availability check found. A calendar
+    /// that was read counts the member on the default hours; anything else leaves them out, with
+    /// the reason kept.</summary>
+    /// <param name="status">The member's availability status.</param>
+    /// <returns>The member's state in the answer.</returns>
+    private static FreeSlotMemberState StateOf(CalendarAvailabilityStatus status) => status switch
+    {
+        CalendarAvailabilityStatus.Free or CalendarAvailabilityStatus.Busy => FreeSlotMemberState.DefaultHours,
+        CalendarAvailabilityStatus.ReconnectRequired => FreeSlotMemberState.ReconnectRequired,
+        CalendarAvailabilityStatus.Error => FreeSlotMemberState.Error,
+        _ => FreeSlotMemberState.NotCounted,
+    };
+
+    /// <summary>Projects one calculated day onto the wire.</summary>
+    /// <param name="day">The calculated day.</param>
+    /// <returns>The projected DTO.</returns>
+    private static FreeSlotDayDto ToDto(FreeSlotDay day) => new(
+        day.Date.ToDateOnly(),
+        [.. day.Slots.Select(slot => new FreeSlotDto(slot.Start.ToDateTimeOffset(), slot.End.ToDateTimeOffset()))]);
+}
