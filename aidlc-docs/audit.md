@@ -1037,3 +1037,10 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.3 done; 8.4 (Copilot's review rounds) waiting on the first review.
 
 ---
+## Construction — unit 1 delivery: checks green; Copilot's review did not start
+**Timestamp**: 2026-11-11T20:07:35Z
+**User Input**: (none — continuation of "Continue")
+**AI Response**: PR #172's checks finished green on head `cd30f84`: `build-test`, `pr-title`, CodeQL for C# and JavaScript, and the secret scan. Copilot's review did not start. On earlier PRs the ruleset's `copilot_code_review` rule (still active, `review_on_push: true`) requested it within seconds of opening — #170's event list shows `review_requested` two seconds after it was created and `copilot_work_started` half a minute later — and this PR's event list was still empty two minutes in. Requested the review by hand three ways, since nothing had been pushed that could cause a duplicate round: the REST call (`POST pulls/172/requested_reviewers` with `copilot-pull-request-reviewer[bot]`), `gh pr edit --add-reviewer @copilot`, and the GraphQL `requestReviews` mutation with the bot's id. Each returned success and none registered a request. Then pushed the record of the PR (`3100b8b`) as a fourth try, because every push used to start a round: no request followed that either. GitHub's status page reported all systems operational. Not established: the cause. The repository's rule is unchanged, so it most likely sits with the account's Copilot code review — whether it is available, or its allowance — which the token used here cannot read. Step 8.4 cannot proceed as planned without a reviewer, so the question goes to Joshua: restore or request Copilot's review himself, or choose another review for this PR. The merge stays behind its own go-ahead either way.
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4 blocked: Copilot's review cannot be requested; awaiting Joshua's decision.
+
+---
