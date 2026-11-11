@@ -215,6 +215,26 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
       published (7-day expiry was a Testing-mode behavior); if observed, verify the reconnect
       copy and investigate why the token died.
 
+Free slots (`/availability slots`, v0.37.0) — same prerequisites:
+
+- [ ] `/availability slots` appears beside `role` and `event`; `who` offers members and roles.
+- [ ] `who:<a linked member>` → ephemeral reply, seven days from today; the busy blocks on their
+      Google calendar are cut out, and every slot lies between 8 AM and 11 PM in their timezone
+      (their `/settings timezone`, else the server's).
+- [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour
+      no earlier than now.
+- [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;
+      `when:friday at night` starts on Friday, not today.
+- [ ] `who:<a role>` holding a linked and an unlinked member → slots are the linked member's;
+      the unlinked one is named under **Not counted**; a bot holding the role is not listed.
+- [ ] `who:<a member with no calendar>` → "Nobody could be counted", no day lines.
+- [ ] `days:14` against a real Google account → slots, not "Couldn't check right now" (one
+      15-day free/busy query per linked member).
+- [ ] `when:yesterday`, `when:banana` and `when:year 5000` → friendly refusals; a bot as `who`
+      and a user id from outside the server are refused.
+- [ ] The reply reads at phone width; the footer names the zone the days are cut in.
+- [ ] `/availability role` and `/availability event` behave exactly as before.
+
 ### 13. Permission-precheck bails
 
 - [ ] Remove Manage Events from the bot → `/settings native-events on` bails friendly.
