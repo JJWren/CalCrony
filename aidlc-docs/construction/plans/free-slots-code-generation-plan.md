@@ -468,7 +468,9 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
 - [ ] 8.4 Copilot rounds until an approval with no open threads. *Go-ahead:* squash merge. The test
       stack picks up `:main`; the new §12 items are run there. — Blocked 2026-11-11: checks green,
       but Copilot's review did not start on opening or on a push, and requesting it by hand
-      registered nothing. Waiting on Joshua's decision about the review.
+      registered nothing. Joshua's decision the same day: two review agents in Copilot's place —
+      one on security, one on code quality — reviewing each commit in a loop until a commit comes
+      back clean from both.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):

@@ -1044,3 +1044,10 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4 blocked: Copilot's review cannot be requested; awaiting Joshua's decision.
 
 ---
+## Construction — unit 1 review: two review agents in Copilot's place
+**Timestamp**: 2026-11-11T21:34:45Z
+**User Input**: "Spawn two separate code review agents and wait for their feedback on loop for each commit. One agent will focus on security, the other will focus on the code quality, etc."
+**AI Response**: Read as the answer to the question the last turn ended on — how PR #172 should be reviewed now that Copilot's review won't start — and as review rounds in Copilot's place: two separate review agents, one on security and privacy and one on correctness, code quality, tests and documentation, review the branch; each finding is confirmed before it is acted on; the fixes are committed; both agents then review that commit; and the loop ends when a commit comes back clean from both. Checked the PR first: unchanged — head `3100b8b`, every check green on it, no review, no review request and no thread, and its event list holds only the reference from the tracking issue. Recorded the decision in this unit's plan (step 8.4) and in `aidlc-state.md`. The reviewers only read: they do not edit, build, commit or reach the network, and confirming findings, fixing them and running the tests stay in this session. The merge keeps its own go-ahead.
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4 under way with two review agents in place of Copilot; round 1 starting.
+
+---
