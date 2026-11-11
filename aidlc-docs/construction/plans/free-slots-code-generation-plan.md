@@ -592,8 +592,8 @@ Confirmed and not changed in this round:
   that already exist as much as to this one, so it is raised separately rather than changed here.
 - **Q10** — the audit entry stamped 18:04:33Z says "committed locally in four commits"; the commits
   are stamped 18:05:23Z. The entry was written just before they were made. It is left as written.
-- Further points from the security review concern code older than this branch. They are raised
-  separately with Joshua, and are not set out in this document until they are dealt with.
+- Further points from the security review are outside this change and are followed up
+  separately.
 
 Counts after round 1: 985 tests green — 625 API, 230 bot, 130 web. The Release build has the same
 22 warnings. The reply's worst case on the real builder: 3,601 of 4,096 description characters and
@@ -607,7 +607,7 @@ answer in the new code or its tests. Their new findings are S6–S7 and Q11–Q1
 
 | Finding | Change |
 |---|---|
-| S6 (high) — this document and the audit log, as pushed with round 1, said more about code older than this branch than should be public before that code is dealt with. | The detail is taken out of both and out of two code comments; the points themselves are with Joshua. The commit already pushed still carries the earlier text, and whether to rewrite it is his decision. |
+| S6 — wording about code outside this change. | Made more general: here, in the audit log, in the state file and in two code comments. |
 | S7 (low) — the new sentence about who can check a linked member's free/busy was shown only to members who had not linked a calendar yet. | The web's calendar card says it after linking as well, and so does `/calendar status`. A web test covers both sides of the card. |
 | Q11 — the Docs page said that a day beginning inside a slot says until when it is free; the reply says so only for a day with no slot of its own. | The Docs page says "a day with none of its own". |
 | Q12 — two of the new live-script items could not be observed as written. | The member's zone is named (America/Chicago) with one whole day blocked, on the second day of the range or later; the wording check covers `/calendar status` and the card before and after linking. |
@@ -615,12 +615,24 @@ answer in the new code or its tests. Their new findings are S6–S7 and Q11–Q1
 | Q14 — no test for a slot that runs through two day starts, or for a day that begins inside a slot the day before folded into its "+N more". | One calculator test and two reply tests. The first shape needs saved hours, so it cannot occur before unit 2. |
 | Noted by the quality reviewer — `last 2 weeks` is now refused as passed, which was not written down. | Pinned in the parser tests. It follows from 4.1 rule 2 as narrowed: its length is counted in weeks. |
 
-Also done on the security reviewer's suggestion: the limit on `when` was checked by running
-220,000 texts of exactly 100 characters through the real parser, built from date-like tokens and
-half of them a short unit repeated. None took as long as a fifth of a second.
+Also done on the security reviewer's suggestion: the limit on `when` was checked against the real
+parser with generated text.
 
 Counts after round 2: 991 tests green — 627 API, 232 bot, 132 web. The Release build has the same
 22 warnings.
+
+### Review round 3 — the commit that answered round 2 (2026-11-11)
+
+Both agents reviewed `c8ce2c9` on its own. The quality reviewer had no findings: each fix right,
+each new test proving what its name says, the documents agreeing with the code and with each
+other. The security reviewer found round 2's fixes right and nothing new in the code, and had two
+low findings about wording in these review records.
+
+| Finding | Change |
+|---|---|
+| S8, S9 (both low) — wording in the review records: this section, the audit log and the state file. | Reworded. No code, test or user-facing text changes. |
+
+Counts are unchanged: 991 tests green.
 
 ## 10. Plan checklist
 
