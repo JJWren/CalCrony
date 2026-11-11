@@ -616,7 +616,7 @@ answer in the new code or its tests. Their new findings are S6–S7 and Q11–Q1
 | Noted by the quality reviewer — `last 2 weeks` is now refused as passed, which was not written down. | Pinned in the parser tests. It follows from 4.1 rule 2 as narrowed: its length is counted in weeks. |
 
 Also done on the security reviewer's suggestion: the limit on `when` was checked against the real
-parser with generated text.
+parser with generated text, and it held.
 
 Counts after round 2: 991 tests green — 627 API, 232 bot, 132 web. The Release build has the same
 22 warnings.
@@ -631,6 +631,20 @@ low findings about wording in these review records.
 | Finding | Change |
 |---|---|
 | S8, S9 (both low) — wording in the review records: this section, the audit log and the state file. | Reworded. No code, test or user-facing text changes. |
+
+Counts are unchanged: 991 tests green.
+
+### Review round 4 — the records commit (2026-11-11)
+
+Both agents reviewed `ae58578`, which changed these records and nothing else. The security
+reviewer found nothing left in the tree to reword. Both found that the records had stopped
+agreeing on what is open with Joshua.
+
+| Finding | Change |
+|---|---|
+| S10 (low) and Q15 (minor), the same point — in rewording, `aidlc-state.md` had stopped listing the second of the two decisions put to Joshua, while the audit log still showed two. A later session resuming from the state file would have seen one, and the merge next. | The state file lists both again, to be settled before the merge, and the audit log's next entry says the same. |
+| Q16 (nit) — the round 3 audit entry called every change to the earlier entries a rewording; some passages were shortened. | The round 4 entry says so. The earlier entries are left as they are. |
+| Q17 (nit) — the note on checking the limit on `when` did not say how the check came out. | "And it held", above and in the round 4 audit entry. |
 
 Counts are unchanged: 991 tests green.
 

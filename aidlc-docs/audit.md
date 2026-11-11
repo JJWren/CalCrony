@@ -1079,3 +1079,10 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: round 3 of the agents' review answered; round 4 next. S1 is with Joshua.
 
 ---
+## Construction — unit 1 review round 4: the records commit; three points on the records, answered
+**Timestamp**: 2026-11-11T22:59:58Z
+**User Input**: (none — continuation of "Spawn two separate code review agents…")
+**AI Response**: Pushed the round 3 records as `ae58578` (2026-11-11T22:54:27Z); its checks are green, and Copilot has still made no request. Both agents reviewed that commit, which changed three documents and nothing else. Security: nothing left in the tree to reword; one low finding, S10. Quality: the documents agree with the code, and the hashes, timestamps and passage counts check out; one minor, Q15, and two nits, Q16 and Q17. S10 and Q15 are the same point: in rewording, the state file stopped listing the second of the two decisions put to Joshua in the entry stamped 22:33:27Z, and the entry before this one names only S1 in its Context line. Neither decision has been answered. Done: the state file lists both again, to be settled before the merge, and this entry's Context line says the same. Q16: the entry before this one calls every change to the earlier entries a rewording; some passages were shortened as well. They were reworded or shortened in place, and the findings and the fixes stand; those entries are left as they now are. Q17: the check on the limit on `when` held, which neither the round 2 entry nor the plan said; the plan now does. The plan's section 9 gains a round 4 subsection. No code, test or user-facing text changes, so the counts stand: 991 tests green. Next: one commit, the push, and both agents on it (round 5).
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: round 4 of the agents' review answered; round 5 next. Two decisions are with Joshua, both to be settled before the merge: S1, and a separate piece of work outside this change.
+
+---
