@@ -39,7 +39,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 - Up to 5 scheduled pings per event (`/notify`), a start announcement, and one-off `/remind`, all crash-safe.
 - DM reminders, **opt-in** per user only.
 - ICS subscribe feed per server (`/link`) with full recurrence; **opt-in** public web calendar behind an unguessable link.
-- Google Calendar free/busy grids (`/availability`) for a role or an event's attendees, free/busy scope only.
+- Google Calendar, free/busy scope only (`/availability`): grids for a role or event, free slots for yourself or a role.
 
 **Polls**
 - Standard and time polls: up to 10 options, single or multi vote, anonymous, voter-added options, auto-close, live bars; a time poll's winner becomes an event.
@@ -87,6 +87,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 | `/calendar connect` · `status` · `disconnect` | Link/unlink your Google Calendar (works in DMs) |
 | `/availability role role when [duration]` | Free/busy grid for everyone holding a role |
 | `/availability event name` | Free/busy grid for everyone RSVP'd to the event's attending option ("Going" by default), over the event's own window |
+| `/availability slots who [when days duration]` | Free slots for yourself or a role over 1–14 days (default 7, from today): times every counted member is free, 8 AM–11 PM in each member's timezone. Only you see the reply |
 
 ## Solution layout
 
@@ -140,7 +141,7 @@ Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/
 | `Discord__SupportServerInvite` | *(empty)* | Community-server invite shown by `/help` — must be absolute https; the line is omitted when unset, so test and self-hosted bots don't advertise the hosted server |
 | `Donations__BuyMeACoffeeUrl` | *(empty)* | Donate link shown by `/help` — must be absolute https; omitted when unset |
 
-The `/availability role` command requires the **Server Members** privileged gateway intent, enabled in the Discord Developer Portal.
+`/availability role`, and `/availability slots` when `who` is a role, require the **Server Members** privileged gateway intent, enabled in the Discord Developer Portal.
 
 ### Web (`CalCrony.Web` container)
 

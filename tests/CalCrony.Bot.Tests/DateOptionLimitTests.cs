@@ -15,6 +15,7 @@ public class DateOptionLimitTests
     public static TheoryData<Type, string, string> DateOptions() => new()
     {
         { typeof(AvailabilityModule), "role", "when" },
+        { typeof(AvailabilityModule), "slots", "when" },
         { typeof(EventModule), "create", "when" },
         { typeof(EventModule), "create", "repeat-until" },
         { typeof(EventModule), "create", "rsvp-close" },

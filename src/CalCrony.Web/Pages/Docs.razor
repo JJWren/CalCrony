@@ -261,7 +261,18 @@
         or under My settings (free/busy scope only: CalCrony never sees event titles or details,
         and tokens are encrypted at rest). Then <code>/availability role</code> or
         <code>/availability event</code> — and the grid on every event page — show who's free,
-        Scheduling-Assistant style. Read-only: it never blocks creating or RSVPing.
+        Scheduling-Assistant style. To find a time instead of checking one,
+        <code>/availability slots who:@@dnd</code> (Discord only; any member can run it, and only
+        they see the reply) lists when everyone holding a role is free over 1 to 14 days; pick
+        yourself as <code>who</code> for your own. <code>when</code> picks the first day (today by
+        default), <code>days</code> how many (7 by default) and <code>duration</code> the shortest
+        slot worth listing (60 minutes by default). A slot is time with nothing on the linked
+        calendar, between 8 AM and 11 PM in
+        each member's own timezone (the server's, if they haven't set one). It is listed under the
+        day it starts on, and a day with none of its own that begins inside one says until when
+        it's free. Members who
+        haven't linked a calendar aren't counted, and the reply lists them under <b>Not counted</b>
+        (a long list ends in a count). Read-only: it never blocks creating or RSVPing.
     </li>
 </ul>
 
@@ -338,7 +349,7 @@
             <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
-            <tr><td><code>/availability role|event</code></td><td>Free/busy grid for a role or an event's Going list</td></tr>
+            <tr><td><code>/availability role|event|slots</code></td><td>Free/busy grid for a role or an event's Going list · free slots for yourself or a role over 1–14 days</td></tr>
             <tr><td><code>/calendar connect</code></td><td>Link your Google Calendar (free/busy scope only)</td></tr>
             <tr><td><code>/link</code></td><td>Your server's calendar-subscribe URL</td></tr>
             <tr><td><code>/poll create</code> · <code>/poll time</code></td><td>Polls with live vote bars · candidate times against each other; both take <code>closes</code>, <code>anonymous</code>, <code>allow-options</code>, <code>restrict-to</code>, and <code>/poll create</code> also <code>single-vote</code></td></tr>

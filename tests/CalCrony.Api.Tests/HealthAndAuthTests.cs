@@ -55,6 +55,7 @@ public class HealthAndAuthTests
     [InlineData("/calendar/connections/1")]
     [InlineData("/calendar/connections/1/link-token")]
     [InlineData("/calendar/availability")]
+    [InlineData("/calendar/free-slots")]
     public async Task Calendar_routes_still_require_an_api_key(string path)
     {
         await using var factory = CreateFactory();

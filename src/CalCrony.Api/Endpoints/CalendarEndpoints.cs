@@ -8,7 +8,8 @@ using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
 
-/// <summary>Calendar linking and availability endpoints (linking is per-user; availability checks are BotOnly).</summary>
+/// <summary>Calendar linking and availability endpoints (linking is per-user; availability checks
+/// and free-slots lookups are BotOnly).</summary>
 public static class CalendarEndpoints
 {
     private const int LinkTokenExpiryMinutes = 10;
@@ -26,6 +27,9 @@ public static class CalendarEndpoints
         // BotOnly: accepts arbitrary UserIds — exposing it to web callers would let any
         // signed-in user probe any Discord user's free/busy. Web uses the event-scoped route.
         app.MapPost("/calendar/availability", CheckAvailability).RequireAuthorization("BotOnly");
+        // BotOnly for the same reason: arbitrary UserIds, and here up to two weeks of each one's
+        // free time. There is no web route for free slots.
+        app.MapPost("/calendar/free-slots", GetFreeSlots).RequireAuthorization("BotOnly");
         app.MapGet("/events/{id:guid}/availability", GetEventAvailability);
     }
 
@@ -178,6 +182,53 @@ public static class CalendarEndpoints
         var end = Instant.FromDateTimeOffset(request.EndsAtUtc);
         var results = await availability.CheckAsync(userIds, start, end, cancellationToken);
         return Results.Ok(new AvailabilityResponse(request.StartsAtUtc, request.EndsAtUtc, results));
+    }
+
+    /// <summary>Lists when the requested users are free over a run of whole days (BotOnly — prevents
+    /// member probing). Shape errors are refused here, among them first-day text over its length
+    /// limit, which is turned away before anything reads it; a first day that cannot be
+    /// understood, has passed, or lies more than a year ahead comes back from the service with
+    /// its user-facing reason.</summary>
+    /// <param name="request">The request body.</param>
+    /// <param name="freeSlots">The free-slots service.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> GetFreeSlots(
+        FreeSlotsRequest request,
+        FreeSlotsService freeSlots,
+        CancellationToken cancellationToken)
+    {
+        // De-duplicate first, as the availability route does; a body without userIds
+        // deserializes to null rather than to an empty list.
+        var userIds = (request.UserIds ?? []).Distinct().ToList();
+        if (userIds.Count is 0 or > FreeSlotLimits.MaxUsers)
+        {
+            return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {FreeSlotLimits.MaxUsers} distinct entries."));
+        }
+
+        if (request.Days is < FreeSlotLimits.MinDays or > FreeSlotLimits.MaxDays)
+        {
+            return Results.BadRequest(new ErrorResponse(
+                $"days must be between {FreeSlotLimits.MinDays} and {FreeSlotLimits.MaxDays}."));
+        }
+
+        if (request.MinimumMinutes is < FreeSlotLimits.MinMinimumMinutes or > FreeSlotLimits.MaxMinimumMinutes)
+        {
+            return Results.BadRequest(new ErrorResponse(
+                $"minimumMinutes must be between {FreeSlotLimits.MinMinimumMinutes} and {FreeSlotLimits.MaxMinimumMinutes}."));
+        }
+
+        // Before anything reads the text: a first day is a few words, so longer text is refused
+        // unread. The limit is the one every date typed in words has; the parser checks it too.
+        if (request.When is { Length: > DateTextLimits.MaxLength })
+        {
+            return Results.BadRequest(new ErrorResponse($"when must be at most {DateTextLimits.MaxLength} characters."));
+        }
+
+        var outcome = await freeSlots.GetAsync(request with { UserIds = userIds }, cancellationToken);
+        return outcome.Response is null
+            ? Results.BadRequest(new ErrorResponse(outcome.Error ?? "The free-slots lookup failed."))
+            : Results.Ok(outcome.Response);
     }
 
     /// <summary>Web-safe availability: the user set is the event's "Going" RSVPs and the window

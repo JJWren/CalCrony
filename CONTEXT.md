@@ -31,3 +31,15 @@ _Avoid_: main server, home guild
 **Test Guild**:
 The private Discord guild used during development, where the bot registers slash commands guild-scoped (instant) instead of globally. Never the Community Server — pointing test registration at the public guild would leak test commands to users.
 _Avoid_: dev server, staging guild
+
+**Free Slot**:
+A stretch of time in which every Counted Member is inside their Available Hours with nothing on a linked calendar. Computed live for one reply and never stored; it belongs to the caller's calendar day it starts on.
+_Avoid_: opening, gap, free block
+
+**Counted Member**:
+A member whose availability actually shaped a free-slots answer. Everyone else who was asked about is accounted for in the reply under the reason they were left out — by name, or in a count once a list grows long.
+_Avoid_: included member, participant
+
+**Available Hours**:
+The weekly wall-clock hours, read in a member's own timezone, inside which a Free Slot may fall — 8 AM–11 PM every day by default. What a calendar cannot say: an empty one reads as free at 3 AM.
+_Avoid_: working hours, office hours, schedule

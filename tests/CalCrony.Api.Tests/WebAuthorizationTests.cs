@@ -101,6 +101,19 @@ public class WebAuthorizationTests(WebAuthFixture fixture) : IClassFixture<WebAu
     }
 
     [Fact]
+    public async Task Free_slots_are_bot_only()
+    {
+        // Same exposure as the generic availability route, over a longer range: a web caller could
+        // otherwise list any Discord user's free time. Slots have no web route at all.
+        var (member, session) = await fixture.LoginAsync(6016, (GuildId, "Mine", false));
+
+        var response = await member.PostAsJsonAsync("/calendar/free-slots",
+            new FreeSlotsRequest([session.UserId], session.UserId, GuildId, null, 7, 60));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Settings_are_self_only_for_web_callers()
     {
         var (member, session) = await fixture.LoginAsync(6007, (GuildId, "Mine", false));

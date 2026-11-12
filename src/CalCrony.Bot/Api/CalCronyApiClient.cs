@@ -488,6 +488,14 @@ public sealed class CalCronyApiClient(HttpClient http)
     public Task<ApiResult<AvailabilityResponse>> CheckAvailabilityAsync(AvailabilityRequest request, CancellationToken ct = default) =>
         SendAsync<AvailabilityResponse>(http.PostAsJsonAsync("/calendar/availability", request, ct), ct);
 
+    /// <summary>Lists when the given users are free over a run of whole days. A first day the API
+    /// cannot understand, or one that has passed, comes back as the display-ready error.</summary>
+    /// <param name="request">The request body.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<FreeSlotsResponse>> GetFreeSlotsAsync(FreeSlotsRequest request, CancellationToken ct = default) =>
+        SendAsync<FreeSlotsResponse>(http.PostAsJsonAsync("/calendar/free-slots", request, ct), ct);
+
     /// <summary>Empty payload marker for calls whose success carries no body.</summary>
     public readonly record struct Unit;
 

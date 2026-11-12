@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-09-02** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
+**Last updated: 2026-11-11** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -46,9 +46,9 @@ sent to it. It does not read your server's messages.
 CalCrony's use and transfer of information received from Google APIs adheres to the
 [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy),
 including the **Limited Use** requirements. Free/busy data is used solely to render availability
-grids to members of your Discord server, is never stored, never transferred to third parties,
-never used for advertising, and never read by humans except with your consent or for security
-purposes.
+grids and free-slot lists to members of the Discord servers you share with CalCrony, is never
+stored, never transferred to third parties, never used for advertising, and never read by humans
+except with your consent or for security purposes.
 
 ## 2. What we don't do
 

@@ -5,7 +5,8 @@ using Discord.Interactions;
 
 namespace CalCrony.Bot.Modules;
 
-/// <summary>/availability — free/busy grids for a role's members or an event's attending list.</summary>
+/// <summary>/availability — free/busy grids for a role's members or an event's attending list,
+/// and free slots for the caller or a role over one or more days.</summary>
 /// <param name="api">The CalCrony API client.</param>
 [CommandContextType(InteractionContextType.Guild)]
 [IntegrationType(ApplicationIntegrationType.GuildInstall)]
@@ -103,6 +104,78 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         var start = ev.StartsAtUtc;
         var end = start.AddMinutes(ev.DurationMinutes ?? 60);
         await RunAndReplyAsync($"**{ev.Title}**", userIds, start, end);
+    }
+
+    /// <summary>Free slots for the caller, or for everyone holding a role, over one or more whole
+    /// days: the times every counted member is inside their available hours with nothing on a
+    /// linked calendar. Unlike <c>role</c>, which checks one window someone already has in mind,
+    /// this finds the windows.</summary>
+    /// <param name="who">The caller themself, or the role whose members are looked at. The picker
+    /// offers every member; <see cref="FreeSlotTarget.ForUser"/> refuses anyone but the caller.</param>
+    /// <param name="when">The first day in natural language; today when omitted.</param>
+    /// <param name="days">How many days to list.</param>
+    /// <param name="duration">The shortest slot worth listing, in minutes.</param>
+    [SlashCommand("slots", "Find free time slots for yourself or a role over one or more days")]
+    public async Task SlotsAsync(
+        [Summary("who", "Yourself or a role")] IMentionable who,
+        [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)"), MaxLength(DateTextLimits.MaxLength)] string? when = null,
+        [Summary("days", "How many days to list, 1-14 (default 7)"), MinValue(FreeSlotLimits.MinDays), MaxValue(FreeSlotLimits.MaxDays)] int? days = null,
+        [Summary("duration", "Shortest slot worth listing, in minutes (default 60)"), MinValue(FreeSlotLimits.MinMinimumMinutes), MaxValue(FreeSlotLimits.MaxMinimumMinutes)] int? duration = null)
+    {
+        await DeferAsync(ephemeral: true);
+
+        FreeSlotTarget target;
+        switch (who)
+        {
+            case IRole role:
+                // Enumerating role members needs the member list downloaded, as in RoleAsync.
+                await Context.Guild.DownloadUsersAsync();
+                target = FreeSlotTarget.ForRole(
+                    role.Name,
+                    role.Mention,
+                    Context.Guild.Users
+                        .Where(u => u.Roles.Any(r => r.Id == role.Id))
+                        .Select(u => ((long)u.Id, u.IsBot)));
+                break;
+
+            case IUser user:
+                // Discord hands over a guild member when the user is in this server, and a bare
+                // user when the id was resolved from outside it.
+                target = FreeSlotTarget.ForUser(
+                    (long)user.Id,
+                    (user as IGuildUser)?.DisplayName ?? user.Username,
+                    user.IsBot,
+                    user is IGuildUser,
+                    (long)Context.User.Id);
+                break;
+
+            default:
+                target = FreeSlotTarget.Refused("Pick yourself or a role.");
+                break;
+        }
+
+        if (target.Refusal is { } refusal)
+        {
+            await FollowupAsync(refusal, ephemeral: true);
+            return;
+        }
+
+        var minimumMinutes = duration ?? FreeSlotLimits.DefaultMinimumMinutes;
+        var slots = await api.GetFreeSlotsAsync(new FreeSlotsRequest(
+            target.UserIds,
+            (long)Context.User.Id,
+            (long)Context.Guild.Id,
+            when,
+            days ?? FreeSlotLimits.DefaultDays,
+            minimumMinutes));
+        if (!slots.Success || slots.Value is null)
+        {
+            await FollowupAsync($"❌ {slots.Error}", ephemeral: true);
+            return;
+        }
+
+        await FollowupAsync(
+            embed: FreeSlotsEmbedBuilder.Build(target.Subject, minimumMinutes, slots.Value), ephemeral: true);
     }
 
     /// <summary>Runs the availability check and replies with the grid embed.</summary>

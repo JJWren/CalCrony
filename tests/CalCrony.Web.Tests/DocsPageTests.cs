@@ -77,6 +77,25 @@ public class DocsPageTests : TestContext
         Assert.Contains("Create Public Threads", Entry(cut, "Event threads").TextContent);
     }
 
+    [Fact]
+    public void Docs_page_explains_free_slots_inside_the_availability_entry()
+    {
+        var cut = Render<Docs>();
+
+        // Where it lives, who may use it and what it assumes, inside the feature's own entry.
+        var entry = Entry(cut, "Google Calendar availability").TextContent;
+        Assert.Contains("/availability slots", entry);
+        Assert.Contains("Discord only", entry);
+        Assert.Contains("any member can run it", entry);
+        Assert.Contains("everyone holding a role", entry);
+        Assert.Contains("yourself as who for your own", entry);
+        Assert.Contains("between 8 AM and 11 PM", entry);
+        Assert.Contains("aren't counted", entry);
+
+        // …and the command reference lists the subcommand beside the two it joins.
+        Assert.Contains(cut.FindAll("table td code"), code => code.TextContent == "/availability role|event|slots");
+    }
+
     /// <summary>The "Features in depth" list entry whose bold lead is <paramref name="name"/> —
     /// scoped to the lists after the <c>#features</c> heading, since the first-steps guidance
     /// above uses some of the same leads (e.g. "Attendee roles").</summary>

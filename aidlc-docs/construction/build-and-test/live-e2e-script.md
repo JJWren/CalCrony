@@ -4,7 +4,8 @@ The full manual pass over every feature area against a **real deployment** and a
 server**. Part A sets up an isolated test environment; Part B is the numbered pass itself; the
 results land in [`build-and-test-summary.md`](build-and-test-summary.md) (a `fix:` PR per
 finding). v1.0.0 ships only when the pass is declared complete. Section 12 is conditional on
-deployment prerequisites and does not block the release.
+deployment prerequisites and does not block the release, except for its one item marked
+**Must pass**.
 
 Conventions: "embed" = the event's Discord message; "~15s" = one delivery-poller cycle;
 web = the Blazor app signed in via Discord.
@@ -205,7 +206,9 @@ production id (correct for the prod stack, which needs no new variables).
 Requires: public HTTPS `Api__PublicBaseUrl`, Google OAuth client (published to production;
 verification pending is fine — expect the unverified-app interstitial), redirect URI registered,
 Server Members intent. **Skippable without blocking v1.0.0** (long-standing known
-constraint) — mark the section skipped in the summary if prerequisites aren't in place.
+constraint) — mark the section skipped in the summary if prerequisites aren't in place. The
+exception is the one item below marked **Must pass**: it needs none of them and is run either
+way.
 
 - [ ] `/calendar connect` (works in DM) → Google consent (free/busy scope only) → linked.
 - [ ] `/availability event` on an event with Going RSVPs → grid renders; linked users show busy blocks.
@@ -214,6 +217,43 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
 - [ ] The 🔄 reconnect badge should NOT appear over time now that the consent screen is
       published (7-day expiry was a Testing-mode behavior); if observed, verify the reconnect
       copy and investigate why the token died.
+
+Free slots (`/availability slots`, v0.37.0) — same prerequisites:
+
+- [ ] `/availability slots` appears beside `role` and `event`; `who` offers members and roles,
+      and its description reads "Yourself or a role".
+- [ ] `who:<yourself>`, with your calendar linked → ephemeral reply, seven days from today; the
+      busy blocks on your Google calendar are cut out, and every slot lies between 8 AM and 11 PM
+      in your timezone (your `/settings timezone`, else the server's).
+- [ ] `who:<another member>` → "Another member's free slots can't be listed yet — pick yourself
+      or a role.", the same whether or not they have linked a calendar. **Must pass**: no
+      automated test covers the line that hands the rule the caller's id. It needs none of this
+      section's prerequisites, so run it even when the rest of the section is skipped.
+- [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour
+      no earlier than now.
+- [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;
+      `when:friday at night` starts on Friday, not today.
+- [ ] `who:<a role>` holding a linked and an unlinked member → slots are the linked member's;
+      the unlinked one is named under **Not counted**; a bot holding the role is not listed.
+- [ ] `who:<yourself>` from an account with no calendar linked, or `who:<a role>` none of whose
+      holders has one → "Nobody could be counted", no day lines.
+- [ ] A caller many hours from the member: set the caller's `/settings timezone` to Asia/Tokyo
+      and look at a role held only by a member whose timezone is America/Chicago, with one whole
+      day (8 AM–11 PM their time) blocked on their Google calendar — the second day of the range
+      or later.
+      Slots run past the caller's midnight under the day they start on, and the caller's day
+      with nothing starting on it reads "free until … (started …)" rather than "nothing free".
+- [ ] `duration:1000` → every day "nothing free", then the line suggesting a shorter `duration`.
+- [ ] Discord does not let more than 100 characters be typed into `when`.
+- [ ] `/calendar connect`, `/calendar status` once linked, and the web's Google Calendar card
+      before and after linking all say that members of the servers you share with CalCrony can
+      check when you're free or busy.
+- [ ] `days:14` against a real Google account → slots, not "Couldn't check right now" (one
+      15-day free/busy query per linked member).
+- [ ] `when:yesterday`, `when:banana` and `when:year 5000` → friendly refusals; a bot as `who`
+      and a user id from outside the server are refused.
+- [ ] The reply reads at phone width; the footer names the zone the days are cut in.
+- [ ] `/availability role` and `/availability event` behave exactly as before.
 
 ### 13. Permission-precheck bails
 
@@ -239,7 +279,7 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
    [`build-and-test-summary.md`](build-and-test-summary.md) — one `fix:` PR per finding, then
    re-run the affected section against the fixed build.
 2. Section 12 may be marked **skipped** if the Google/HTTPS prerequisites aren't in place; every
-   other section must pass.
+   other section must pass, and so must section 12's one item marked **Must pass**.
 3. When the table is fully green, the pass is complete: the final `docs: prepare v1.0.0` PR
    records the results, and its **squash commit footer** carries `Release-As: 1.0.0` (footer of
    the commit message in the merge dialog — never the PR description).

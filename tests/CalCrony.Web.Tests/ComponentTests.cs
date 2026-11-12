@@ -110,6 +110,9 @@ public class ComponentTests : TestContext
         Assert.Contains("free/busy", privacy.Markup);
         Assert.Contains("Privacy Policy", privacy.Markup);
 
+        // Free/busy now also feeds /availability slots, and the Limited Use sentence says so.
+        Assert.Contains("availability grids and free-slot lists", privacy.Markup);
+
         var terms = Render<Terms>();
         Assert.Contains("Terms of Service", terms.Markup);
         Assert.NotNull(terms.Find("a[href='/privacy']"));
