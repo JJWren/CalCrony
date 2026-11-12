@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.4](https://github.com/JJWren/CalCrony/compare/v0.36.3...v0.36.4) (2026-11-12)
+
+
+### Bug Fixes
+
+* limit the length of free-text dates ([#173](https://github.com/JJWren/CalCrony/issues/173)) ([29a0d15](https://github.com/JJWren/CalCrony/commit/29a0d15737255930621ff4fa36445c998befc0d0))
+
 ## [0.36.3](https://github.com/JJWren/CalCrony/compare/v0.36.2...v0.36.3) (2026-09-02)
 
 
