@@ -519,8 +519,12 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       reached `master` on 2026-11-12 and `master` is merged into this branch (section 9). The
       agents read that merge before it was pushed and passed it as `16bee3b` (round 11). His
       go-ahead to merge the PR came the same day ("After 0.36.4"): once PR #174 has been merged.
-      Still ahead: the squash merge, when that has happened.
-- [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
+      That happened at 22:05:39Z, and PR #172 was squash-merged at 2026-11-12T23:24:12Z as
+      `a079441`. The test stack took `:main` at that commit at 23:29Z, and Discord's command list
+      for the test guild shows the subcommand as built. Still ahead: the new §12 items there,
+      which need a member in Discord — the must-pass item first.
+- [x] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
+      — Marked 2026-11-12. Release PR #175 (0.37.0) is open and waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
 
