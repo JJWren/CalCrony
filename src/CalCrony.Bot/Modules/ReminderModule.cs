@@ -17,7 +17,7 @@ public class ReminderModule(CalCronyApiClient api) : InteractionModuleBase<Socke
     /// <param name="about">What the reminder should say.</param>
     [SlashCommand("remind", "Create a one-off reminder in this channel")]
     public async Task RemindAsync(
-        [Summary("when", "e.g. \"in 30 minutes\" or \"tomorrow 9am\"")] string when,
+        [Summary("when", "e.g. \"in 30 minutes\" or \"tomorrow 9am\""), MaxLength(DateTextLimits.MaxLength)] string when,
         [Summary("about", "What to remind you of")] string about)
     {
         await DeferAsync(ephemeral: true);

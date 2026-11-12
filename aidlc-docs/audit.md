@@ -908,3 +908,31 @@ box on #125, close #125, and mark §3.3 shipped in aidlc-state.md."
 **Context**: Operations — #167 fixed end to end (report → issue → fix PR #168 → 0.36.3 → test → prod).
 
 ---
+## Fix request — a length limit for date/time text
+**Timestamp**: 2026-11-12T00:33:04Z
+**User Input**: (none typed by Joshua — the task was handed over from another session: limit the length of date/time text typed in words.)
+**AI Response**: Brownfield, aidlc-state resumed. A small fix on a branch cut from master: date/time text typed in words gets a length limit. Requirements at minimal depth — that task is the requirement; no user stories, application design or units. One construction unit, code generation only.
+**Context**: Inception (brownfield) — workspace detection and intent analysis; construction as a single-unit fix next.
+
+---
+## Construction — date-text length limit implemented
+**Timestamp**: 2026-11-12T00:57:46Z
+**User Input**: (none — continuation)
+**AI Response**: Branch fix/date-text-length-limit, cut from master 4911a1f. One limit, DateTextLimits.MaxLength = 100 characters, in Contracts — the cap time-poll options already carried. NaturalDateTimeParser.TryResolve and RsvpPolicy.TryParseClose refuse longer text before reading it: a 400 with "The date/time text must be at most 100 characters.", which does not quote the text. The bot's eleven date options declare the same limit with [MaxLength], so Discord turns longer text down before the command runs; /poll time's slots option stays as it was (a comma-separated list, each entry already capped by the API). Text at or under the limit is read as before. Tests: the parser reads text at the limit and refuses one character more, with and without a zone abbreviation; the cutoff reader refuses longer text in both its forms and reads relative text at the limit; two route tests (POST /tools/parse-datetime, and event create with a cutoff); a bot test that lists the date options. Each refusal test was seen to fail with its guard taken out. Build 0 errors and the same 22 warnings as master; 830 tests green (182 bot, 129 web, 519 API — 20 new).
+**Context**: Construction — code generation complete for the single unit; review of the diff next.
+
+---
+## Construction — date-text length limit reviewed
+**Timestamp**: 2026-11-12T01:32:03Z
+**User Input**: (none — continuation)
+**AI Response**: Two review agents read the uncommitted diff, one on security and one on code quality; neither asked for a change to what the code does. Added from the quality review: a test that the cutoff reader still reads absolute text at the limit, so both of its forms are covered at and over it, and an explicit null check on TryResolve's text argument. Build 0 errors and the same 22 warnings as master; 831 tests green (182 bot, 129 web, 520 API — 21 new). Committed on the branch.
+**Context**: Construction — code generation complete for the single unit; Joshua's decision on the pull request next.
+
+---
+## Construction — date-text length limit: pull request approved
+**Timestamp**: 2026-11-12T13:52:39Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: The completion message was "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", with B meaning: push fix/date-text-length-limit and open the pull request "fix: limit the length of free-text dates". Joshua chose B. After a last read of the branch and a full test run (831 green), pushing the branch and opening the pull request.
+**Context**: Construction — code generation approved for the single unit; the pull request next.
+
+---

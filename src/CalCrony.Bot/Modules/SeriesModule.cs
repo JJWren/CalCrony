@@ -52,7 +52,7 @@ public class SeriesModule(CalCronyApiClient api, NativeEventMirror mirror, RoleS
         [Summary("repeat-every", "New interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int? repeatEvery = null,
         [Summary("repeat-days", "Weekly only: new days, e.g. \"tue,thu\" or \"weekdays\" — \"none\" goes back to one day")] string? repeatDays = null,
         [Summary("ends", "How the series ends — or just pass until/count directly")] SeriesEndsChoice? ends = null,
-        [Summary("until", "Last date it repeats, e.g. \"Aug 30\" (implies ends: on a date)")] string? until = null,
+        [Summary("until", "Last date it repeats, e.g. \"Aug 30\" (implies ends: on a date)"), MaxLength(DateTextLimits.MaxLength)] string? until = null,
         [Summary("count", "Total occurrences including past ones (2-500)"), MinValue(2), MaxValue(500)] int? count = null)
     {
         await DeferAsync(ephemeral: true);

@@ -22,7 +22,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     [SlashCommand("role", "Check calendar availability for everyone with a role")]
     public async Task RoleAsync(
         [Summary("role", "The role to check")] IRole role,
-        [Summary("when", "When to check, e.g. \"tomorrow 2pm\"")] string when,
+        [Summary("when", "When to check, e.g. \"tomorrow 2pm\""), MaxLength(DateTextLimits.MaxLength)] string when,
         [Summary("duration", "Duration in minutes (default 60)")] int? duration = null)
     {
         await DeferAsync(ephemeral: true);
