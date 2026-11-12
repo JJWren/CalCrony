@@ -19,7 +19,8 @@ file after this unit merges.
 the caller — or everyone holding a role — is free. In this unit every counted member is on the
 default hours, 8 AM–11 PM in their own zone, and a member is counted only when their linked calendar
 could be read. The stored hours setting and the "hours only" state are unit 2, and so is naming
-another member, who must have saved their hours first (D11).
+another member, who must have saved their hours first (D11; as approved, the first sentence
+read "when a member — or everyone holding a role — is free").
 
 No migration, no configuration, no new Google scope, Discord permission or intent. Nothing from
 Google is stored (FR16). `/availability role` and `/availability event` are not touched (FR8).
@@ -221,10 +222,12 @@ Resolving `who`, after the ephemeral defer:
 | a user who is not in this server | — | — | `That user isn't a member of this server.` (R3) |
 | another member of this server | — | — | `Another member's free slots can't be listed yet — pick yourself or a role.` (D11) |
 
-The rows for one user are checked in that order, so a bot or a user from outside the server is
-told the more specific reason. The picker still offers every member: Discord has no option type
-for "me or a role", and unit 2 needs the member choice. As approved, the first of these rows read
-"a member of this server", and the two refusals ended "pick a member or a role".
+The three refusals for one user are checked in that order — a bot, a user from outside the
+server, another member — so the first two are told the more specific reason, and the caller is
+what is left. The picker still offers every member: Discord has no option type for "me or a
+role", and unit 2 needs the member choice. As approved, the caller's row read "a member of this
+server", there was no row for another member, and the bot refusal ended "pick a member or a
+role".
 
 Every refusal is ephemeral. A refusal from the API prints as `❌ {error}`, as on the other
 subcommands.
@@ -507,9 +510,10 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       one on security, one on code quality — reviewing each commit in a loop until a commit comes
       back clean from both. That review was complete on `9f13116` after five rounds (section 9).
       Joshua then answered the two decisions it had left open (2026-11-12, section 9): D11 is
-      implemented in a further commit, which both agents review as round 6, and the separate
-      piece of work outside this change goes first, in its own session. Still ahead: that round,
-      that work, then his go-ahead for the merge.
+      implemented in `61d6eda`, and the agents' rounds on it and on the records that answer
+      them are in section 9; the separate piece of work outside this change goes first, in its
+      own session. Still ahead: a round with no findings, that work, then his go-ahead for the
+      merge.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
@@ -701,9 +705,18 @@ What D11 does not change, so that it is not read as more than it is:
 
 - **A role is as it was.** A role lookup that ends up with one counted member — a role one member
   holds, or one whose other holders have no readable calendar — lists that member's slots. That
-  is the reach `/availability role` already has, one line per member, and who holds a role is in
-  the hands of whoever manages roles in the server. S3's point, that a list resting on one
-  member shows roughly where their day starts and ends, still applies on that path.
+  is almost the reach `/availability role` has, where every member gets a line of their own.
+  The one difference (S11, round 6): bots are left out here before the 50-member limit and
+  counted toward it there, so a role of more than 50 holders with 50 or fewer people is accepted
+  here and refused by the grid — `@everyone` in a server of 46 people and 6 bots, for one. Who
+  holds a role is in the hands of whoever manages roles in the server. S3's point, that a list
+  resting on one member shows roughly where their day starts and ends, still applies on this
+  path.
+- **What a role lookup gives is as it was, too** (S11). When the caller is one of two counted
+  members, the answer is the other member's slots cut to the caller's own hours, and a caller
+  with an empty calendar can move those hours with `/settings timezone`. A lookup still lists up
+  to 14 days in one reply, starting up to a year ahead. The members it covers are not told, and
+  nothing records who asked.
 - **The route.** `POST /calendar/free-slots` stays bot-only and takes the ids the bot hands it.
   Like R3's membership check, the rule for `who` is the bot's. Where the saved-hours check sits
   is for unit 2's plan.
@@ -714,6 +727,36 @@ What D11 does not change, so that it is not read as more than it is:
 
 Counts after D11: 993 tests green — 627 API, 234 bot, 132 web. The Release build has the same 22
 warnings.
+
+### Review round 6 — the commit that implemented D11 (2026-11-12)
+
+Both agents reviewed `9f13116..61d6eda`: the round 5 records and the D11 change. Neither had a
+finding in the code or the tests. The security reviewer found the rule enforced — no way in this
+unit to get another member's slots by naming them, the three refusals decided before the API is
+called and so giving nothing away — and nothing in the range saying more than it should. The
+quality reviewer found the order of the checks right, each test proving what its name says, and
+the user-facing wording accurate. Their findings are on these records.
+
+| Finding | Change |
+|---|---|
+| S11 (low) — the records said a role lookup has "the reach `/availability role` already has". Not quite: bots are left out before the limit here and counted there. And the list of what D11 does not change left out three things about a role lookup: the caller as the other counted member, how much one reply lists, and that the members covered are not told. | The role bullet above is exact and a bullet is added; FR19 and D11 say the same. The audit entry stamped 00:40:36Z is corrected by the entry after it, not in place. |
+| Q18 (nit) — three slips in this plan's amended sections: 4.6 said two refusals had ended "pick a member or a role" as approved, where one did; it said the rows are checked in the table's order, where the three refusals are; and section 1 did not keep its approved wording. | Each corrected. |
+| Q19 (nit) — the design's docs-and-privacy table (its section 7) did not carry what FR19 and D11 ask of the Docs page and the privacy copies in unit 2. | Added there, with the README wording that returns in unit 2, and the amendment note names section 7. |
+
+Noted by both and left as it is: the one line with no automated test is the module handing
+`ForUser` the caller's id — the bot tests have no way to run a command. The live script's item
+for naming another member is its check, and is marked there as one that must pass.
+
+For unit 2's plan, from the security reviewer: S3 comes back for members who save hours, since
+a list about one of them shows roughly the hours they keep, so the wording where hours are saved
+should say so (FR10 now asks for it); and a role lookup that rests on one member needs no
+opt-in under D11 — if that were ever wanted, only the API could enforce it, because only it
+knows who ended up counted.
+
+Not changed, and offered to Joshua: counting bots toward the limit in `ForRole`, which would
+make the reach identical to the grid's and refuse the role in S11's example.
+
+Counts are unchanged: 993 tests green.
 
 ## 10. Plan checklist
 

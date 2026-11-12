@@ -223,7 +223,8 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
       busy blocks on your Google calendar are cut out, and every slot lies between 8 AM and 11 PM
       in your timezone (your `/settings timezone`, else the server's).
 - [ ] `who:<another member>` → "Another member's free slots can't be listed yet — pick yourself
-      or a role.", the same whether or not they have linked a calendar.
+      or a role.", the same whether or not they have linked a calendar. **Must pass**: no
+      automated test covers the line that hands the rule the caller's id.
 - [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour
       no earlier than now.
 - [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;

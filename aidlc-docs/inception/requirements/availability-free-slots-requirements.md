@@ -114,15 +114,16 @@ for the description, 1024 per field value and 6000 for the whole embed.
   the refusal says how hours are saved; the Docs page and both privacy copies state the rule
   (FR17). Until the setting exists — unit 1 on its own — `who:` takes the caller or a role, and
   another member is refused before anything about them is looked up. A role is not affected: it
-  reaches its members as `/availability role` does, including when only one of them ends up
-  counted.
+  reaches its members much as `/availability role` does — bots are left out before the 50-member
+  limit here and counted toward it there — including when only one of them ends up counted.
 
 **Available hours**
 
 - **FR10** A member can store, see and reset their own available hours from Discord and from the
   web's My settings page. Nobody else can set them, and they are not listed to other members — only
   their effect on slots shows. Saving them also lets other members list that member's slots by
-  name (FR19), and every place where hours are saved or shown says so.
+  name (FR19), and every place where hours are saved or shown says so — and that such a list
+  shows roughly the hours they keep.
 - **FR11** Hours are one range per weekday, each weekday separately available or not (Q6 A). They
   can be set for every day, for weekdays, for weekends or for a single day at a time.
 - **FR12** Hours are wall-clock times in the member's zone, resolved as everywhere else: their

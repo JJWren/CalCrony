@@ -3,7 +3,7 @@
 **Date**: 2026-11-11. **Inputs**: the approved requirements (FR1–FR18; Q1–Q7: A, A, B, A, A, A, A)
 and the approved workflow plan. **Baseline**: `master` 4911a1f (v0.36.3).
 **Status**: approved by Joshua 2026-11-11, as written. **Amended 2026-11-12** with D11 (section 2),
-on his decision after the review of unit 1; 5.1, 5.2 and section 8 are brought in line.
+on his decision after the review of unit 1; 5.1, 5.2, section 7 and section 8 are brought in line.
 
 This document covers both units of work so the seam between them is drawn once. It fixes components,
 contracts, routes, storage and command shapes; the detailed rules of each unit (validation messages,
@@ -72,7 +72,7 @@ overruled.
 | D8 | Limits live once in Contracts (`FreeSlotLimits`, `AvailableHoursLimits`) and are used by the bot's option bounds and the API's validation. | The two copies of `MaxUsersPerQuery` kept in step by hand | They can't drift. The existing constants are left as they are. |
 | D9 | The member-zone rule (their timezone, else the server's, else UTC) is a small pure helper used by the new code. The datetime route keeps its own inline copy, and a test pins that both give the same answer. | Refactoring the datetime route onto the helper | No behaviour risk to every command that parses `when:`. |
 | D10 | Saving hours writes no activity-log entry. | Logging it | The log records server management actions; personal settings are not logged today. |
-| D11 | *Added 2026-11-12 (FR19).* A single target other than the caller is listed only when that member has saved their own hours. Unit 1 has no saved hours, so there `who:` takes the caller or a role, and the bot refuses anyone else before any lookup. Unit 2 lifts the refusal for a member with saved hours, and every place where hours are saved or shown says that saving them lets other members list one's slots by name. How the bot learns that hours are saved is for unit 2's plan; the hours `GET` route already answers it (`IsSet`). | The design as approved, where any member of the server could be named; or a separate per-member switch, on or off by default | Naming any linked member reaches further than `/availability role`, which gets to a member only through a role of 50 or fewer. Saving hours is already the act of saying when one is available, so no second setting is needed, and reset is the way back. A role is left as it is: it reaches what the grid already reaches. |
+| D11 | *Added 2026-11-12 (FR19).* A single target other than the caller is listed only when that member has saved their own hours. Unit 1 has no saved hours, so there `who:` takes the caller or a role, and the bot refuses anyone else before any lookup. Unit 2 lifts the refusal for a member with saved hours, and every place where hours are saved or shown says that saving them lets other members list one's slots by name. How the bot learns that hours are saved is for unit 2's plan; the hours `GET` route already answers it (`IsSet`). | The design as approved, where any member of the server could be named; or a separate per-member switch, on or off by default | Naming any linked member reaches further than `/availability role`, which gets to a member only through a role of 50 or fewer. Saving hours is already the act of saying when one is available, so no second setting is needed, and reset is the way back. A role is left as it is: it reaches what the grid reaches, with one difference — bots are left out before the 50-member limit here and counted toward it there. |
 
 ## 3. Contracts (`CalCrony.Contracts`)
 
@@ -275,10 +275,10 @@ Slots get no web view: the route is bot-only by design.
 
 | File | Unit 1 | Unit 2 |
 |---|---|---|
-| `README.md` Features | The "Reminders & calendars" bullet names free slots. The section is close to its 400-word cap (about 396 words by a quick count), so the bullet is reworded, not lengthened. | The same bullet names available hours, inside the cap. |
-| `README.md` command table | A row for `/availability slots`. | The `/settings` row gains `available-hours`. |
-| `Docs.razor` | The availability entry gains the slots sentence — Discord only, any member, ephemeral, 8 AM–11 PM assumed; a command row. | An "Available hours" entry — both surfaces, only you can set yours, the default, how hours without a calendar count; the `/settings` row. |
-| `PRIVACY_POLICY.md`, `Privacy.razor` | "availability grids and free-slot lists" in the Google Limited Use sentence; the date. | Available hours under Preferences; the DM-reminder wording brought level between the copies; the date. |
+| `README.md` Features | The "Reminders & calendars" bullet names free slots. The section is close to its 400-word cap (about 396 words by a quick count), so the bullet is reworded, not lengthened. | The same bullet names available hours, inside the cap; "free slots for yourself or a role" becomes "a member or role" again (D11). |
+| `README.md` command table | A row for `/availability slots`. | The `/settings` row gains `available-hours`; the slots row says a member can be named once they have saved hours (D11). |
+| `Docs.razor` | The availability entry gains the slots sentence — Discord only, any member, ephemeral, 8 AM–11 PM assumed; a command row. | An "Available hours" entry — both surfaces, only you can set yours, the default, how hours without a calendar count; the `/settings` row. The rule for naming another member, in the hours entry and the slots sentence: saving hours lets other members list your slots by name, and reset takes it back (D11). |
+| `PRIVACY_POLICY.md`, `Privacy.razor` | "availability grids and free-slot lists" in the Google Limited Use sentence; the date. | Available hours under Preferences, with what saving them allows: other members can list your slots by name (D11); the DM-reminder wording brought level between the copies; the date. |
 | `aidlc-docs/construction/build-and-test/live-e2e-script.md` | A slots section. | An hours section. |
 
 `Docs.razor` and `Privacy.razor` are product surface, so both PRs are `feat:`.
