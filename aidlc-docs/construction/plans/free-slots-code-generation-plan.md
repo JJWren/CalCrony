@@ -792,6 +792,19 @@ became Q20, as one that needed no change.
 
 Counts are unchanged: 993 tests green.
 
+### Review round 9 — the records commit that answered round 8 (2026-11-12)
+
+Both agents reviewed `d9388af`, four documents and nothing else. The security reviewer had no
+findings: S12 answered in all three places, with nothing left in the script that contradicts
+it. The quality reviewer found the three statements agreeing with the item and with each other
+and its round 8 report recorded accurately, and had one nit.
+
+| Finding | Change |
+|---|---|
+| Q22 (nit) — `build-and-test-summary.md`, where the results of the live pass are recorded, states the gate in its own words — "all non-conditional sections pass" — with no exception for the must-pass item. This branch had not touched that file. | Its gate line names the exception, and so does its results row for section 12. A search of the tracked files finds no other statement of the rule. |
+
+Counts are unchanged: 993 tests green.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan and design re-read; the code this unit plugs into read at the

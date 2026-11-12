@@ -62,9 +62,10 @@ wrappers over Discord.Net whose bail conditions are exercised live in E2E sectio
 | 9. Polls | ☐ | |
 | 10. ICS/RRULE | ☐ | |
 | 11. Web parity | ☐ | |
-| 12. Availability/OAuth (conditional) | ☐ | |
+| 12. Availability/OAuth (conditional, but for its one **Must pass** item) | ☐ | |
 | 13. Precheck bails | ☐ | |
 | 14. Restart resilience | ☐ | |
 
-**v1.0.0 gate:** all non-conditional sections pass (or their findings are fixed and re-verified);
+**v1.0.0 gate:** all non-conditional sections pass, and so does section 12's one item marked
+**Must pass** (or their findings are fixed and re-verified);
 the release PR's squash commit carries `Release-As: 1.0.0` in its footer.
