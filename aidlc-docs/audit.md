@@ -1226,3 +1226,10 @@ Availability for @GM
 **Context**: Operations — bookkeeping for the date-text length limit; PR gate next.
 
 ---
+## Operations — bookkeeping PR #176 opened; merge approved
+**Timestamp**: 2026-11-12T23:43:49Z
+**User Input**: "Merge when green"
+**AI Response**: PR #176 was opened at 23:41:34Z with the one commit 2b0f4ca; no reviewer was requested. Asked Joshua "Merge PR #176 once its checks are green?", with the answers "Merge when green" and "Not yet"; this is his answer. On 2b0f4ca build-test and pr-title were green by then, and no review or comment had come in. This entry goes out as one more commit on the PR. Once build-test and pr-title are green on it, and if no review comment is open, the PR is squash-merged through the REST call, the call naming that head.
+**Context**: Operations — bookkeeping for the date-text length limit; the merge next.
+
+---
