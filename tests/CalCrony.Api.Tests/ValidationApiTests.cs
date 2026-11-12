@@ -131,6 +131,40 @@ public class ValidationApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal(HttpStatusCode.Created, fine.StatusCode);
     }
 
+    // One route check for the parser's limit: the two requests differ in length alone.
+    [Fact]
+    public async Task Parse_datetime_reads_text_at_the_date_length_limit_and_refuses_longer()
+    {
+        var atLimit = await Client.PostAsJsonAsync("/tools/parse-datetime",
+            new ParseDateTimeRequest("tomorrow 6pm".PadRight(DateTextLimits.MaxLength, '.'), TimeZone: "UTC"));
+        Assert.Equal(HttpStatusCode.OK, atLimit.StatusCode);
+
+        var overLimit = await Client.PostAsJsonAsync("/tools/parse-datetime",
+            new ParseDateTimeRequest("tomorrow 6pm".PadRight(DateTextLimits.MaxLength + 1, '.'), TimeZone: "UTC"));
+        Assert.Equal(HttpStatusCode.BadRequest, overLimit.StatusCode);
+        var error = await overLimit.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.Equal($"The date/time text must be at most {DateTextLimits.MaxLength} characters.", error!.Error);
+    }
+
+    // The RSVP cutoff is the one date field with a reader of its own in front of the parser (the
+    // relative "2h before" form), so it gets its own route check.
+    [Fact]
+    public async Task Create_event_reads_an_rsvp_cutoff_at_the_date_length_limit_and_refuses_longer()
+    {
+        var atLimit = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Cutoff at the limit", "in 2 days", ChannelId,
+            RsvpCloseText: "2h before".PadRight(DateTextLimits.MaxLength)));
+        Assert.Equal(HttpStatusCode.Created, atLimit.StatusCode);
+
+        var overLimit = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Cutoff over the limit", "in 2 days", ChannelId,
+            RsvpCloseText: "2h before".PadRight(DateTextLimits.MaxLength + 1)));
+        Assert.Equal(HttpStatusCode.BadRequest, overLimit.StatusCode);
+        var error = await overLimit.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.Contains("RSVP cutoff", error!.Error);
+        Assert.Contains($"must be at most {DateTextLimits.MaxLength} characters", error.Error);
+    }
+
     private async Task<EventDto> CreateEventAsync(string title)
     {
         var response = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events",

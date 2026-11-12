@@ -59,7 +59,7 @@ public class EventModule(
     [SlashCommand("create", "Create an event")]
     public async Task CreateAsync(
         [Summary(description: "Event title")] string title,
-        [Summary("when", "When it starts, e.g. \"tomorrow 6pm\" or \"in 5 hours\"")] string when,
+        [Summary("when", "When it starts, e.g. \"tomorrow 6pm\" or \"in 5 hours\""), MaxLength(DateTextLimits.MaxLength)] string when,
         [Summary(description: "Event description")] string? description = null,
         [Summary("duration", "Duration in minutes")] int? duration = null,
         [Summary(description: "Channel to post the event in (defaults to here)")] ITextChannel? channel = null,
@@ -68,14 +68,14 @@ public class EventModule(
         [Summary("repeat", "Repeat this event on a schedule anchored to the first occurrence")] RepeatChoice? repeat = null,
         [Summary("repeat-every", "Repeat interval: every N days/weeks/months/years (1-12)"), MinValue(1), MaxValue(12)] int repeatEvery = 1,
         [Summary("repeat-days", "Weekly only: days it repeats on, e.g. \"tue,thu\" or \"weekdays\"")] string? repeatDays = null,
-        [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date")] string? repeatUntil = null,
+        [Summary("repeat-until", "Last date it repeats, e.g. \"Aug 30\" — leave empty for no end date"), MaxLength(DateTextLimits.MaxLength)] string? repeatUntil = null,
         [Summary("repeat-count", "Total occurrences including the first (2-500)"), MinValue(2), MaxValue(500)] int? repeatCount = null,
         [Summary("template", "Start from a saved template"), Autocomplete(typeof(TemplateNameAutocompleteHandler))] string? template = null,
         [Summary("attendee-role", "Existing role given to attending RSVPs (removed when the event ends)")] IRole? attendeeRole = null,
         [Summary("thread", "Open a discussion thread on the event message (attending RSVPs are added)")] bool thread = false,
         [Summary("rsvp-options", "Custom RSVP buttons, e.g. \"⚔️ Raider x10, 🛡️ Standby, ❌ Out\" — first is the attending one")] string? rsvpOptions = null,
         [Summary("attendee-limit", "Max attendees — extra RSVPs join a waitlist and are promoted when a spot frees"), MinValue(1)] int? attendeeLimit = null,
-        [Summary("rsvp-close", "When RSVPs stop, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
+        [Summary("rsvp-close", "When RSVPs stop, e.g. \"2h before\" or \"friday 5pm\""), MaxLength(DateTextLimits.MaxLength)] string? rsvpClose = null,
         [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders @Officers\"")] string? restrictTo = null,
         [Summary("multi-rsvp", "Let each member pick more than one RSVP option (click a chosen option again to remove it)")] bool multiRsvp = false)
     {
@@ -305,7 +305,7 @@ public class EventModule(
     public async Task EditAsync(
         [Summary("name", "Event title (or part of it)"), Autocomplete(typeof(EventNameAutocompleteHandler))] string name,
         [Summary(description: "New title")] string? title = null,
-        [Summary("when", "New start time, e.g. \"saturday 7pm\"")] string? when = null,
+        [Summary("when", "New start time, e.g. \"saturday 7pm\""), MaxLength(DateTextLimits.MaxLength)] string? when = null,
         [Summary(description: "New description")] string? description = null,
         [Summary("duration", "New duration in minutes")] int? duration = null,
         [Summary(description: "New location")] string? location = null,
@@ -316,7 +316,7 @@ public class EventModule(
         [Summary("rsvp-options", "Replacement RSVP buttons — same labels keep their RSVPs; options with RSVPs can't be dropped")] string? rsvpOptions = null,
         [Summary("attendee-limit", "New max attendees (raising it seats waitlisted members)"), MinValue(1)] int? attendeeLimit = null,
         [Summary("clear-attendee-limit", "Remove the attendee limit — the whole waitlist is seated")] bool clearAttendeeLimit = false,
-        [Summary("rsvp-close", "New RSVP cutoff, e.g. \"2h before\" or \"friday 5pm\"")] string? rsvpClose = null,
+        [Summary("rsvp-close", "New RSVP cutoff, e.g. \"2h before\" or \"friday 5pm\""), MaxLength(DateTextLimits.MaxLength)] string? rsvpClose = null,
         [Summary("clear-rsvp-close", "Remove the RSVP cutoff (RSVPs reopen)")] bool clearRsvpClose = false,
         [Summary("restrict-to", "Only members with one of these roles can RSVP, e.g. \"@Raiders\"")] string? restrictTo = null,
         [Summary("clear-restriction", "Remove the signup restriction from every option")] bool clearRestriction = false,

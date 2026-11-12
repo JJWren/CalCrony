@@ -29,7 +29,7 @@ public class PollModule(CalCronyApiClient api, RoleSnapshotService roleSnapshots
         [Summary("single-vote", "Each person may pick only one option")] bool singleVote = false,
         [Summary(description: "Hide who voted — show counts only")] bool anonymous = false,
         [Summary("allow-options", "Let voters add their own options")] bool allowOptions = false,
-        [Summary(description: "When voting ends, e.g. \"friday 5pm\" — leave empty for manual close")] string? closes = null,
+        [Summary(description: "When voting ends, e.g. \"friday 5pm\" — leave empty for manual close"), MaxLength(DateTextLimits.MaxLength)] string? closes = null,
         [Summary("restrict-to", "Only members with one of these roles can vote, e.g. \"@Raiders\"")] string? restrictTo = null)
     {
         await CreateCoreAsync(question, options, isTimePoll: false, singleVote, anonymous, allowOptions, closes, restrictTo);
@@ -48,7 +48,7 @@ public class PollModule(CalCronyApiClient api, RoleSnapshotService roleSnapshots
         [Summary(description: "Comma-separated times, e.g. \"friday 7pm, saturday 3pm, sunday noon\"")] string slots,
         [Summary(description: "Hide who voted — show counts only")] bool anonymous = false,
         [Summary("allow-options", "Let voters add their own times")] bool allowOptions = false,
-        [Summary(description: "When voting ends, e.g. \"thursday noon\" — leave empty for manual close")] string? closes = null,
+        [Summary(description: "When voting ends, e.g. \"thursday noon\" — leave empty for manual close"), MaxLength(DateTextLimits.MaxLength)] string? closes = null,
         [Summary("restrict-to", "Only members with one of these roles can vote, e.g. \"@Raiders\"")] string? restrictTo = null)
     {
         await CreateCoreAsync(question, slots, isTimePoll: true, singleVote: false, anonymous, allowOptions, closes, restrictTo);

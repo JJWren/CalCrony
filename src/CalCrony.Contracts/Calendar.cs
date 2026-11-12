@@ -79,10 +79,6 @@ public static class FreeSlotLimits
     /// has already passed rolls to next year, which is never further than this.</summary>
     public const int MaxDaysAhead = 366;
 
-    /// <summary>Longest first-day text accepted, in characters. A day takes a few words, and what
-    /// the date recognizer costs grows with length, so longer text is refused unread.</summary>
-    public const int MaxWhenLength = 100;
-
     /// <summary>Shortest slot listed, in minutes, when the caller names none.</summary>
     public const int DefaultMinimumMinutes = 60;
 
@@ -114,7 +110,7 @@ public static class AvailableHoursLimits
 /// <param name="RequesterId">The Discord user who asked; days start and end in their zone.</param>
 /// <param name="GuildId">The server the command ran in; its timezone stands in for members who have set none.</param>
 /// <param name="When">The first day in natural language ("saturday", "nov 12"), at most
-/// <see cref="FreeSlotLimits.MaxWhenLength"/> characters; null or blank means today.</param>
+/// <see cref="DateTextLimits.MaxLength"/> characters; null or blank means today.</param>
 /// <param name="Days">How many days to list (<see cref="FreeSlotLimits.MinDays"/> to <see cref="FreeSlotLimits.MaxDays"/>).</param>
 /// <param name="MinimumMinutes">The shortest slot worth listing, in minutes.</param>
 public record FreeSlotsRequest(

@@ -226,10 +226,10 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
     [Fact]
     public async Task First_day_text_over_its_length_limit_is_refused_and_text_at_the_limit_is_read()
     {
-        // Padding keeps both texts a day the recognizer reads, so they differ in length alone:
-        // if the limit were not checked, the longer one would be answered like the shorter.
-        var atLimit = "tomorrow".PadRight(FreeSlotLimits.MaxWhenLength);
-        var overLimit = "tomorrow".PadRight(FreeSlotLimits.MaxWhenLength + 1);
+        // Both texts are the same day filled out with dots, so they differ in length alone: one
+        // character decides between "read" and "refused".
+        var atLimit = "tomorrow".PadRight(DateTextLimits.MaxLength, '.');
+        var overLimit = "tomorrow".PadRight(DateTextLimits.MaxLength + 1, '.');
 
         var read = await Client.PostAsJsonAsync(
             "/calendar/free-slots", new FreeSlotsRequest([9310], 9311, 9312, atLimit, 1, 60));
@@ -239,7 +239,7 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
             "/calendar/free-slots", new FreeSlotsRequest([9310], 9311, 9312, overLimit, 1, 60));
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         Assert.Contains(
-            $"when must be at most {FreeSlotLimits.MaxWhenLength} characters",
+            $"when must be at most {DateTextLimits.MaxLength} characters",
             (await refused.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
     }
 

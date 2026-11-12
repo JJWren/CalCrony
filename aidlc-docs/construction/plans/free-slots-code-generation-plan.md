@@ -89,6 +89,9 @@ only implied — by a detached time or a range under way — beat a day the text
    Nothing recognized → `Could not understand "{text}" as a day. Try "today", "saturday" or "nov 12".`
 5. A zone abbreviation in the text does not move the day: days are always the caller's (FR4).
    `TryResolve` switches zone on one; this method does not.
+6. Text over 100 characters (`DateTextLimits.MaxLength`) is refused before it is read, with
+   `TryResolve`'s refusal: `The date/time text must be at most 100 characters.` Added when
+   `master` was merged on 2026-11-12 (section 9), which brought that limit to `TryResolve`.
 
 Run against the real recognizer (a scratch build of the repository's parser file), Wednesday
 2026-11-11, 10:00 in America/Chicago; the same answers at 23:30:
@@ -127,7 +130,7 @@ The endpoint validates, in this order:
 | distinct `UserIds`: 1 to 50 | `userIds must have between 1 and 50 distinct entries.` (the existing route's wording) |
 | `Days`: 1 to 14 | `days must be between 1 and 14.` |
 | `MinimumMinutes`: 15 to 1440 | `minimumMinutes must be between 15 and 1440.` |
-| `When`: at most 100 characters (`FreeSlotLimits.MaxWhenLength`) | `when must be at most 100 characters.` — added in review round 1 (section 9); checked before the text is read |
+| `When`: at most 100 characters (`DateTextLimits.MaxLength`, the limit every date typed in words has; this unit's own `FreeSlotLimits.MaxWhenLength` until `master` was merged on 2026-11-12, section 9) | `when must be at most 100 characters.` — added in review round 1 (section 9); checked before the text is read. Since that merge `TryResolveDay` refuses longer text as well. |
 
 `FreeSlotsService.GetAsync` then, with one clock read used throughout:
 
@@ -512,8 +515,9 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       Joshua then answered the two decisions it had left open (2026-11-12, section 9): D11 is
       implemented in `61d6eda`, and the agents' rounds on it and on the records that answer
       them are in section 9, ending with no findings from either on `c22539c` (round 10); the
-      separate piece of work outside this change goes first, in its own session. Still ahead:
-      that work, then his go-ahead for the merge.
+      separate piece of work outside this change goes first, in its own session. That work
+      reached `master` on 2026-11-12 and `master` is merged into this branch (section 9). Still
+      ahead: the agents' round on that merge, then his go-ahead to merge the PR.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
@@ -592,7 +596,7 @@ Fixed in this round:
 
 | Finding | Change |
 |---|---|
-| S2, and noted by both reviewers — `when` had no length limit on either layer, and what the date recognizer costs grows with the length of the text it is given. | `FreeSlotLimits.MaxWhenLength` (100), chosen from timing the real parser: Discord enforces it on the option, and the route refuses longer text before anything reads it (4.2, 4.6). A route test and the command-shape test pin both. |
+| S2, and noted by both reviewers — `when` had no length limit on either layer. | `FreeSlotLimits.MaxWhenLength` (100): Discord enforces it on the option, and the route refuses longer text before anything reads it (4.2, 4.6). A route test and the command-shape test pin both. Since `master` was merged on 2026-11-12 the limit is `DateTextLimits.MaxLength` (below). |
 | Q1 — a route test asked for `in 416018 weeks` to land in the last days of year 9999. From 2026-11-14 that text is past the end of the calendar and is no longer read as a date, so the test would have begun failing on its own. | The number of weeks is counted from the day the test runs. |
 | Q4 — a day with no slot of its own read `nothing free` even when it began inside a slot listed under the day before. A caller in Tokyo looking at a member on Chicago time sees the member's day as 11 PM–2 PM: with the member busy for all of their Friday, the caller's Friday was free until 2 PM and said `nothing free`. | `FreeSlotDay.OpenUntil` and `FreeSlotDayDto.OpenUntilUtc` (4.5 step 5); the day line reads `free until … (started Thu)` (4.7). Calculator, route and reply tests, and both seeded tests now check it. Not done here, for unit 2's plan: with hours that run from midnight to midnight a slot can reach the end of the window, where its real end is not known. |
 | Q2 — the "Not counted" field gave each reason an equal share, so 25 members under one reason and 1 under another were cut at 20 names with over 400 of the field's 1,024 characters unused. | Everyone is named when the field holds them; otherwise a short line keeps its length and the long ones split the rest (4.7). |
@@ -816,6 +820,35 @@ report, which had said the tracked files held no other statement of the skip rul
 
 Over all ten rounds: twelve findings on security and privacy (S1–S12) and twenty-two on
 correctness and quality (Q1–Q22).
+
+### `master` merged into the branch (2026-11-12)
+
+The separate piece of work reached `master` on 2026-11-12 as `29a0d15` (PR #173, squash-merged at
+20:34:34Z): one length limit for date and time text typed in words, `DateTextLimits.MaxLength`
+(100 characters, in Contracts), checked at the top of `TryResolve` and declared on the bot's date
+options. PR #172 then conflicted with `master`, so `master` was merged into this branch. Only
+`aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted, both sides having appended at
+the same place: each keeps both sides whole, the audit entries in the order of their timestamps
+and the state file's new line ahead of this feature's section. No code conflicted.
+
+What this unit changed to follow that limit, in the merge commit itself:
+
+| Where | Change |
+|---|---|
+| `NaturalDateTimeParser.TryResolveDay` | Refuses text over the limit first, with `TryResolve`'s refusal, and checks its text for null as `TryResolve` does (4.1, rule 6). The class summary `master` brought says text over the limit is refused before anything reads it; with this that is true of both methods. |
+| One constant | `FreeSlotLimits.MaxWhenLength` is gone. The `when` option of `/availability slots` and the route's own check read `DateTextLimits.MaxLength`, so the first day cannot drift from the other date options. The route's check and its message, `when must be at most 100 characters.`, stay as they were (4.2): over-long text is still refused there, before the service runs. |
+| Tests | `NaturalDateTimeParserTests`: the day reader reads text at the limit and refuses one character more. `DateOptionLimitTests`, which came with `master`, gains a row for the `when` of `/availability slots` — its twelfth. The route test and the command-shape test read the shared constant, and the route test fills its text out with dots, as `master`'s length tests do. |
+| Wording | The comment above the route's check, the route test's comment and two lines of this plan — 4.2's table and round 1's row for S2 — are reworded or shortened to say what the limit is and where it is checked. |
+
+Each check was taken out in turn, and the test meant to pin it failed: without the day reader's
+own check the over-limit text is read as tomorrow; without the route's check the refusal is the
+parser's and not the route's `when must be at most 100 characters.`; with the option's limit moved
+off the shared constant, the new `DateOptionLimitTests` row and the command-shape test both fail.
+
+Counts after the merge: 1,017 tests green — 639 API, 246 bot, 132 web (993 on this branch before,
+831 on `master`). The Release build has no errors and the same 22 warnings.
+
+Both review agents read the merge commit before it is pushed.
 
 ## 10. Plan checklist
 

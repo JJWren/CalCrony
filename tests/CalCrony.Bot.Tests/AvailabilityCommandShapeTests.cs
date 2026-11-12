@@ -45,11 +45,12 @@ public class AvailabilityCommandShapeTests : IAsyncLifetime
         Assert.True(who.IsRequired);
 
         // The bounds come from the same constants the API validates against. Discord turns down
-        // first-day text over the length limit before the command ever runs.
+        // first-day text over the length limit — the one every date typed in words has — before
+        // the command ever runs.
         var when = slots.Parameters[1];
         Assert.Equal(ApplicationCommandOptionType.String, when.DiscordOptionType);
         Assert.False(when.IsRequired);
-        Assert.Equal(FreeSlotLimits.MaxWhenLength, when.MaxLength);
+        Assert.Equal(DateTextLimits.MaxLength, when.MaxLength);
 
         var days = slots.Parameters[2];
         Assert.Equal(ApplicationCommandOptionType.Integer, days.DiscordOptionType);

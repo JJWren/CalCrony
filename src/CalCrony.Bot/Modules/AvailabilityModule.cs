@@ -23,7 +23,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     [SlashCommand("role", "Check calendar availability for everyone with a role")]
     public async Task RoleAsync(
         [Summary("role", "The role to check")] IRole role,
-        [Summary("when", "When to check, e.g. \"tomorrow 2pm\"")] string when,
+        [Summary("when", "When to check, e.g. \"tomorrow 2pm\""), MaxLength(DateTextLimits.MaxLength)] string when,
         [Summary("duration", "Duration in minutes (default 60)")] int? duration = null)
     {
         await DeferAsync(ephemeral: true);
@@ -118,7 +118,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     [SlashCommand("slots", "Find free time slots for yourself or a role over one or more days")]
     public async Task SlotsAsync(
         [Summary("who", "Yourself or a role")] IMentionable who,
-        [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)"), MaxLength(FreeSlotLimits.MaxWhenLength)] string? when = null,
+        [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)"), MaxLength(DateTextLimits.MaxLength)] string? when = null,
         [Summary("days", "How many days to list, 1-14 (default 7)"), MinValue(FreeSlotLimits.MinDays), MaxValue(FreeSlotLimits.MaxDays)] int? days = null,
         [Summary("duration", "Shortest slot worth listing, in minutes (default 60)"), MinValue(FreeSlotLimits.MinMinimumMinutes), MaxValue(FreeSlotLimits.MaxMinimumMinutes)] int? duration = null)
     {

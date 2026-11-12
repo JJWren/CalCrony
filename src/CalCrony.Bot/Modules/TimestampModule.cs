@@ -16,7 +16,7 @@ public class TimestampModule(CalCronyApiClient api) : InteractionModuleBase<Sock
     /// <param name="when">Natural-language start time.</param>
     [SlashCommand("timestamp", "Turn a natural-language time into Discord timestamp codes")]
     public async Task TimestampAsync(
-        [Summary("when", "e.g. \"friday 8pm\" or \"in 3 hours\"")] string when)
+        [Summary("when", "e.g. \"friday 8pm\" or \"in 3 hours\""), MaxLength(DateTextLimits.MaxLength)] string when)
     {
         await DeferAsync(ephemeral: true);
 

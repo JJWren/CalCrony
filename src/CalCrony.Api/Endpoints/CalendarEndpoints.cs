@@ -218,11 +218,11 @@ public static class CalendarEndpoints
                 $"minimumMinutes must be between {FreeSlotLimits.MinMinimumMinutes} and {FreeSlotLimits.MaxMinimumMinutes}."));
         }
 
-        // Before anything reads the text: a first day is a few words, and what the date
-        // recognizer costs grows with the length of what it is given.
-        if (request.When is { Length: > FreeSlotLimits.MaxWhenLength })
+        // Before anything reads the text: a first day is a few words, so longer text is refused
+        // unread. The limit is the one every date typed in words has; the parser checks it too.
+        if (request.When is { Length: > DateTextLimits.MaxLength })
         {
-            return Results.BadRequest(new ErrorResponse($"when must be at most {FreeSlotLimits.MaxWhenLength} characters."));
+            return Results.BadRequest(new ErrorResponse($"when must be at most {DateTextLimits.MaxLength} characters."));
         }
 
         var outcome = await freeSlots.GetAsync(request with { UserIds = userIds }, cancellationToken);
