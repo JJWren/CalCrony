@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using CalCrony.Contracts;
 using Microsoft.Recognizers.Text;
 using Microsoft.Recognizers.Text.DateTime;
 using NodaTime;
@@ -11,7 +12,8 @@ namespace CalCrony.Api.Services;
 /// Parses natural-language datetimes ("in 5 hours", "tomorrow 6pm", "6 PM on Wednesday")
 /// using Microsoft.Recognizers.Text, resolved in a caller-supplied IANA time zone. A trailing
 /// zone abbreviation ("10am CST") overrides the caller zone. Always resolves to the nearest
-/// future occurrence; past-only results are rejected.
+/// future occurrence; past-only results are rejected. Text longer than
+/// <see cref="DateTextLimits.MaxLength"/> characters is refused before anything reads it.
 /// </summary>
 /// <param name="clock">The time source.</param>
 public sealed partial class NaturalDateTimeParser(IClock clock)
@@ -49,14 +51,19 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         RegexOptions.IgnoreCase)]
     private static partial Regex ZoneAbbreviationRegex();
 
+    /// <summary>The refusal for text over <see cref="DateTextLimits.MaxLength"/> characters. Unlike
+    /// the other errors it does not quote the text.</summary>
+    private static readonly string TooLongError =
+        $"The date/time text must be at most {DateTextLimits.MaxLength} characters.";
+
     private readonly DateTimeModel model =
         new DateTimeRecognizer(Culture.English).GetDateTimeModel();
 
     // Named TryResolve (not TryParse) deliberately: ASP.NET minimal APIs treat any type
     // with a TryParse method as a bindable route/query primitive, which breaks DI injection.
     /// <summary>Resolves text to the nearest future instant in the given zone (or the zone a
-    /// contained abbreviation selects). False with a user-facing error on unparseable or
-    /// past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse types
+    /// contained abbreviation selects). False with a user-facing error on over-long, unparseable
+    /// or past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse types
     /// as bindable primitives, which breaks DI injection.</summary>
     /// <param name="text">The text to parse.</param>
     /// <param name="zone">The IANA zone to resolve in.</param>
@@ -70,8 +77,18 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     public bool TryResolve(
         string text, DateTimeZone zone, out Instant result, out string? error, Instant? referenceInstant = null)
     {
+        ArgumentNullException.ThrowIfNull(text);
+
         result = default;
         error = null;
+
+        // Before anything reads the text: a date and a time take a few words, so longer text is
+        // refused unread. The length is the text's as typed, a zone abbreviation included.
+        if (text.Length > DateTextLimits.MaxLength)
+        {
+            error = TooLongError;
+            return false;
+        }
 
         var zoneRegex = ZoneAbbreviationRegex();
         var zoneMatch = zoneRegex.Match(text);

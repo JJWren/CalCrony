@@ -58,6 +58,47 @@ public class RsvpPolicyTests
         Assert.Contains("4 weeks", error);
     }
 
+    // The filler changes the length and nothing else.
+    [Fact]
+    public void Relative_text_at_the_date_length_limit_is_still_read()
+    {
+        Assert.True(RsvpPolicy.TryParseClose(
+            "2h before".PadRight(DateTextLimits.MaxLength), DateTimeZone.Utc, Parser,
+            out var minutes, out var closesAt, out var error));
+
+        Assert.Null(error);
+        Assert.Null(closesAt);
+        Assert.Equal(120, minutes);
+    }
+
+    [Fact]
+    public void Absolute_text_at_the_date_length_limit_is_still_read()
+    {
+        Assert.True(RsvpPolicy.TryParseClose(
+            "in 3 hours".PadRight(DateTextLimits.MaxLength, '.'), DateTimeZone.Utc, Parser,
+            out var minutes, out var closesAt, out var error));
+
+        Assert.Null(error);
+        Assert.Null(minutes);
+        Assert.True(closesAt > SystemClock.Instance.GetCurrentInstant());
+    }
+
+    [Theory]
+    [InlineData("2h before", ' ')]  // relative: one character shorter and the pattern reads it as 120 minutes
+    [InlineData("in 3 hours", '.')] // absolute: goes to the date parser
+    public void Cutoff_text_over_the_date_length_limit_is_refused_in_either_form(string phrase, char filler)
+    {
+        Assert.False(RsvpPolicy.TryParseClose(
+            phrase.PadRight(DateTextLimits.MaxLength + 1, filler), DateTimeZone.Utc, Parser,
+            out var minutes, out var closesAt, out var error));
+
+        Assert.Null(minutes);
+        Assert.Null(closesAt);
+        Assert.Equal(
+            $"Couldn't read the RSVP cutoff: The date/time text must be at most {DateTextLimits.MaxLength} characters.",
+            error);
+    }
+
     // ---------- Emote validation ----------
 
     [Theory]

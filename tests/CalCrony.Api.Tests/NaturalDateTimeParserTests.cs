@@ -1,4 +1,5 @@
 using CalCrony.Api.Services;
+using CalCrony.Contracts;
 using NodaTime;
 using NodaTime.Testing;
 
@@ -86,6 +87,39 @@ public class NaturalDateTimeParserTests
 
         Assert.False(ok);
         Assert.Contains("past", error);
+    }
+
+    // Both length tests fill the same phrase out with dots, so the texts differ in length alone:
+    // one character decides between "read" and "refused". The second phrase carries a zone
+    // abbreviation, which is stripped before the recognizer runs — the limit counts the text as
+    // typed, so it is refused all the same.
+    [Theory]
+    [InlineData("tomorrow 6pm")]
+    [InlineData("tomorrow 6pm CST")]
+    public void Reads_text_at_the_length_limit(string phrase)
+    {
+        var atLimit = phrase.PadRight(DateTextLimits.MaxLength, '.');
+
+        var ok = CreateParser().TryResolve(atLimit, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        // Tomorrow (Jul 16) 18:00 CDT == 23:00 UTC.
+        Assert.Equal(Instant.FromUtc(2026, 7, 16, 23, 0), result);
+    }
+
+    [Theory]
+    [InlineData("tomorrow 6pm")]
+    [InlineData("tomorrow 6pm CST")]
+    public void Refuses_text_over_the_length_limit(string phrase)
+    {
+        var overLimit = phrase.PadRight(DateTextLimits.MaxLength + 1, '.');
+
+        var ok = CreateParser().TryResolve(overLimit, Chicago, out var result, out var error);
+
+        Assert.False(ok);
+        Assert.Equal(default, result);
+        // The refusal names the limit and, unlike the other errors, does not quote the text.
+        Assert.Equal($"The date/time text must be at most {DateTextLimits.MaxLength} characters.", error);
     }
 
     [Fact]

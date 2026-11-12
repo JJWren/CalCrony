@@ -375,7 +375,8 @@ public static partial class RsvpPolicy
 
     /// <summary>Parses RSVP-close text: relative ("2h before") becomes minutes-before-start (it
     /// then tracks time edits); anything else parses as a natural-language absolute instant.
-    /// Exactly one of the two outputs is set on success.</summary>
+    /// Exactly one of the two outputs is set on success. Text over
+    /// <see cref="DateTextLimits.MaxLength"/> characters is refused in either form.</summary>
     /// <param name="text">The submitted cutoff text.</param>
     /// <param name="zone">The zone absolute text parses in.</param>
     /// <param name="parser">The natural-language datetime parser.</param>
@@ -391,7 +392,9 @@ public static partial class RsvpPolicy
         closesAt = null;
         error = null;
 
-        var relative = RelativeClose().Match(text);
+        // The pattern reads the text before the parser does, so the parser's length limit is
+        // applied here first: longer text skips the pattern and goes to the parser, which refuses it.
+        var relative = text.Length <= DateTextLimits.MaxLength ? RelativeClose().Match(text) : Match.Empty;
         if (relative.Success)
         {
             var amount = int.Parse(relative.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
