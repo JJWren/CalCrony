@@ -1170,10 +1170,59 @@ Availability for @GM
 **Context**: Construction — code generation approved for the single unit; the pull request next.
 
 ---
+## Construction — fix PR #173 opened (date-text length limit)
+**Timestamp**: 2026-11-12T14:43:28Z
+**User Input**: (none — continuation)
+**AI Response**: After the last read before the push the commit was remade locally, with no change to what the code does; the one commit pushed is 9adbe42 (15 files, +230 −16). Verified on it: a clean Release build with 0 errors and no new warnings; 831 tests green (182 bot, 129 web, 520 API — 21 new); and in a scratch copy, each of five changes that remove or shift a length check fails the tests meant to pin it. Pushed with the keyring login and opened PR #173, "fix: limit the length of free-text dates", against master.
+**Context**: Construction — PR gate.
+
+---
+## Construction — fix PR #173 reviewed; merge put to Joshua
+**Timestamp**: 2026-11-12T15:08:49Z
+**User Input**: (none — continuation)
+**AI Response**: Copilot's automatic review was not requested on #173 (the same happened on #172 the day before), so Joshua's fallback applied: two review agents read the pushed commit, one on security and one on code quality. Neither found anything that must change. The quality reviewer ran every date route in a scratch copy — each answers text over the limit with a 400 and the limit sentence — and confirmed that exactly eleven of the bot's 57 text options carry the limit and that /poll time's slots entries are capped by the API already. Optional suggestions were listed for Joshua and left out of this PR, among them a test that makes every text option be classified as a date or not, so a new date option cannot ship without the limit. Checks on #173: 6 passed, 1 skipped (publish-main), none failed. Asked Joshua "Merge PR #173 now?", with "Continue to Next Stage" meaning a squash merge through the REST call and nothing more — release and rollout stay separate decisions.
+**Context**: Construction — PR gate; waiting for Joshua's decision on the merge.
+
+---
+## Construction — fix PR #173 merged (date-text length limit)
+**Timestamp**: 2026-11-12T20:36:48Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Joshua's answer to "Merge PR #173 now?" (it had arrived by 20:32:37Z). Checked again first: head still 9adbe42, one commit, no reviews or comments, checks green, master not moved, the PR text unchanged. Squash-merged at 20:34:34Z through the REST merge call with the keyring login, the call naming the reviewed head (9adbe42). Result: 29a0d15 on master, its tree identical to 9adbe42's, its message the PR text. GitHub deleted the head branch. release-please opened #174 (chore(master): release 0.36.4) at 20:34:59Z with its CI and CodeQL runs held for approval. Asked Joshua "Release 0.36.4 now?", with the answers "Release 0.36.4" (approve the held runs, merge #174 once build-test and pr-title are green, confirm the tag and the images, then ask about the rollout) and "Release and roll out".
+**Context**: Construction — fix delivered to master; the release next, on Joshua's decision.
+
+---
 ## Construction — unit 1: `master` merged into the branch; the first day follows the shared limit
 **Timestamp**: 2026-11-12T20:49:16Z
 **User Input**: (none — PR #172 came to conflict with `master` once the separate piece of work had landed there, which the app's Auto-fix watch on the PR reported; continuation of "I agree with your recommendations")
 **AI Response**: Checked first, as at the start of every turn: PR #172's head is `c22539c` with no review, no thread and no request from Copilot, GitHub reports it as conflicting with `master`, and the branch has one local commit (`30bcf78`, the round 10 records). The separate piece of work reached `master` at 2026-11-12T20:34:34Z as `29a0d15` (PR #173): one length limit for date and time text typed in words, `DateTextLimits.MaxLength`. Fetched `master` and merged it into the branch. Two files conflicted, this one and `aidlc-state.md`, both sides having appended at the same place, and each keeps both sides whole: here the entries are in the order of their timestamps, so that work's four entries (00:33:04Z, 00:57:46Z, 01:32:03Z and 13:52:39Z) sit among this feature's; in the state file its line comes ahead of this feature's section. Compared with both sides afterwards: no line of either is missing, and no code conflicted. In the merge commit itself this unit follows the limit `master` brought. `TryResolveDay` refuses text over it first, with `TryResolve`'s refusal, and checks its text for null as `TryResolve` does. `FreeSlotLimits.MaxWhenLength` is gone: the `when` option of `/availability slots` and the route's own check read `DateTextLimits.MaxLength`, and the route's check and its message stay as they were. Tests: the day reader reads text at the limit and refuses one character more; `DateOptionLimitTests` gains the option as its twelfth row; the route test and the command-shape test read the shared constant, and the route test fills its text out with dots, as `master`'s length tests do. Each check was taken out in turn and the test meant to pin it failed. The plan gains rule 6 in 4.1 and a subsection in section 9; the comment above the route's check, the route test's comment and two lines of the plan are reworded or shortened to say what the limit is and where it is checked. Release build: no errors and the baseline's 22 warnings. 1,017 tests green (639 API, 246 bot, 132 web; 993 on this branch before, 831 on `master`). Next: the merge is committed locally, both review agents read it before it is pushed, and it goes out once both have passed it. The merge of PR #172 stays Joshua's go-ahead.
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: `master` merged and the first day held to the shared limit; the agents' round on the merge of `master` next, then Joshua's go-ahead to merge the PR.
+
+---
+## Operations — release 0.36.4 merged and published
+**Timestamp**: 2026-11-12T22:10:23Z
+**User Input**: "Release 0.36.4"
+**AI Response**: Joshua's answer to "Release 0.36.4 now?" (it had arrived by 22:01:50Z), for the release only. The two held runs on #174 approved at 22:02:16Z; build-test, pr-title and both CodeQL jobs green by 22:04:44Z; #174 squash-merged through the REST call at 22:05:39Z as 40cb718 (CHANGELOG.md only). The release workflow tagged v0.36.4 and published the GitHub release at 22:05:53Z, ran the tests on the tag and pushed the three images by 22:09:51Z, and posted the announcement by 22:09:57Z. Looked up in the registry afterwards: calcrony-api, calcrony-bot and calcrony-web each resolve at :0.36.4, with :latest on the same digest. Asked Joshua "Roll out 0.36.4 to production now?", with the answers "Roll out 0.36.4" (test stack to :main, a pg_dump of prod, the tag pin to 0.36.4, pull and restart, then the health, image and bot checks) and "Not now".
+**Context**: Operations — release cut; the rollout next, on Joshua's decision.
+
+---
+## Operations — test stack on :main (40cb718); prod rolled 0.36.3 → 0.36.4; date-text length limit shipped
+**Timestamp**: 2026-11-12T22:24:55Z
+**User Input**: "Roll out 0.36.4"
+**AI Response**: Joshua's answer to "Roll out 0.36.4 to production now?" (it had arrived by 22:17:23Z). Test stack first: the three :main images, built from 40cb718, pulled and the app services restarted with up -d --wait (API started at 22:19:41Z) — API and web healthy, the bot running, /health and /health/ready report 0.0.0-main.40cb718, no migration applied, the test bot registered its guild commands and reached Gateway Ready. Prod: pg_dump to backups/calcrony-prod-pre-0.36.4-20261112T222045Z.sql (1,783,704 bytes, complete; larger than September's backups because the data has grown); CALCRONY_IMAGE_TAG bumped to 0.36.4 in a clean shell (config --images confirmed, the rest of .env unchanged); the three 0.36.4 images pulled, their ids equal to the published digests; API, bot and web restarted with up -d --wait (API started at 22:22:23Z, bot and web at 22:22:29Z). On both stacks only the app services were restarted (--no-deps). On prod a plain up would also have recreated the database container, because its image tag has since moved to a newer build of the same Postgres version; that was not among the steps Joshua had approved, so it was left for him to decide, and the databases stayed as they were. Checked on prod: /health and /health/ready report 0.36.4 inside the container and through api.calcrony.app; calcrony.app answers 200; the three containers run the 0.36.4 images — API and web healthy, the bot running — with no restarts; no migration applied and the migration history unchanged; the bot connected, registered its commands globally and reached Gateway Ready (one Discord.Net warning that the Ready handler ran past three seconds during the start-up syncs, which this release did not change); the running API and bot builds contain the limit, where the 0.36.3 builds did not. Not checked: the option limits as Discord stores them, which would have needed the bot token outside the stack.
+**Context**: Operations — the limit shipped end to end (fix PR #173 → 0.36.4 → test → prod).
+
+---
+## Operations — bookkeeping for the date-text length limit
+**Timestamp**: 2026-11-12T23:07:23Z
+**User Input**: "Keep it plain for now"
+**AI Response**: Joshua's answer to a question put to him with the rollout report, on how these entries should be written: plainly — what was limited, where and when. The entries on this fix from 14:43:28Z on are written that way. This bookkeeping goes out as its own docs-only PR, cut from master, after his go-ahead for the push.
+**Context**: Operations — bookkeeping for the date-text length limit; Joshua's decision on the docs PR next.
+
+---
+## Operations — bookkeeping PR approved (date-text length limit)
+**Timestamp**: 2026-11-12T23:40:59Z
+**User Input**: "Push and open PR"
+**AI Response**: Joshua's answer to "Push the docs branch and open its PR?", the other answer being "Push, open and merge". Before the question two review agents had read this bookkeeping commit locally, one on its wording and one checking each fact against git, GitHub and the running stacks; their corrections are in, and the commit was remade on top of master after PR #172 merged there, so these entries sit in timestamp order among that feature's. Pushing the branch docs/log-date-text-limit-0.36.4 and opening the pull request "docs: log the date-text length limit and the 0.36.4 rollout". The merge stays Joshua's decision.
+**Context**: Operations — bookkeeping for the date-text length limit; PR gate next.
 
 ---
