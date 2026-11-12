@@ -1121,3 +1121,10 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: round 7 of the agents' review answered; round 8 next. The merge waits for a round with no findings, for the separate piece of work, and for Joshua's go-ahead.
 
 ---
+## Construction — unit 1 review round 8: quality clean; one information-level point on the live script, answered
+**Timestamp**: 2026-11-12T01:02:22Z
+**User Input**: (none — continuation of "I agree with your recommendations")
+**AI Response**: Committed round 7's answers as `ef81f5f` (2026-11-12T00:59:14Z) and pushed it; every check on that commit is green, the PR is mergeable, and Copilot has still made no review or request. Both agents reviewed `ef81f5f`, which changed five documents and nothing else. Quality: no findings — Q20 and Q21 answered as meant, the round 7 report recorded accurately, the documents agreeing with each other and with the code. Security: nothing saying more than it should, the round 7 report recorded accurately, and one finding at information level, S12: the live script says in three places that its section 12 can be skipped without blocking the release, and none of them named the must-pass item as the exception, so a tester without the Google prerequisites would skip the section at its header and never reach the item. Confirmed by reading the three passages. Done: each of the three names the exception — the opening paragraph, the section's header and rule 2 of Part C; the plan's section 9 gains a round 8 subsection, which also records, at the security reviewer's remark, that in round 7 it had itself noted the gap that became Q20; the state file records the round. No code, test or user-facing text changes, so the counts stand: 993 tests green. Next: one commit, the push, and both agents on it (round 9).
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: round 8 of the agents' review answered; round 9 next. The merge waits for a round with no findings, for the separate piece of work, and for Joshua's go-ahead.
+
+---

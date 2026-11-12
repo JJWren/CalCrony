@@ -776,6 +776,22 @@ on the test stack, and has to pass before the release.
 
 Counts are unchanged: 993 tests green.
 
+### Review round 8 — the records commit that answered round 7 (2026-11-12)
+
+Both agents reviewed `ef81f5f`, five documents and nothing else. The quality reviewer had no
+findings: Q20 and Q21 answered as meant, its round 7 report recorded accurately, the documents
+agreeing with each other and with the code. The security reviewer found nothing saying more than
+it should and its round 7 report recorded accurately, and had one finding at information level.
+
+| Finding | Change |
+|---|---|
+| S12 (info) — the live script says in three places that section 12 can be skipped without blocking the release, and none of them named the must-pass item as the exception. A tester without the Google prerequisites would skip the section at its header and never reach the item. | Each of the three names the exception: the opening paragraph, the section's header and rule 2 of Part C. |
+
+Also recorded, at the security reviewer's remark: in round 7 it had itself noted the gap that
+became Q20, as one that needed no change.
+
+Counts are unchanged: 993 tests green.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan and design re-read; the code this unit plugs into read at the

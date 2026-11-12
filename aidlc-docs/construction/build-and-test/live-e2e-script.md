@@ -4,7 +4,8 @@ The full manual pass over every feature area against a **real deployment** and a
 server**. Part A sets up an isolated test environment; Part B is the numbered pass itself; the
 results land in [`build-and-test-summary.md`](build-and-test-summary.md) (a `fix:` PR per
 finding). v1.0.0 ships only when the pass is declared complete. Section 12 is conditional on
-deployment prerequisites and does not block the release.
+deployment prerequisites and does not block the release, except for its one item marked
+**Must pass**.
 
 Conventions: "embed" = the event's Discord message; "~15s" = one delivery-poller cycle;
 web = the Blazor app signed in via Discord.
@@ -205,7 +206,9 @@ production id (correct for the prod stack, which needs no new variables).
 Requires: public HTTPS `Api__PublicBaseUrl`, Google OAuth client (published to production;
 verification pending is fine — expect the unverified-app interstitial), redirect URI registered,
 Server Members intent. **Skippable without blocking v1.0.0** (long-standing known
-constraint) — mark the section skipped in the summary if prerequisites aren't in place.
+constraint) — mark the section skipped in the summary if prerequisites aren't in place. The
+exception is the one item below marked **Must pass**: it needs none of them and is run either
+way.
 
 - [ ] `/calendar connect` (works in DM) → Google consent (free/busy scope only) → linked.
 - [ ] `/availability event` on an event with Going RSVPs → grid renders; linked users show busy blocks.
@@ -276,7 +279,7 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
    [`build-and-test-summary.md`](build-and-test-summary.md) — one `fix:` PR per finding, then
    re-run the affected section against the fixed build.
 2. Section 12 may be marked **skipped** if the Google/HTTPS prerequisites aren't in place; every
-   other section must pass.
+   other section must pass, and so must section 12's one item marked **Must pass**.
 3. When the table is fully green, the pass is complete: the final `docs: prepare v1.0.0` PR
    records the results, and its **squash commit footer** carries `Release-As: 1.0.0` (footer of
    the commit message in the merge dialog — never the PR description).
