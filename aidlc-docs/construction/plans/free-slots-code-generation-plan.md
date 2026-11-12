@@ -758,6 +758,24 @@ make the reach identical to the grid's and refuse the role in S11's example.
 
 Counts are unchanged: 993 tests green.
 
+### Review round 7 — the records commit that answered round 6 (2026-11-12)
+
+Both agents reviewed `51acb11`, six documents and nothing else. The security reviewer had no
+findings: S11 answered accurately in every place it touches, the new bullet right against the
+code, and nothing in the commit saying more than it should. The quality reviewer found Q18 and
+Q19 answered as meant and every statement the commit adds about the code true, and had two nits
+on gaps the corrections left.
+
+| Finding | Change |
+|---|---|
+| Q20 (nit) — FR10's new clause, that a list about one member shows roughly the hours they keep, had not reached the design: D11 and its section 7 stopped at listing one's slots by name. | D11 and both section 7 cells carry it. |
+| Q21 (nit) — the live script's must-pass item sits in a section a tester may skip when the Google prerequisites are missing, and it needs none of them. | The item says so, and to run it even when the rest of the section is skipped. |
+
+Noted by the security reviewer, not as a finding: the must-pass item can run after the merge,
+on the test stack, and has to pass before the release.
+
+Counts are unchanged: 993 tests green.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan and design re-read; the code this unit plugs into read at the

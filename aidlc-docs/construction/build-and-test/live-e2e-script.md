@@ -224,7 +224,8 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
       in your timezone (your `/settings timezone`, else the server's).
 - [ ] `who:<another member>` → "Another member's free slots can't be listed yet — pick yourself
       or a role.", the same whether or not they have linked a calendar. **Must pass**: no
-      automated test covers the line that hands the rule the caller's id.
+      automated test covers the line that hands the rule the caller's id. It needs none of this
+      section's prerequisites, so run it even when the rest of the section is skipped.
 - [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour
       no earlier than now.
 - [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;
