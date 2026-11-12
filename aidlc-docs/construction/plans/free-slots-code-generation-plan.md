@@ -511,9 +511,9 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       back clean from both. That review was complete on `9f13116` after five rounds (section 9).
       Joshua then answered the two decisions it had left open (2026-11-12, section 9): D11 is
       implemented in `61d6eda`, and the agents' rounds on it and on the records that answer
-      them are in section 9; the separate piece of work outside this change goes first, in its
-      own session. Still ahead: a round with no findings, that work, then his go-ahead for the
-      merge.
+      them are in section 9, ending with no findings from either on `c22539c` (round 10); the
+      separate piece of work outside this change goes first, in its own session. Still ahead:
+      that work, then his go-ahead for the merge.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
@@ -804,6 +804,18 @@ and its round 8 report recorded accurately, and had one nit.
 | Q22 (nit) — `build-and-test-summary.md`, where the results of the live pass are recorded, states the gate in its own words — "all non-conditional sections pass" — with no exception for the must-pass item. This branch had not touched that file. | Its gate line names the exception, and so does its results row for section 12. A search of the tracked files finds no other statement of the rule. |
 
 Counts are unchanged: 993 tests green.
+
+### Review round 10 — the records commit that answered round 9 (2026-11-12)
+
+Both agents reviewed `c22539c` and had no findings. The loop on D11 ends there: it is the head of
+PR #172, and every check on it is green. Five rounds on this change — `61d6eda` with the round 5
+records, then each commit that answered the round before — with two findings on security and
+privacy (S11, S12) and five on correctness and quality (Q18–Q22), none of them in the code or the
+tests, which last changed in `61d6eda`. The security reviewer also corrected its own round 9
+report, which had said the tracked files held no other statement of the skip rule; Q22 was one.
+
+Over all ten rounds: twelve findings on security and privacy (S1–S12) and twenty-two on
+correctness and quality (Q1–Q22).
 
 ## 10. Plan checklist
 
