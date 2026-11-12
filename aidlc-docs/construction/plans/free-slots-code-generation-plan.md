@@ -517,8 +517,9 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       them are in section 9, ending with no findings from either on `c22539c` (round 10); the
       separate piece of work outside this change goes first, in its own session. That work
       reached `master` on 2026-11-12 and `master` is merged into this branch (section 9). The
-      agents read that merge before it was pushed and passed it as `16bee3b` (round 11). Still
-      ahead: his go-ahead to merge the PR.
+      agents read that merge before it was pushed and passed it as `16bee3b` (round 11). His
+      go-ahead to merge the PR came the same day ("After 0.36.4"): once PR #174 has been merged.
+      Still ahead: the squash merge, when that has happened.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):

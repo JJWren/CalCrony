@@ -1184,3 +1184,10 @@ Availability for @GM
 **Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: the agents' review of the merge of `master` is complete at `16bee3b`, the head of PR #172; awaiting Joshua's go-ahead to merge the PR.
 
 ---
+## Construction — unit 1: Joshua's go-ahead to merge PR #172, once PR #174 has been merged
+**Timestamp**: 2026-11-12T21:50:53Z
+**User Input**: "After 0.36.4"
+**AI Response**: The question put to him after round 11 was "When should I squash-merge PR #172?", with the answers A) after release 0.36.4 is cut, meaning PR #174 is merged (recommended), B) now, before the release, and C) other. His answer is A. Checked first, as at the start of every turn: PR #172 is open at `16bee3b` and mergeable, every check on it is green, and there is no review, thread or request from Copilot; PR #174 is open and `master` is still `29a0d15`. So nothing is merged yet. PR #172 waits for PR #174; once that has been merged, PR #172 is checked again and squash-merged through the REST call, and the live pass on the test stack follows. Like the entry before it, this one is committed locally and not pushed.
+**Context**: Construction, unit 1 (`free-slots`) — delivery step 8.4: the go-ahead to merge PR #172 is given, to take effect once PR #174 has been merged.
+
+---
