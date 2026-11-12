@@ -7,7 +7,9 @@ per-member setting (one additive migration) with a surface in Discord and on the
 **Date**: 2026-11-10, revised 2026-11-11. **Baseline**: `master` 4911a1f (v0.36.3, the version prod
 runs); the audit trail records 810 tests green at that release — not re-run for this analysis.
 **Status**: approved 2026-11-11. Q1–Q7 answered — A, A, **B**, A, A, A, A (Q6 and Q7 were opened by
-the Q3 answer); the assumptions in section 5 stand.
+the Q3 answer); the assumptions in section 5 stand. **Amended 2026-11-12** on Joshua's decision
+after the review of unit 1: FR19 is added and narrows Q2's answer; FR1, FR10 and section 7 point
+at it.
 
 ## 1. Intent
 
@@ -80,7 +82,7 @@ for the description, 1024 per field value and 6000 for the whole embed.
 **Free slots**
 
 - **FR1** A member can ask for the free slots of a target — a role or a single member — over one to
-  fourteen whole days, without naming a time of day.
+  fourteen whole days, without naming a time of day. Which single member can be named is FR19.
 - **FR2** A slot is a stretch during which every counted member is inside their own available hours
   and has no busy block on a linked calendar, at least the minimum length long. Slots never start in
   the past: today's first slot starts at the current time rounded up to the next quarter hour.
@@ -104,12 +106,23 @@ for the description, 1024 per field value and 6000 for the whole embed.
   they do today.
 - **FR9** Refusals are friendly and ephemeral: a day that can't be understood, a past day, a minimum
   longer than a day, more than 50 members, a role nobody holds.
+- **FR19** *(added 2026-11-12 — Joshua's decision on review finding S1, option A)* A member can
+  always list their own free slots. Another member's can be listed by name only once that member
+  has saved their own available hours (FR10): saving hours is what makes a member's slots
+  available by name to the members of the servers they share with CalCrony, and resetting them
+  takes that back. Naming a member who has not is refused without their calendar being read, and
+  the refusal says how hours are saved; the Docs page and both privacy copies state the rule
+  (FR17). Until the setting exists — unit 1 on its own — `who:` takes the caller or a role, and
+  another member is refused before anything about them is looked up. A role is not affected: it
+  reaches its members as `/availability role` does, including when only one of them ends up
+  counted.
 
 **Available hours**
 
 - **FR10** A member can store, see and reset their own available hours from Discord and from the
   web's My settings page. Nobody else can set them, and they are not listed to other members — only
-  their effect on slots shows.
+  their effect on slots shows. Saving them also lets other members list that member's slots by
+  name (FR19), and every place where hours are saved or shown says so.
 - **FR11** Hours are one range per weekday, each weekday separately available or not (Q6 A). They
   can be set for every day, for weekdays, for weekends or for a single day at a time.
 - **FR12** Hours are wall-clock times in the member's zone, resolved as everywhere else: their
@@ -165,6 +178,11 @@ Answer with the letter; a recommendation is marked.
 - D) Other (describe).
 
 [Answer]: A — the recommended option; Joshua, 2026-11-11.
+
+*Narrowed 2026-11-12 by FR19: the option still takes a member or a role, and a member other than
+the caller must have saved their own available hours. The review of unit 1 showed that "no new
+exposure in kind" left out who can be reached — any linked member of the server, where
+`/availability role` gets to a member only through a role of 50 or fewer.*
 
 **Q3 — Which hours of the day count?** A calendar only knows commitments: an empty one reads as free
 at 3 AM.
@@ -318,7 +336,8 @@ at 3 AM.
   "couldn't check right now" status rather than a failure.
 - **Two weeks of a member's free/busy in one reply.** The same data any member can already get from
   `/availability role` window by window (its `duration` has no upper bound); the reply stays
-  ephemeral. Worth a line in the PR body.
+  ephemeral. Worth a line in the PR body. *2026-11-12: true of the kind of data, not of who could
+  be reached by naming them; FR19 is the answer to that.*
 - **Larger roles**: up to 50 Google calls per command, as today — not multiplied by the days.
 - **Embed size**: bounded by the per-day cap and pinned by a worst-case test.
 - **Two clocks**: days are cut in the caller's CalCrony zone while Discord renders times in the

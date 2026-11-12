@@ -7,7 +7,7 @@ application design (`inception/application-design/availability-free-slots-design
 **Baseline**: `master` 4911a1f (v0.36.3; the audit trail records 810 tests green at that release —
 re-run as step 0.1). **Branch**: `feature/availability-free-slots` → PR
 `feat: free slots for a member or role (/availability slots)`.
-**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivery under way (section 8).
+**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivery under way (section 8). Amended 2026-11-12 for D11, Joshua's decision on who can be named in `who:` — sections 1, 2, 4.6 and 4.8 are changed in place, and section 9 records it.
 
 As the workflow plan set out, this file is the unit's functional design (sections 1–5) followed by
 its code-generation plan (sections 6–8), approved together. Unit 2 (`available-hours`) gets its own
@@ -16,21 +16,23 @@ file after this unit merges.
 ## 1. What this unit ships
 
 `/availability slots who [when] [days] [duration]`: an ephemeral reply that lists, day by day, when
-a member — or everyone holding a role — is free. In this unit every counted member is on the
+the caller — or everyone holding a role — is free. In this unit every counted member is on the
 default hours, 8 AM–11 PM in their own zone, and a member is counted only when their linked calendar
-could be read. The stored hours setting and the "hours only" state are unit 2.
+could be read. The stored hours setting and the "hours only" state are unit 2, and so is naming
+another member, who must have saved their hours first (D11).
 
 No migration, no configuration, no new Google scope, Discord permission or intent. Nothing from
 Google is stored (FR16). `/availability role` and `/availability event` are not touched (FR8).
 
 Requirements covered: FR1, FR2, FR4–FR9, FR13, FR16; FR3 without "hours only"; the slots half of
-FR17 and FR18.
+FR17 and FR18; FR19 as it applies before hours exist.
 
 ## 2. Carried in (locked)
 
 | From | Decision |
 |---|---|
 | Q1, Q2, Q4, Q5 | A new subcommand beside `role` and `event`; `who:` takes a member or a role; `days:` 1–14, default 7; the reply is ephemeral. |
+| D11 (added 2026-11-12, FR19) | A member other than the caller can be named only once they have saved their own hours. No hours are saved before unit 2, so here the member in `who:` is the caller, and anyone else is refused before any lookup. A role is as it was. |
 | Q3, Q6, Q7 | Stored per-member hours, their shape, and "hours only" — unit 2. Here everyone counted gets the default week. |
 | Assumptions | A slot needs every counted member free for all of it; `duration:` is the shortest slot listed, 15–1440 minutes, default 60; the time of day in `when` is ignored; the route is bot-only; no web view. |
 | D4 | The calculation takes, per member, a zone, a week of hours and busy blocks. It and its tests are final in this unit. |
@@ -199,23 +201,30 @@ runs into says until when it is free.
 
 | Option | Type | Required | Bounds | Description in Discord |
 |---|---|---|---|---|
-| `who` | member or role (the mentionable picker) | yes | — | `A member or a role` |
+| `who` | member or role (the mentionable picker) | yes | — | `Yourself or a role` (D11; `A member or a role` as approved) |
 | `when` | text | no | at most 100 characters (review round 1); default: today | `First day, e.g. "today", "saturday", "nov 12" (default: today)` |
 | `days` | integer | no | 1–14, default 7 | `How many days to list, 1-14 (default 7)` |
 | `duration` | integer | no | 15–1440, default 60 | `Shortest slot worth listing, in minutes (default 60)` |
 
-Subcommand description: `Find free time slots for a member or role over one or more days`. Bounds
-come from `FreeSlotLimits`, so Discord enforces them before the command runs. Any member may run
-it, as with `role` and `event`.
+Subcommand description: `Find free time slots for yourself or a role over one or more days` (D11;
+`…for a member or role…` as approved). Bounds come from `FreeSlotLimits`, so Discord enforces them
+before the command runs. Any member may run it, as with `role` and `event`. A test pins both
+descriptions, so that they move together with the rule in unit 2.
 
 Resolving `who`, after the ephemeral defer:
 
 | `who` is | Members asked about | Title subject | Refusal |
 |---|---|---|---|
 | a role | its holders that are not bots, through the member download `role` already uses | `@{role name}` | nobody holds it → `Nobody currently has the {role mention} role.`; only bots do → `Only bots have the {role mention} role, and bots don't keep a calendar.` (review round 1); more than 50 → `The {role mention} role has {n} members; free-slot lists support at most 50 at a time.` |
-| a member of this server | that member | `@{display name}` — one at sign, as for a role, when the name already starts with one (review round 1) | — |
-| a bot | — | — | `Bots don't keep a calendar — pick a member or a role.` |
+| the caller | that member | `@{display name}` — one at sign, as for a role, when the name already starts with one (review round 1) | — |
+| a bot | — | — | `Bots don't keep a calendar — pick yourself or a role.` |
 | a user who is not in this server | — | — | `That user isn't a member of this server.` (R3) |
+| another member of this server | — | — | `Another member's free slots can't be listed yet — pick yourself or a role.` (D11) |
+
+The rows for one user are checked in that order, so a bot or a user from outside the server is
+told the more specific reason. The picker still offers every member: Discord has no option type
+for "me or a role", and unit 2 needs the member choice. As approved, the first of these rows read
+"a member of this server", and the two refusals ended "pick a member or a role".
 
 Every refusal is ephemeral. A refusal from the API prints as `❌ {error}`, as on the other
 subcommands.
@@ -293,6 +302,13 @@ Days are in America/Chicago · times show in your local time
 | `PRIVACY_POLICY.md:48`, `Privacy.razor:70` | "render availability grids" → "render availability grids and free-slot lists"; both "Last updated" dates → the day the PR opens. |
 | `CONTEXT.md` | Three terms: **Free Slot** (a stretch in which every Counted Member is inside their Available Hours with nothing on a linked calendar; computed live, never stored), **Counted Member** (a member whose availability shaped a free-slots answer; everyone else asked about is named with the reason), **Available Hours** (the weekly wall-clock hours, read in the member's own zone, inside which a Free Slot may fall; 8 AM–11 PM every day by default). |
 | `live-e2e-script.md` §12 | New items: the command appears with the member-or-role picker; a linked member's slots match their Google calendar inside 8 AM–11 PM; `when:today` late in the day works and the first slot starts on the quarter hour; a role with a linked and an unlinked member lists the unlinked one under Not counted; a member with no calendar → "Nobody could be counted"; `days:14` on a real Google account returns slots rather than "couldn't check"; `when:yesterday` and `when:banana` refuse politely; a user id from outside the server is refused; the reply reads at phone width; `role` and `event` still behave as before. |
+
+Changed for D11 (2026-11-12), with the rows above left as approved: both README lines and the Docs
+command row say "yourself or a role" where they said "a member or (a) role"; the Docs entry reads
+"lists when everyone holding a role is free over 1 to 14 days; pick yourself as `who` for your
+own."; and in the live script the single-member items are run as yourself, the item with a caller
+many hours away goes through a role held by that one member, and a new item checks that naming
+another member is refused.
 
 Left as they are: the worked examples and the interest-roles paragraph (they use `/availability
 role`, still correct); `/help`'s tagline; the Terms; the web app's feature list (slots have no web
@@ -489,9 +505,11 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       but Copilot's review did not start on opening or on a push, and requesting it by hand
       registered nothing. Joshua's decision the same day: two review agents in Copilot's place —
       one on security, one on code quality — reviewing each commit in a loop until a commit comes
-      back clean from both. That review is complete (section 9): after five rounds both agents
-      had no findings on `9f13116`, the head of the PR. Still ahead: Joshua's two open decisions,
-      then his go-ahead for the merge.
+      back clean from both. That review was complete on `9f13116` after five rounds (section 9).
+      Joshua then answered the two decisions it had left open (2026-11-12, section 9): D11 is
+      implemented in a further commit, which both agents review as round 6, and the separate
+      piece of work outside this change goes first, in its own session. Still ahead: that round,
+      that work, then his go-ahead for the merge.
 - [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
@@ -657,6 +675,45 @@ PR #172, and every check on it is green. Five rounds in all — the whole branch
 that answered the round before — with ten findings on security and privacy (S1–S10) and seventeen
 on correctness and quality (Q1–Q17). The code and tests last changed in `c8ce2c9`, which both
 agents passed in round 3; rounds 4 and 5 were about these records alone.
+
+### Joshua's decisions on what the review left open (2026-11-12)
+
+Both were put to him after round 1 and again after round 5. His answer: "I agree with your
+recommendations".
+
+- **S1, who may list a single member's free slots — option A, recorded as FR19 and D11.** Only
+  once that member has saved their own available hours, which unit 2 brings; until then `who:`
+  takes the caller or a role. The requirements, the application design and the workflow plan are
+  amended, and sections 1, 2, 4.6 and 4.8 above are changed in place.
+- **The separate piece of work outside this change goes first**, in its own session, started on
+  his answer. This PR's merge waits for it.
+
+What changed for D11:
+
+| Where | Change |
+|---|---|
+| `FreeSlotTarget.ForUser` | Takes the caller's id. A member other than the caller is refused — after the checks for a bot and for a user from outside the server, which keep their own reasons — and no member is handed on, so the module has nothing to ask the API about them. |
+| `AvailabilityModule.SlotsAsync` | Passes the caller's id. The subcommand reads `Find free time slots for yourself or a role over one or more days` and `who` reads `Yourself or a role`. |
+| Tests | `FreeSlotTargetTests`: the caller alone; another member refused with nobody asked about; the bot and outside-user refusals ahead of it. `AvailabilityCommandShapeTests` pins the two descriptions, so they move with the rule in unit 2. `DocsPageTests` checks the entry's new sentence. |
+| Docs | Both README lines, the Docs entry and its command row, and the live script (4.8). The README's Features section stays at 398 words. |
+
+What D11 does not change, so that it is not read as more than it is:
+
+- **A role is as it was.** A role lookup that ends up with one counted member — a role one member
+  holds, or one whose other holders have no readable calendar — lists that member's slots. That
+  is the reach `/availability role` already has, one line per member, and who holds a role is in
+  the hands of whoever manages roles in the server. S3's point, that a list resting on one
+  member shows roughly where their day starts and ends, still applies on that path.
+- **The route.** `POST /calendar/free-slots` stays bot-only and takes the ids the bot hands it.
+  Like R3's membership check, the rule for `who` is the bot's. Where the saved-hours check sits
+  is for unit 2's plan.
+- **The reply.** A list about the caller still reads "their linked calendar … their timezone".
+- **The PR's title**, `feat: free slots for a member or role (/availability slots)`, as the
+  workflow plan set it. It becomes a line of the 0.37.0 release notes, by when unit 2 has made
+  "a member" true of anyone who has saved hours.
+
+Counts after D11: 993 tests green — 627 API, 234 bot, 132 web. The Release build has the same 22
+warnings.
 
 ## 10. Plan checklist
 

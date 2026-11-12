@@ -87,6 +87,8 @@ public class DocsPageTests : TestContext
         Assert.Contains("/availability slots", entry);
         Assert.Contains("Discord only", entry);
         Assert.Contains("any member can run it", entry);
+        Assert.Contains("everyone holding a role", entry);
+        Assert.Contains("yourself as who for your own", entry);
         Assert.Contains("between 8 AM and 11 PM", entry);
         Assert.Contains("aren't counted", entry);
 

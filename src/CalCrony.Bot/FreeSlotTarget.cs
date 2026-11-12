@@ -38,24 +38,33 @@ public sealed record FreeSlotTarget(IReadOnlyList<long> UserIds, string Subject,
         return new FreeSlotTarget(userIds, WithAtSign(roleName), null);
     }
 
-    /// <summary>One user. They must be a member of the server the command runs in: a user option
-    /// can carry anyone Discord can resolve by id, and a server's members are shown each other's
-    /// free time — not that of a CalCrony user from somewhere else.</summary>
+    /// <summary>One user, who has to be the caller. Naming a member lists that one person's free
+    /// time, so it is theirs to ask for: anyone else is reached through a role, as on the grid.
+    /// Another member can be named once members can save their own available hours and that
+    /// member has. The picker still offers everyone, so the other refusals stay specific: a user
+    /// option can carry anyone Discord can resolve by id, in this server or not.</summary>
     /// <param name="userId">The Discord user id.</param>
     /// <param name="displayName">The name to show for them.</param>
     /// <param name="isBot">Whether the user is a bot.</param>
     /// <param name="isMemberOfThisServer">Whether Discord resolved the user as a member of this server.</param>
-    /// <returns>The target, or the refusal for a bot or a user from outside the server.</returns>
-    public static FreeSlotTarget ForUser(long userId, string displayName, bool isBot, bool isMemberOfThisServer)
+    /// <param name="callerId">The Discord user id of the member running the command.</param>
+    /// <returns>The target, or the refusal for a bot, a user from outside the server, or a member
+    /// other than the caller.</returns>
+    public static FreeSlotTarget ForUser(long userId, string displayName, bool isBot, bool isMemberOfThisServer, long callerId)
     {
         if (isBot)
         {
-            return Refused("Bots don't keep a calendar — pick a member or a role.");
+            return Refused("Bots don't keep a calendar — pick yourself or a role.");
         }
 
         if (!isMemberOfThisServer)
         {
             return Refused("That user isn't a member of this server.");
+        }
+
+        if (userId != callerId)
+        {
+            return Refused("Another member's free slots can't be listed yet — pick yourself or a role.");
         }
 
         return new FreeSlotTarget([userId], WithAtSign(displayName), null);

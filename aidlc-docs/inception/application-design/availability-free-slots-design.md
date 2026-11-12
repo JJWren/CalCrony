@@ -2,7 +2,8 @@
 
 **Date**: 2026-11-11. **Inputs**: the approved requirements (FR1–FR18; Q1–Q7: A, A, B, A, A, A, A)
 and the approved workflow plan. **Baseline**: `master` 4911a1f (v0.36.3).
-**Status**: approved by Joshua 2026-11-11, as written.
+**Status**: approved by Joshua 2026-11-11, as written. **Amended 2026-11-12** with D11 (section 2),
+on his decision after the review of unit 1; 5.1, 5.2 and section 8 are brought in line.
 
 This document covers both units of work so the seam between them is drawn once. It fixes components,
 contracts, routes, storage and command shapes; the detailed rules of each unit (validation messages,
@@ -71,6 +72,7 @@ overruled.
 | D8 | Limits live once in Contracts (`FreeSlotLimits`, `AvailableHoursLimits`) and are used by the bot's option bounds and the API's validation. | The two copies of `MaxUsersPerQuery` kept in step by hand | They can't drift. The existing constants are left as they are. |
 | D9 | The member-zone rule (their timezone, else the server's, else UTC) is a small pure helper used by the new code. The datetime route keeps its own inline copy, and a test pins that both give the same answer. | Refactoring the datetime route onto the helper | No behaviour risk to every command that parses `when:`. |
 | D10 | Saving hours writes no activity-log entry. | Logging it | The log records server management actions; personal settings are not logged today. |
+| D11 | *Added 2026-11-12 (FR19).* A single target other than the caller is listed only when that member has saved their own hours. Unit 1 has no saved hours, so there `who:` takes the caller or a role, and the bot refuses anyone else before any lookup. Unit 2 lifts the refusal for a member with saved hours, and every place where hours are saved or shown says that saving them lets other members list one's slots by name. How the bot learns that hours are saved is for unit 2's plan; the hours `GET` route already answers it (`IsSet`). | The design as approved, where any member of the server could be named; or a separate per-member switch, on or off by default | Naming any linked member reaches further than `/availability role`, which gets to a member only through a role of 50 or fewer. Saving hours is already the act of saying when one is available, so no second setting is needed, and reset is the way back. A role is left as it is: it reaches what the grid already reaches. |
 
 ## 3. Contracts (`CalCrony.Contracts`)
 
@@ -222,7 +224,7 @@ counted the response carries no days.
 
 | Command | Options | Unit |
 |---|---|---|
-| `/availability slots` | `who` — member or role (required, Discord's mentionable picker) · `when` — first day, natural language (optional, default today) · `days` — 1 to 14 (optional, default 7) · `duration` — minimum minutes, 15 to 1440 (optional, default 60) | 1 |
+| `/availability slots` | `who` — member or role (required, Discord's mentionable picker); the member is the caller in unit 1, and from unit 2 may be another member who has saved their hours (D11) · `when` — first day, natural language (optional, default today) · `days` — 1 to 14 (optional, default 7) · `duration` — minimum minutes, 15 to 1440 (optional, default 60) | 1 |
 | `/settings available-hours set` | `days` — every day, weekdays, weekends, or one weekday (required) · `from`, `to` — times with suggestions in 30-minute steps; typed values such as `6:30pm` or `18:30` are accepted, and `to` may be midnight (required) | 2 |
 | `/settings available-hours off` | `days` — as above (required) | 2 |
 | `/settings available-hours reset` | none | 2 |
@@ -236,7 +238,7 @@ it is read in. An `off` that would leave no day is refused (D7).
 
 | Component | Kind | Responsibility | Unit |
 |---|---|---|---|
-| `AvailabilityModule.SlotsAsync` | new subcommand | Resolve `who` to user ids — a role through the existing member download and the 50 cap, a member directly — call the route, reply ephemerally with the embed or the refusal. | 1 |
+| `AvailabilityModule.SlotsAsync` | new subcommand | Resolve `who` to user ids — a role through the existing member download and the 50 cap, a member directly, under D11 — call the route, reply ephemerally with the embed or the refusal. | 1; unit 2 lets another member be named once they have saved hours (D11) |
 | `FreeSlotsEmbedBuilder` | new static class, pure | Render the response (5.3). | 1; unit 2 adds the notes for `Counted`, `HoursOnly` and `DefaultHours` |
 | `CalCronyApiClient` | changed | `GetFreeSlotsAsync`; in unit 2 `GetAvailableHoursAsync`, `PutAvailableHoursAsync`, `ResetAvailableHoursAsync`. | 1, 2 |
 | `SettingsModule.AvailableHoursGroup` | new nested group | The three hours commands, read-modify-write through the hours routes. | 2 |
@@ -285,15 +287,15 @@ Slots get no web view: the route is bot-only by design.
 
 | | Unit 1 — `free-slots` | Unit 2 — `available-hours` |
 |---|---|---|
-| Ships | `/availability slots` end to end; every counted member on the default hours | The stored setting on both surfaces; slots read it; "hours only" |
+| Ships | `/availability slots` end to end; every counted member on the default hours; a single target is the caller (D11) | The stored setting on both surfaces; slots read it; "hours only"; another member can be named once they have saved hours (D11) |
 | Contracts | `FreeSlotLimits`, the request, response, slot, day and member records, the state enum | `AvailableHoursLimits`, the hours records |
 | API | `TryResolveDay`, `WeeklyHours` (default only), `MemberZone`, `FreeSlotCalculator`, `FreeSlotsService`, the route | The column and migration, `WeeklyHours` validation and JSON, the three routes, `FreeSlotsService` reading stored hours |
 | Bot | The subcommand, the embed builder, one client method | The command group, the two time helpers, the autocomplete handler, the `view` line, the embed notes, three client methods |
 | Web | — | Three client methods, the card, the page |
 | Docs | Section 7, unit 1 column | Section 7, unit 2 column |
-| Tests | Calculator; day resolution; the route on the fake provider, including the zone pin of D9; the embed, including its worst case; the Docs page | Week validation and round-trip; the hours routes (validation, self-only, a settings write leaves hours alone); slots with stored hours, hours only and members in different zones; time parsing and formatting; the week description; suggestions; the registered command tree; the embed notes; the web card; the Docs page |
+| Tests | Calculator; day resolution; the route on the fake provider, including the zone pin of D9; the embed, including its worst case; the Docs page | Week validation and round-trip; the hours routes (validation, self-only, a settings write leaves hours alone); slots with stored hours, hours only and members in different zones; time parsing and formatting; the week description; suggestions; the registered command tree; the embed notes; the web card; the Docs page; naming a member with and without saved hours (D11) |
 | Migration | none | one nullable column; rolling the image back stays safe |
-| Requirements | FR1, FR2, FR4–FR9, FR13, FR16; FR3 without "hours only"; half of FR17 and FR18 | FR10–FR12, FR14, FR15; the rest of FR3, FR17 and FR18 |
+| Requirements | FR1, FR2, FR4–FR9, FR13, FR16; FR3 without "hours only"; half of FR17 and FR18; FR19 as it applies before hours exist | FR10–FR12, FR14, FR15; the rest of FR3, FR17, FR18 and FR19 |
 | Depends on | — | Unit 1 (D4) |
 
 For the live pass, because no test can cover them: Discord accepting the mentionable option and the
@@ -318,3 +320,4 @@ real Google account; the reply at phone width.
 - [x] Units of work, their dependency and the requirement map written (section 8)
 - [x] Diagram's syntax checked; text alternative provided
 - [x] Approved by Joshua — 2026-11-11, as written ("Continue")
+- [x] D11 added 2026-11-12 on Joshua's decision (option A, "I agree with your recommendations")

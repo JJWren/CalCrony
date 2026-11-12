@@ -6,7 +6,7 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/availability — free/busy grids for a role's members or an event's attending list,
-/// and free slots for a member or a role over one or more days.</summary>
+/// and free slots for the caller or a role over one or more days.</summary>
 /// <param name="api">The CalCrony API client.</param>
 [CommandContextType(InteractionContextType.Guild)]
 [IntegrationType(ApplicationIntegrationType.GuildInstall)]
@@ -106,17 +106,18 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         await RunAndReplyAsync($"**{ev.Title}**", userIds, start, end);
     }
 
-    /// <summary>Free slots for a member, or for everyone holding a role, over one or more whole
+    /// <summary>Free slots for the caller, or for everyone holding a role, over one or more whole
     /// days: the times every counted member is inside their available hours with nothing on a
     /// linked calendar. Unlike <c>role</c>, which checks one window someone already has in mind,
     /// this finds the windows.</summary>
-    /// <param name="who">The member, or the role whose members are looked at.</param>
+    /// <param name="who">The caller themself, or the role whose members are looked at. The picker
+    /// offers every member; <see cref="FreeSlotTarget.ForUser"/> refuses anyone but the caller.</param>
     /// <param name="when">The first day in natural language; today when omitted.</param>
     /// <param name="days">How many days to list.</param>
     /// <param name="duration">The shortest slot worth listing, in minutes.</param>
-    [SlashCommand("slots", "Find free time slots for a member or role over one or more days")]
+    [SlashCommand("slots", "Find free time slots for yourself or a role over one or more days")]
     public async Task SlotsAsync(
-        [Summary("who", "A member or a role")] IMentionable who,
+        [Summary("who", "Yourself or a role")] IMentionable who,
         [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)"), MaxLength(FreeSlotLimits.MaxWhenLength)] string? when = null,
         [Summary("days", "How many days to list, 1-14 (default 7)"), MinValue(FreeSlotLimits.MinDays), MaxValue(FreeSlotLimits.MaxDays)] int? days = null,
         [Summary("duration", "Shortest slot worth listing, in minutes (default 60)"), MinValue(FreeSlotLimits.MinMinimumMinutes), MaxValue(FreeSlotLimits.MaxMinimumMinutes)] int? duration = null)
@@ -144,11 +145,12 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
                     (long)user.Id,
                     (user as IGuildUser)?.DisplayName ?? user.Username,
                     user.IsBot,
-                    user is IGuildUser);
+                    user is IGuildUser,
+                    (long)Context.User.Id);
                 break;
 
             default:
-                target = FreeSlotTarget.Refused("Pick a member or a role.");
+                target = FreeSlotTarget.Refused("Pick yourself or a role.");
                 break;
         }
 

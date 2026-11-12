@@ -3,6 +3,8 @@
 **Date**: 2026-11-11. **Input**: the approved requirements
 (`inception/requirements/availability-free-slots-requirements.md`; Q1–Q7: A, A, B, A, A, A, A).
 **Baseline**: `master` 4911a1f (v0.36.3). **Status**: approved by Joshua 2026-11-11, as written.
+**Amended 2026-11-12**: FR19, added on his decision after the review of unit 1, is shared between
+the two units (section 2). The stages, the sequence and the delivery are unchanged.
 
 Every recommendation here can be overridden; section 6 lists the ones most worth a second look.
 
@@ -49,8 +51,8 @@ Why each skip or merge:
 
 | Unit | What ships | Migration | Requirements |
 |---|---|---|---|
-| **1 — `free-slots`** | `/availability slots` end to end, with every member on the default hours (8 AM–11 PM) and only members with a readable calendar counted | none | FR1, FR2, FR4–FR9, FR13, FR16; FR3 without "hours only"; the slots half of FR17 and FR18 |
-| **2 — `available-hours`** | The stored setting in Discord and on the web; slots read it; a member with hours and no calendar is counted as "hours only" | one, additive | FR10–FR12, FR14, FR15; the "hours only" part of FR3; the hours half of FR17 and FR18 |
+| **1 — `free-slots`** | `/availability slots` end to end, with every member on the default hours (8 AM–11 PM) and only members with a readable calendar counted; `who:` takes the caller or a role | none | FR1, FR2, FR4–FR9, FR13, FR16; FR3 without "hours only"; the slots half of FR17 and FR18; FR19 as it applies before hours exist |
+| **2 — `available-hours`** | The stored setting in Discord and on the web; slots read it; a member with hours and no calendar is counted as "hours only"; another member can be named in `who:` once they have saved hours | one, additive | FR10–FR12, FR14, FR15; the "hours only" part of FR3; the hours half of FR17 and FR18; the rest of FR19 |
 
 Unit 2 depends on unit 1: the calculation takes each member's weekly hours as an input from the
 start, so unit 2 changes where those hours come from, not how slots are computed.
@@ -156,3 +158,4 @@ The same in words:
 - [x] Units of work and change sequence drafted
 - [x] Diagram written, its syntax checked, text alternative provided
 - [x] Approved by Joshua — 2026-11-11, as written ("Approve plan")
+- [x] Section 2 amended 2026-11-12 for FR19 (Joshua's decision, option A)

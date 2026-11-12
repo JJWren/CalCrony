@@ -77,6 +77,18 @@ public class AvailabilityCommandShapeTests : IAsyncLifetime
     }
 
     [Fact]
+    public void The_descriptions_promise_no_more_than_the_rules_for_who_allow()
+    {
+        // The picker offers every member, but FreeSlotTarget lists a single member only for the
+        // caller themself. What Discord shows beside the command and the option has to say so,
+        // and to change when that rule does.
+        var slots = Command("slots");
+
+        Assert.Equal("Find free time slots for yourself or a role over one or more days", slots.Description);
+        Assert.Equal("Yourself or a role", slots.Parameters[0].Description);
+    }
+
+    [Fact]
     public void Role_and_event_keep_the_options_they_had()
     {
         var role = Command("role");

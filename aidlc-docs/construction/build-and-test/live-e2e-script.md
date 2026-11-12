@@ -217,20 +217,25 @@ constraint) — mark the section skipped in the summary if prerequisites aren't 
 
 Free slots (`/availability slots`, v0.37.0) — same prerequisites:
 
-- [ ] `/availability slots` appears beside `role` and `event`; `who` offers members and roles.
-- [ ] `who:<a linked member>` → ephemeral reply, seven days from today; the busy blocks on their
-      Google calendar are cut out, and every slot lies between 8 AM and 11 PM in their timezone
-      (their `/settings timezone`, else the server's).
+- [ ] `/availability slots` appears beside `role` and `event`; `who` offers members and roles,
+      and its description reads "Yourself or a role".
+- [ ] `who:<yourself>`, with your calendar linked → ephemeral reply, seven days from today; the
+      busy blocks on your Google calendar are cut out, and every slot lies between 8 AM and 11 PM
+      in your timezone (your `/settings timezone`, else the server's).
+- [ ] `who:<another member>` → "Another member's free slots can't be listed yet — pick yourself
+      or a role.", the same whether or not they have linked a calendar.
 - [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour
       no earlier than now.
 - [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;
       `when:friday at night` starts on Friday, not today.
 - [ ] `who:<a role>` holding a linked and an unlinked member → slots are the linked member's;
       the unlinked one is named under **Not counted**; a bot holding the role is not listed.
-- [ ] `who:<a member with no calendar>` → "Nobody could be counted", no day lines.
+- [ ] `who:<yourself>` from an account with no calendar linked, or `who:<a role>` none of whose
+      holders has one → "Nobody could be counted", no day lines.
 - [ ] A caller many hours from the member: set the caller's `/settings timezone` to Asia/Tokyo
-      and look at a member whose timezone is America/Chicago, with one whole day (8 AM–11 PM
-      their time) blocked on their Google calendar — the second day of the range or later.
+      and look at a role held only by a member whose timezone is America/Chicago, with one whole
+      day (8 AM–11 PM their time) blocked on their Google calendar — the second day of the range
+      or later.
       Slots run past the caller's midnight under the day they start on, and the caller's day
       with nothing starting on it reads "free until … (started …)" rather than "nothing free".
 - [ ] `duration:1000` → every day "nothing free", then the line suggesting a shorter `duration`.

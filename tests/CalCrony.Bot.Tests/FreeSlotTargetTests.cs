@@ -7,6 +7,9 @@ namespace CalCrony.Bot.Tests;
 /// these rules decide the members asked about, the title's subject, and the refusals.</summary>
 public class FreeSlotTargetTests
 {
+    private const long Caller = 42;
+    private const long SomeoneElse = 43;
+
     [Fact]
     public void A_role_asks_about_its_members_and_leaves_bots_out()
     {
@@ -67,29 +70,41 @@ public class FreeSlotTargetTests
     }
 
     [Fact]
-    public void A_member_of_this_server_is_asked_about_alone()
+    public void The_caller_is_asked_about_alone()
     {
-        var target = FreeSlotTarget.ForUser(42, "Sam", isBot: false, isMemberOfThisServer: true);
+        var target = FreeSlotTarget.ForUser(Caller, "Sam", isBot: false, isMemberOfThisServer: true, Caller);
 
         Assert.Null(target.Refusal);
-        Assert.Equal([42L], target.UserIds);
+        Assert.Equal([Caller], target.UserIds);
         Assert.Equal("@Sam", target.Subject);
     }
 
     [Fact]
     public void A_display_name_that_starts_with_an_at_sign_is_not_given_a_second()
     {
-        var target = FreeSlotTarget.ForUser(42, "@Sam", isBot: false, isMemberOfThisServer: true);
+        var target = FreeSlotTarget.ForUser(Caller, "@Sam", isBot: false, isMemberOfThisServer: true, Caller);
 
         Assert.Equal("@Sam", target.Subject);
     }
 
     [Fact]
-    public void A_user_from_outside_this_server_is_refused()
+    public void Another_member_of_this_server_is_refused_and_nobody_is_asked_about()
     {
-        // A user option can carry anyone Discord resolves by id. A server's members see each
-        // other's free time — not that of a CalCrony user who isn't in the server.
-        var target = FreeSlotTarget.ForUser(42, "Stranger", isBot: false, isMemberOfThisServer: false);
+        // Naming a member lists one person's free time, so only the member themself may. With
+        // no member to ask about, the module has nothing to send to the API.
+        var target = FreeSlotTarget.ForUser(SomeoneElse, "Ana", isBot: false, isMemberOfThisServer: true, Caller);
+
+        Assert.Equal("Another member's free slots can't be listed yet — pick yourself or a role.", target.Refusal);
+        Assert.Empty(target.UserIds);
+        Assert.Equal("", target.Subject);
+    }
+
+    [Fact]
+    public void A_user_from_outside_this_server_is_refused_as_that()
+    {
+        // A user option can carry anyone Discord resolves by id. The specific reason is given
+        // ahead of the one for another member.
+        var target = FreeSlotTarget.ForUser(SomeoneElse, "Stranger", isBot: false, isMemberOfThisServer: false, Caller);
 
         Assert.Equal("That user isn't a member of this server.", target.Refusal);
         Assert.Empty(target.UserIds);
@@ -98,11 +113,11 @@ public class FreeSlotTargetTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void A_bot_is_refused_whether_or_not_it_is_in_the_server(bool isMemberOfThisServer)
+    public void A_bot_is_refused_as_that_whether_or_not_it_is_in_the_server(bool isMemberOfThisServer)
     {
-        var target = FreeSlotTarget.ForUser(42, "Helper", isBot: true, isMemberOfThisServer);
+        var target = FreeSlotTarget.ForUser(SomeoneElse, "Helper", isBot: true, isMemberOfThisServer, Caller);
 
-        Assert.Equal("Bots don't keep a calendar — pick a member or a role.", target.Refusal);
+        Assert.Equal("Bots don't keep a calendar — pick yourself or a role.", target.Refusal);
         Assert.Empty(target.UserIds);
     }
 
