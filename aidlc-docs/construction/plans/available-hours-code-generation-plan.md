@@ -502,8 +502,10 @@ ticked in the turn its step completes.
 - [x] 6.5 `live-e2e-script.md` §12: the hours items, and the must-pass item replaced.
 
 **7. Verification**
-- [ ] 7.1 `dotnet build CalCrony.slnx -c Release` without warnings from the new code;
-      `dotnet test CalCrony.slnx` green; counts per project recorded against 0.1.
+- [x] 7.1 `dotnet build CalCrony.slnx -c Release` without warnings from the new code;
+      `dotnet test CalCrony.slnx` green; counts per project recorded against 0.1. — 1,272 green
+      on 2026-11-13: 719 API, 400 bot, 153 web (1,017 before: 639, 246, 132). The Release build
+      has no errors and no warning from new code.
 - [ ] 7.2 The whole diff read against section 4, rule by rule, and against FR3, FR10–FR15 and
       FR17–FR19; then both review agents read the local commits before anything is pushed.
 - [ ] 7.3 `aidlc-state.md` and `audit.md` brought up to date; this plan's boxes ticked.
@@ -536,8 +538,42 @@ the answer before replying. The must-pass item of 4.11 covers both.
 
 ## 9. Notes from generation
 
-To be written during generation: where the code as built differs from sections 4–7, and what each
-review round found.
+Where the code as built differs from sections 4–7 as approved:
+
+- **`TimeOfDay.Format` in Contracts** is not in the file list. The 12-hour label for a time of day
+  moved there from the bot's `TimeOfDayText`, whose `Format` now calls it. The web card writes the
+  same labels, and one wording serves both surfaces.
+- **The `days` choices** are named `every day`, `weekdays`, `weekends` and the seven weekdays —
+  without the parentheses 4.5 gave two of them — so the Docs example `days:weekdays` is what
+  Discord shows.
+- **A null entry in a submitted week** is refused as `null is not a day of the week.`; the table of
+  4.1 did not list the case.
+- **The reply to a time that cannot be read** puts the option's name in code style:
+  ``I couldn't read the `from` time. Try 6 PM, 6:30pm or 18:30.``
+- **The by-name rule is checked before the first day is read** — an order 4.4 did not state. A
+  `when` that cannot be read then changes nothing about what the caller is told of the member.
+  The check covers every id in the request, though the route lets a by-name request carry one.
+- **Suggestions** offer nothing for text longer than a typed time can be, and find noon and
+  midnight by those words.
+- **The web card**: a row that is unticked when the week is saved keeps the times it showed, so
+  ticking it again restores them; after a reset the default week is shown from the limits in
+  Contracts, without another read.
+- **`MembersField` leaves a field out** when its room cannot hold each line's reason and a count.
+  With the limits as they are that cannot happen; it is a guard, not a rule.
+- **The snapshot's diff** has one line besides the column: the tool's version stamp, 10.0.11 to
+  10.0.15, the EF Core version the project already references.
+- **The new web test class** derives from `BunitContext`, the name bUnit now uses, where the older
+  classes derive from `TestContext`; the build gains no warning.
+- **Privacy dates** are set to 2026-11-13 in both copies; if the PR opens on a later day they move
+  with it.
+
+The reply's worst case, measured on the real builder with both fields in use: 3,670 of 4,096
+description characters and 5,887 of 6,000 for the whole embed (the first field 1,007, the second
+981). Even there the room left for the first field is 1,120, so it gets a field's full 1,024; the
+rule that it takes what is left guards against the description growing.
+
+Counts: 1,272 tests green — 719 API, 400 bot, 153 web (1,017 before: 639, 246, 132). The Release
+build has no errors and no warning from new code.
 
 ## 10. Plan checklist
 
