@@ -711,6 +711,29 @@ public class FreeSlotsEmbedBuilderTests
     }
 
     [Fact]
+    public void A_free_until_line_with_no_earlier_day_to_name_gives_the_time_and_its_date_only_at_the_edge()
+    {
+        // The API never sends this: the first day listed cannot begin inside a slot from a day
+        // before it. The reply still has to read sensibly should an answer ever do so.
+        var until = ThursdayMorning.AddHours(2);
+        FreeSlotsResponse Answer(DateTimeOffset? lookedUntil) => new(
+            "America/Chicago",
+            Thursday,
+            Thursday,
+            1,
+            [new FreeSlotDayDto(Thursday, [], until)],
+            [HoursOnly(1)],
+            LookedUntilUtc: lookedUntil);
+
+        Assert.Contains(
+            $"**Thu Nov 12** · free until <t:{until.ToUnixTimeSeconds()}:t>",
+            FreeSlotsEmbedBuilder.Build("@Sam", 60, Answer(null)).Description.Split('\n'));
+        Assert.Contains(
+            $"**Thu Nov 12** · free until <t:{until.ToUnixTimeSeconds()}:f> or later",
+            FreeSlotsEmbedBuilder.Build("@Sam", 60, Answer(until)).Description.Split('\n'));
+    }
+
+    [Fact]
     public void When_the_answer_does_not_say_how_far_it_looked_no_end_is_qualified()
     {
         // An API that does not send the edge: the reply reads as it did before.

@@ -524,9 +524,11 @@ ticked in the turn its step completes.
       `dotnet test CalCrony.slnx` green; counts per project recorded against 0.1. — 1,272 green
       on 2026-11-13: 719 API, 400 bot, 153 web (1,017 before: 639, 246, 132). The Release build
       has no errors and no warning from new code.
-- [ ] 7.2 The whole diff read against section 4, rule by rule, and against FR3, FR10–FR15 and
+- [x] 7.2 The whole diff read against section 4, rule by rule, and against FR3, FR10–FR15 and
       FR17–FR19; then both review agents read the local commits before anything is pushed.
-- [ ] 7.3 `aidlc-state.md` and `audit.md` brought up to date; this plan's boxes ticked.
+      — Done 2026-11-13: my own read, fourteen mutation checks, and three review rounds
+      (section 9).
+- [x] 7.3 `aidlc-state.md` and `audit.md` brought up to date; this plan's boxes ticked.
 
 ## 8. Delivery
 
@@ -657,10 +659,11 @@ errors and the baseline's 22 warnings.
 
 ### Review round 2 — the commit that answered round 1, `1351a68` (2026-11-13)
 
-Both agents read the change from `5c7392c` to `1351a68`. Each accepted the answer to every one
-of its round 1 findings, and neither found anything the commit had newly opened. The changes
-that had passed every test in round 1 now fail one, the reply's two guards apart, which cannot be
-made to bite. What they did find:
+Both agents read the change from `5c7392c` to `1351a68`. Each accepted the answers to its round 1
+findings — the security reviewer's S1 in substance, with R2-1 below as what was still wrong — and
+what they found in the commit's own changes was small. The changes that had passed every test in
+round 1 now fail one, the reply's two guards apart, which cannot be made to bite. What they
+found:
 
 | Finding | What was done |
 |---|---|
@@ -672,6 +675,25 @@ made to bite. What they did find:
 | Under Q4 — The line that reads which option is being typed into still had no test. | Which option name is the end is now `TimeOfDayAutocompleteHandler.IsEnd`, with a test. The line that calls it is for the live item. |
 
 Counts after round 2: 1,291 tests green — 721 API, 417 bot, 153 web. The Release build has no
+errors and the baseline's 22 warnings.
+
+### Review round 3 — the commit that answered round 2, `ffd680b` (2026-11-13)
+
+Both agents read the change from `1351a68` to `ffd680b`, and each built it and ran the suite
+again: 1,291 green and 22 warnings. Neither had a finding in the code, the tests or the
+documentation. The security reviewer accepted the answers to R2-1 and R2-2. The quality reviewer
+accepted all four of its answers and went through the style of an end case by case on the real
+builder — a slot under and over a day long, short of the lookup's edge and at it, on a slot's
+line and on a "free until" line.
+
+Each had one nit, and both were about this record: the first paragraph of round 2 above had said
+that every answer to round 1 was accepted outright, where S1 was accepted in substance, and that
+nothing had been newly opened, where three of round 2's rows concern text the round 1 commit
+itself had added. That paragraph is corrected. The quality reviewer also noted one branch of the
+reply with no test in either state — a "free until" with no earlier day to name, which the API
+never sends — and it has one now.
+
+Counts after round 3: 1,292 tests green — 721 API, 418 bot, 153 web. The Release build has no
 errors and the baseline's 22 warnings.
 
 ## 10. Plan checklist
