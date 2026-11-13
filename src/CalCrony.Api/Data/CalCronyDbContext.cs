@@ -81,6 +81,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.Property(u => u.TimeZone).HasMaxLength(64);
             e.Property(u => u.Username).HasMaxLength(64);
             e.Property(u => u.AvatarHash).HasMaxLength(64);
+            e.Property(u => u.AvailableHoursJson).HasMaxLength(Services.WeeklyHours.MaxStoredLength);
         });
 
         modelBuilder.Entity<Event>(e =>

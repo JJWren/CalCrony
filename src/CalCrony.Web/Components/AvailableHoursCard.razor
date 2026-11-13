@@ -1,0 +1,234 @@
+@inject CalCronyWebApiClient Api
+
+@* A member's available hours: one range per weekday, which free-slot lists are cut from. The card
+   reads and writes through the hours routes itself, so the page's own saves never carry hours and
+   cannot wipe them. It never writes rows it did not read: until the hours have loaded there is
+   nothing to save. *@
+<div class="card p-3" id="available-hours">
+    <div class="fw-bold">Available hours</div>
+    <p class="text-body-secondary small mt-1 mb-2">
+        The hours you're usually available, one range per weekday. Free-slot lists
+        (<code>/availability slots</code> in Discord) are cut from them.
+    </p>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger mb-0" role="alert">Couldn't load your available hours: @loadError</div>
+    }
+    else if (rows is null)
+    {
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+    }
+    else
+    {
+        @if (!isSet)
+        {
+            <p class="small mb-2" id="ah-default-note">You haven't saved hours, so the default applies: @DefaultRange every day.</p>
+        }
+
+        @foreach (var row in rows)
+        {
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1 ah-row" data-day="@row.Day">
+                <div class="form-check mb-0" style="min-width:8.5rem">
+                    <input class="form-check-input" type="checkbox" id="ah-on-@row.Day" @bind="row.Available" disabled="@busy" />
+                    <label class="form-check-label small" for="ah-on-@row.Day">@row.Day</label>
+                </div>
+                <select class="form-select form-select-sm w-auto" id="ah-from-@row.Day" aria-label="From on @row.Day"
+                        @bind="row.Start" disabled="@(busy || !row.Available)">
+                    @foreach (var minutes in StartTimes)
+                    {
+                        <option value="@minutes">@TimeOfDay.Format(minutes)</option>
+                    }
+                </select>
+                <span class="small text-body-secondary">to</span>
+                <select class="form-select form-select-sm w-auto" id="ah-to-@row.Day" aria-label="To on @row.Day"
+                        @bind="row.End" disabled="@(busy || !row.Available)">
+                    @foreach (var minutes in EndTimes)
+                    {
+                        <option value="@minutes">@TimeOfDay.Format(minutes)</option>
+                    }
+                </select>
+                @if (row.Available && row.Start >= row.End)
+                {
+                    <span class="small text-danger" role="alert">The start has to be before the end.</span>
+                }
+            </div>
+        }
+
+        @if (!rows.Any(row => row.Available))
+        {
+            <p class="small text-danger mb-0 mt-2" role="alert">Tick at least one day, or reset to the default.</p>
+        }
+
+        <p class="text-body-secondary small mb-1 mt-2" id="ah-zone">
+            @if (string.IsNullOrWhiteSpace(TimeZone))
+            {
+                <text>You haven't set a timezone, so these times are read in the timezone of the server someone looks you up from.
+                Set yours above to make them mean the same everywhere.</text>
+            }
+            else
+            {
+                <text>Times are read in your timezone, @TimeZone.</text>
+            }
+        </p>
+        <p class="text-body-secondary small mb-2" id="ah-notice">
+            Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free
+            slots with <code>/availability slots</code>, which shows roughly the hours you keep and, if your calendar
+            is linked, when you're busy inside them. Reset to default takes that back.
+        </p>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" id="ah-save" @onclick="SaveAsync" disabled="@(busy || !CanSave)">Save</button>
+            <button class="btn btn-outline-secondary btn-sm" id="ah-reset" @onclick="ResetAsync" disabled="@(busy || !isSet)">Reset to default</button>
+        </div>
+        @if (message is not null)
+        {
+            <div class="meta-mono mt-2" id="ah-message">@message</div>
+        }
+    }
+</div>
+
+@code {
+    private static readonly DayOfWeek[] MondayFirst =
+    [
+        DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+        DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday,
+    ];
+
+    /// <summary>The times a range can start at: every step from 12 AM to the last one before midnight.</summary>
+    private static readonly int[] StartTimes =
+        [.. Enumerable.Range(0, AvailableHoursLimits.MinutesPerDay / AvailableHoursLimits.StepMinutes)
+            .Select(step => step * AvailableHoursLimits.StepMinutes)];
+
+    /// <summary>The times a range can end at: one step later each, so the last is midnight.</summary>
+    private static readonly int[] EndTimes = [.. StartTimes.Select(minutes => minutes + AvailableHoursLimits.StepMinutes)];
+
+    private static readonly string DefaultRange =
+        $"{TimeOfDay.Format(AvailableHoursLimits.DefaultStartMinute)}–{TimeOfDay.Format(AvailableHoursLimits.DefaultEndMinute)}";
+
+    /// <summary>The member whose hours these are — the signed-in user.</summary>
+    [Parameter, EditorRequired]
+    public long UserId { get; set; }
+
+    /// <summary>The member's saved timezone, from the page's loaded settings: the card says which
+    /// zone its times are read in. Null or blank when they have set none.</summary>
+    [Parameter]
+    public string? TimeZone { get; set; }
+
+    private List<Row>? rows;
+    private bool isSet;
+    private bool busy;
+    private string? loadError;
+    private string? message;
+
+    /// <summary>A week can be saved when at least one day is ticked and every ticked day starts
+    /// before it ends — the same two rules the API applies.</summary>
+    private bool CanSave =>
+        rows is not null && rows.Any(row => row.Available) && rows.Where(row => row.Available).All(row => row.Start < row.End);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetAvailableHoursAsync(UserId);
+        if (!result.Success || result.Value?.Days is null)
+        {
+            // Nothing below may offer to save a week that was never read.
+            loadError = result.Error ?? "the answer could not be read.";
+            return;
+        }
+
+        Show(result.Value, keepUntickedTimes: false);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (busy || rows is null || !CanSave)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+        var result = await Api.PutAvailableHoursAsync(UserId, new SetAvailableHoursRequest(
+            [.. rows.Where(row => row.Available).Select(row => new AvailableHoursDayDto(row.Day, row.Start, row.End))]));
+        busy = false;
+        if (!result.Success || result.Value?.Days is null)
+        {
+            // The form stays as it was typed; what is stored has not changed.
+            message = $"❌ {result.Error ?? "The save could not be confirmed."}";
+            return;
+        }
+
+        Show(result.Value, keepUntickedTimes: true);
+        message = "✓ Saved.";
+    }
+
+    private async Task ResetAsync()
+    {
+        if (busy || rows is null)
+        {
+            return;
+        }
+
+        busy = true;
+        message = null;
+        var result = await Api.ResetAvailableHoursAsync(UserId);
+        busy = false;
+        if (!result.Success)
+        {
+            message = $"❌ {result.Error}";
+            return;
+        }
+
+        Show(
+            new AvailableHoursDto(false, [.. MondayFirst.Select(day => new AvailableHoursDayDto(
+                day, AvailableHoursLimits.DefaultStartMinute, AvailableHoursLimits.DefaultEndMinute))]),
+            keepUntickedTimes: false);
+        message = "✓ Back to the default.";
+    }
+
+    /// <summary>Makes the rows reflect what the API holds: a day in the week is ticked with its
+    /// times; a day that is not is unticked, with the times it had on screen when those are kept,
+    /// else the default ones — so ticking it again offers something sensible.</summary>
+    /// <param name="hours">The authoritative hours.</param>
+    /// <param name="keepUntickedTimes">Whether an unticked row keeps the times it shows now.</param>
+    private void Show(AvailableHoursDto hours, bool keepUntickedTimes)
+    {
+        var week = new Dictionary<DayOfWeek, AvailableHoursDayDto>();
+        foreach (var day in hours.Days)
+        {
+            week.TryAdd(day.Day, day);
+        }
+
+        var shown = keepUntickedTimes ? rows?.ToDictionary(row => row.Day) : null;
+        rows = [.. MondayFirst.Select(day =>
+        {
+            if (week.TryGetValue(day, out var saved))
+            {
+                return new Row { Day = day, Available = true, Start = saved.StartMinute, End = saved.EndMinute };
+            }
+
+            var before = shown?.GetValueOrDefault(day);
+            return new Row
+            {
+                Day = day,
+                Available = false,
+                Start = before?.Start ?? AvailableHoursLimits.DefaultStartMinute,
+                End = before?.End ?? AvailableHoursLimits.DefaultEndMinute,
+            };
+        })];
+        isSet = hours.IsSet;
+        loadError = null;
+    }
+
+    /// <summary>One weekday as the card edits it.</summary>
+    private sealed class Row
+    {
+        public DayOfWeek Day { get; init; }
+
+        public bool Available { get; set; }
+
+        public int Start { get; set; }
+
+        public int End { get; set; }
+    }
+}

@@ -516,9 +516,15 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       implemented in `61d6eda`, and the agents' rounds on it and on the records that answer
       them are in section 9, ending with no findings from either on `c22539c` (round 10); the
       separate piece of work outside this change goes first, in its own session. That work
-      reached `master` on 2026-11-12 and `master` is merged into this branch (section 9). Still
-      ahead: the agents' round on that merge, then his go-ahead to merge the PR.
-- [ ] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
+      reached `master` on 2026-11-12 and `master` is merged into this branch (section 9). The
+      agents read that merge before it was pushed and passed it as `16bee3b` (round 11). His
+      go-ahead to merge the PR came the same day ("After 0.36.4"): once PR #174 has been merged.
+      That happened at 22:05:39Z, and PR #172 was squash-merged at 2026-11-12T23:24:12Z as
+      `a079441`. The test stack took `:main` at that commit at 23:29Z, and Discord's command list
+      for the test guild shows the subcommand as built. Still ahead: the new §12 items there,
+      which need a member in Discord — the must-pass item first.
+- [x] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
+      — Marked 2026-11-12. Release PR #175 (0.37.0) is open and waits for unit 2.
 
 **One question before the branch is pushed** (not before code generation starts):
 
@@ -849,6 +855,29 @@ Counts after the merge: 1,017 tests green — 639 API, 246 bot, 132 web (993 on 
 831 on `master`). The Release build has no errors and the same 22 warnings.
 
 Both review agents read the merge commit before it is pushed.
+
+### Review round 11 — the merge of `master`, read before the push (2026-11-12)
+
+Both agents read the merge as the local commit `41755ec`, before anything was pushed. The security
+reviewer had no findings: the check on `TryResolveDay` is first in the method and complete, no
+caller hands the recognizer or the cutoff reader text over the limit, the route refuses first with
+its own message, the two conflicted files keep both sides whole, and nothing in the commit says
+more than it should. The quality reviewer found both sides of both files whole and in order, the
+code and its comments right, and every statement in the records true; in its own copy of the
+commit the build was clean, 1,017 tests were green, and each new or changed test failed when its
+check was taken out. It had one nit.
+
+| Finding | Change |
+|---|---|
+| Q23 (nit) — in the state file's unit 1 line and in the Context line of the audit entry for the merge, "the merge" meant two different merges in one sentence: `master` into the branch, then the PR. | Both say "the merge of `master`" and "to merge the PR", and step 8.4 says the same. Done by amending the local commit before the push. |
+
+The amended commit, `16bee3b`, differs from the one they read in those three lines alone. Both
+agents read that difference and had no findings, and it was pushed together with the round 10
+records. It is the head of PR #172, and every check on it is green. Counts are unchanged: 1,017
+tests green.
+
+Over all eleven rounds: twelve findings on security and privacy (S1–S12) and twenty-three on
+correctness and quality (Q1–Q23).
 
 ## 10. Plan checklist
 

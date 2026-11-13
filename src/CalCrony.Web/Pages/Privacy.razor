@@ -5,7 +5,7 @@
 
 <p class="meta-mono text-uppercase mb-2">CalCrony</p>
 <h1 class="h3">Privacy Policy</h1>
-<p class="meta-mono">Last updated: 2026-11-11</p>
+<p class="meta-mono">Last updated: 2026-11-13</p>
 
 <div class="text-body-secondary" style="max-width:70ch">
     <p>
@@ -38,6 +38,10 @@
             RSVP choices, reminders, notification messages, and templates.</li>
         <li>Preferences: per-user and per-server timezone, DM-confirmation and DM-reminder settings
             (reminders by DM are off unless you turn them on yourself — no server or event creator can),
+            your available hours if you save them (the weekly hours you say you are usually available;
+            saving them lets members of the servers you share with CalCrony list your free slots by name,
+            which shows roughly the hours you keep and, if your calendar is linked, when you are busy
+            inside them, and resetting them takes that back),
             interface theme, server settings.</li>
         <li>Web sign-in (optional, Discord OAuth with <code>identify</code> + <code>guilds</code> scopes
             only): your username, display name, avatar hash, and a snapshot of which servers you're in
@@ -116,6 +120,8 @@
             server's managers and are automatically purged after <b>90 days</b>.</li>
         <li><b>Google connection</b>: disconnecting (<code>/calendar disconnect</code> or this web app's
             My settings page) deletes the stored tokens immediately.</li>
+        <li><b>Available hours</b>: kept until you reset them (<code>/settings available-hours reset</code>
+            or this web app's My settings page), which deletes them at once.</li>
         <li><b>Removal requests</b>: to have a server's or your own data deleted, open a
             <a href="https://github.com/JJWren/CalCrony/issues" target="_blank" rel="noopener">GitHub issue</a>
             or contact the operator; deletion is manual but honored.</li>

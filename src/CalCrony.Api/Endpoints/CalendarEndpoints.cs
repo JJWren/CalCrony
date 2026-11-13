@@ -186,9 +186,10 @@ public static class CalendarEndpoints
 
     /// <summary>Lists when the requested users are free over a run of whole days (BotOnly — prevents
     /// member probing). Shape errors are refused here, among them first-day text over its length
-    /// limit, which is turned away before anything reads it; a first day that cannot be
-    /// understood, has passed, or lies more than a year ahead comes back from the service with
-    /// its user-facing reason.</summary>
+    /// limit, which is turned away before anything reads it, and a lookup by name that does not
+    /// carry exactly one member. From the service, with its user-facing reason, come a member
+    /// named who has not saved their available hours, and a first day that cannot be understood,
+    /// has passed, or lies more than a year ahead.</summary>
     /// <param name="request">The request body.</param>
     /// <param name="freeSlots">The free-slots service.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -204,6 +205,13 @@ public static class CalendarEndpoints
         if (userIds.Count is 0 or > FreeSlotLimits.MaxUsers)
         {
             return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {FreeSlotLimits.MaxUsers} distinct entries."));
+        }
+
+        // A lookup by name is about the one member who was named; the rule for it (their saved
+        // hours) is the service's.
+        if (request.ByName && userIds.Count != 1)
+        {
+            return Results.BadRequest(new ErrorResponse("A lookup by name takes exactly one member."));
         }
 
         if (request.Days is < FreeSlotLimits.MinDays or > FreeSlotLimits.MaxDays)

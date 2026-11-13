@@ -83,18 +83,55 @@ public class DocsPageTests : TestContext
         var cut = Render<Docs>();
 
         // Where it lives, who may use it and what it assumes, inside the feature's own entry.
-        var entry = Entry(cut, "Google Calendar availability").TextContent;
+        var entry = Flat(Entry(cut, "Google Calendar availability").TextContent);
         Assert.Contains("/availability slots", entry);
         Assert.Contains("Discord only", entry);
         Assert.Contains("any member can run it", entry);
         Assert.Contains("everyone holding a role", entry);
-        Assert.Contains("yourself as who for your own", entry);
-        Assert.Contains("between 8 AM and 11 PM", entry);
         Assert.Contains("aren't counted", entry);
+
+        // Who can be picked: yourself always, anyone else once they have saved their hours.
+        Assert.Contains("you can always pick yourself as who", entry);
+        Assert.Contains("another member once they have saved their available hours", entry);
+
+        // What a slot rests on: each member's own hours, and the default until they save any.
+        Assert.Contains("inside each member's available hours (8 AM to 11 PM until they save their own)", entry);
+        Assert.Contains("counted on saved hours alone", entry);
 
         // …and the command reference lists the subcommand beside the two it joins.
         Assert.Contains(cut.FindAll("table td code"), code => code.TextContent == "/availability role|event|slots");
     }
+
+    [Fact]
+    public void Docs_page_explains_available_hours_in_an_entry_of_its_own()
+    {
+        var cut = Render<Docs>();
+
+        // Where it lives, who may set it, what applies until it is set, and what saving it allows.
+        var entry = Flat(Entry(cut, "Available hours").TextContent);
+        Assert.Contains("only you can set yours", entry);
+        Assert.Contains("/settings available-hours set days:weekdays from:6pm to:11pm", entry);
+        Assert.Contains("My settings here", entry);
+        Assert.Contains("until you save any, 8 AM to 11 PM every day is assumed", entry);
+        Assert.Contains("even without a linked calendar", entry);
+        Assert.Contains(
+            "Saving hours also lets members of the servers you share with CalCrony list your free slots by name, " +
+            "which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them; " +
+            "reset takes that back.",
+            entry);
+
+        // A first set in Discord starts from an empty week, which the example alone would not tell.
+        Assert.Contains("The first set leaves the days you don't name off", entry);
+        Assert.Contains("off marks the days you name as not available", entry);
+
+        // The entry sits beside the availability one, and the command reference names the group.
+        Assert.Contains(cut.FindAll("table td code"), code => code.TextContent == "available-hours set|off|reset");
+    }
+
+    /// <summary>Text with every run of whitespace as one space, so an assertion does not depend on
+    /// where the markup breaks its lines.</summary>
+    private static string Flat(string text) =>
+        string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>The "Features in depth" list entry whose bold lead is <paramref name="name"/> —
     /// scoped to the lists after the <c>#features</c> heading, since the first-steps guidance

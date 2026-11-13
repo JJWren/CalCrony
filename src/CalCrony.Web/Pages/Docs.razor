@@ -263,16 +263,32 @@
         <code>/availability event</code> — and the grid on every event page — show who's free,
         Scheduling-Assistant style. To find a time instead of checking one,
         <code>/availability slots who:@@dnd</code> (Discord only; any member can run it, and only
-        they see the reply) lists when everyone holding a role is free over 1 to 14 days; pick
-        yourself as <code>who</code> for your own. <code>when</code> picks the first day (today by
+        they see the reply) lists when a member — or everyone holding a role — is free over 1 to
+        14 days: you can always pick yourself as <code>who</code>, and another member once they
+        have saved their available hours (below). <code>when</code> picks the first day (today by
         default), <code>days</code> how many (7 by default) and <code>duration</code> the shortest
-        slot worth listing (60 minutes by default). A slot is time with nothing on the linked
-        calendar, between 8 AM and 11 PM in
-        each member's own timezone (the server's, if they haven't set one). It is listed under the
-        day it starts on, and a day with none of its own that begins inside one says until when
-        it's free. Members who
-        haven't linked a calendar aren't counted, and the reply lists them under <b>Not counted</b>
-        (a long list ends in a count). Read-only: it never blocks creating or RSVPing.
+        slot worth listing (60 minutes by default). A slot is time inside each member's available
+        hours (8 AM to 11 PM until they save their own), read in that member's own timezone (the
+        server's, if they haven't set one), with nothing on a linked calendar. It is listed under
+        the day it starts on, and a day with none of its own that begins inside one says until
+        when it's free. Members with neither saved hours nor a linked calendar aren't counted, and
+        the reply lists them under <b>Not counted</b> (a long list ends in a count); it also says
+        when a member was counted on saved hours alone. Read-only: it never blocks creating or
+        RSVPing.
+    </li>
+    <li class="mb-2">
+        <b>Available hours</b> (per member; only you can set yours) —
+        <code>/settings available-hours set days:weekdays from:6pm to:11pm</code>, or the card
+        under My settings here: the hours you're usually available, one range per weekday, read in
+        your timezone (the server's, if you haven't set one). Free slots are cut from them, and
+        until you save any, 8 AM to 11 PM every day is assumed. The first <code>set</code> leaves
+        the days you don't name off; after that, <code>set</code> changes only the days you name
+        and <code>off</code> marks the days you name as not available; <code>reset</code> goes
+        back to the default. With saved hours you are counted in free-slot lists even without a
+        linked calendar, marked as hours only.
+        Saving hours also lets members of the servers you share with CalCrony list your free slots
+        by name, which shows roughly the hours you keep and, if your calendar is linked, when
+        you're busy inside them; <code>reset</code> takes that back.
     </li>
 </ul>
 
@@ -349,13 +365,13 @@
             <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
             <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
-            <tr><td><code>/availability role|event|slots</code></td><td>Free/busy grid for a role or an event's Going list · free slots for yourself or a role over 1–14 days</td></tr>
+            <tr><td><code>/availability role|event|slots</code></td><td>Free/busy grid for a role or an event's Going list · free slots for a member or role over 1–14 days</td></tr>
             <tr><td><code>/calendar connect</code></td><td>Link your Google Calendar (free/busy scope only)</td></tr>
             <tr><td><code>/link</code></td><td>Your server's calendar-subscribe URL</td></tr>
             <tr><td><code>/poll create</code> · <code>/poll time</code></td><td>Polls with live vote bars · candidate times against each other; both take <code>closes</code>, <code>anonymous</code>, <code>allow-options</code>, <code>restrict-to</code>, and <code>/poll create</code> also <code>single-vote</code></td></tr>
             <tr><td><code>/poll close</code> · <code>/poll convert</code></td><td>Close voting · turn a time poll's winning slot into an event</td></tr>
             <tr><td><code>/template save</code> · <code>/template list</code> · <code>/template edit</code> · <code>/template delete</code></td><td>Save an event's setup for reuse with <code>/create template:</code> · browse · edit · delete (creator or manager)</td></tr>
-            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td><code>view</code> · <code>timezone</code> · <code>server-timezone</code> · <code>default-channel</code> · <code>dm-reminders</code> · <code>native-events</code> · <code>public-calendar mode:on|off|new-link</code> · Discord timestamp helper</td></tr>
+            <tr><td><code>/settings</code> · <code>/timestamp</code></td><td><code>view</code> · <code>timezone</code> · <code>server-timezone</code> · <code>default-channel</code> · <code>dm-reminders</code> · <code>available-hours set|off|reset</code> · <code>native-events</code> · <code>public-calendar mode:on|off|new-link</code> · Discord timestamp helper</td></tr>
             <tr><td><code>/help</code></td><td>What CalCrony is, first steps, and links to docs, the community server, and support</td></tr>
         </tbody>
     </table>

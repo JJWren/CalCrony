@@ -78,6 +78,15 @@
     </div>
 </div>
 
+@if (settings is not null)
+{
+    @* Shown once the settings have loaded, so the card never states a zone this page has not read.
+       It loads and saves the hours itself, on their own routes. *@
+    <div class="mt-3">
+        <AvailableHoursCard UserId="UserId" TimeZone="@settings.TimeZone" />
+    </div>
+}
+
 @code {
     private UserSettingsDto? settings;
     private CalendarConnectionStatusDto? calendar;

@@ -89,14 +89,18 @@ public static class FreeSlotLimits
     public const int MaxMinimumMinutes = 1440;
 }
 
-/// <summary>The available hours a member gets when they have saved none: every day from
-/// <see cref="DefaultStartMinute"/> to <see cref="DefaultEndMinute"/>, read in the member's own
-/// zone. A time of day is minutes from midnight.</summary>
+/// <summary>What a member's available hours may be, and what applies when they have saved none:
+/// every day from <see cref="DefaultStartMinute"/> to <see cref="DefaultEndMinute"/>, read in the
+/// member's own zone. A time of day is minutes from midnight. The bot's commands, the web card and
+/// the API's validation all read these here, so they cannot drift.</summary>
 public static class AvailableHoursLimits
 {
     /// <summary>Minutes in a day — the latest a time of day can be, where it stands for the
     /// midnight that ends the day.</summary>
     public const int MinutesPerDay = 1440;
+
+    /// <summary>The step between the times a member can pick, in minutes.</summary>
+    public const int StepMinutes = 30;
 
     /// <summary>8:00 AM.</summary>
     public const int DefaultStartMinute = 480;
@@ -104,6 +108,58 @@ public static class AvailableHoursLimits
     /// <summary>11:00 PM.</summary>
     public const int DefaultEndMinute = 1380;
 }
+
+/// <summary>How a time of day — minutes from midnight, the form available hours take on the wire —
+/// is written for a member. One place, so Discord and the web app write the same time the same
+/// way.</summary>
+public static class TimeOfDay
+{
+    private const int MinutesPerHour = 60;
+
+    /// <summary>Formats a time of day on the 12-hour clock: "8 AM", "6:30 PM", "12 PM" for noon,
+    /// "12 AM" for the start of a day. <see cref="AvailableHoursLimits.MinutesPerDay"/> — the end
+    /// of a day — is "midnight".</summary>
+    /// <param name="minutes">Minutes from midnight, 0 to <see cref="AvailableHoursLimits.MinutesPerDay"/>.</param>
+    /// <returns>The display text.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The time lies outside one day.</exception>
+    public static string Format(int minutes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(minutes);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(minutes, AvailableHoursLimits.MinutesPerDay);
+
+        if (minutes == AvailableHoursLimits.MinutesPerDay)
+        {
+            return "midnight";
+        }
+
+        var hour = minutes / MinutesPerHour;
+        var minute = minutes % MinutesPerHour;
+        var hourOnDial = hour % 12 == 0 ? 12 : hour % 12;
+        var suffix = hour < 12 ? "AM" : "PM";
+        return minute == 0 ? $"{hourOnDial} {suffix}" : $"{hourOnDial}:{minute:00} {suffix}";
+    }
+}
+
+/// <summary>One weekday of a member's available hours: a single range on that member's own wall
+/// clock.</summary>
+/// <param name="Day">The weekday.</param>
+/// <param name="StartMinute">Start, in minutes from midnight (0 to 1410), on the
+/// <see cref="AvailableHoursLimits.StepMinutes"/> step.</param>
+/// <param name="EndMinute">End, in minutes from midnight (30 to
+/// <see cref="AvailableHoursLimits.MinutesPerDay"/>, the midnight that closes the day), after the start.</param>
+public record AvailableHoursDayDto(DayOfWeek Day, int StartMinute, int EndMinute);
+
+/// <summary>A member's available hours as both surfaces show them.</summary>
+/// <param name="IsSet">Whether the member has saved hours. Saving them is also what lets other
+/// members list that member's free slots by name.</param>
+/// <param name="Days">The saved week — a weekday left out is not available — or, when nothing
+/// is saved, the default week that applies instead.</param>
+public record AvailableHoursDto(bool IsSet, IReadOnlyList<AvailableHoursDayDto> Days);
+
+/// <summary>Saves a member's available hours, replacing the whole week.</summary>
+/// <param name="Days">One entry per available weekday, at least one; a weekday left out is not
+/// available.</param>
+public record SetAvailableHoursRequest(IReadOnlyList<AvailableHoursDayDto> Days);
 
 /// <summary>Free-slots lookup for a set of users over a run of whole days (BotOnly endpoint).</summary>
 /// <param name="UserIds">The Discord user ids to look at (1 to <see cref="FreeSlotLimits.MaxUsers"/> distinct).</param>
@@ -113,22 +169,29 @@ public static class AvailableHoursLimits
 /// <see cref="DateTextLimits.MaxLength"/> characters; null or blank means today.</param>
 /// <param name="Days">How many days to list (<see cref="FreeSlotLimits.MinDays"/> to <see cref="FreeSlotLimits.MaxDays"/>).</param>
 /// <param name="MinimumMinutes">The shortest slot worth listing, in minutes.</param>
+/// <param name="ByName">True when the caller named one member rather than a role. A member other
+/// than the requester is then listed only if they have saved their own available hours; a role
+/// lookup, a role one member holds included, leaves this false.</param>
 public record FreeSlotsRequest(
-    IReadOnlyList<long> UserIds, long RequesterId, long GuildId, string? When, int Days, int MinimumMinutes);
+    IReadOnlyList<long> UserIds,
+    long RequesterId,
+    long GuildId,
+    string? When,
+    int Days,
+    int MinimumMinutes,
+    bool ByName = false);
 
 /// <summary>How one member entered a free-slots answer: counted, and on what — or left out, and why.</summary>
 public enum FreeSlotMemberState
 {
-    /// <summary>Counted on a linked calendar and the member's own saved hours. Not returned until
-    /// members can save hours.</summary>
+    /// <summary>Counted on a linked calendar and the member's own saved hours.</summary>
     Counted = 0,
 
     /// <summary>Counted on a linked calendar; the member has saved no hours, so the default hours
     /// (<see cref="AvailableHoursLimits"/>) were applied.</summary>
     DefaultHours = 1,
 
-    /// <summary>Counted on saved hours alone, with no calendar linked. Not returned until members
-    /// can save hours.</summary>
+    /// <summary>Counted on saved hours alone, with no calendar linked.</summary>
     HoursOnly = 2,
 
     /// <summary>Not counted: there is nothing to go on — no calendar linked and no hours saved.</summary>
@@ -172,10 +235,18 @@ public record FreeSlotDayDto(DateOnly Date, IReadOnlyList<FreeSlotDto> Slots, Da
 /// <param name="CountedMembers">How many members the slots rest on. Zero means nobody could be counted.</param>
 /// <param name="Days">One entry per requested day, in order — or none at all when nobody was counted.</param>
 /// <param name="Members">One entry per requested member, in request order.</param>
+/// <param name="ByName">True when the lookup was made by name and answered under that rule
+/// (<see cref="FreeSlotsRequest.ByName"/>). The bot shows a list about a member other than the
+/// caller only when this is set, so an API that does not know the rule cannot be asked around it.</param>
+/// <param name="LookedUntilUtc">Where the lookup stopped looking: the midnight one day after the
+/// last day listed. A slot that ends here was still open when the lookup stopped, so its real end
+/// is this instant or later; the reply says so. Null when the API did not say.</param>
 public record FreeSlotsResponse(
     string TimeZone,
     DateOnly FirstDay,
     DateOnly LastDay,
     int CountedMembers,
     IReadOnlyList<FreeSlotDayDto> Days,
-    IReadOnlyList<FreeSlotMemberDto> Members);
+    IReadOnlyList<FreeSlotMemberDto> Members,
+    bool ByName = false,
+    DateTimeOffset? LookedUntilUtc = null);
