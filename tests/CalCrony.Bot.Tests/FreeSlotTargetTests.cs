@@ -70,13 +70,27 @@ public class FreeSlotTargetTests
     }
 
     [Fact]
-    public void The_caller_is_asked_about_alone()
+    public void A_role_is_not_a_lookup_by_name_however_few_hold_it()
+    {
+        // A role one member holds is still a role lookup: no saved hours are asked of them, and
+        // nothing about the answer needs checking.
+        var target = FreeSlotTarget.ForRole("GM", "<@&77>", [(SomeoneElse, false)]);
+
+        Assert.False(target.ByName);
+        Assert.False(target.NamesSomeoneElse);
+        Assert.Null(target.RefusalFor(Answer(SomeoneElse, byName: false)));
+    }
+
+    [Fact]
+    public void The_caller_is_asked_about_alone_by_name()
     {
         var target = FreeSlotTarget.ForUser(Caller, "Sam", isBot: false, isMemberOfThisServer: true, Caller);
 
         Assert.Null(target.Refusal);
         Assert.Equal([Caller], target.UserIds);
         Assert.Equal("@Sam", target.Subject);
+        Assert.True(target.ByName);
+        Assert.False(target.NamesSomeoneElse);
     }
 
     [Fact]
@@ -88,26 +102,54 @@ public class FreeSlotTargetTests
     }
 
     [Fact]
-    public void Another_member_of_this_server_is_refused_and_nobody_is_asked_about()
+    public void Another_member_of_this_server_is_handed_on_by_name_for_the_api_to_decide()
     {
-        // Naming a member lists one person's free time, so only the member themself may. With
-        // no member to ask about, the module has nothing to send to the API.
+        // Whether they can be listed turns on whether they have saved their own hours, which the
+        // API holds: it is asked by name, and nothing about them is decided here.
         var target = FreeSlotTarget.ForUser(SomeoneElse, "Ana", isBot: false, isMemberOfThisServer: true, Caller);
 
-        Assert.Equal("Another member's free slots can't be listed yet — pick yourself or a role.", target.Refusal);
-        Assert.Empty(target.UserIds);
-        Assert.Equal("", target.Subject);
+        Assert.Null(target.Refusal);
+        Assert.Equal([SomeoneElse], target.UserIds);
+        Assert.Equal("@Ana", target.Subject);
+        Assert.True(target.ByName);
+        Assert.True(target.NamesSomeoneElse);
+    }
+
+    [Fact]
+    public void A_list_about_someone_else_is_shown_only_when_the_answer_says_it_was_checked_by_name()
+    {
+        var target = FreeSlotTarget.ForUser(SomeoneElse, "Ana", isBot: false, isMemberOfThisServer: true, Caller);
+
+        Assert.Null(target.RefusalFor(Answer(SomeoneElse, byName: true)));
+
+        // An API that does not know the rule answers without the mark, whatever it found: the
+        // list is not shown, whether the member was counted or not.
+        Assert.Equal("That member's free slots can't be listed by name right now.", target.RefusalFor(Answer(SomeoneElse, byName: false)));
+        Assert.Equal(
+            FreeSlotTarget.NotCheckedByName,
+            target.RefusalFor(Answer(SomeoneElse, byName: false, FreeSlotMemberState.NotCounted)));
+    }
+
+    [Fact]
+    public void A_list_about_the_caller_is_shown_either_way()
+    {
+        var target = FreeSlotTarget.ForUser(Caller, "Sam", isBot: false, isMemberOfThisServer: true, Caller);
+
+        Assert.Null(target.RefusalFor(Answer(Caller, byName: true)));
+        Assert.Null(target.RefusalFor(Answer(Caller, byName: false)));
     }
 
     [Fact]
     public void A_user_from_outside_this_server_is_refused_as_that()
     {
-        // A user option can carry anyone Discord resolves by id. The specific reason is given
-        // ahead of the one for another member.
+        // A user option can carry anyone Discord resolves by id. Nobody is asked about, so the
+        // module has nothing to send to the API.
         var target = FreeSlotTarget.ForUser(SomeoneElse, "Stranger", isBot: false, isMemberOfThisServer: false, Caller);
 
         Assert.Equal("That user isn't a member of this server.", target.Refusal);
         Assert.Empty(target.UserIds);
+        Assert.Equal("", target.Subject);
+        Assert.False(target.ByName);
     }
 
     [Theory]
@@ -117,9 +159,20 @@ public class FreeSlotTargetTests
     {
         var target = FreeSlotTarget.ForUser(SomeoneElse, "Helper", isBot: true, isMemberOfThisServer, Caller);
 
-        Assert.Equal("Bots don't keep a calendar — pick yourself or a role.", target.Refusal);
+        Assert.Equal("Bots don't keep a calendar — pick a member or a role.", target.Refusal);
         Assert.Empty(target.UserIds);
     }
+
+    /// <summary>An answer about one member, marked or not as checked by name.</summary>
+    private static FreeSlotsResponse Answer(
+        long userId, bool byName, FreeSlotMemberState state = FreeSlotMemberState.DefaultHours) => new(
+            "America/Chicago",
+            new DateOnly(2026, 11, 12),
+            new DateOnly(2026, 11, 12),
+            state == FreeSlotMemberState.NotCounted ? 0 : 1,
+            [],
+            [new FreeSlotMemberDto(userId, state)],
+            byName);
 
     private static IEnumerable<(long UserId, bool IsBot)> Holders(int count) =>
         Enumerable.Range(1, count).Select(i => ((long)i, false));

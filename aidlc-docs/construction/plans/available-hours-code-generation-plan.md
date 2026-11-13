@@ -454,30 +454,30 @@ ticked in the turn its step completes.
       is answered as before; `ByName` with two ids is refused.
 
 **4. Bot**
-- [ ] 4.1 `CalCronyApiClient`: the three methods.
-- [ ] 4.2 `TimeOfDayText.TryParse` (4.6). `TimeOfDayTextTests`: every row of the table, both
+- [x] 4.1 `CalCronyApiClient`: the three methods.
+- [x] 4.2 `TimeOfDayText.TryParse` (4.6). `TimeOfDayTextTests`: every row of the table, both
       positions for the midnight forms, `24:00` refused in `from`; refused: empty, `25:00`,
       `6:60`, `13pm`, `0pm`, letters, text of 21 characters; a time off the step is read as it is.
-- [ ] 4.3 `AvailableHoursText` (4.7, 4.10). `AvailableHoursTextTests`: the two example lines; all
+- [x] 4.3 `AvailableHoursText` (4.7, 4.10). `AvailableHoursTextTests`: the two example lines; all
       seven days alike; one day; days off last; `Apply` for each of the ten choices, on an empty
       week and over a saved one, and with a null range; each reply and each zone line, with the
       two default times taken from `AvailableHoursLimits`.
-- [ ] 4.4 `TimeOfDayAutocompleteHandler` (4.6). `TimeOfDayAutocompleteTests`: nothing typed, for
+- [x] 4.4 `TimeOfDayAutocompleteHandler` (4.6). `TimeOfDayAutocompleteTests`: nothing typed, for
       `from` and for `to`; `6`, `18`, `6:3`, `6p`, `mid`; never more than 25; every value reads
       back through `TryParse` to the time its label shows.
-- [ ] 4.5 `SettingsModule.AvailableHoursGroup` and the `view` line (4.5). First thing in this
+- [x] 4.5 `SettingsModule.AvailableHoursGroup` and the `view` line (4.5). First thing in this
       step: the module with its nested group is built offline, as `AvailabilityCommandShapeTests`
       does it, to see that Discord.Net accepts the shape. `SettingsCommandShapeTests`: `settings`
       keeps its seven subcommands and gains the group with `set`, `off` and `reset`; the option
       types, the ten choices, autocomplete and the length limit on `from` and `to`; every
       description at most 100 characters; `reset`'s description against the limits.
       `ModuleContextTests` passes with the nested type in its list.
-- [ ] 4.6 `FreeSlotTarget` and `AvailabilityModule` (4.4, R21). `FreeSlotTargetTests`: the caller
+- [x] 4.6 `FreeSlotTarget` and `AvailabilityModule` (4.4, R21). `FreeSlotTargetTests`: the caller
       and another member are both handed on, marked by name, a role is not; a bot and a user from
       outside the server are refused first; an answer about someone else is shown only when it
       says it was by name, and one about the caller or a role either way.
       `AvailabilityCommandShapeTests`: the two descriptions.
-- [ ] 4.7 `FreeSlotsEmbedBuilder` (4.8). `FreeSlotsEmbedBuilderTests`: each sentence of the table;
+- [x] 4.7 `FreeSlotsEmbedBuilder` (4.8). `FreeSlotsEmbedBuilderTests`: each sentence of the table;
       unit 1's sentences unchanged when everyone counted is on the default; the first field's two
       lines, their order, and when each is left out; the reworded reason; both fields full stay
       inside 1,024 each and the embed inside 6,000; the worst case builds.

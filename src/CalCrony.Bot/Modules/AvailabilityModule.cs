@@ -6,7 +6,7 @@ using Discord.Interactions;
 namespace CalCrony.Bot.Modules;
 
 /// <summary>/availability — free/busy grids for a role's members or an event's attending list,
-/// and free slots for the caller or a role over one or more days.</summary>
+/// and free slots for a member or a role over one or more days.</summary>
 /// <param name="api">The CalCrony API client.</param>
 [CommandContextType(InteractionContextType.Guild)]
 [IntegrationType(ApplicationIntegrationType.GuildInstall)]
@@ -106,18 +106,19 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         await RunAndReplyAsync($"**{ev.Title}**", userIds, start, end);
     }
 
-    /// <summary>Free slots for the caller, or for everyone holding a role, over one or more whole
+    /// <summary>Free slots for a member, or for everyone holding a role, over one or more whole
     /// days: the times every counted member is inside their available hours with nothing on a
     /// linked calendar. Unlike <c>role</c>, which checks one window someone already has in mind,
     /// this finds the windows.</summary>
-    /// <param name="who">The caller themself, or the role whose members are looked at. The picker
-    /// offers every member; <see cref="FreeSlotTarget.ForUser"/> refuses anyone but the caller.</param>
+    /// <param name="who">A member, or the role whose members are looked at. The caller can always
+    /// name themself; another member is listed only once they have saved their own available
+    /// hours, which the API decides (<see cref="FreeSlotTarget.ForUser"/>).</param>
     /// <param name="when">The first day in natural language; today when omitted.</param>
     /// <param name="days">How many days to list.</param>
     /// <param name="duration">The shortest slot worth listing, in minutes.</param>
-    [SlashCommand("slots", "Find free time slots for yourself or a role over one or more days")]
+    [SlashCommand("slots", "Find free time slots for a member or role over one or more days")]
     public async Task SlotsAsync(
-        [Summary("who", "Yourself or a role")] IMentionable who,
+        [Summary("who", "Yourself, a role, or a member who has saved their available hours")] IMentionable who,
         [Summary("when", "First day, e.g. \"today\", \"saturday\", \"nov 12\" (default: today)"), MaxLength(DateTextLimits.MaxLength)] string? when = null,
         [Summary("days", "How many days to list, 1-14 (default 7)"), MinValue(FreeSlotLimits.MinDays), MaxValue(FreeSlotLimits.MaxDays)] int? days = null,
         [Summary("duration", "Shortest slot worth listing, in minutes (default 60)"), MinValue(FreeSlotLimits.MinMinimumMinutes), MaxValue(FreeSlotLimits.MaxMinimumMinutes)] int? duration = null)
@@ -150,7 +151,7 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
                 break;
 
             default:
-                target = FreeSlotTarget.Refused("Pick yourself or a role.");
+                target = FreeSlotTarget.Refused("Pick a member or a role.");
                 break;
         }
 
@@ -167,10 +168,18 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
             (long)Context.Guild.Id,
             when,
             days ?? FreeSlotLimits.DefaultDays,
-            minimumMinutes));
+            minimumMinutes,
+            target.ByName));
         if (!slots.Success || slots.Value is null)
         {
             await FollowupAsync($"❌ {slots.Error}", ephemeral: true);
+            return;
+        }
+
+        // A list about another member is shown only when the answer says it was checked by name.
+        if (target.RefusalFor(slots.Value) is { } notCheckedByName)
+        {
+            await FollowupAsync(notCheckedByName, ephemeral: true);
             return;
         }
 

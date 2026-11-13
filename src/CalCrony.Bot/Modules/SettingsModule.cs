@@ -22,10 +22,11 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         var guild = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
         var user = await api.GetUserSettingsAsync((long)Context.User.Id);
         var publicCalendar = await api.GetPublicCalendarAsync((long)Context.Guild.Id);
-        if (!guild.Success || !user.Success || !publicCalendar.Success)
+        var hours = await api.GetAvailableHoursAsync((long)Context.User.Id);
+        if (!guild.Success || !user.Success || !publicCalendar.Success || !hours.Success || hours.Value is null)
         {
             // Never guess a privacy-sensitive setting: a failed read is an error, not "off".
-            await FollowupAsync($"❌ {guild.Error ?? user.Error ?? publicCalendar.Error}", ephemeral: true);
+            await FollowupAsync($"❌ {guild.Error ?? user.Error ?? publicCalendar.Error ?? hours.Error}", ephemeral: true);
             return;
         }
 
@@ -35,7 +36,8 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
             $"**Your DM confirmations:** {(user.Value.DmConfirmations ? "on" : "off")}\n" +
             $"**Native Discord events:** {(guild.Value.MirrorNativeEvents ? "on" : "off")}\n" +
             $"**Public calendar:** {(publicCalendar.Value!.Enabled ? "on" : "off")}\n" +
-            $"**Your DM reminders:** {(user.Value.DmReminders == true ? "on" : "off")}{DmRemindersBlockedNote(user.Value)}",
+            $"**Your DM reminders:** {(user.Value.DmReminders == true ? "on" : "off")}{DmRemindersBlockedNote(user.Value)}\n" +
+            AvailableHoursText.ViewLine(hours.Value),
             ephemeral: true);
     }
 
@@ -245,4 +247,138 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         settings.Url is { } url
             ? $"<{url}>"
             : $"Path `{settings.Path}` on your CalCrony web app (set `Web:Origin` on the API to get a full link here).";
+
+    /// <summary>/settings available-hours — the hours a member is usually available, one range per
+    /// weekday, which free-slot lists are cut from. Every command here acts on the member who runs
+    /// it and takes no user option: nobody sets or reads another member's hours. The rules and the
+    /// replies are <see cref="AvailableHoursText"/>'s; this group reads, writes and replies. It
+    /// carries the module's own context attributes, as every module type must.</summary>
+    /// <param name="api">The CalCrony API client.</param>
+    [CommandContextType(InteractionContextType.Guild)]
+    [IntegrationType(ApplicationIntegrationType.GuildInstall)]
+    [RequireBotInGuild]
+    [Group("available-hours", "The hours you're usually available; free slots are cut from them")]
+    public class AvailableHoursGroup(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
+    {
+        /// <summary>Gives the named days a range and leaves the others as they were. A first save
+        /// starts from an empty week, so days not named are not available.</summary>
+        /// <param name="days">The days the range applies to.</param>
+        /// <param name="from">The start, picked from the suggestions or typed.</param>
+        /// <param name="to">The end, picked from the suggestions or typed; midnight ends the day.</param>
+        [SlashCommand("set", "Save the hours you're available on the days you pick")]
+        public async Task SetAsync(
+            [Summary("days", "The days these hours apply to")] AvailableHoursDays days,
+            [Summary("from", "Start time, e.g. 6 PM or 18:00"), Autocomplete(typeof(TimeOfDayAutocompleteHandler)), MaxLength(TimeOfDayText.MaxInputLength)] string from,
+            [Summary("to", "End time, e.g. 11 PM or 23:00; midnight ends the day"), Autocomplete(typeof(TimeOfDayAutocompleteHandler)), MaxLength(TimeOfDayText.MaxInputLength)] string to)
+        {
+            await DeferAsync(ephemeral: true);
+
+            if (!AvailableHoursText.TryReadRange(from, to, out var range, out var refusal))
+            {
+                await FollowupAsync(refusal, ephemeral: true);
+                return;
+            }
+
+            if (await LoadAsync() is not { } current)
+            {
+                return;
+            }
+
+            var week = AvailableHoursText.Apply(current.Hours.IsSet ? current.Hours.Days : [], days, range);
+            await SaveAndReplyAsync(week, current);
+        }
+
+        /// <summary>Marks the named days as not available. With nothing saved there is nothing to
+        /// switch off, and a week with no day left cannot be saved; both are refused.</summary>
+        /// <param name="days">The days to mark as not available.</param>
+        [SlashCommand("off", "Mark days as not available")]
+        public async Task OffAsync(
+            [Summary("days", "The days to mark as not available")] AvailableHoursDays days)
+        {
+            await DeferAsync(ephemeral: true);
+
+            if (await LoadAsync() is not { } current)
+            {
+                return;
+            }
+
+            if (!current.Hours.IsSet)
+            {
+                await FollowupAsync(AvailableHoursText.NothingSavedToSwitchOff, ephemeral: true);
+                return;
+            }
+
+            var week = AvailableHoursText.Apply(current.Hours.Days, days, null);
+            if (week.Count == 0)
+            {
+                await FollowupAsync(AvailableHoursText.WouldLeaveNoDay, ephemeral: true);
+                return;
+            }
+
+            await SaveAndReplyAsync(week, current);
+        }
+
+        /// <summary>Clears the caller's saved hours: the default applies again, and other members
+        /// can no longer list their free slots by name.</summary>
+        [SlashCommand("reset", "Go back to the default hours, 8 AM–11 PM every day")]
+        public async Task ResetAsync()
+        {
+            await DeferAsync(ephemeral: true);
+
+            var result = await api.ResetAvailableHoursAsync((long)Context.User.Id);
+            await FollowupAsync(result.Success ? AvailableHoursText.ResetReply() : $"❌ {result.Error}", ephemeral: true);
+        }
+
+        /// <summary>Reads everything a save needs before anything is written: the caller's hours
+        /// and timezone, and the server's timezone when they have none of their own — the reply
+        /// has to say which zone the hours are read in. A failed read is reported and stops the
+        /// command, so nothing is saved over what could not be read.</summary>
+        /// <returns>What was read, or null when a read failed and the caller has been told.</returns>
+        private async Task<Loaded?> LoadAsync()
+        {
+            var userId = (long)Context.User.Id;
+            var hours = await api.GetAvailableHoursAsync(userId);
+            var settings = await api.GetUserSettingsAsync(userId);
+            if (!hours.Success || hours.Value is null || !settings.Success || settings.Value is null)
+            {
+                await FollowupAsync($"❌ Couldn't load your settings: {hours.Error ?? settings.Error}", ephemeral: true);
+                return null;
+            }
+
+            string? guildTimeZone = null;
+            if (string.IsNullOrWhiteSpace(settings.Value.TimeZone))
+            {
+                var guild = await api.GetGuildSettingsAsync((long)Context.Guild.Id);
+                if (!guild.Success || guild.Value is null)
+                {
+                    await FollowupAsync($"❌ Couldn't load your settings: {guild.Error}", ephemeral: true);
+                    return null;
+                }
+
+                guildTimeZone = guild.Value.TimeZone;
+            }
+
+            return new Loaded(hours.Value, settings.Value.TimeZone, guildTimeZone);
+        }
+
+        /// <summary>Saves the week and replies with what the API stored: the whole week, the zone
+        /// it is read in, and what saving hours allows.</summary>
+        /// <param name="week">The week to save.</param>
+        /// <param name="current">What was read before the save.</param>
+        private async Task SaveAndReplyAsync(IReadOnlyList<AvailableHoursDayDto> week, Loaded current)
+        {
+            var saved = await api.PutAvailableHoursAsync((long)Context.User.Id, new SetAvailableHoursRequest(week));
+            await FollowupAsync(
+                saved.Success && saved.Value is not null
+                    ? AvailableHoursText.SavedReply(saved.Value.Days, current.UserTimeZone, current.GuildTimeZone)
+                    : $"❌ {saved.Error}",
+                ephemeral: true);
+        }
+
+        /// <summary>What a command read before saving.</summary>
+        /// <param name="Hours">The caller's hours.</param>
+        /// <param name="UserTimeZone">The caller's own timezone, when they have set one.</param>
+        /// <param name="GuildTimeZone">The server's timezone, read only when the caller has none.</param>
+        private sealed record Loaded(AvailableHoursDto Hours, string? UserTimeZone, string? GuildTimeZone);
+    }
 }

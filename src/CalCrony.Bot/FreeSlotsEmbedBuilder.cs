@@ -6,12 +6,19 @@ using Discord;
 namespace CalCrony.Bot;
 
 /// <summary>Renders a free-slots answer as a Discord embed: the range and what the slots rest on,
-/// one line per day, and the members who could not be counted with the reason for each.</summary>
+/// one line per day, the members who were counted on less than a calendar and their own hours,
+/// and the members who could not be counted, each with the reason.</summary>
 public static class FreeSlotsEmbedBuilder
 {
     /// <summary>Slots listed per day before the rest collapse into "+N more". Fourteen days at this
     /// many slots stay inside Discord's description limit.</summary>
     public const int MaxSlotsPerDay = 6;
+
+    /// <summary>The field naming members who were counted, but on hours or a calendar alone.</summary>
+    public const string LessToGoOnTitle = "Counted with less to go on";
+
+    /// <summary>The field naming members who were left out.</summary>
+    public const string NotCountedTitle = "Not counted";
 
     private const long SecondsPerDay = 24 * 60 * 60;
 
@@ -19,9 +26,17 @@ public static class FreeSlotsEmbedBuilder
     /// ones the availability grid uses for the same situations.</summary>
     private static readonly (FreeSlotMemberState State, string Lead)[] NotCountedReasons =
     [
-        (FreeSlotMemberState.NotCounted, "⚪ No calendar linked"),
+        (FreeSlotMemberState.NotCounted, "⚪ No hours saved and no calendar linked"),
         (FreeSlotMemberState.ReconnectRequired, "🔄 Needs to reconnect with `/calendar connect`"),
         (FreeSlotMemberState.Error, "⚠️ Couldn't check right now"),
+    ];
+
+    /// <summary>What a counted member can be missing, in the order it is listed: a calendar, so
+    /// only their saved hours were used; or saved hours, so the default ones were assumed.</summary>
+    private static readonly (FreeSlotMemberState State, string Lead)[] LessToGoOnNotes =
+    [
+        (FreeSlotMemberState.HoursOnly, "🕒 Saved hours only, no calendar linked"),
+        (FreeSlotMemberState.DefaultHours, $"ℹ️ No hours saved, {AvailableHoursText.DefaultRange} assumed"),
     ];
 
     /// <summary>Builds the free-slots embed.</summary>
@@ -54,13 +69,46 @@ public static class FreeSlotsEmbedBuilder
             .WithDescription(string.Join("\n", lines))
             .WithFooter($"Days are in {response.TimeZone} · times show in your local time");
 
-        if (NotCountedField(response.Members) is { } notCounted)
+        // Who was left out matters most, so that field is laid out first and keeps a field's full
+        // room. The notes on counted members take what the whole embed has left, so two full
+        // fields can never push it over Discord's limit.
+        var notCounted = MembersField(NotCountedReasons, response.Members, EmbedFieldBuilder.MaxFieldValueLength);
+        var roomLeft = EmbedBuilder.MaxEmbedLength
+            - builder.Length
+            - (notCounted is null ? 0 : NotCountedTitle.Length + notCounted.Length)
+            - LessToGoOnTitle.Length;
+        var lessToGoOn = SaysWhoWasCountedOnLess(response)
+            ? MembersField(LessToGoOnNotes, response.Members, Math.Min(EmbedFieldBuilder.MaxFieldValueLength, roomLeft))
+            : null;
+
+        if (lessToGoOn is not null)
         {
-            builder.AddField("Not counted", notCounted);
+            builder.AddField(LessToGoOnTitle, lessToGoOn);
+        }
+
+        if (notCounted is not null)
+        {
+            builder.AddField(NotCountedTitle, notCounted);
         }
 
         return builder.Build();
     }
+
+    /// <summary>Whether the counted members are named by what they were counted on. They are when
+    /// two or more are counted and at least one has saved hours: then some are on their own hours
+    /// and some may be on the default, or on hours alone, and the reader cannot tell who. When
+    /// every counted member is on the default hours the sentence says so for all of them, and
+    /// when one member is counted the sentence says what that one rests on.</summary>
+    /// <param name="response">The API's answer.</param>
+    /// <returns>True when the field is shown.</returns>
+    private static bool SaysWhoWasCountedOnLess(FreeSlotsResponse response) =>
+        response.CountedMembers >= 2 && HasSavedHours(response.Members);
+
+    /// <summary>Whether any counted member is on hours they saved themself.</summary>
+    /// <param name="members">Every member asked about.</param>
+    /// <returns>True when one is.</returns>
+    private static bool HasSavedHours(IReadOnlyList<FreeSlotMemberDto> members) =>
+        members.Any(member => member.State is FreeSlotMemberState.Counted or FreeSlotMemberState.HoursOnly);
 
     /// <summary>The range as literal dates with the year — a bare date already behind us rolls to
     /// next year, and the year is what makes that visible.</summary>
@@ -85,19 +133,62 @@ public static class FreeSlotsEmbedBuilder
     /// <returns>The day's label.</returns>
     private static string FormatDate(DateOnly date) => date.ToString("ddd MMM d", CultureInfo.InvariantCulture);
 
-    /// <summary>One sentence on what the slots rest on. Every counted member is on the default
-    /// hours, so the sentence states them once for everyone — and says whose timezone they are
-    /// read in when a member has set none, since that moves every time in the list.</summary>
+    /// <summary>One sentence on what the slots rest on — whose hours and whose calendars — and
+    /// whose timezone the hours are read in when a member has set none, since that moves every
+    /// time in the list. While every counted member is on the default hours it states them once
+    /// for everyone; once a counted member has saved hours it speaks of each member's own.</summary>
     /// <param name="response">The API's answer.</param>
     /// <returns>The sentence.</returns>
     private static string BasisSentence(FreeSlotsResponse response)
+    {
+        if (response.CountedMembers == 0)
+        {
+            return $"Nobody could be counted, so there are no slots to list. {WhyNobodyWasCounted(response.Members)}";
+        }
+
+        if (!HasSavedHours(response.Members))
+        {
+            return DefaultHoursSentence(response);
+        }
+
+        const string InTheirZone = "read in their timezone (the server's if they haven't set one)";
+        if (response.CountedMembers == 1)
+        {
+            // With one member counted and saved hours in play, that member is the one who saved them.
+            var onHoursAlone = response.Members.Any(member => member.State == FreeSlotMemberState.HoursOnly);
+            return (response.Members.Count, onHoursAlone) switch
+            {
+                (1, false) => $"Free on their linked calendar, inside the available hours they saved, {InTheirZone}.",
+                (1, true) =>
+                    $"Inside the available hours they saved, {InTheirZone}. " +
+                    "No calendar is linked, so anything else they have on isn't taken into account.",
+                (_, false) =>
+                    $"When the one counted member is free on their linked calendar, inside the available hours they saved, {InTheirZone}.",
+                (_, true) =>
+                    $"Inside the one counted member's saved available hours, {InTheirZone}. " +
+                    "They have no calendar linked, so anything else they have on isn't taken into account.",
+            };
+        }
+
+        var onTheDefault = response.Members.Any(member => member.State == FreeSlotMemberState.DefaultHours)
+            ? $" ({AvailableHoursText.DefaultRange} for anyone who hasn't saved theirs)"
+            : "";
+        return
+            $"When all {response.CountedMembers} counted members are free: each inside their available hours{onTheDefault}, " +
+            "read in their own timezone (the server's for anyone who hasn't set one), with nothing on a linked calendar.";
+    }
+
+    /// <summary>The sentence while every counted member is on the default hours: it states them
+    /// once, for everyone.</summary>
+    /// <param name="response">The API's answer; at least one member is counted.</param>
+    /// <returns>The sentence.</returns>
+    private static string DefaultHoursSentence(FreeSlotsResponse response)
     {
         var from = TimeOfDayText.Format(AvailableHoursLimits.DefaultStartMinute);
         var to = TimeOfDayText.Format(AvailableHoursLimits.DefaultEndMinute);
 
         return (response.Members.Count, response.CountedMembers) switch
         {
-            (_, 0) => $"Nobody could be counted, so there are no slots to list. {WhyNobodyWasCounted(response.Members)}",
             (1, _) =>
                 $"Free on their linked calendar, between {from} and {to} in their timezone " +
                 "(the server's if they haven't set one).",
@@ -110,14 +201,15 @@ public static class FreeSlotsEmbedBuilder
         };
     }
 
-    /// <summary>What to say after "nobody could be counted". Linking a calendar is the remedy only
-    /// when no calendar is the one reason; a member whose linked calendar needs reconnecting, or
-    /// could not be read just now, is not told to link one.</summary>
+    /// <summary>What to say after "nobody could be counted". Linking a calendar or saving hours is
+    /// the remedy only when having neither is the one reason; a member whose linked calendar needs
+    /// reconnecting, or could not be read just now, is not told to link one.</summary>
     /// <param name="members">Every member asked about; none of them counted.</param>
     /// <returns>The sentence.</returns>
     private static string WhyNobodyWasCounted(IReadOnlyList<FreeSlotMemberDto> members) =>
         members.All(member => member.State == FreeSlotMemberState.NotCounted)
-            ? "A member is counted once they link a calendar with `/calendar connect`."
+            ? "A member is counted once they link a calendar with `/calendar connect` " +
+              "or save their available hours with `/settings available-hours set`."
             : "The reasons are listed below.";
 
     /// <summary>One line per day, in order. A slot is listed under the day it starts on, so a day
@@ -200,16 +292,20 @@ public static class FreeSlotsEmbedBuilder
             ? $"Nothing {minimumMinutes} min or longer is free in this range — a shorter `duration` may find something."
             : null;
 
-    /// <summary>The "Not counted" field: one line per reason that has members. When the field
-    /// holds every line in full, everyone is named. When it does not, the lines share it: a line
-    /// keeps its full length while that is within an equal share of the room left, and the longer
-    /// ones split the rest — so a short list is never cut for room it does not use, and a long
-    /// one cannot push another reason out.</summary>
+    /// <summary>A field of members grouped by state: one line per state that has members. When
+    /// the room holds every line in full, everyone is named. When it does not, the lines share
+    /// it: a line keeps its full length while that is within an equal share of the room left, and
+    /// the longer ones split the rest — so a short list is never cut for room it does not use,
+    /// and a long one cannot push another line out.</summary>
+    /// <param name="states">The states the field lists, with the text each line starts with.</param>
     /// <param name="members">Every member asked about.</param>
-    /// <returns>The field's text, or null when everyone was counted.</returns>
-    private static string? NotCountedField(IReadOnlyList<FreeSlotMemberDto> members)
+    /// <param name="limit">The most characters the field may use.</param>
+    /// <returns>The field's text; null when no member is in any of the states, or when the room is
+    /// too small to say anything at all.</returns>
+    private static string? MembersField(
+        (FreeSlotMemberState State, string Lead)[] states, IReadOnlyList<FreeSlotMemberDto> members, int limit)
     {
-        var groups = NotCountedReasons
+        var groups = states
             .Select(reason => (
                 reason.Lead,
                 UserIds: members.Where(member => member.State == reason.State).Select(member => member.UserId).ToList()))
@@ -221,7 +317,7 @@ public static class FreeSlotsEmbedBuilder
         }
 
         var full = groups.Select(group => FormatGroup(group.Lead, group.UserIds, int.MaxValue)).ToList();
-        var room = EmbedFieldBuilder.MaxFieldValueLength - (groups.Count - 1);     // less the line breaks
+        var room = limit - (groups.Count - 1);     // less the line breaks
         if (full.Sum(line => line.Length) <= room)
         {
             return string.Join("\n", full);
@@ -237,8 +333,12 @@ public static class FreeSlotsEmbedBuilder
             waiting--;
         }
 
-        return string.Join("\n", groups.Select((group, index) =>
+        var shared = string.Join("\n", groups.Select((group, index) =>
             full[index].Length <= budgets[index] ? full[index] : FormatGroup(group.Lead, group.UserIds, budgets[index])));
+
+        // A line is never shorter than its reason and a count. If even that does not fit the room
+        // there is, the field is left out rather than built over the limit.
+        return shared.Length <= limit ? shared : null;
     }
 
     /// <summary>One reason's line: the reason, then the members as mentions — as many as fit in
