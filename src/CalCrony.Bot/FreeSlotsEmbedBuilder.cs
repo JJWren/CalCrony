@@ -266,19 +266,22 @@ public static class FreeSlotsEmbedBuilder
         var orLater = OrLater(openUntil, lookedUntil);
         if (startedOn is null)
         {
-            return $"free until <t:{openUntil.ToUnixTimeSeconds()}:t>{orLater}";
+            return $"free until <t:{openUntil.ToUnixTimeSeconds()}:{EndStyle(null, orLater)}>{orLater}";
         }
 
         var started = startedOn.Date.ToString("ddd", CultureInfo.InvariantCulture);
-        return $"free until <t:{openUntil.ToUnixTimeSeconds()}:{EndStyle(startedOn.Slots[^1])}>{orLater} (started {started})";
+        return $"free until <t:{openUntil.ToUnixTimeSeconds()}:{EndStyle(startedOn.Slots[^1], orLater)}>{orLater} (started {started})";
     }
 
     /// <summary>A slot as two Discord timestamps, which each reader sees in their own local time.</summary>
     /// <param name="slot">The slot.</param>
     /// <param name="lookedUntil">Where the lookup stopped looking, when the answer says.</param>
     /// <returns>The formatted slot.</returns>
-    private static string FormatSlot(FreeSlotDto slot, DateTimeOffset? lookedUntil) =>
-        $"<t:{slot.StartUnix}:t>–<t:{slot.EndUnix}:{EndStyle(slot)}>{OrLater(slot.EndUtc, lookedUntil)}";
+    private static string FormatSlot(FreeSlotDto slot, DateTimeOffset? lookedUntil)
+    {
+        var orLater = OrLater(slot.EndUtc, lookedUntil);
+        return $"<t:{slot.StartUnix}:t>–<t:{slot.EndUnix}:{EndStyle(slot, orLater)}>{orLater}";
+    }
 
     /// <summary>What follows an end that is only where the lookup stopped looking. A lookup reads
     /// one day past the last day listed; hours that run to midnight and resume at midnight can
@@ -292,10 +295,14 @@ public static class FreeSlotsEmbedBuilder
 
     /// <summary>The timestamp style for a slot's end. The time-only style is enough while a slot
     /// is shorter than a day; a longer one would read "8:00 AM–8:00 AM", so its end carries the
-    /// date.</summary>
-    /// <param name="slot">The slot.</param>
+    /// date. So does an end that is only the edge of the lookup, however long the slot: that
+    /// midnight is a day or more past the last day listed, and a bare "12:00 AM or later" would
+    /// not say which one.</summary>
+    /// <param name="slot">The slot, when there is one to measure.</param>
+    /// <param name="orLater">What follows the end; not empty when the end is the lookup's edge.</param>
     /// <returns>Discord's style letter: time only, or date and time.</returns>
-    private static char EndStyle(FreeSlotDto slot) => slot.EndUnix - slot.StartUnix >= SecondsPerDay ? 'f' : 't';
+    private static char EndStyle(FreeSlotDto? slot, string orLater = "") =>
+        orLater.Length > 0 || (slot is not null && slot.EndUnix - slot.StartUnix >= SecondsPerDay) ? 'f' : 't';
 
     /// <summary>A closing line for an answer in which no day has anything free, when a shorter
     /// minimum could still find something — a minimum longer than anyone's hours can never match,

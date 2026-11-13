@@ -230,10 +230,12 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
       hasn't saved their available hours, so their free slots can't be listed by name. …", the
       same whether or not they have linked a calendar. Once that member has run
       `/settings available-hours set`, the same command lists their slots; once they have run
-      `reset`, it is refused again. And from another server CalCrony is in, the id of an
-      account that has saved hours, pasted into `who:`, gets "That user isn't a member of this
+      `reset`, it is refused again. And an account that is not in this server and has saved
+      hours — on the test web app's My settings page, which needs no server in common, or here
+      before leaving — has its id pasted into `who:` and gets "That user isn't a member of this
       server." and no list: that check is what keeps a lookup by name inside a server the two
-      share. No automated test covers the lines in the module that tell a member of this server
+      share. (If Discord will not take such an id in `who:` at all, note that instead.)
+      No automated test covers the lines in the module that tell a member of this server
       from anyone else, hand the rule on, and check the answer. It needs none of this section's
       prerequisites, so run it even when the rest of the section is skipped.
 - [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour

@@ -9,6 +9,17 @@ namespace CalCrony.Bot.Tests;
 /// to the time its label shows.</summary>
 public class TimeOfDayAutocompleteTests
 {
+    [Theory]
+    [InlineData("to", true)]
+    [InlineData("from", false)]
+    [InlineData("days", false)]
+    [InlineData("TO", false)]       // Discord's option names are lower-case, and so is the constant
+    [InlineData(null, false)]
+    public void Only_the_end_option_is_treated_as_an_end(string? optionName, bool expected)
+    {
+        Assert.Equal(expected, TimeOfDayAutocompleteHandler.IsEnd(optionName));
+    }
+
     [Fact]
     public void An_empty_start_offers_the_whole_hours_of_the_day()
     {

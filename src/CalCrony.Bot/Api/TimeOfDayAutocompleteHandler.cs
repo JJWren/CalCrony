@@ -38,9 +38,13 @@ public class TimeOfDayAutocompleteHandler : AutocompleteHandler
     {
         var focused = autocompleteInteraction.Data.Current;
         var input = focused.Value?.ToString() ?? "";
-        var asEnd = string.Equals(focused.Name, EndOptionName, StringComparison.Ordinal);
-        return Task.FromResult(AutocompletionResult.FromSuccess(BuildSuggestions(input, asEnd)));
+        return Task.FromResult(AutocompletionResult.FromSuccess(BuildSuggestions(input, IsEnd(focused.Name))));
     }
+
+    /// <summary>Whether an option, by its name, ends a range rather than starts one.</summary>
+    /// <param name="optionName">The name of the option being typed into.</param>
+    /// <returns>True for <see cref="EndOptionName"/> alone.</returns>
+    public static bool IsEnd(string? optionName) => string.Equals(optionName, EndOptionName, StringComparison.Ordinal);
 
     /// <summary>Pure suggestion shaping, public for direct testing. A start can be any time on the
     /// step from 12 AM to 11:30 PM; an end any from 12:30 AM to midnight. Each suggestion shows the

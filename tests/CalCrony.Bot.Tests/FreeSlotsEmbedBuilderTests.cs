@@ -675,6 +675,42 @@ public class FreeSlotsEmbedBuilderTests
     }
 
     [Fact]
+    public void An_end_that_is_only_the_edge_of_the_lookup_carries_its_date_however_short_the_slot()
+    {
+        // Where the day after the last one listed is a 23-hour day, a slot can reach the edge in
+        // under a day. "11:30 PM–12:00 AM or later" would not say which midnight is meant.
+        var edge = ThursdayMorning.AddHours(23.5);
+        var cut = new FreeSlotDto(ThursdayMorning, edge);
+        var response = new FreeSlotsResponse(
+            "America/Chicago",
+            Thursday,
+            Thursday.AddDays(1),
+            1,
+            [new FreeSlotDayDto(Thursday, [cut]), new FreeSlotDayDto(Thursday.AddDays(1), [], edge)],
+            [HoursOnly(1)],
+            LookedUntilUtc: edge);
+
+        var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
+
+        Assert.Contains($"**Thu Nov 12** · <t:{cut.StartUnix}:t>–<t:{cut.EndUnix}:f> or later", lines);
+        Assert.Contains($"**Fri Nov 13** · free until <t:{edge.ToUnixTimeSeconds()}:f> or later (started Thu)", lines);
+    }
+
+    [Fact]
+    public void An_end_past_the_edge_of_the_lookup_is_qualified_too()
+    {
+        // The API cuts a slot at the edge, so it sends none that ends later. The reply does not
+        // lean on that: an end at the edge or past it is one the lookup did not see.
+        var edge = ThursdayMorning.AddHours(30);
+        var past = new FreeSlotDto(ThursdayMorning, edge.AddHours(1));
+        var response = new FreeSlotsResponse(
+            "America/Chicago", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, [past])], [HoursOnly(1)], LookedUntilUtc: edge);
+
+        Assert.EndsWith(
+            $"<t:{past.StartUnix}:t>–<t:{past.EndUnix}:f> or later", FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description);
+    }
+
+    [Fact]
     public void When_the_answer_does_not_say_how_far_it_looked_no_end_is_qualified()
     {
         // An API that does not send the edge: the reply reads as it did before.

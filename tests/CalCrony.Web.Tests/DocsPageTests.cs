@@ -122,6 +122,7 @@ public class DocsPageTests : TestContext
 
         // A first set in Discord starts from an empty week, which the example alone would not tell.
         Assert.Contains("The first set leaves the days you don't name off", entry);
+        Assert.Contains("off marks the days you name as not available", entry);
 
         // The entry sits beside the availability one, and the command reference names the group.
         Assert.Contains(cut.FindAll("table td code"), code => code.TextContent == "available-hours set|off|reset");

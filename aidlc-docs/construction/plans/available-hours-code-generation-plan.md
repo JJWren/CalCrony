@@ -246,7 +246,8 @@ fields change, and a day line gains one thing (review round 1): an end that is o
 lookup stopped looking is followed by `or later`. A lookup reads one day past the last day
 listed; hours that run to midnight and resume at midnight can carry a slot all the way there,
 where it is cut. The answer names that instant (`FreeSlotsResponse.LookedUntilUtc`), and a slot
-or a "free until" that ends there reads `…–<t:end:f> or later`.
+or a "free until" that ends there reads `…–<t:end:f> or later` — always with the date, however
+long the slot, since that midnight is a day or more past the last day listed (review round 2).
 
 **Basis sentence.** "Default" below means every counted member is on the default hours.
 
@@ -329,7 +330,7 @@ One wording, used wherever hours are saved or shown:
 | `README.md` Features, line 42 | ``- Google Calendar, free/busy scope only (`/availability`): role or event grids, free slots for a member or role within their available hours.`` — 22 words where the line has 20, so the section goes from 398 to 400, the cap. |
 | `README.md` command table, the `/settings` row | adds ``· `/settings available-hours set\|off\|reset` `` and `· your available hours` |
 | `README.md` command table, the slots row | `Free slots for a member or a role over 1–14 days (default 7, from today): times every counted member is free, inside each member's available hours (8 AM–11 PM until they save their own). You can always pick yourself; another member once they have saved hours. Only you see the reply` |
-| `Docs.razor`, a new entry after "Google Calendar availability" | **Available hours** (per member; only you can set yours) — `/settings available-hours set days:weekdays from:6pm to:11pm`, or the card under My settings here: the hours you're usually available, one range per weekday, read in your timezone (the server's if you haven't set one). Free slots are cut from them, and until you save any, 8 AM to 11 PM every day is assumed. The first `set` leaves the days you don't name off; after that, `set` and `off` change only the days you name, and `reset` goes back to the default. With saved hours you are counted in free-slot lists even without a linked calendar, marked as hours only. Saving hours also lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them; `reset` takes that back. (The sentence on a first `set` and the clause on a linked calendar: review round 1.) |
+| `Docs.razor`, a new entry after "Google Calendar availability" | **Available hours** (per member; only you can set yours) — `/settings available-hours set days:weekdays from:6pm to:11pm`, or the card under My settings here: the hours you're usually available, one range per weekday, read in your timezone (the server's if you haven't set one). Free slots are cut from them, and until you save any, 8 AM to 11 PM every day is assumed. The first `set` leaves the days you don't name off; after that, `set` changes only the days you name and `off` marks the days you name as not available; `reset` goes back to the default. With saved hours you are counted in free-slot lists even without a linked calendar, marked as hours only. Saving hours also lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them; `reset` takes that back. (The sentence on a first `set` and the clause on a linked calendar: review round 1; what `off` does, restored in round 2.) |
 | `Docs.razor`, the "Google Calendar availability" entry | the slots sentence reads "lists when a member — or everyone holding a role — is free over 1 to 14 days: you can always pick yourself, and another member once they have saved their available hours"; "A slot is time inside each member's available hours (8 AM to 11 PM until they save their own) with nothing on a linked calendar"; and "Members with neither saved hours nor a linked calendar aren't counted". |
 | `Docs.razor` command table, the `/settings` row | adds `available-hours set\|off\|reset` |
 | `PRIVACY_POLICY.md`, `Privacy.razor` — Preferences | the same sentence in both: per-user and per-server timezone, DM-confirmation and DM-reminder settings (reminders by DM are off unless you turn them on yourself — no server or event creator can), your available hours if you save them (the weekly hours you say you are usually available; saving them lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep and, if your calendar is linked, when you are busy inside them, and resetting them takes that back), interface theme, server settings. |
@@ -337,7 +338,7 @@ One wording, used wherever hours are saved or shown:
 | both privacy copies — Retention & deletion | **Available hours**: kept until you reset them (`/settings available-hours reset` or the web app), which deletes them at once. |
 | both privacy copies — the date | the day the PR opens |
 | `CONTEXT.md` | **Available Hours** says they are the member's own once saved, 8 AM–11 PM every day until then, and that saving them lets other members list that member's Free Slots by name. **Counted Member** says a member can be counted on a calendar, on saved hours, or on both. |
-| `live-e2e-script.md` §12 | New items: the nested group registers, with ten `days` choices and time suggestions; `set`, `off` and `reset` reply with the week, the zone and the notice, and `/settings view` and the web card agree with them; an `off` with nothing saved and an `off` that would leave no day are refused; slots follow saved hours; a member with hours and no calendar is listed as hours only; a role of members in different states shows both fields; the migration is in the test stack's history. The item for naming another member is replaced — **must pass**: a member who has not saved hours is refused with the text of 4.4, linked or not; one who has is listed; and an account from outside the server is refused as that even when it has saved hours (review round 1, S1). |
+| `live-e2e-script.md` §12 | New items: the nested group registers, with ten `days` choices and time suggestions; `set`, `off` and `reset` reply with the week, the zone and the notice, and `/settings view` and the web card agree with them; an `off` with nothing saved and an `off` that would leave no day are refused; slots follow saved hours; a member with hours and no calendar is listed as hours only; a role of members in different states shows both fields; hours that meet at midnight end "or later"; a look at how a title shows a display name with markdown in it; the migration is in the test stack's history. The item for naming another member is replaced — **must pass**: a member who has not saved hours is refused with the text of 4.4, linked or not; one who has is listed; and an account from outside the server is refused as that even when it has saved hours (review round 1, S1). |
 
 Left as they are: the Limited Use sentence (a list resting on hours alone uses nothing from
 Google); `/help`'s tagline; the Terms; the worked examples.
@@ -352,11 +353,12 @@ Google); `/help`'s tagline; the Terms; the worked examples.
 | `src/CalCrony.Api/Data/Migrations/` | `AddAvailableHours`: one nullable column; `Down` drops it. Snapshot updated. |
 | `src/CalCrony.Api/Endpoints/SettingsEndpoints.cs` | The three hours routes (4.2). |
 | `src/CalCrony.Api/Endpoints/CalendarEndpoints.cs` | The by-name check on the request (4.4). |
-| `src/CalCrony.Api/Services/FreeSlotsService.cs` | Stored hours, the two new states, the by-name rule, `ByName` on the answer (4.3, 4.4). |
+| `src/CalCrony.Api/Services/FreeSlotsService.cs` | Stored hours, the two new states, the by-name rule, `ByName` and `LookedUntilUtc` on the answer (4.3, 4.4, 4.8). |
+| `src/CalCrony.Api/Services/FreeSlotCalculator.cs` | A comment only: a slot can still be open at the window's end (review round 1). |
 | `src/CalCrony.Bot/Api/CalCronyApiClient.cs` | `GetAvailableHoursAsync`, `PutAvailableHoursAsync`, `ResetAvailableHoursAsync`. |
 | `src/CalCrony.Bot/TimeOfDayText.cs` | `TryParse`, `MaxInputLength`, the 24-hour form (4.6). |
-| `src/CalCrony.Bot/AvailableHoursText.cs` (new) | `Apply`, `Describe`, and the reply texts of 4.5 and 4.10 as pure functions. |
-| `src/CalCrony.Bot/Api/TimeOfDayAutocompleteHandler.cs` (new) | Suggestions (4.6). |
+| `src/CalCrony.Bot/AvailableHoursText.cs` (new) | `Apply`, `Describe`, `Set` and `TryOff` (review round 1), the reading of the two typed times, and the reply texts of 4.5 and 4.10, all as pure functions. |
+| `src/CalCrony.Bot/Api/TimeOfDayAutocompleteHandler.cs` (new) | Suggestions (4.6), and the names of the two time options, which the command declares its options with (review round 1). |
 | `src/CalCrony.Bot/Modules/SettingsModule.cs` | The nested `AvailableHoursGroup` with the module's three context attributes; the `view` line. |
 | `src/CalCrony.Bot/FreeSlotTarget.cs` | `ForUser` allows another member and marks the target as by name; a pure check that an answer about someone else was checked by name (R12); the two refusal texts. |
 | `src/CalCrony.Bot/Modules/AvailabilityModule.cs` | The two descriptions (R21); `ByName` handed on; the R12 check before the reply. |
@@ -611,8 +613,8 @@ Three more differences, found in review round 1 and true since generation:
 
 Before the review, on an exported copy of `5c7392c` — never the repository — fourteen rules were
 taken out one at a time, and each time the tests meant to pin the rule failed: the by-name
-refusal; that refusal moved to after the calendars are read; a linked calendar that cannot be
-read falling back on saved hours; the answer not saying it was by name; saved hours ignored by
+refusal; that refusal moved to after the calendars are read; a linked calendar that needs
+reconnecting falling back on saved hours; the answer not saying it was by name; saved hours ignored by
 the lookup; a by-name request carrying several members; the self-only guard on each of the three
 hours routes; the step on a submitted week; an empty week being saved; the bot showing an
 unchecked answer about someone else; a named member not marked as by name; and the bot accepting
@@ -625,7 +627,7 @@ privacy and one on correctness and quality. Each built it and ran the suite in a
 1,272 green and the baseline's 22 warnings, as recorded above. Neither found a wrong rule or a
 wrong user-facing text, and the security reviewer found no way around the by-name rule: for a
 linked member with an expired token, a refused lookup by name made no refresh call and no
-free/busy call; twenty-nine stored values that are not a week broke no lookup; and release 0.36.4
+free/busy call; twenty-nine stored values, twenty-six of them not a week, broke no lookup; and release 0.36.4
 ran against a schema with the new column, as rolling the image back would have it.
 
 | Finding | What was done |
@@ -651,6 +653,25 @@ copy of the privacy policy mentions the community Discord server in its contact 
 caution about posting personal details there, and the web copy does not.
 
 Counts after round 1: 1,284 tests green — 721 API, 410 bot, 153 web. The Release build has no
+errors and the baseline's 22 warnings.
+
+### Review round 2 — the commit that answered round 1, `1351a68` (2026-11-13)
+
+Both agents read the change from `5c7392c` to `1351a68`. Each accepted the answer to every one
+of its round 1 findings, and neither found anything the commit had newly opened. The changes
+that had passed every test in round 1 now fail one, the reply's two guards apart, which cannot be
+made to bite. What they did find:
+
+| Finding | What was done |
+|---|---|
+| R2-1 (low, security) — The sentence added to the must-pass live item spoke of "another server CalCrony is in". The test stack has one server, and the test bot registers its commands there only. | Reworded so that it can be run there: an account that is not in the server and has saved hours — on the test web app, which needs no server in common, or in the server before leaving. |
+| R2-2 (nit, security) — The record of round 1 said twenty-nine stored values were not a week. Twenty-six were not; the other three were weeks, and were listed as they should be. | Corrected. |
+| Q12 (nit) — An end at the lookup's edge took its style from the slot's length. Where the extra day is a 23-hour day such a slot can be under a day long, and it then read "12:00 AM or later" with no date. | An end that gets `or later` always carries its date (4.8). Tests for that, and for an end past the edge. |
+| Q13 (nit) — The Docs sentence added in round 1 no longer said what `off` does. | Restored (4.11). |
+| Q14 (nit) — Section 5, the live-script row of 4.11 and the mutation paragraph said less than round 1 had changed. | Brought up to date. The mutation paragraph now says "needs reconnecting", the case that was pinned when it ran. |
+| Under Q4 — The line that reads which option is being typed into still had no test. | Which option name is the end is now `TimeOfDayAutocompleteHandler.IsEnd`, with a test. The line that calls it is for the live item. |
+
+Counts after round 2: 1,291 tests green — 721 API, 417 bot, 153 web. The Release build has no
 errors and the baseline's 22 warnings.
 
 ## 10. Plan checklist
