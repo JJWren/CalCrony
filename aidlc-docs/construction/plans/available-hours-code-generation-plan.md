@@ -9,7 +9,8 @@ unit 1 as merged (`construction/plans/free-slots-code-generation-plan.md`).
 web — re-run as step 0.1). **Branch**: `feature/available-hours` → PR
 `feat: per-member available hours for free slots`.
 **Status**: approved by Joshua on 2026-11-13 (UTC), as written ("Approve the plan"); code
-generation under way (section 9 records what differs from the plan).
+generated the same day and reviewed in three rounds (section 9 records what differs from the plan
+and what each round found); awaiting Joshua at the completion gate, with nothing pushed.
 
 As with unit 1, this file is the unit's functional design (sections 1–5) followed by its
 code-generation plan (sections 6–8), approved together.
@@ -688,13 +689,20 @@ line and on a "free until" line.
 
 Each had one nit, and both were about this record: the first paragraph of round 2 above had said
 that every answer to round 1 was accepted outright, where S1 was accepted in substance, and that
-nothing had been newly opened, where three of round 2's rows concern text the round 1 commit
+nothing had been newly opened, where three of round 2's rows concern what the round 1 commit
 itself had added. That paragraph is corrected. The quality reviewer also noted one branch of the
 reply with no test in either state — a "free until" with no earlier day to name, which the API
 never sends — and it has one now.
 
 Counts after round 3: 1,292 tests green — 721 API, 418 bot, 153 web. The Release build has no
 errors and the baseline's 22 warnings.
+
+Both agents then read the commit that holds this record, `1fa35d2`. The security reviewer had no
+finding. The quality reviewer confirmed the counts and the commit ids, saw the new test fail when
+the branch it pins was changed, and had one nit, Q16, on three wordings: the paragraph above said
+"text" where one of the three rows concerns code; this file's status line still said that
+generation was under way; and the state file's summary of round 1 named its largest findings as
+if they were all of them. The three are corrected in the commit after that one.
 
 ## 10. Plan checklist
 
