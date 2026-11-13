@@ -14,7 +14,14 @@ public class TimeOfDayAutocompleteHandler : AutocompleteHandler
     /// <summary>Discord shows at most this many suggestions.</summary>
     public const int MaxSuggestions = 25;
 
-    private const string EndOptionName = "to";
+    /// <summary>The name of the option that starts a range. The command declares its option with
+    /// this constant, so the two cannot come apart.</summary>
+    public const string StartOptionName = "from";
+
+    /// <summary>The name of the option that ends a range — the one whose suggestions run to
+    /// midnight. The command declares its option with this constant too.</summary>
+    public const string EndOptionName = "to";
+
     private const int MinutesPerHour = 60;
 
     /// <summary>Serves time suggestions for the option being typed into.</summary>

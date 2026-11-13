@@ -139,8 +139,10 @@ public sealed class WeeklyHours
     /// <summary>Reads a stored week. Anything that is not one — text that is not the stored form,
     /// an unknown weekday, a weekday twice, a range outside one day or not start-before-end, or no
     /// day at all — reads as "nothing saved": this never throws, so one bad row cannot fail a
-    /// lookup. The step between times is not checked here; it is a rule for what may be entered,
-    /// and a stored week stays readable if that rule changes.</summary>
+    /// lookup. More than seven entries need no check of their own: an eighth has to repeat a
+    /// weekday or name none. The step between times is not checked here; it is a rule for what
+    /// may be entered, and a stored week stays readable if that rule changes — though saving it
+    /// again, even for one day, applies the rule then in force to every day in it.</summary>
     /// <param name="json">The stored text, or null when nothing is stored.</param>
     /// <returns>The week, or null when nothing readable is stored.</returns>
     public static WeeklyHours? Parse(string? json)
@@ -160,7 +162,7 @@ public sealed class WeeklyHours
             return null;
         }
 
-        if (stored is null || stored.Count is 0 or > DaysInWeek)
+        if (stored is null || stored.Count == 0)
         {
             return null;
         }

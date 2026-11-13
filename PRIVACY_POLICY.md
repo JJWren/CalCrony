@@ -31,7 +31,8 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
   (reminders by DM are off unless you turn them on yourself — no server or event creator can),
   your available hours if you save them (the weekly hours you say you are usually available;
   saving them lets members of the servers you share with CalCrony list your free slots by name,
-  which shows roughly the hours you keep, and resetting them takes that back),
+  which shows roughly the hours you keep and, if your calendar is linked, when you are busy
+  inside them, and resetting them takes that back),
   interface theme, server settings.
 - Web sign-in (optional, Discord OAuth with `identify` + `guilds` scopes only): your username,
   display name, avatar hash, and a snapshot of which servers you're in (used to scope what the

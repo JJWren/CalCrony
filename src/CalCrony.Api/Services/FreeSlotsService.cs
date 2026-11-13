@@ -134,7 +134,8 @@ public sealed class FreeSlotsService(
                 counted.Count,
                 days,
                 members,
-                request.ByName),
+                request.ByName,
+                windowEnd.ToDateTimeOffset()),
             null);
     }
 

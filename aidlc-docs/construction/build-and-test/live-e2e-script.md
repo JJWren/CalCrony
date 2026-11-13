@@ -230,9 +230,12 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
       hasn't saved their available hours, so their free slots can't be listed by name. …", the
       same whether or not they have linked a calendar. Once that member has run
       `/settings available-hours set`, the same command lists their slots; once they have run
-      `reset`, it is refused again. No automated test covers the two lines in the module that
-      hand the rule on and check the answer. It needs none of this section's prerequisites, so
-      run it even when the rest of the section is skipped.
+      `reset`, it is refused again. And from another server CalCrony is in, the id of an
+      account that has saved hours, pasted into `who:`, gets "That user isn't a member of this
+      server." and no list: that check is what keeps a lookup by name inside a server the two
+      share. No automated test covers the lines in the module that tell a member of this server
+      from anyone else, hand the rule on, and check the answer. It needs none of this section's
+      prerequisites, so run it even when the rest of the section is skipped.
 - [ ] `when:today` late in the day still answers, and today's first slot starts on a quarter hour
       no earlier than now.
 - [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;
@@ -265,11 +268,14 @@ Available hours (`/settings available-hours`, v0.37.0) — only the items that n
 the prerequisites above:
 
 - [ ] `/settings available-hours` appears with `set`, `off` and `reset` — the bot's first nested
-      group. `days` offers ten choices; `from` and `to` suggest times as you type (`6` → 6 AM,
-      6:30 AM, 6 PM, 6:30 PM), and a typed `6:30pm` or `18:30` is accepted.
-- [ ] `set days:weekdays from:6pm to:11pm` → the reply spells out the week ("Mon–Fri 6 PM–11 PM ·
-      Sat, Sun off"), the zone it is read in, and that saved hours can be looked up by name.
-      `/settings view` and the card under My settings show the same week.
+      group — and `set`'s description says that other members can then list your free slots by
+      name. `days` offers ten choices. `from` and `to` suggest times as you type (`6` → 6 AM,
+      6:30 AM, 6 PM, 6:30 PM): an empty `from` starts at 12 AM, an empty `to` ends in midnight,
+      and a typed `6:30pm` or `18:30` is accepted.
+- [ ] On an account with nothing saved, `set days:weekdays from:6pm to:11pm` → the reply spells
+      out the week ("Mon–Fri 6 PM–11 PM · Sat, Sun off" — the weekend is off, not on the default),
+      the zone it is read in, and that saved hours can be looked up by name. `/settings view` and
+      the card under My settings show the same week.
 - [ ] Without a personal timezone, the reply names the server's zone and points at
       `/settings timezone`.
 - [ ] `off days:Friday` → Friday leaves the week. An `off` that would leave no day is refused and
@@ -289,6 +295,11 @@ the prerequisites above:
       only, a calendar and no hours, neither → the sentence speaks of each member's own hours,
       **Counted with less to go on** names the hours-only and default-hours members, and
       **Not counted** the rest.
+- [ ] Hours that meet at midnight (`set days:every day from:midnight to:midnight`, no calendar
+      linked) → one slot from now on, ending "or later", and each later day "free until … or
+      later".
+- [ ] To look at, not to pass: a member whose display name has markdown in it (`**Sam**`,
+      `Sam_the_GM`) named in `who:` — how the title shows the name.
 - [ ] The test stack's migration history lists `AddAvailableHours`; a member who never saved
       hours is treated as before.
 

@@ -188,9 +188,11 @@ public class WeeklyHoursTests
     }
 
     [Fact]
-    public void More_than_seven_stored_days_read_as_nothing_saved()
+    public void Eight_stored_days_have_to_repeat_a_weekday_so_they_read_as_nothing_saved()
     {
-        var eight = "[" + string.Join(",", Enumerable.Range(1, 8).Select(d => $$"""{"day":{{d}},"start":480,"end":1380}""")) + "]";
+        // A week has seven days: all seven, and then Monday again.
+        var eight = "[" + string.Join(
+            ",", Enumerable.Range(1, 7).Append(1).Select(d => $$"""{"day":{{d}},"start":480,"end":1380}""")) + "]";
 
         Assert.Null(WeeklyHours.Parse(eight));
     }

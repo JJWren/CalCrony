@@ -116,8 +116,12 @@ public class DocsPageTests : TestContext
         Assert.Contains("even without a linked calendar", entry);
         Assert.Contains(
             "Saving hours also lets members of the servers you share with CalCrony list your free slots by name, " +
-            "which shows roughly the hours you keep; reset takes that back.",
+            "which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them; " +
+            "reset takes that back.",
             entry);
+
+        // A first set in Discord starts from an empty week, which the example alone would not tell.
+        Assert.Contains("The first set leaves the days you don't name off", entry);
 
         // The entry sits beside the availability one, and the command reference names the group.
         Assert.Contains(cut.FindAll("table td code"), code => code.TextContent == "available-hours set|off|reset");

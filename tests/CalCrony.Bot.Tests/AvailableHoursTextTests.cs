@@ -124,6 +124,69 @@ public class AvailableHoursTextTests
     }
 
     [Fact]
+    public void The_first_set_does_not_build_on_the_default_week_the_api_sends_along()
+    {
+        // With nothing saved the API answers "not set" and sends the default week, so that it can
+        // be shown. A first save starts from an empty week all the same: the member named Monday,
+        // and Monday is what they get.
+        var nothingSaved = new AvailableHoursDto(false, DefaultWeek);
+
+        var week = AvailableHoursText.Set(nothingSaved, AvailableHoursDays.Monday, (1080, 1380));
+
+        Assert.Equal([new AvailableHoursDayDto(DayOfWeek.Monday, 1080, 1380)], week);
+    }
+
+    [Fact]
+    public void A_later_set_changes_the_days_named_in_the_saved_week_and_keeps_the_rest()
+    {
+        var saved = new AvailableHoursDto(true, AvailableHoursText.Apply([], AvailableHoursDays.Weekdays, (1080, 1380)));
+
+        var week = AvailableHoursText.Set(saved, AvailableHoursDays.Saturday, (600, 1440));
+
+        Assert.Equal(6, week.Count);
+        Assert.Equal(new AvailableHoursDayDto(DayOfWeek.Monday, 1080, 1380), week[0]);
+        Assert.Equal(new AvailableHoursDayDto(DayOfWeek.Saturday, 600, 1440), week[^1]);
+    }
+
+    [Fact]
+    public void Off_with_nothing_saved_is_refused_and_there_is_no_week_to_save()
+    {
+        // Saving what is left of the default week would start the member's hours being listed by
+        // name. A command called "off" does not do that.
+        var nothingSaved = new AvailableHoursDto(false, DefaultWeek);
+
+        Assert.False(AvailableHoursText.TryOff(nothingSaved, AvailableHoursDays.Sunday, out var week, out var refusal));
+
+        Assert.Null(week);
+        Assert.Equal(AvailableHoursText.NothingSavedToSwitchOff, refusal);
+    }
+
+    [Theory]
+    [InlineData(AvailableHoursDays.Weekends)]
+    [InlineData(AvailableHoursDays.EveryDay)]
+    public void Off_that_would_leave_no_day_is_refused_and_there_is_no_week_to_save(AvailableHoursDays choice)
+    {
+        var saved = new AvailableHoursDto(true, AvailableHoursText.Apply([], AvailableHoursDays.Weekends, (600, 1320)));
+
+        Assert.False(AvailableHoursText.TryOff(saved, choice, out var week, out var refusal));
+
+        Assert.Null(week);
+        Assert.Equal(AvailableHoursText.WouldLeaveNoDay, refusal);
+    }
+
+    [Fact]
+    public void Off_takes_the_named_days_out_of_the_saved_week()
+    {
+        var saved = new AvailableHoursDto(true, AvailableHoursText.Apply([], AvailableHoursDays.Weekdays, (1080, 1380)));
+
+        Assert.True(AvailableHoursText.TryOff(saved, AvailableHoursDays.Friday, out var week, out var refusal));
+
+        Assert.Null(refusal);
+        Assert.Equal(
+            [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday], week.Select(day => day.Day));
+    }
+
+    [Fact]
     public void Sunday_is_the_last_day_of_the_week_not_the_first()
     {
         var week = AvailableHoursText.Apply([], AvailableHoursDays.Sunday, (600, 720));
@@ -245,6 +308,22 @@ public class AvailableHoursTextTests
     }
 
     [Fact]
+    public void When_two_things_are_wrong_with_the_times_the_first_check_gives_the_reply()
+    {
+        // The start is read before the end…
+        Assert.False(AvailableHoursText.TryReadRange("x", "y", out _, out var neither));
+        Assert.Equal("I couldn't read the `from` time. Try 6 PM, 6:30pm or 18:30.", neither);
+
+        // …both are read before the step is looked at…
+        Assert.False(AvailableHoursText.TryReadRange("6:15pm", "y", out _, out var offStepAndUnread));
+        Assert.Equal("I couldn't read the `to` time. Try 6 PM, 6:30pm or 18:30.", offStepAndUnread);
+
+        // …and the step before the order.
+        Assert.False(AvailableHoursText.TryReadRange("10:45pm", "6pm", out _, out var offStepAndBackwards));
+        Assert.Equal(AvailableHoursText.OffTheStep, offStepAndBackwards);
+    }
+
+    [Fact]
     public void The_saved_reply_spells_out_the_week_the_zone_and_what_saving_allows()
     {
         var week = AvailableHoursText.Apply([], AvailableHoursDays.Weekdays, (1080, 1380));
@@ -253,7 +332,8 @@ public class AvailableHoursTextTests
             "🕒 Your available hours: **Mon–Fri 6 PM–11 PM · Sat, Sun off**\n" +
             "Read in your timezone, **America/Chicago**.\n" +
             "Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots " +
-            "with `/availability slots`, which shows roughly the hours you keep. `/settings available-hours reset` takes that back.",
+            "with `/availability slots`, which shows roughly the hours you keep and, if your calendar is linked, " +
+            "when you're busy inside them. `/settings available-hours reset` takes that back.",
             AvailableHoursText.SavedReply(week, "America/Chicago", "Europe/Berlin"));
     }
 

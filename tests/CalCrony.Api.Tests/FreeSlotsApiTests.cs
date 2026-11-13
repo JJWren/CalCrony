@@ -448,22 +448,47 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         Assert.Empty(result.Days[2].Slots);
         Assert.Equal(end.ToDateTimeOffset(), result.Days[1].OpenUntilUtc);
         Assert.Equal(end.ToDateTimeOffset(), result.Days[2].OpenUntilUtc);
+
+        // The hours run on; the slot ends there only because the lookup stopped looking. The
+        // answer names that instant, so the reply can say "or later".
+        Assert.Equal(end.ToDateTimeOffset(), result.LookedUntilUtc);
     }
 
     [Fact]
-    public async Task A_linked_calendar_that_cannot_be_read_is_not_made_up_for_by_saved_hours()
+    public async Task The_answer_says_how_far_the_lookup_looked_and_an_ordinary_slot_ends_short_of_it()
     {
-        const long guildId = 9440, caller = 9441, member = 9442;
+        const long guildId = 9435, caller = 9436, member = 9437;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedConnectionAsync(member, "access-slots-9437");
+        var day = DayAhead(Chicago);
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 2, 60));
+
+        // One day past the last day listed, at the caller's midnight.
+        var lookedUntil = At(Chicago, day.PlusDays(3), 0).ToDateTimeOffset();
+        Assert.Equal(lookedUntil, result.LookedUntilUtc);
+        Assert.All(result.Days.SelectMany(d => d.Slots), slot => Assert.True(slot.EndUtc < lookedUntil));
+    }
+
+    [Theory]
+    [InlineData(9442, false, FreeSlotMemberState.ReconnectRequired)]    // the provider turned the refresh down
+    [InlineData(9443, true, FreeSlotMemberState.Error)]                 // the provider could not be reached
+    public async Task A_linked_calendar_that_cannot_be_read_is_not_made_up_for_by_saved_hours(
+        long member, bool couldNotBeReached, FreeSlotMemberState expected)
+    {
+        const long guildId = 9440, caller = 9441;
         await SeedGuildAsync(guildId, "America/Chicago");
         await SeedProfileAsync(member, "America/Chicago", EveryDay(540, 1020));
         var expired = SystemClock.Instance.GetCurrentInstant() - Duration.FromMinutes(5);
-        await SeedConnectionAsync(member, "access-slots-9442", expired, "refresh-slots-9442");
-        fixture.Provider.RefreshOverrides["refresh-slots-9442"] = CalendarTokenRefreshResult.ReconnectRequired("invalid_grant");
+        await SeedConnectionAsync(member, $"access-slots-{member}", expired, $"refresh-slots-{member}");
+        fixture.Provider.RefreshOverrides[$"refresh-slots-{member}"] = couldNotBeReached
+            ? CalendarTokenRefreshResult.Error("timeout")
+            : CalendarTokenRefreshResult.ReconnectRequired("invalid_grant");
 
         var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(DayAhead(Chicago)), 1, 60));
 
         // The calendar exists; a list that ignored it would say more than is known.
-        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.ReconnectRequired)], result.Members);
+        Assert.Equal([new FreeSlotMemberDto(member, expected)], result.Members);
         Assert.Equal(0, result.CountedMembers);
         Assert.Empty(result.Days);
     }

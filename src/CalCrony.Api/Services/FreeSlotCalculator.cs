@@ -37,8 +37,11 @@ public static class FreeSlotCalculator
 
     /// <summary>The window a lookup covers: from the later of the first day's midnight and "now"
     /// rounded up to the next quarter hour, to the midnight one day after the last requested day.
-    /// The extra day is what lets a slot that starts late on the last day show its real end. This
-    /// is both what the calendar provider is asked for and what <see cref="Compute"/> works over.</summary>
+    /// The extra day is what lets a slot that starts late on the last day show its real end. A
+    /// slot can still be open when the window ends — hours that run to midnight and resume at
+    /// midnight carry it there — and is then cut at the window's end; the answer names that
+    /// instant, so the reply can say such a slot ends then or later. This is both what the
+    /// calendar provider is asked for and what <see cref="Compute"/> works over.</summary>
     /// <param name="query">The lookup.</param>
     /// <returns>The window's start and end.</returns>
     public static (Instant Start, Instant End) QueryWindow(FreeSlotQuery query)

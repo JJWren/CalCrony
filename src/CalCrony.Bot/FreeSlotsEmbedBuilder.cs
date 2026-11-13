@@ -55,7 +55,7 @@ public static class FreeSlotsEmbedBuilder
         if (response.CountedMembers > 0)
         {
             lines.Add("");
-            lines.AddRange(FormatDays(response.Days));
+            lines.AddRange(FormatDays(response.Days, response.LookedUntilUtc));
             if (NothingFreeHint(minimumMinutes, response.Days) is { } hint)
             {
                 lines.Add("");
@@ -216,13 +216,14 @@ public static class FreeSlotsEmbedBuilder
     /// with no slot of its own can still begin inside one; its line then says how long it stays
     /// free and which day that slot is listed under.</summary>
     /// <param name="days">The requested days.</param>
+    /// <param name="lookedUntil">Where the lookup stopped looking, when the answer says.</param>
     /// <returns>The formatted lines.</returns>
-    private static IEnumerable<string> FormatDays(IReadOnlyList<FreeSlotDayDto> days)
+    private static IEnumerable<string> FormatDays(IReadOnlyList<FreeSlotDayDto> days, DateTimeOffset? lookedUntil)
     {
         FreeSlotDayDto? lastWithSlots = null;
         foreach (var day in days)
         {
-            yield return FormatDay(day, lastWithSlots);
+            yield return FormatDay(day, lastWithSlots, lookedUntil);
             if (day.Slots.Count > 0)
             {
                 lastWithSlots = day;
@@ -235,18 +236,19 @@ public static class FreeSlotsEmbedBuilder
     /// when it is free.</summary>
     /// <param name="day">The day and its slots.</param>
     /// <param name="lastWithSlots">The nearest earlier day that lists a slot, if any.</param>
+    /// <param name="lookedUntil">Where the lookup stopped looking, when the answer says.</param>
     /// <returns>The formatted line.</returns>
-    private static string FormatDay(FreeSlotDayDto day, FreeSlotDayDto? lastWithSlots)
+    private static string FormatDay(FreeSlotDayDto day, FreeSlotDayDto? lastWithSlots, DateTimeOffset? lookedUntil)
     {
         var label = $"**{FormatDate(day.Date)}**";
         if (day.Slots.Count == 0)
         {
             return day.OpenUntilUtc is { } openUntil
-                ? $"{label} · {FormatOpenUntil(openUntil, lastWithSlots)}"
+                ? $"{label} · {FormatOpenUntil(openUntil, lastWithSlots, lookedUntil)}"
                 : $"{label} · nothing free";
         }
 
-        var shown = string.Join(" · ", day.Slots.Take(MaxSlotsPerDay).Select(FormatSlot));
+        var shown = string.Join(" · ", day.Slots.Take(MaxSlotsPerDay).Select(slot => FormatSlot(slot, lookedUntil)));
         return day.Slots.Count > MaxSlotsPerDay
             ? $"{label} · {shown} · +{day.Slots.Count - MaxSlotsPerDay} more"
             : $"{label} · {shown}";
@@ -257,22 +259,36 @@ public static class FreeSlotsEmbedBuilder
     /// the day begins is the last one of the nearest earlier day that lists any.</summary>
     /// <param name="openUntil">When the slot the day begins inside ends.</param>
     /// <param name="startedOn">The day that slot is listed under, if the answer names one.</param>
+    /// <param name="lookedUntil">Where the lookup stopped looking, when the answer says.</param>
     /// <returns>The formatted text.</returns>
-    private static string FormatOpenUntil(DateTimeOffset openUntil, FreeSlotDayDto? startedOn)
+    private static string FormatOpenUntil(DateTimeOffset openUntil, FreeSlotDayDto? startedOn, DateTimeOffset? lookedUntil)
     {
+        var orLater = OrLater(openUntil, lookedUntil);
         if (startedOn is null)
         {
-            return $"free until <t:{openUntil.ToUnixTimeSeconds()}:t>";
+            return $"free until <t:{openUntil.ToUnixTimeSeconds()}:t>{orLater}";
         }
 
         var started = startedOn.Date.ToString("ddd", CultureInfo.InvariantCulture);
-        return $"free until <t:{openUntil.ToUnixTimeSeconds()}:{EndStyle(startedOn.Slots[^1])}> (started {started})";
+        return $"free until <t:{openUntil.ToUnixTimeSeconds()}:{EndStyle(startedOn.Slots[^1])}>{orLater} (started {started})";
     }
 
     /// <summary>A slot as two Discord timestamps, which each reader sees in their own local time.</summary>
     /// <param name="slot">The slot.</param>
+    /// <param name="lookedUntil">Where the lookup stopped looking, when the answer says.</param>
     /// <returns>The formatted slot.</returns>
-    private static string FormatSlot(FreeSlotDto slot) => $"<t:{slot.StartUnix}:t>–<t:{slot.EndUnix}:{EndStyle(slot)}>";
+    private static string FormatSlot(FreeSlotDto slot, DateTimeOffset? lookedUntil) =>
+        $"<t:{slot.StartUnix}:t>–<t:{slot.EndUnix}:{EndStyle(slot)}>{OrLater(slot.EndUtc, lookedUntil)}";
+
+    /// <summary>What follows an end that is only where the lookup stopped looking. A lookup reads
+    /// one day past the last day listed; hours that run to midnight and resume at midnight can
+    /// carry a slot all the way there, where it is cut. Its real end is that instant or later, and
+    /// the reply says so rather than give the edge of the lookup as the end of the free time.</summary>
+    /// <param name="end">The end shown.</param>
+    /// <param name="lookedUntil">Where the lookup stopped looking, when the answer says.</param>
+    /// <returns>" or later" when the end is the lookup's edge; otherwise nothing.</returns>
+    private static string OrLater(DateTimeOffset end, DateTimeOffset? lookedUntil) =>
+        lookedUntil is { } edge && end >= edge ? " or later" : "";
 
     /// <summary>The timestamp style for a slot's end. The time-only style is enough while a slot
     /// is shorter than a day; a longer one would read "8:00 AM–8:00 AM", so its end carries the

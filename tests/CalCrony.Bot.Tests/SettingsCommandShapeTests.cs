@@ -73,6 +73,11 @@ public class SettingsCommandShapeTests : IAsyncLifetime
         Assert.All(set.Parameters, parameter => Assert.True(parameter.IsRequired));
         Assert.Equal(typeof(AvailableHoursDays), set.Parameters[0].ParameterType);
 
+        // The suggestions tell a start from an end by the option's name: an end runs to midnight
+        // and a start does not. The command and the handler share the two names.
+        Assert.Equal(TimeOfDayAutocompleteHandler.StartOptionName, set.Parameters[1].Name);
+        Assert.Equal(TimeOfDayAutocompleteHandler.EndOptionName, set.Parameters[2].Name);
+
         // Discord turns longer text down before the command runs; what arrives is read by
         // TimeOfDayText, picked from the suggestions or typed.
         foreach (var time in set.Parameters.Skip(1))
@@ -81,6 +86,16 @@ public class SettingsCommandShapeTests : IAsyncLifetime
             Assert.True(time.IsAutocomplete);
             Assert.Equal(TimeOfDayText.MaxInputLength, time.MaxLength);
         }
+    }
+
+    [Fact]
+    public void Set_says_before_it_runs_what_saving_hours_allows()
+    {
+        // Saving hours is what lets other members list one's free slots by name. The reply says so
+        // too, but by then it has happened: the description is what a member reads first.
+        Assert.Equal(
+            "Save your hours for the days you pick; other members can then list your free slots by name",
+            Hours("set").Description);
     }
 
     [Fact]

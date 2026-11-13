@@ -265,11 +265,11 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
         /// <param name="days">The days the range applies to.</param>
         /// <param name="from">The start, picked from the suggestions or typed.</param>
         /// <param name="to">The end, picked from the suggestions or typed; midnight ends the day.</param>
-        [SlashCommand("set", "Save the hours you're available on the days you pick")]
+        [SlashCommand("set", "Save your hours for the days you pick; other members can then list your free slots by name")]
         public async Task SetAsync(
             [Summary("days", "The days these hours apply to")] AvailableHoursDays days,
-            [Summary("from", "Start time, e.g. 6 PM or 18:00"), Autocomplete(typeof(TimeOfDayAutocompleteHandler)), MaxLength(TimeOfDayText.MaxInputLength)] string from,
-            [Summary("to", "End time, e.g. 11 PM or 23:00; midnight ends the day"), Autocomplete(typeof(TimeOfDayAutocompleteHandler)), MaxLength(TimeOfDayText.MaxInputLength)] string to)
+            [Summary(TimeOfDayAutocompleteHandler.StartOptionName, "Start time, e.g. 6 PM or 18:00"), Autocomplete(typeof(TimeOfDayAutocompleteHandler)), MaxLength(TimeOfDayText.MaxInputLength)] string from,
+            [Summary(TimeOfDayAutocompleteHandler.EndOptionName, "End time, e.g. 11 PM or 23:00; midnight ends the day"), Autocomplete(typeof(TimeOfDayAutocompleteHandler)), MaxLength(TimeOfDayText.MaxInputLength)] string to)
         {
             await DeferAsync(ephemeral: true);
 
@@ -284,8 +284,7 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
                 return;
             }
 
-            var week = AvailableHoursText.Apply(current.Hours.IsSet ? current.Hours.Days : [], days, range);
-            await SaveAndReplyAsync(week, current);
+            await SaveAndReplyAsync(AvailableHoursText.Set(current.Hours, days, range), current);
         }
 
         /// <summary>Marks the named days as not available. With nothing saved there is nothing to
@@ -302,16 +301,9 @@ public class SettingsModule(CalCronyApiClient api) : InteractionModuleBase<Socke
                 return;
             }
 
-            if (!current.Hours.IsSet)
+            if (!AvailableHoursText.TryOff(current.Hours, days, out var week, out var refusal))
             {
-                await FollowupAsync(AvailableHoursText.NothingSavedToSwitchOff, ephemeral: true);
-                return;
-            }
-
-            var week = AvailableHoursText.Apply(current.Hours.Days, days, null);
-            if (week.Count == 0)
-            {
-                await FollowupAsync(AvailableHoursText.WouldLeaveNoDay, ephemeral: true);
+                await FollowupAsync(refusal, ephemeral: true);
                 return;
             }
 

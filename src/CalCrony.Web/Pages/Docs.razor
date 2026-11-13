@@ -281,11 +281,13 @@
         <code>/settings available-hours set days:weekdays from:6pm to:11pm</code>, or the card
         under My settings here: the hours you're usually available, one range per weekday, read in
         your timezone (the server's, if you haven't set one). Free slots are cut from them, and
-        until you save any, 8 AM to 11 PM every day is assumed. <code>off</code> marks days as not
-        available; <code>reset</code> goes back to the default. With saved hours you are counted
-        in free-slot lists even without a linked calendar, marked as hours only. Saving hours also
-        lets members of the servers you share with CalCrony list your free slots by name, which
-        shows roughly the hours you keep; <code>reset</code> takes that back.
+        until you save any, 8 AM to 11 PM every day is assumed. The first <code>set</code> leaves
+        the days you don't name off; after that, <code>set</code> and <code>off</code> change only
+        the days you name, and <code>reset</code> goes back to the default. With saved hours you
+        are counted in free-slot lists even without a linked calendar, marked as hours only.
+        Saving hours also lets members of the servers you share with CalCrony list your free slots
+        by name, which shows roughly the hours you keep and, if your calendar is linked, when
+        you're busy inside them; <code>reset</code> takes that back.
     </li>
 </ul>
 

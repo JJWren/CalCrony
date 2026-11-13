@@ -320,6 +320,14 @@ public class ThemeComponentTests : TestContext
         // The card says which zone its times are read in, from what the page loaded.
         cut.WaitForAssertion(() => Assert.Contains("Times are read in your timezone, Europe/Berlin.", cut.Markup));
         Assert.True(cut.Find("#ah-on-Monday").HasAttribute("checked"));
+
+        // A timezone typed into the card above and not saved changes nothing yet: the hours are
+        // still read in the saved one, and the card goes on saying so.
+        cut.Find("#us-tz").Change("America/Chicago");
+
+        Assert.Equal("America/Chicago", cut.Find("#us-tz").GetAttribute("value"));
+        Assert.Contains("Times are read in your timezone, Europe/Berlin.", cut.Markup);
+        Assert.DoesNotContain("Times are read in your timezone, America/Chicago.", cut.Markup);
     }
 
     [Fact]

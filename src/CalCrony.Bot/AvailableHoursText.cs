@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using CalCrony.Bot.Api;
 using CalCrony.Contracts;
 using Discord.Interactions;
 
@@ -47,7 +48,8 @@ public static class AvailableHoursText
     /// list one's free slots by name. One wording, so the surfaces cannot drift.</summary>
     public const string SavedNotice =
         "Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots " +
-        "with `/availability slots`, which shows roughly the hours you keep. `/settings available-hours reset` takes that back.";
+        "with `/availability slots`, which shows roughly the hours you keep and, if your calendar is linked, " +
+        "when you're busy inside them. `/settings available-hours reset` takes that back.";
 
     /// <summary>The reply to <c>off</c> when nothing is saved: there is no saved day to switch
     /// off, and a command called "off" is not what should start a member's hours being listed.</summary>
@@ -110,13 +112,13 @@ public static class AvailableHoursText
         range = default;
         if (!TimeOfDayText.TryParse(from, asEnd: false, out var start))
         {
-            refusal = CouldNotRead("from");
+            refusal = CouldNotRead(TimeOfDayAutocompleteHandler.StartOptionName);
             return false;
         }
 
         if (!TimeOfDayText.TryParse(to, asEnd: true, out var end))
         {
-            refusal = CouldNotRead("to");
+            refusal = CouldNotRead(TimeOfDayAutocompleteHandler.EndOptionName);
             return false;
         }
 
@@ -133,6 +135,52 @@ public static class AvailableHoursText
         }
 
         range = (start, end);
+        refusal = null;
+        return true;
+    }
+
+    /// <summary>The week <c>set</c> saves: the member's saved week with the named days given the
+    /// range. With nothing saved it starts from an empty week, so days the member does not name
+    /// are not available — the week the API sends along with "not set" is the default one, there
+    /// to be shown, and is not what a first save builds on.</summary>
+    /// <param name="current">The member's hours as the API returned them.</param>
+    /// <param name="choice">The days the command names.</param>
+    /// <param name="range">The range to give them.</param>
+    /// <returns>The week to save, Monday first.</returns>
+    public static IReadOnlyList<AvailableHoursDayDto> Set(
+        AvailableHoursDto current, AvailableHoursDays choice, (int StartMinute, int EndMinute) range) =>
+        Apply(current.IsSet ? current.Days : [], choice, range);
+
+    /// <summary>The week <c>off</c> saves, or the reply that refuses it. With nothing saved there
+    /// is no saved day to switch off — and saving what is left of the default week would start
+    /// the member's hours being listed by name, which a command called "off" must not do. A week
+    /// with no day left cannot be saved either.</summary>
+    /// <param name="current">The member's hours as the API returned them.</param>
+    /// <param name="choice">The days the command names.</param>
+    /// <param name="week">The week to save, Monday first, when the command goes ahead.</param>
+    /// <param name="refusal">The reply to give instead, when it does not.</param>
+    /// <returns>Whether there is a week to save.</returns>
+    public static bool TryOff(
+        AvailableHoursDto current,
+        AvailableHoursDays choice,
+        [NotNullWhen(true)] out IReadOnlyList<AvailableHoursDayDto>? week,
+        [NotNullWhen(false)] out string? refusal)
+    {
+        week = null;
+        if (!current.IsSet)
+        {
+            refusal = NothingSavedToSwitchOff;
+            return false;
+        }
+
+        var left = Apply(current.Days, choice, null);
+        if (left.Count == 0)
+        {
+            refusal = WouldLeaveNoDay;
+            return false;
+        }
+
+        week = left;
         refusal = null;
         return true;
     }

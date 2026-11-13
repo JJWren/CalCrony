@@ -119,7 +119,8 @@ public class ComponentTests : TestContext
         Assert.Contains("your available hours if you save them", policy);
         Assert.Contains(
             "saving them lets members of the servers you share with CalCrony list your free slots by name, " +
-            "which shows roughly the hours you keep, and resetting them takes that back",
+            "which shows roughly the hours you keep and, if your calendar is linked, when you are busy inside them, " +
+            "and resetting them takes that back",
             policy);
         Assert.Contains("kept until you reset them", policy);
 

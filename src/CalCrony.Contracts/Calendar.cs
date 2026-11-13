@@ -238,6 +238,9 @@ public record FreeSlotDayDto(DateOnly Date, IReadOnlyList<FreeSlotDto> Slots, Da
 /// <param name="ByName">True when the lookup was made by name and answered under that rule
 /// (<see cref="FreeSlotsRequest.ByName"/>). The bot shows a list about a member other than the
 /// caller only when this is set, so an API that does not know the rule cannot be asked around it.</param>
+/// <param name="LookedUntilUtc">Where the lookup stopped looking: the midnight one day after the
+/// last day listed. A slot that ends here was still open when the lookup stopped, so its real end
+/// is this instant or later; the reply says so. Null when the API did not say.</param>
 public record FreeSlotsResponse(
     string TimeZone,
     DateOnly FirstDay,
@@ -245,4 +248,5 @@ public record FreeSlotsResponse(
     int CountedMembers,
     IReadOnlyList<FreeSlotDayDto> Days,
     IReadOnlyList<FreeSlotMemberDto> Members,
-    bool ByName = false);
+    bool ByName = false,
+    DateTimeOffset? LookedUntilUtc = null);

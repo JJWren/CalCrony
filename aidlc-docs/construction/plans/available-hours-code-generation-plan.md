@@ -57,7 +57,7 @@ overruled. The numbering continues unit 1's R1–R10.
 | R13 | An `off` with nothing saved yet is refused and points at `set`. The alternative was to start from the default week and save what is left. | Saving hours is what lets other members list one's slots by name. A command called `off` should not be what turns that on. |
 | R14 | The reply names members in two fields — **Counted with less to go on** (hours only; default hours assumed) and **Not counted** — where the design (5.3) had one field for all five groups. | Fifty mentions do not fit in one field's 1,024 characters, and FR3 wants each of these members named. The two fields also keep "counted" and "not counted" apart, which is the first thing a reader needs. |
 | R15 | Members on the default hours are named one by one only when some counted member has saved hours. When every counted member is on the default, the sentence says so for all of them, as in unit 1. | Otherwise every role lookup would list its whole membership under a note until members start saving hours. FR13 is met either way: the reply says whom the default was applied to. |
-| R16 | The stored value is `[{"day":1,"start":480,"end":1380},…]` — ISO weekday numbers, Monday 1 — in a column of at most 512 characters, where D1 said "text". A stored value that cannot be read counts as not saved, and reading never throws. | Every other string column on the profile is bounded, and the longest week is 239 characters. The stored names are fixed here so that renaming a DTO property cannot change what is on disk. |
+| R16 | The stored value is `[{"day":1,"start":480,"end":1380},…]` — ISO weekday numbers, Monday 1 — in a column of at most 512 characters, where D1 said "text". A stored value that cannot be read counts as not saved, and reading never throws. | The longest week is 239 characters, and the profile's timezone, username and avatar hash are bounded the same way (its theme is not). The stored names are fixed here so that renaming a DTO property cannot change what is on disk. |
 | R17 | A typed time is at most 20 characters and is read by a small reader of its own: `6pm`, `6:30 PM`, `18:30`, `noon`, `midnight`. A bare hour is read on the 24-hour clock (`7` is 7 AM). `midnight`, `12am` and `0:00` mean the start of the day in `from` and the end of the day in `to`; `24:00` is accepted in `to` only. | The design named `6:30pm` and `18:30`; the rest are what people type. The options declare the length, so Discord turns longer text down before the command runs. |
 | R18 | A suggestion shows the 12-hour label and carries the 24-hour form as its value (`6:30 PM` → `18:30`, `midnight` → `24:00`). | The value a picked suggestion sends is read by the same reader as typed text, and is unambiguous. |
 | R19 | Every hours command reads what it needs before it writes — the caller's hours, their settings, and the server's settings when they have set no timezone — and writes nothing if a read fails. | The reply has to say which zone applies (FR12). A reply that saved the hours and then could not say so would leave the member guessing. |
@@ -74,7 +74,9 @@ minutes from midnight, on the 30-minute step (`AvailableHoursLimits.StepMinutes`
 before the end; the end may be 1440, the midnight that closes the day. A weekday without a range is
 not available.
 
-`WeeklyHours.TryFromDto` checks a submitted week in this order and stops at the first failure.
+`WeeklyHours.TryFromDto` checks a submitted week in this order and stops at the first failure:
+the two checks on the whole list first, then the entries one at a time in the order sent, each
+through its five checks — so a fault in the first entry is reported ahead of any in the second.
 `{Day}` is the weekday's English name.
 
 | Check | Message |
@@ -92,7 +94,9 @@ Storage (R16): `Serialize` writes the days in order, Monday first, as
 anything it cannot read as a week — text that is not that JSON, an unknown weekday, a weekday
 twice, a range outside one day or not start-before-end, or no day at all. It does not apply the
 30-minute step: that is a rule for what may be entered, and a stored week must stay readable if
-the step ever changes. `ToDto` lists the available days, Monday first.
+the step ever changes. Saving is another matter: `set`, `off` and the web card send the whole
+week back, and every day in it is then held to the step in force — so a change of step needs
+the stored weeks rewritten with it. `ToDto` lists the available days, Monday first.
 
 ### 4.2 The hours routes
 
@@ -165,7 +169,7 @@ ephemeral.
 
 | Subcommand | Options | Description in Discord |
 |---|---|---|
-| `set` | `days` (required) — one of ten choices: `every day`, `weekdays (Mon–Fri)`, `weekends (Sat, Sun)`, `Monday` … `Sunday` · `from`, `to` (required) — text with suggestions, at most 20 characters | `Save the hours you're available on the days you pick` · days: `The days these hours apply to` · from: `Start time, e.g. 6 PM or 18:00` · to: `End time, e.g. 11 PM or 23:00; midnight ends the day` |
+| `set` | `days` (required) — one of ten choices: `every day`, `weekdays`, `weekends`, `Monday` … `Sunday` (as approved, two of them carried the days in parentheses; section 9) · `from`, `to` (required) — text with suggestions, at most 20 characters | `Save your hours for the days you pick; other members can then list your free slots by name` (review round 1; as approved: `Save the hours you're available on the days you pick`) · days: `The days these hours apply to` · from: `Start time, e.g. 6 PM or 18:00` · to: `End time, e.g. 11 PM or 23:00; midnight ends the day` |
 | `off` | `days` (required) — the same ten choices | `Mark days as not available` · days: `The days to mark as not available` |
 | `reset` | none | `Go back to the default hours, 8 AM–11 PM every day` — a test holds the two times against `AvailableHoursLimits` |
 
@@ -177,7 +181,9 @@ ephemeral.
 2. Read the caller's hours and settings, and the server's settings when the caller has no timezone
    (R19). A failed read: `❌ Couldn't load your settings: {error}`, and nothing is written.
 3. Start from the saved week, or from an empty one when nothing is saved; give the named days the
-   range; save. A refusal from the API prints as `❌ {error}`.
+   range; save. A refusal from the API prints as `❌ {error}`. Which week a save starts from, and
+   the two refusals of `off`, are decided in `AvailableHoursText` (`Set`, `TryOff`), where tests
+   reach them (review round 1).
 4. Reply with the saved week, the zone and the notice (4.10).
 
 `off`: the same reads; with nothing saved it is refused (R13):
@@ -204,7 +210,7 @@ Otherwise it saves and replies as `set` does.
 | `18:30`, `18`, `7`, `0:00`, `00:00` | the 24-hour clock; hours 0–23 |
 | `noon` | 12 PM |
 | `midnight`, `12am`, `0:00`, `00:00` | 0 in `from`; 1440 in `to` |
-| `24:00` | 1440, in `to` only |
+| `24:00`, and a bare `24` | 1440, in `to` only |
 
 Anything else is not a time. The reader takes at most 20 characters
 (`TimeOfDayText.MaxInputLength`, which both options declare) and does not check the 30-minute
@@ -235,8 +241,12 @@ when the range is null, and returns the new week.
 
 ### 4.8 The slots reply
 
-Title, range line, day lines, the closing line and the footer are unit 1's. The basis sentence
-and the fields change.
+Title, range line, the closing line and the footer are unit 1's. The basis sentence and the
+fields change, and a day line gains one thing (review round 1): an end that is only where the
+lookup stopped looking is followed by `or later`. A lookup reads one day past the last day
+listed; hours that run to midnight and resume at midnight can carry a slot all the way there,
+where it is cut. The answer names that instant (`FreeSlotsResponse.LookedUntilUtc`), and a slot
+or a "free until" that ends there reads `…–<t:end:f> or later`.
 
 **Basis sentence.** "Default" below means every counted member is on the default hours.
 
@@ -271,8 +281,10 @@ It is shown first.
 **Budget.** The longest new sentence is 69 characters longer than unit 1's longest (228 against
 159), so the description's worst case goes from 3,601 to about 3,670 of 4,096. With both fields
 full the embed comes to about 5,870 of 6,000 — unit 1's 4,749, those 69, a second field of 1,024
-and its name. That is why the first field takes only what is left: the embed cannot go over. A
-test builds the case, and Discord.Net refuses to build an embed over either limit.
+and its name. With the limits as they are, the room left for the first field is never under a
+field's 1,024, so the rule that it takes what is left is a guard against the description growing,
+and no test can make it bite (section 9). A test builds the worst case, and Discord.Net refuses
+to build an embed over either limit.
 
 ### 4.9 The web card
 
@@ -301,12 +313,13 @@ One wording, used wherever hours are saved or shown:
 
 | Where | Text |
 |---|---|
-| reply to `set` and `off` | `🕒 Your available hours: **{week}**` / the zone line / ``Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots with `/availability slots`, which shows roughly the hours you keep. `/settings available-hours reset` takes that back.`` |
+| reply to `set` and `off` | `🕒 Your available hours: **{week}**` / the zone line / ``Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots with `/availability slots`, which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them. `/settings available-hours reset` takes that back.`` (the clause on a linked calendar: review round 1) |
 | zone line, timezone set | `Read in your timezone, **{zone}**.` |
 | zone line, none set | ``You haven't set a timezone, so these hours are read in each server's own — **{server zone}** here. `/settings timezone` makes them mean the same everywhere.`` |
 | reply to `reset` | `🕒 Your available hours are back to the default, **8 AM–11 PM every day**. Other members can no longer list your free slots by name; a role you hold still counts you while your calendar is linked.` |
 | `/settings view` | the two lines of 4.5 |
-| web card | `Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots with /availability slots, which shows roughly the hours you keep. Reset to default takes that back.` |
+| the description of `set` in Discord | `…; other members can then list your free slots by name` (4.5) — the one place a member reads before saving (review round 1) |
+| web card | `Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots with /availability slots, which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them. Reset to default takes that back.` |
 | Docs page, both privacy copies | 4.11 |
 
 ### 4.11 Docs copy
@@ -316,15 +329,15 @@ One wording, used wherever hours are saved or shown:
 | `README.md` Features, line 42 | ``- Google Calendar, free/busy scope only (`/availability`): role or event grids, free slots for a member or role within their available hours.`` — 22 words where the line has 20, so the section goes from 398 to 400, the cap. |
 | `README.md` command table, the `/settings` row | adds ``· `/settings available-hours set\|off\|reset` `` and `· your available hours` |
 | `README.md` command table, the slots row | `Free slots for a member or a role over 1–14 days (default 7, from today): times every counted member is free, inside each member's available hours (8 AM–11 PM until they save their own). You can always pick yourself; another member once they have saved hours. Only you see the reply` |
-| `Docs.razor`, a new entry after "Google Calendar availability" | **Available hours** (per member; only you can set yours) — `/settings available-hours set days:weekdays from:6pm to:11pm`, or the card under My settings here: the hours you're usually available, one range per weekday, read in your timezone (the server's if you haven't set one). Free slots are cut from them, and until you save any, 8 AM–11 PM every day is assumed. `off` marks days as not available; `reset` goes back to the default. With saved hours you are counted in free-slot lists even without a linked calendar, marked as hours only. Saving hours also lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep; `reset` takes that back. |
+| `Docs.razor`, a new entry after "Google Calendar availability" | **Available hours** (per member; only you can set yours) — `/settings available-hours set days:weekdays from:6pm to:11pm`, or the card under My settings here: the hours you're usually available, one range per weekday, read in your timezone (the server's if you haven't set one). Free slots are cut from them, and until you save any, 8 AM to 11 PM every day is assumed. The first `set` leaves the days you don't name off; after that, `set` and `off` change only the days you name, and `reset` goes back to the default. With saved hours you are counted in free-slot lists even without a linked calendar, marked as hours only. Saving hours also lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them; `reset` takes that back. (The sentence on a first `set` and the clause on a linked calendar: review round 1.) |
 | `Docs.razor`, the "Google Calendar availability" entry | the slots sentence reads "lists when a member — or everyone holding a role — is free over 1 to 14 days: you can always pick yourself, and another member once they have saved their available hours"; "A slot is time inside each member's available hours (8 AM to 11 PM until they save their own) with nothing on a linked calendar"; and "Members with neither saved hours nor a linked calendar aren't counted". |
 | `Docs.razor` command table, the `/settings` row | adds `available-hours set\|off\|reset` |
-| `PRIVACY_POLICY.md`, `Privacy.razor` — Preferences | the same sentence in both: per-user and per-server timezone, DM-confirmation and DM-reminder settings (reminders by DM are off unless you turn them on yourself — no server or event creator can), your available hours if you save them (the weekly hours you say you are usually available; saving them lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep, and resetting them takes that back), interface theme, server settings. |
+| `PRIVACY_POLICY.md`, `Privacy.razor` — Preferences | the same sentence in both: per-user and per-server timezone, DM-confirmation and DM-reminder settings (reminders by DM are off unless you turn them on yourself — no server or event creator can), your available hours if you save them (the weekly hours you say you are usually available; saving them lets members of the servers you share with CalCrony list your free slots by name, which shows roughly the hours you keep and, if your calendar is linked, when you are busy inside them, and resetting them takes that back), interface theme, server settings. |
 | both privacy copies — levelled (R20) | "fetched on demand when someone runs an availability check and not stored" in both; the Public calendar paragraph in both, in the web copy's words. |
 | both privacy copies — Retention & deletion | **Available hours**: kept until you reset them (`/settings available-hours reset` or the web app), which deletes them at once. |
 | both privacy copies — the date | the day the PR opens |
 | `CONTEXT.md` | **Available Hours** says they are the member's own once saved, 8 AM–11 PM every day until then, and that saving them lets other members list that member's Free Slots by name. **Counted Member** says a member can be counted on a calendar, on saved hours, or on both. |
-| `live-e2e-script.md` §12 | New items: the nested group registers, with ten `days` choices and time suggestions; `set`, `off` and `reset` reply with the week, the zone and the notice, and `/settings view` and the web card agree with them; an `off` with nothing saved and an `off` that would leave no day are refused; slots follow saved hours; a member with hours and no calendar is listed as hours only; a role of members in different states shows both fields; the migration is in the test stack's history. The item for naming another member is replaced — **must pass**, both ways: a member who has not saved hours is refused with the text of 4.4, linked or not, and one who has is listed. |
+| `live-e2e-script.md` §12 | New items: the nested group registers, with ten `days` choices and time suggestions; `set`, `off` and `reset` reply with the week, the zone and the notice, and `/settings view` and the web card agree with them; an `off` with nothing saved and an `off` that would leave no day are refused; slots follow saved hours; a member with hours and no calendar is listed as hours only; a role of members in different states shows both fields; the migration is in the test stack's history. The item for naming another member is replaced — **must pass**: a member who has not saved hours is refused with the text of 4.4, linked or not; one who has is listed; and an account from outside the server is refused as that even when it has saved hours (review round 1, S1). |
 
 Left as they are: the Limited Use sentence (a list resting on hours alone uses nothing from
 Google); `/help`'s tagline; the Terms; the worked examples.
@@ -333,7 +346,7 @@ Google); `/help`'s tagline; the Terms; the worked examples.
 
 | File | Change |
 |---|---|
-| `src/CalCrony.Contracts/Calendar.cs` | `AvailableHoursLimits.StepMinutes` (30); `AvailableHoursDayDto`, `AvailableHoursDto`, `SetAvailableHoursRequest` as in design §3; `FreeSlotsRequest.ByName` and `FreeSlotsResponse.ByName` (R11, R12) — last in each record, read as false when absent on the wire; the two enum summaries that say "not returned until members can save hours" corrected. |
+| `src/CalCrony.Contracts/Calendar.cs` | `AvailableHoursLimits.StepMinutes` (30); `AvailableHoursDayDto`, `AvailableHoursDto`, `SetAvailableHoursRequest` as in design §3; `FreeSlotsRequest.ByName` and `FreeSlotsResponse.ByName` (R11, R12) — last in each record, read as false when absent on the wire; `FreeSlotsResponse.LookedUntilUtc` (review round 1), absent the same way; `TimeOfDay.Format` (section 9); the two enum summaries that say "not returned until members can save hours" corrected. |
 | `src/CalCrony.Api/Services/WeeklyHours.cs` | `TryFromDto`, `Parse`, `Serialize`, `ToDto` (4.1). |
 | `src/CalCrony.Api/Data/Entities.cs`, `CalCronyDbContext.cs` | `UserProfile.AvailableHoursJson`, `HasMaxLength(512)`. |
 | `src/CalCrony.Api/Data/Migrations/` | `AddAvailableHours`: one nullable column; `Down` drops it. Snapshot updated. |
@@ -366,11 +379,14 @@ Google); `/help`'s tagline; the Terms; the worked examples.
   (`GuildAccessService.SelfOnly`, `Auth/GuildAccessService.cs` 62–63); `PutUserSettings` 136–196
   finds or adds the row (159–164) and assigns named properties only, so a column it does not name
   is left alone.
-- `Entities.cs`: `UserProfile` 87–121. `CalCronyDbContext.cs`: its mapping 78–84, every string
-  bounded; the JSON-column precedent `RsvpOptionsJson` is `HasMaxLength(10240)` (124).
+- `Entities.cs`: `UserProfile` 87–121. `CalCronyDbContext.cs`: its mapping 78–84 bounds the
+  timezone, the username and the avatar hash at 64; the theme is not mapped and is `text` (as
+  first written this said every string was bounded — corrected in review round 1); the
+  JSON-column precedent `RsvpOptionsJson` is `HasMaxLength(10240)` (124).
 - Migrations live in `src/CalCrony.Api/Data/Migrations/`; the latest is
   `20260902152200_AllowMultipleRsvps`, and the test stack's history has 24 rows. `dotnet ef`
-  10.0.11 is installed as a global tool; the repository has no tool manifest. The API applies
+  10.0.11 is installed as a global tool, and the repository's `dotnet-tools.json` pins the same
+  version (as first written this said there was no tool manifest — corrected in review round 1). The API applies
   pending migrations at start, and the API tests run on a migrated Postgres container.
 - `WeeklyHours.cs`: constructor 20–40 (inside one day, start before end, a real weekday),
   `Default` 44–47, `RangeFor` 52–53. `MemberZone.Resolve` is `MemberZone.cs` 18–19.
@@ -532,9 +548,17 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       tag; the migration is additive, so rolling the image back stays safe.
 
 For the live pass, because no test can cover them: Discord accepting the nested group at
-registration; the suggestions as they appear while typing; the card at phone width; and the two
-lines in the module that no test reaches — the one that hands `ByName` on, and the one that checks
-the answer before replying. The must-pass item of 4.11 covers both.
+registration; the suggestions as they appear while typing; the card at phone width; and the lines
+in the two modules that no test reaches, the bot's tests having no way to stand in for Discord:
+
+- in `AvailabilityModule.SlotsAsync`: the line that tells a member of this server from anyone
+  else Discord can resolve by id — since this unit the one thing that keeps a lookup by name
+  inside a server the two share, as the API holds no membership (review round 1, S1); the line
+  that hands `ByName` on; and the line that checks the answer before replying. The must-pass
+  item of 4.11 covers all three.
+- in `SettingsModule`: that `view` appends the hours line, and that `set` and `off` read before
+  they write and write nothing when a read fails (R19). The rules themselves — which week a save
+  starts from, the two refusals of `off`, every reply — are pure functions with tests.
 
 ## 9. Notes from generation
 
@@ -574,6 +598,60 @@ rule that it takes what is left guards against the description growing.
 
 Counts: 1,272 tests green — 719 API, 400 bot, 153 web (1,017 before: 639, 246, 132). The Release
 build has no errors and no warning from new code.
+
+Three more differences, found in review round 1 and true since generation:
+
+- **The week's checks run entry by entry**: a fault in the first entry is reported ahead of any
+  in the second. 4.1 now says so.
+- **A bare `24`** is read as the end of the day in `to`, as `24:00` is. 4.6's table now lists it.
+- **The API's refusal for a named member** reaches the member as `❌ That member hasn't saved…`,
+  as every refusal from the API does; the bot's own refusals carry no mark.
+
+### Mutation checks (2026-11-13)
+
+Before the review, on an exported copy of `5c7392c` — never the repository — fourteen rules were
+taken out one at a time, and each time the tests meant to pin the rule failed: the by-name
+refusal; that refusal moved to after the calendars are read; a linked calendar that cannot be
+read falling back on saved hours; the answer not saying it was by name; saved hours ignored by
+the lookup; a by-name request carrying several members; the self-only guard on each of the three
+hours routes; the step on a submitted week; an empty week being saved; the bot showing an
+unchecked answer about someone else; a named member not marked as by name; and the bot accepting
+a start that is not before its end.
+
+### Review round 1 — two review agents, on `5c7392c` (2026-11-13)
+
+As on unit 1, two review agents read the commit before anything was pushed, one on security and
+privacy and one on correctness and quality. Each built it and ran the suite in a copy of its own:
+1,272 green and the baseline's 22 warnings, as recorded above. Neither found a wrong rule or a
+wrong user-facing text, and the security reviewer found no way around the by-name rule: for a
+linked member with an expired token, a refused lookup by name made no refresh call and no
+free/busy call; twenty-nine stored values that are not a week broke no lookup; and release 0.36.4
+ran against a schema with the new column, as rolling the image back would have it.
+
+| Finding | What was done |
+|---|---|
+| S1 (low) — The check that a named user is a member of this server is, since this unit, the one thing that keeps a lookup by name inside a server the two share. No automated test reaches the module line that makes it, and its live item sat in a section that may be skipped. | The must-pass live item now includes it: an account from outside the server that has saved hours is refused as that, with no list. Section 8 names the line. The reviewer ran Discord.Net's own option reader on interaction payloads: a resolved member is handed on, anyone else is refused. |
+| S2 (low) — In Discord a member learned that saving hours makes them listable by name only from the reply, after the save. | `set`'s description says it (4.5), and a test holds the text. |
+| S3 (info) — The notice said what a list by name shows of the hours, not that a linked calendar's busy times are cut out of them. | One clause added to the one wording, wherever it is used: both replies, the web card, the Docs entry and both privacy copies (4.10, 4.11). |
+| S4 (info) — Another member's display name reaches the reply's title as typed, markdown characters included. The reply is ephemeral, and nothing in an embed pings. | Not changed: escaping a name without seeing how Discord shows a title could put backslashes into ordinary names. A live item looks at it. |
+| Q1 (major) — Three rules of 4.5 were decided inside the command group, where no test reaches: which week a first `set` starts from, and the two refusals of `off`. Taking any of them out passed every test, and the first two would then have saved the default week. | Moved into `AvailableHoursText.Set` and `TryOff`, with tests. The live item for a first `set` now says to run it on an account with nothing saved. |
+| Q2 (minor) — A slot still open where the lookup stops looking was shown as ending there. Default hours could not produce one; hours that meet at midnight can. | `FreeSlotsResponse.LookedUntilUtc`, and the reply writes `or later` (4.8). A comment in the calculator said such a slot always shows its real end; corrected. |
+| Q3 (minor) — "A linked calendar that cannot be read is not made up for by saved hours" was pinned for a refused refresh only. | A second case, for a provider that could not be reached. |
+| Q4 (minor) — Which of the two time options is the end rested on a name that nothing kept in step with the command. | The handler's two option names are constants the command declares its options with, and a test compares them. The live item checks what each empty box offers. |
+| Q5 (minor) — The page's test could not tell the saved timezone from one being typed. | The test types a timezone without saving it, and the card still names the saved one. |
+| Q6 (nit) — The order of the checks on the two typed times was not pinned. | A test with two faults at a time. |
+| Q7 (nit) — 4.8 read as if a test exercised the rule that the first field takes what the embed has left. | 4.8 reworded: with the limits as they are it is a guard, as this section already said. |
+| Q8 (nit) — A stored week off the step can be read but not saved again in part. | Not reachable while the step stays as it is; 4.1 says what a change of step would need. |
+| Q9 (nit) — Two facts in section 6 were untrue — the tool manifest, and "every string bounded", which R16's reason repeated — and three small differences were missing from this section. | Corrected in place; the three are listed above. |
+| Q10 (nit) — A test helper named `Counted` built a member on the default hours; a test of eight stored days could not fail for the reason it named; the route's summary left the by-name refusal out. | The helper is `OnDefaultHours`; the count check in `Parse`, which an eighth entry can never get past the other checks to need, is gone and the test names the reason that is true; the summary lists the refusal. |
+| Q11 (nit) — The Docs example sets weekdays; on a first `set` that leaves the weekend off, and the entry did not say. | One sentence in the entry (4.11). |
+
+Noted by the security reviewer and not changed here, being older than this change: the repository
+copy of the privacy policy mentions the community Discord server in its contact section, with a
+caution about posting personal details there, and the web copy does not.
+
+Counts after round 1: 1,284 tests green — 721 API, 410 bot, 153 web. The Release build has no
+errors and the baseline's 22 warnings.
 
 ## 10. Plan checklist
 

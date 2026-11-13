@@ -22,7 +22,7 @@ public class FreeSlotsEmbedBuilderTests
     [Fact]
     public void Title_names_the_target_and_the_first_line_states_range_and_minimum()
     {
-        var embed = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(Counted(1)));
+        var embed = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnDefaultHours(1)));
 
         Assert.Equal("Free slots for @GM", embed.Title);
         Assert.StartsWith("🗓️ Thu Nov 12 – Wed Nov 18, 2026 · 60 min or longer\n", embed.Description);
@@ -33,7 +33,7 @@ public class FreeSlotsEmbedBuilderTests
     public void A_single_day_is_not_written_as_a_range()
     {
         var response = new FreeSlotsResponse(
-            "UTC", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, [])], [Counted(1)]);
+            "UTC", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, [])], [OnDefaultHours(1)]);
 
         var embed = FreeSlotsEmbedBuilder.Build("@Sam", 90, response);
 
@@ -46,7 +46,7 @@ public class FreeSlotsEmbedBuilderTests
         // A bare date already behind us rolls to next year; the year is what makes that visible.
         var first = new DateOnly(2026, 12, 29);
         var response = new FreeSlotsResponse(
-            "UTC", first, first.AddDays(6), 1, Days(first, 7), [Counted(1)]);
+            "UTC", first, first.AddDays(6), 1, Days(first, 7), [OnDefaultHours(1)]);
 
         var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, response);
 
@@ -56,7 +56,7 @@ public class FreeSlotsEmbedBuilderTests
     [Fact]
     public void One_member_counted_reads_as_their_own_free_time()
     {
-        var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, Week(Counted(1)));
+        var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, Week(OnDefaultHours(1)));
 
         // The hours are read in the server's zone for a member who has set none, and the sentence
         // says so: that moves every time in the list.
@@ -69,7 +69,7 @@ public class FreeSlotsEmbedBuilderTests
     public void Several_members_counted_read_as_the_time_they_all_share()
     {
         var embed = FreeSlotsEmbedBuilder.Build(
-            "@GM", 60, Week(Counted(1), Counted(2), Counted(3), Member(4, FreeSlotMemberState.NotCounted), Member(5, FreeSlotMemberState.Error)));
+            "@GM", 60, Week(OnDefaultHours(1), OnDefaultHours(2), OnDefaultHours(3), Member(4, FreeSlotMemberState.NotCounted), Member(5, FreeSlotMemberState.Error)));
 
         Assert.Contains(
             $"\nWhen all 3 counted members are free on their linked calendars, each {Sentence8To11} " +
@@ -81,7 +81,7 @@ public class FreeSlotsEmbedBuilderTests
     public void One_counted_member_of_several_is_said_plainly()
     {
         var embed = FreeSlotsEmbedBuilder.Build(
-            "@GM", 60, Week(Counted(1), Member(2, FreeSlotMemberState.NotCounted), Member(3, FreeSlotMemberState.NotCounted)));
+            "@GM", 60, Week(OnDefaultHours(1), Member(2, FreeSlotMemberState.NotCounted), Member(3, FreeSlotMemberState.NotCounted)));
 
         Assert.Contains(
             $"\nWhen the one counted member is free on their linked calendar, {Sentence8To11} " +
@@ -170,7 +170,7 @@ public class FreeSlotsEmbedBuilderTests
     [Fact]
     public void When_some_counted_members_have_not_saved_hours_the_sentence_says_what_is_assumed_for_them()
     {
-        var embed = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnOwnHours(1), Counted(2)));
+        var embed = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnOwnHours(1), OnDefaultHours(2)));
 
         Assert.Contains(
             $"\nWhen all 2 counted members are free: each inside their available hours ({Range8To11} for anyone who hasn't saved theirs), " +
@@ -208,7 +208,7 @@ public class FreeSlotsEmbedBuilderTests
         var response = new FreeSlotsResponse(
             "America/Chicago", Thursday, Thursday.AddDays(1), 1,
             [new FreeSlotDayDto(Thursday, [morning, evening]), new FreeSlotDayDto(Thursday.AddDays(1), [])],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, response);
 
@@ -234,7 +234,7 @@ public class FreeSlotsEmbedBuilderTests
                 new FreeSlotDayDto(Thursday.AddDays(1), [], overnight.EndUtc),
                 new FreeSlotDayDto(Thursday.AddDays(2), []),
             ],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
 
@@ -253,7 +253,7 @@ public class FreeSlotsEmbedBuilderTests
                 new FreeSlotDayDto(Thursday, [overnight]),
                 new FreeSlotDayDto(Thursday.AddDays(1), [fridayEvening], overnight.EndUtc),
             ],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var friday = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n')[^1];
 
@@ -268,7 +268,7 @@ public class FreeSlotsEmbedBuilderTests
         var response = new FreeSlotsResponse(
             "America/Chicago", Thursday, Thursday.AddDays(1), 1,
             [new FreeSlotDayDto(Thursday, [long30]), new FreeSlotDayDto(Thursday.AddDays(1), [], long30.EndUtc)],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var friday = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n')[^1];
 
@@ -287,7 +287,7 @@ public class FreeSlotsEmbedBuilderTests
                 new FreeSlotDayDto(Thursday.AddDays(1), [], threeDays.EndUtc),
                 new FreeSlotDayDto(Thursday.AddDays(2), [], threeDays.EndUtc),
             ],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
 
@@ -308,7 +308,7 @@ public class FreeSlotsEmbedBuilderTests
                 new FreeSlotDayDto(Thursday, [.. shown, overnight]),
                 new FreeSlotDayDto(Thursday.AddDays(1), [], overnight.EndUtc),
             ],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
 
@@ -325,7 +325,7 @@ public class FreeSlotsEmbedBuilderTests
     {
         // A minimum longer than anyone's hours can never match, and a run of "nothing free" does
         // not say so.
-        var lines = FreeSlotsEmbedBuilder.Build("@Sam", minimumMinutes, Week(Counted(1))).Description.Split('\n');
+        var lines = FreeSlotsEmbedBuilder.Build("@Sam", minimumMinutes, Week(OnDefaultHours(1))).Description.Split('\n');
 
         var hint = $"Nothing {minimumMinutes} min or longer is free in this range — a shorter `duration` may find something.";
         if (expected)
@@ -345,7 +345,7 @@ public class FreeSlotsEmbedBuilderTests
         var response = new FreeSlotsResponse(
             "America/Chicago", Thursday, Thursday.AddDays(1), 1,
             [new FreeSlotDayDto(Thursday, [Slot(ThursdayMorning, hours: 2)]), new FreeSlotDayDto(Thursday.AddDays(1), [])],
-            [Counted(1)]);
+            [OnDefaultHours(1)]);
 
         var description = FreeSlotsEmbedBuilder.Build("@Sam", 120, response).Description;
 
@@ -360,7 +360,7 @@ public class FreeSlotsEmbedBuilderTests
     {
         var slots = Enumerable.Range(0, slotCount).Select(i => Slot(ThursdayMorning.AddMinutes(40 * i), hours: 0.5)).ToList();
         var response = new FreeSlotsResponse(
-            "America/Chicago", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, slots)], [Counted(1)]);
+            "America/Chicago", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, slots)], [OnDefaultHours(1)]);
 
         var dayLine = FreeSlotsEmbedBuilder.Build("@Sam", 15, response).Description.Split('\n')[^1];
 
@@ -386,7 +386,7 @@ public class FreeSlotsEmbedBuilderTests
     {
         var slot = Slot(ThursdayMorning, hours);
         var response = new FreeSlotsResponse(
-            "America/Chicago", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, [slot])], [Counted(1)]);
+            "America/Chicago", Thursday, Thursday, 1, [new FreeSlotDayDto(Thursday, [slot])], [OnDefaultHours(1)]);
 
         var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, response);
 
@@ -399,7 +399,7 @@ public class FreeSlotsEmbedBuilderTests
         var embed = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(
             Member(5, FreeSlotMemberState.Error),
             Member(4, FreeSlotMemberState.ReconnectRequired),
-            Counted(1),
+            OnDefaultHours(1),
             Member(2, FreeSlotMemberState.NotCounted),
             Member(3, FreeSlotMemberState.NotCounted)));
 
@@ -415,10 +415,10 @@ public class FreeSlotsEmbedBuilderTests
     [Fact]
     public void A_reason_with_no_members_has_no_line_and_a_full_count_has_no_field()
     {
-        var onlyOneReason = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(Counted(1), Member(2, FreeSlotMemberState.Error)));
+        var onlyOneReason = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnDefaultHours(1), Member(2, FreeSlotMemberState.Error)));
         Assert.Equal("⚠️ Couldn't check right now — <@2>", Assert.Single(onlyOneReason.Fields).Value);
 
-        var everyoneCounted = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(Counted(1), Counted(2)));
+        var everyoneCounted = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnDefaultHours(1), OnDefaultHours(2)));
         Assert.Empty(everyoneCounted.Fields);
     }
 
@@ -427,11 +427,11 @@ public class FreeSlotsEmbedBuilderTests
     {
         var embed = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(
             Member(6, FreeSlotMemberState.NotCounted),
-            Counted(4),
+            OnDefaultHours(4),
             HoursOnly(2),
             OnOwnHours(1),
             HoursOnly(3),
-            Counted(5)));
+            OnDefaultHours(5)));
 
         // Two fields: who was counted on hours or a calendar alone, then who was not counted. A
         // member on both their calendar and their own hours needs no note.
@@ -449,7 +449,7 @@ public class FreeSlotsEmbedBuilderTests
         var hoursOnly = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnOwnHours(1), HoursOnly(2)));
         Assert.Equal("🕒 Saved hours only, no calendar linked — <@2>", Assert.Single(hoursOnly.Fields).Value);
 
-        var onTheDefault = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnOwnHours(1), Counted(2)));
+        var onTheDefault = FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnOwnHours(1), OnDefaultHours(2)));
         Assert.Equal($"ℹ️ No hours saved, {Range8To11} assumed — <@2>", Assert.Single(onTheDefault.Fields).Value);
     }
 
@@ -464,7 +464,7 @@ public class FreeSlotsEmbedBuilderTests
     {
         // Until a member saves hours, every role lookup would otherwise list its whole membership.
         var embed = FreeSlotsEmbedBuilder.Build(
-            "@GM", 60, Week(Counted(1), Counted(2), Counted(3), Member(4, FreeSlotMemberState.NotCounted)));
+            "@GM", 60, Week(OnDefaultHours(1), OnDefaultHours(2), OnDefaultHours(3), Member(4, FreeSlotMemberState.NotCounted)));
 
         Assert.Contains($"each {Sentence8To11} in their own timezone", embed.Description);
         Assert.Equal("Not counted", Assert.Single(embed.Fields).Name);
@@ -475,7 +475,7 @@ public class FreeSlotsEmbedBuilderTests
     {
         // Twenty on saved hours alone, twenty on the default, ten left out, and two with both.
         var members = Enumerable.Range(0, 20).Select(i => HoursOnly(UserId(i)))
-            .Concat(Enumerable.Range(20, 20).Select(i => Counted(UserId(i))))
+            .Concat(Enumerable.Range(20, 20).Select(i => OnDefaultHours(UserId(i))))
             .Concat(Enumerable.Range(40, 10).Select(i => Member(UserId(i), FreeSlotMemberState.NotCounted)))
             .Append(OnOwnHours(UserId(50)))
             .ToArray();
@@ -516,7 +516,7 @@ public class FreeSlotsEmbedBuilderTests
         // the field empty.
         var members = Enumerable.Range(0, 25).Select(i => Member(UserId(i), FreeSlotMemberState.NotCounted))
             .Append(Member(UserId(25), FreeSlotMemberState.ReconnectRequired))
-            .Append(Counted(UserId(26)))
+            .Append(OnDefaultHours(UserId(26)))
             .ToArray();
 
         var value = Assert.Single(FreeSlotsEmbedBuilder.Build("@Everyone", 60, Week(members)).Fields).Value;
@@ -533,7 +533,7 @@ public class FreeSlotsEmbedBuilderTests
         var members = Enumerable.Range(0, 45).Select(i => Member(UserId(i), FreeSlotMemberState.NotCounted))
             .Append(Member(UserId(45), FreeSlotMemberState.ReconnectRequired))
             .Append(Member(UserId(46), FreeSlotMemberState.Error))
-            .Append(Counted(UserId(47)))
+            .Append(OnDefaultHours(UserId(47)))
             .ToArray();
 
         var value = Assert.Single(FreeSlotsEmbedBuilder.Build("@Everyone", 60, Week(members)).Fields).Value;
@@ -557,7 +557,7 @@ public class FreeSlotsEmbedBuilderTests
     public void Three_long_lists_share_the_field_so_no_reason_is_pushed_out()
     {
         var states = new[] { FreeSlotMemberState.NotCounted, FreeSlotMemberState.ReconnectRequired, FreeSlotMemberState.Error };
-        var members = Enumerable.Range(0, 48).Select(i => Member(UserId(i), states[i % 3])).Append(Counted(UserId(48))).ToArray();
+        var members = Enumerable.Range(0, 48).Select(i => Member(UserId(i), states[i % 3])).Append(OnDefaultHours(UserId(48))).ToArray();
 
         var value = Assert.Single(FreeSlotsEmbedBuilder.Build("@Everyone", 60, Week(members)).Fields).Value;
 
@@ -592,7 +592,7 @@ public class FreeSlotsEmbedBuilderTests
             .ToList();
         var states = new[] { FreeSlotMemberState.NotCounted, FreeSlotMemberState.ReconnectRequired, FreeSlotMemberState.Error };
         var members = Enumerable.Range(0, 50)
-            .Select(i => i < countedMembers ? Counted(UserId(i)) : Member(UserId(i), states[i % 3]))
+            .Select(i => i < countedMembers ? OnDefaultHours(UserId(i)) : Member(UserId(i), states[i % 3]))
             .ToArray();
         var response = new FreeSlotsResponse(
             "America/Argentina/ComodRivadavia", first, first.AddDays(13), countedMembers, days, members);
@@ -621,7 +621,7 @@ public class FreeSlotsEmbedBuilderTests
             .ToList();
         var states = new[] { FreeSlotMemberState.NotCounted, FreeSlotMemberState.ReconnectRequired, FreeSlotMemberState.Error };
         var members = Enumerable.Range(0, 24).Select(i => HoursOnly(UserId(i)))
-            .Concat(Enumerable.Range(24, 24).Select(i => Counted(UserId(i))))
+            .Concat(Enumerable.Range(24, 24).Select(i => OnDefaultHours(UserId(i))))
             .Concat(Enumerable.Range(48, 48).Select(i => Member(UserId(i), states[i % 3])))
             .Append(OnOwnHours(UserId(96)))
             .ToArray();
@@ -648,15 +648,58 @@ public class FreeSlotsEmbedBuilderTests
     }
 
     [Fact]
+    public void A_slot_cut_where_the_lookup_stopped_looking_is_said_to_end_then_or_later()
+    {
+        // Hours that run to midnight and resume at midnight can carry a slot to the edge of the
+        // lookup, one day past the last day listed. Its real end is that instant or later.
+        var edge = ThursdayMorning.AddDays(2);
+        var ordinary = Slot(ThursdayMorning, hours: 2);
+        var cut = new FreeSlotDto(ThursdayMorning.AddHours(4), edge);
+        var response = new FreeSlotsResponse(
+            "America/Chicago",
+            Thursday,
+            Thursday.AddDays(1),
+            1,
+            [new FreeSlotDayDto(Thursday, [ordinary, cut]), new FreeSlotDayDto(Thursday.AddDays(1), [], edge)],
+            [HoursOnly(1)],
+            LookedUntilUtc: edge);
+
+        var lines = FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description.Split('\n');
+
+        // Only the end that is the edge of the lookup is qualified; a slot that ends inside it is not.
+        Assert.Contains(
+            $"**Thu Nov 12** · <t:{ordinary.StartUnix}:t>–<t:{ordinary.EndUnix}:t> · " +
+            $"<t:{cut.StartUnix}:t>–<t:{cut.EndUnix}:f> or later",
+            lines);
+        Assert.Contains($"**Fri Nov 13** · free until <t:{edge.ToUnixTimeSeconds()}:f> or later (started Thu)", lines);
+    }
+
+    [Fact]
+    public void When_the_answer_does_not_say_how_far_it_looked_no_end_is_qualified()
+    {
+        // An API that does not send the edge: the reply reads as it did before.
+        var edge = ThursdayMorning.AddDays(2);
+        var response = new FreeSlotsResponse(
+            "America/Chicago",
+            Thursday,
+            Thursday.AddDays(1),
+            1,
+            [new FreeSlotDayDto(Thursday, [new FreeSlotDto(ThursdayMorning, edge)]), new FreeSlotDayDto(Thursday.AddDays(1), [], edge)],
+            [HoursOnly(1)]);
+
+        Assert.DoesNotContain("or later", FreeSlotsEmbedBuilder.Build("@Sam", 60, response).Description);
+    }
+
+    [Fact]
     public void The_reply_wears_the_availability_grids_colour()
     {
         var grid = AvailabilityEmbedBuilder.Build("@GM", ThursdayMorning, ThursdayMorning.AddHours(1), []);
 
-        Assert.Equal(grid.Color, FreeSlotsEmbedBuilder.Build("@GM", 60, Week(Counted(1))).Color);
+        Assert.Equal(grid.Color, FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnDefaultHours(1))).Color);
     }
 
     /// <summary>A member counted on a linked calendar and the default hours.</summary>
-    private static FreeSlotMemberDto Counted(long userId) => new(userId, FreeSlotMemberState.DefaultHours);
+    private static FreeSlotMemberDto OnDefaultHours(long userId) => new(userId, FreeSlotMemberState.DefaultHours);
 
     /// <summary>A member counted on a linked calendar and hours they saved.</summary>
     private static FreeSlotMemberDto OnOwnHours(long userId) => new(userId, FreeSlotMemberState.Counted);
