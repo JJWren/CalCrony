@@ -359,6 +359,245 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         Assert.All(result.Days.SelectMany(d => d.Slots), slot => Assert.True(slot.StartUtc >= before.ToDateTimeOffset()));
     }
 
+    [Fact]
+    public async Task A_linked_member_with_saved_hours_is_counted_on_those_hours()
+    {
+        const long guildId = 9400, caller = 9401, member = 9402;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // An evening on the first day's weekday, a late morning on the next, and no other day.
+        await SeedProfileAsync(member, "America/Chicago", Week(
+            (day.DayOfWeek, 1080, 1320), (day.PlusDays(1).DayOfWeek, 600, 720)));
+        await SeedConnectionAsync(member, "access-slots-9402");
+        fixture.Provider.BusyBlocksByAccessToken["access-slots-9402"] = [(At(Chicago, day, 19), At(Chicago, day, 20))];
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 3, 60));
+
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.Counted)], result.Members);
+        Assert.Equal(1, result.CountedMembers);
+        Assert.Equal(
+            [Slot(At(Chicago, day, 18), At(Chicago, day, 19)), Slot(At(Chicago, day, 20), At(Chicago, day, 22))],
+            result.Days[0].Slots);
+        Assert.Equal([Slot(At(Chicago, day.PlusDays(1), 10), At(Chicago, day.PlusDays(1), 12))], result.Days[1].Slots);
+
+        // A weekday without a range is not available at all.
+        Assert.Empty(result.Days[2].Slots);
+        Assert.Null(result.Days[2].OpenUntilUtc);
+    }
+
+    [Fact]
+    public async Task Saved_hours_and_no_calendar_count_a_member_on_the_hours_alone()
+    {
+        const long guildId = 9410, caller = 9411, member = 9412;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(member, "America/Chicago", Week((day.DayOfWeek, 540, 1020)));
+        var providerCalls = fixture.Provider.FreeBusyCalls.Count;
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.HoursOnly)], result.Members);
+        Assert.Equal(1, result.CountedMembers);
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], result.Days.Single().Slots);
+
+        // There is no calendar, so none was asked.
+        Assert.Equal(providerCalls, fixture.Provider.FreeBusyCalls.Count);
+    }
+
+    [Fact]
+    public async Task Saved_hours_and_the_default_meet_each_in_its_members_own_timezone()
+    {
+        const long guildId = 9420, caller = 9421, inBerlin = 9422, onTheDefault = 9423;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedProfileAsync(caller, "America/Chicago");
+        await SeedProfileAsync(inBerlin, "Europe/Berlin", EveryDay(840, 1320));     // 2 PM–10 PM in Berlin
+        await SeedConnectionAsync(inBerlin, "access-slots-9422");
+        await SeedConnectionAsync(onTheDefault, "access-slots-9423");               // no profile: server time, default hours
+        var day = DayAhead(Chicago);
+
+        var result = await GetAsync(new FreeSlotsRequest([inBerlin, onTheDefault], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal(
+            [
+                new FreeSlotMemberDto(inBerlin, FreeSlotMemberState.Counted),
+                new FreeSlotMemberDto(onTheDefault, FreeSlotMemberState.DefaultHours),
+            ],
+            result.Members);
+        Assert.Equal(2, result.CountedMembers);
+
+        // From 8 AM in Chicago, where the default hours begin, to 10 PM in Berlin, where the saved ones end.
+        Assert.Equal([Slot(At(Chicago, day, 8), At(Berlin, day, 22))], result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task Hours_from_midnight_to_midnight_with_no_calendar_are_one_slot_across_the_range()
+    {
+        const long guildId = 9430, caller = 9431, member = 9432;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedProfileAsync(member, "America/Chicago", EveryDay(0, 1440));
+        var day = DayAhead(Chicago);
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 3, 60));
+
+        // One stretch from the first midnight to the end of the day after the last one asked for,
+        // listed under the day it starts on; the days it runs through say until when they are free.
+        var end = At(Chicago, day.PlusDays(4), 0);
+        Assert.Equal([Slot(At(Chicago, day, 0), end)], result.Days[0].Slots);
+        Assert.Empty(result.Days[1].Slots);
+        Assert.Empty(result.Days[2].Slots);
+        Assert.Equal(end.ToDateTimeOffset(), result.Days[1].OpenUntilUtc);
+        Assert.Equal(end.ToDateTimeOffset(), result.Days[2].OpenUntilUtc);
+    }
+
+    [Fact]
+    public async Task A_linked_calendar_that_cannot_be_read_is_not_made_up_for_by_saved_hours()
+    {
+        const long guildId = 9440, caller = 9441, member = 9442;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedProfileAsync(member, "America/Chicago", EveryDay(540, 1020));
+        var expired = SystemClock.Instance.GetCurrentInstant() - Duration.FromMinutes(5);
+        await SeedConnectionAsync(member, "access-slots-9442", expired, "refresh-slots-9442");
+        fixture.Provider.RefreshOverrides["refresh-slots-9442"] = CalendarTokenRefreshResult.ReconnectRequired("invalid_grant");
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(DayAhead(Chicago)), 1, 60));
+
+        // The calendar exists; a list that ignored it would say more than is known.
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.ReconnectRequired)], result.Members);
+        Assert.Equal(0, result.CountedMembers);
+        Assert.Empty(result.Days);
+    }
+
+    [Fact]
+    public async Task By_name_another_member_who_has_saved_hours_is_listed_and_the_answer_says_it_was_by_name()
+    {
+        const long guildId = 9450, caller = 9451, member = 9452;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(member, "America/Chicago", Week((day.DayOfWeek, 540, 1020)));
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 1, 60, ByName: true));
+
+        Assert.True(result.ByName);
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.HoursOnly)], result.Members);
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], result.Days.Single().Slots);
+    }
+
+    [Theory]
+    [InlineData(9462, true, true)]      // a calendar linked and a profile, but no saved hours
+    [InlineData(9463, false, true)]     // a profile and nothing else
+    [InlineData(9464, false, false)]    // someone CalCrony has never seen
+    public async Task By_name_another_member_without_saved_hours_is_refused_and_no_calendar_is_asked(
+        long member, bool linked, bool hasProfile)
+    {
+        const long guildId = 9460, caller = 9461;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        if (hasProfile)
+        {
+            await SeedProfileAsync(member, "America/Chicago");
+        }
+
+        if (linked)
+        {
+            await SeedConnectionAsync(member, $"access-slots-{member}");
+        }
+
+        var providerCalls = fixture.Provider.FreeBusyCalls.Count;
+
+        var response = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([member], caller, guildId, null, 7, 60, ByName: true));
+
+        // One text for all three: the refusal tells the caller nothing else about the member.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            FreeSlotsService.NamedMemberHasNoSavedHours, (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        Assert.Equal(providerCalls, fixture.Provider.FreeBusyCalls.Count);
+    }
+
+    [Fact]
+    public void The_by_name_refusal_says_how_hours_are_saved()
+    {
+        Assert.Equal(
+            "That member hasn't saved their available hours, so their free slots can't be listed by name. " +
+            "They can save them with `/settings available-hours set` or under My settings on the web. " +
+            "To see when a group is free, pick a role.",
+            FreeSlotsService.NamedMemberHasNoSavedHours);
+    }
+
+    [Fact]
+    public async Task The_by_name_refusal_comes_before_the_first_day_is_read()
+    {
+        const long guildId = 9470, caller = 9471, member = 9472;
+        await SeedGuildAsync(guildId, "America/Chicago");
+
+        var response = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([member], caller, guildId, "banana", 7, 60, ByName: true));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            FreeSlotsService.NamedMemberHasNoSavedHours, (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+    }
+
+    [Fact]
+    public async Task A_stored_week_that_cannot_be_read_is_no_saved_hours_for_a_lookup_by_name()
+    {
+        const long guildId = 9475, caller = 9476, member = 9477;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedProfileAsync(member, "America/Chicago", "not a week");
+
+        var byName = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([member], caller, guildId, null, 7, 60, ByName: true));
+        Assert.Equal(HttpStatusCode.BadRequest, byName.StatusCode);
+
+        // Through a role the same member is simply not counted: nothing to go on, and no failure.
+        var throughARole = await GetAsync(new FreeSlotsRequest([member], caller, guildId, null, 7, 60));
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.NotCounted)], throughARole.Members);
+    }
+
+    [Fact]
+    public async Task By_name_the_requester_is_listed_with_or_without_saved_hours()
+    {
+        const long guildId = 9480, caller = 9481;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedConnectionAsync(caller, "access-slots-9481");
+
+        var result = await GetAsync(new FreeSlotsRequest([caller], caller, guildId, Iso(DayAhead(Chicago)), 1, 60, ByName: true));
+
+        Assert.True(result.ByName);
+        Assert.Equal([new FreeSlotMemberDto(caller, FreeSlotMemberState.DefaultHours)], result.Members);
+    }
+
+    [Fact]
+    public async Task Without_by_name_one_member_is_answered_as_a_role_lookup_is()
+    {
+        // A role one member holds is still a role lookup: no saved hours are asked of them.
+        const long guildId = 9485, caller = 9486, member = 9487;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedConnectionAsync(member, "access-slots-9487");
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(DayAhead(Chicago)), 1, 60));
+
+        Assert.False(result.ByName);
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.DefaultHours)], result.Members);
+    }
+
+    [Fact]
+    public async Task By_name_takes_exactly_one_member()
+    {
+        const long guildId = 9490, caller = 9491, member = 9492;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        await SeedProfileAsync(member, "America/Chicago", EveryDay(540, 1020));
+
+        var two = await Client.PostAsJsonAsync(
+            "/calendar/free-slots", new FreeSlotsRequest([member, 9493], caller, guildId, null, 7, 60, ByName: true));
+        Assert.Equal(HttpStatusCode.BadRequest, two.StatusCode);
+        Assert.Equal("A lookup by name takes exactly one member.", (await two.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        // The same member sent twice is one member.
+        var twice = await GetAsync(new FreeSlotsRequest([member, member], caller, guildId, null, 7, 60, ByName: true));
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.HoursOnly)], twice.Members);
+    }
+
     /// <summary>A first day beyond the horizon: a refusal with its reason, not a 500 — and the
     /// member's calendar is never asked. Natural language reaches any year.</summary>
     private async Task AssertRefusedAsTooFarAheadAsync(string when, long member)
@@ -407,13 +646,21 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         }
     }
 
-    private async Task SeedProfileAsync(long userId, string timeZone)
+    private async Task SeedProfileAsync(long userId, string timeZone, string? availableHours = null)
     {
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
-        db.UserProfiles.Add(new UserProfile { Id = userId, TimeZone = timeZone });
+        db.UserProfiles.Add(new UserProfile { Id = userId, TimeZone = timeZone, AvailableHoursJson = availableHours });
         await db.SaveChangesAsync();
     }
+
+    /// <summary>A stored week with a range on each of the given weekdays and no other day.</summary>
+    private static string Week(params (IsoDayOfWeek Day, int StartMinute, int EndMinute)[] days) =>
+        new WeeklyHours(days.ToDictionary(d => d.Day, d => (d.StartMinute, d.EndMinute))).Serialize();
+
+    /// <summary>A stored week with the same range on all seven days.</summary>
+    private static string EveryDay(int startMinute, int endMinute) =>
+        Week([.. Enumerable.Range((int)IsoDayOfWeek.Monday, 7).Select(day => ((IsoDayOfWeek)day, startMinute, endMinute))]);
 
     private async Task SeedConnectionAsync(long userId, string accessToken, Instant? expiresAt = null, string? refreshToken = null)
     {

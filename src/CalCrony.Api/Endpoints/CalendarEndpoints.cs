@@ -206,6 +206,13 @@ public static class CalendarEndpoints
             return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {FreeSlotLimits.MaxUsers} distinct entries."));
         }
 
+        // A lookup by name is about the one member who was named; the rule for it (their saved
+        // hours) is the service's.
+        if (request.ByName && userIds.Count != 1)
+        {
+            return Results.BadRequest(new ErrorResponse("A lookup by name takes exactly one member."));
+        }
+
         if (request.Days is < FreeSlotLimits.MinDays or > FreeSlotLimits.MaxDays)
         {
             return Results.BadRequest(new ErrorResponse(

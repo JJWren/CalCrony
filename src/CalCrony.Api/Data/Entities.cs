@@ -113,6 +113,12 @@ public class UserProfile
     /// choice and deliberately not stored.</summary>
     public string? Theme { get; set; }
 
+    /// <summary>The member's available hours as <see cref="Services.WeeklyHours"/> stores them — one
+    /// range per available weekday — or null when they have saved none and the default hours
+    /// apply. Only the member sets it, through its own routes: no other settings write carries it.
+    /// Saving hours is also what lets other members list this member's free slots by name.</summary>
+    public string? AvailableHoursJson { get; set; }
+
     /// <summary>Display name captured at web login (global name, falling back to username);
     /// null until the user has signed in to the web app at least once.</summary>
     public string? Username { get; set; }

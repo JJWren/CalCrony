@@ -1275,3 +1275,10 @@ Availability for @GM
 **Context**: Construction, unit 2 (`available-hours`) — the plan awaits Joshua's approval; the local branch is level with `master` `3bf39e6`.
 
 ---
+## Construction — unit 2 (`available-hours`): plan approved
+**Timestamp**: 2026-11-13T00:21:52Z
+**User Input**: "Approve the plan"
+**AI Response**: The question in the app's next-step box was "Approve unit 2's plan (available hours)?", with the answers "Approve the plan" and "Request changes"; the message beside it said that approving starts code generation on the local branch only. Joshua approved, as written. The other question of that message — whether to tick unit 1's box on #171 and bring its text up to date with FR19 and D11 — was not answered, so the issue is left as it is. Checked first, as at the start of every turn: the local branch is `8f34030`, level with `master` `3bf39e6`, with nothing uncommitted; the only open PR is the release PR, #175. Code generation starts with step 0.1, the build and the test run before the first change.
+**Context**: Construction, unit 2 (`available-hours`) — code generation, part 2: generation begins. Nothing leaves this machine without its own go-ahead.
+
+---

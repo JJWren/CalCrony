@@ -2,6 +2,7 @@ using CalCrony.Api.Auth;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace CalCrony.Api.Endpoints;
@@ -17,6 +18,12 @@ public static class SettingsEndpoints
         app.MapPut("/guilds/{guildId:long}/settings", PutGuildSettings);
         app.MapGet("/users/{userId:long}/settings", GetUserSettings);
         app.MapPut("/users/{userId:long}/settings", PutUserSettings);
+
+        // Available hours travel on routes of their own, never on UserSettingsDto: a settings
+        // write then cannot carry them, so it cannot wipe them.
+        app.MapGet("/users/{userId:long}/available-hours", GetAvailableHours);
+        app.MapPut("/users/{userId:long}/available-hours", PutAvailableHours);
+        app.MapDelete("/users/{userId:long}/available-hours", DeleteAvailableHours);
     }
 
     /// <summary>Reads a guild's timezone and default channel.</summary>
@@ -193,5 +200,98 @@ public static class SettingsEndpoints
 
         await transaction.CommitAsync(cancellationToken);
         return Results.Ok(ToDto(user));
+    }
+
+    /// <summary>Reads a member's available hours (self-only for web callers). With nothing saved
+    /// the answer is the default week, marked as not set, so both surfaces can show what applies.
+    /// Reading creates no profile row.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> GetAvailableHours(
+        HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
+        }
+
+        var stored = await db.UserProfiles.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => u.AvailableHoursJson)
+            .FirstOrDefaultAsync(cancellationToken);
+        return Results.Ok(ToHoursDto(WeeklyHours.Parse(stored)));
+    }
+
+    /// <summary>The hours a caller sees: the saved week, or the default one when nothing is saved
+    /// (or what is stored cannot be read).</summary>
+    /// <param name="saved">The saved week, if any.</param>
+    /// <returns>The projected DTO.</returns>
+    private static AvailableHoursDto ToHoursDto(WeeklyHours? saved) =>
+        new(saved is not null, (saved ?? WeeklyHours.Default).ToDto());
+
+    /// <summary>Saves a member's available hours, replacing the whole week (self-only for web
+    /// callers). Only this column is written: timezone, theme and the DM switches stay as they
+    /// are. Saving hours is also what lets other members list this member's free slots by name;
+    /// the surfaces that call this say so. No activity-log entry — the log records server
+    /// management, not personal settings.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="request">The week to save.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> PutAvailableHours(
+        HttpContext context, long userId, SetAvailableHoursRequest request, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
+        }
+
+        if (!WeeklyHours.TryFromDto(request.Days, out var hours, out var error))
+        {
+            return Results.BadRequest(new ErrorResponse(error));
+        }
+
+        var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
+        if (user is null)
+        {
+            // A new row gets the defaults a missing one already reads as.
+            user = new UserProfile { Id = userId };
+            db.UserProfiles.Add(user);
+        }
+
+        user.AvailableHoursJson = hours.Serialize();
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ToHoursDto(hours));
+    }
+
+    /// <summary>Clears a member's saved hours (self-only for web callers): the default hours apply
+    /// again, and other members can no longer list this member's free slots by name. Clearing
+    /// what was never saved is the same 204, and creates no profile row.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    private static async Task<IResult> DeleteAvailableHours(
+        HttpContext context, long userId, CalCronyDbContext db, CancellationToken cancellationToken)
+    {
+        if (!context.User.IsBot() && context.User.WebUserId() != userId)
+        {
+            return GuildAccessService.SelfOnly();
+        }
+
+        var user = await db.UserProfiles.FindAsync([userId], cancellationToken);
+        if (user?.AvailableHoursJson is not null)
+        {
+            user.AvailableHoursJson = null;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return Results.NoContent();
     }
 }

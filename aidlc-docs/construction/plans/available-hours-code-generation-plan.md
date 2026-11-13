@@ -8,7 +8,8 @@ unit 1 as merged (`construction/plans/free-slots-code-generation-plan.md`).
 **Baseline**: `master` a079441 (unit 1, PR #172; 1,017 tests green there — 639 API, 246 bot, 132
 web — re-run as step 0.1). **Branch**: `feature/available-hours` → PR
 `feat: per-member available hours for free slots`.
-**Status**: written 2026-11-12; awaiting Joshua's approval.
+**Status**: approved by Joshua on 2026-11-13 (UTC), as written ("Approve the plan"); code
+generation under way (section 9 records what differs from the plan).
 
 As with unit 1, this file is the unit's functional design (sections 1–5) followed by its
 code-generation plan (sections 6–8), approved together.
@@ -414,30 +415,32 @@ Layers run top to bottom. Each layer builds and its tests pass before the next s
 ticked in the turn its step completes.
 
 **0. Baseline**
-- [ ] 0.1 On `feature/available-hours`: `dotnet build CalCrony.slnx` and `dotnet test CalCrony.slnx`
-      green before the first change; record the count against 1,017.
+- [x] 0.1 On `feature/available-hours`: `dotnet build CalCrony.slnx` and `dotnet test CalCrony.slnx`
+      green before the first change; record the count against 1,017. — 1,017 green (639 API, 246
+      bot, 132 web) on 2026-11-13; the Release build has no errors and the baseline's 22 warnings.
 
 **1. Contracts**
-- [ ] 1.1 `Calendar.cs`: the changes of section 5, documented in the file's style.
+- [x] 1.1 `Calendar.cs`: the changes of section 5, documented in the file's style.
 
 **2. API — the week and its storage**
-- [ ] 2.1 `WeeklyHours` (4.1). `WeeklyHoursTests`: each check of the table with its message and
+- [x] 2.1 `WeeklyHours` (4.1). `WeeklyHoursTests`: each check of the table with its message and
       their order; a week round-trips through `Serialize` and `Parse`; the stored text is exactly
       the form of R16; `Parse` gives null for null, blank, text that is not JSON, an unknown
       weekday, a weekday twice, a bad range and an empty list, and reads a time off the step;
       `ToDto` lists Monday first and leaves out days without a range.
-- [ ] 2.2 The column, its mapping and the migration `AddAvailableHours`, generated with
+- [x] 2.2 The column, its mapping and the migration `AddAvailableHours`, generated with
       `dotnet ef migrations add`; the generated files read through — one nullable column added,
-      dropped by `Down`, nothing else in the snapshot's diff.
+      dropped by `Down`, nothing else in the snapshot's diff. — `20261113002636_AddAvailableHours`;
+      the snapshot's one other line is the tool's version stamp (section 9).
 
 **3. API — routes and the lookup**
-- [ ] 3.1 The hours routes (4.2). `AvailableHoursApiTests`: nothing saved reads as not set with
+- [x] 3.1 The hours routes (4.2). `AvailableHoursApiTests`: nothing saved reads as not set with
       the default week, and no row is created; a week round-trips; each refusal of 4.1 through the
       route; `DELETE` clears, is a 204 twice over and creates no row; a stored value that cannot
       be read answers as not set; a web member reads, saves and clears their own and gets 403 on
       each route for another id; a settings write leaves the hours as they were, and an hours
       write leaves timezone, theme and both DM switches as they were (FR14).
-- [ ] 3.2 `FreeSlotsService` and the route's by-name check (4.3, 4.4). `FreeSlotsApiTests` gains:
+- [x] 3.2 `FreeSlotsService` and the route's by-name check (4.3, 4.4). `FreeSlotsApiTests` gains:
       a linked member with saved hours is `Counted` and their slots lie inside those hours;
       saved hours and no calendar is `HoursOnly`, counted, with no provider call;
       one member on saved hours and one on the default → the overlap, each in their own zone;
@@ -544,4 +547,4 @@ review round found.
       times, the reply, the web card and the notices (section 4)
 - [x] Refinements recorded with the alternative and the reason (section 3)
 - [x] File list, verified facts, steps and delivery gates written (sections 5–8)
-- [ ] Approved by Joshua
+- [x] Approved by Joshua — 2026-11-13 (UTC), as written ("Approve the plan")
