@@ -41,6 +41,38 @@ public class AvailableHoursTextTests
         Assert.All(choices, choice => Assert.NotEmpty(AvailableHoursText.DaysOf(choice)));
     }
 
+    public static TheoryData<AvailableHoursDays> EveryChoice() => [.. Enum.GetValues<AvailableHoursDays>()];
+
+    [Theory]
+    [MemberData(nameof(EveryChoice))]
+    public void Every_choice_sets_exactly_its_days_on_an_empty_week_and_over_a_saved_one(AvailableHoursDays choice)
+    {
+        var named = AvailableHoursText.DaysOf(choice);
+
+        var first = AvailableHoursText.Apply([], choice, (600, 720));
+        Assert.Equal(named, first.Select(day => day.Day));
+        Assert.All(first, day => Assert.Equal((600, 720), (day.StartMinute, day.EndMinute)));
+
+        // Over the default week: the named days take the new range, the rest keep theirs.
+        var over = AvailableHoursText.Apply(DefaultWeek, choice, (600, 720));
+        Assert.Equal(7, over.Count);
+        Assert.All(over, day => Assert.Equal(
+            named.Contains(day.Day) ? (600, 720) : (AvailableHoursLimits.DefaultStartMinute, AvailableHoursLimits.DefaultEndMinute),
+            (day.StartMinute, day.EndMinute)));
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryChoice))]
+    public void Every_choice_switches_off_exactly_its_days(AvailableHoursDays choice)
+    {
+        var named = AvailableHoursText.DaysOf(choice);
+
+        var week = AvailableHoursText.Apply(DefaultWeek, choice, null);
+
+        Assert.Equal(7 - named.Count, week.Count);
+        Assert.DoesNotContain(week, day => named.Contains(day.Day));
+    }
+
     [Fact]
     public void A_first_set_starts_from_an_empty_week_so_days_not_named_are_unavailable()
     {

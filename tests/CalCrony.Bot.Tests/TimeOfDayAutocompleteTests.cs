@@ -77,6 +77,16 @@ public class TimeOfDayAutocompleteTests
     }
 
     [Fact]
+    public void Text_longer_than_a_time_can_be_is_offered_nothing()
+    {
+        var atLimit = "6".PadRight(TimeOfDayText.MaxInputLength);
+        var overLimit = "6".PadRight(TimeOfDayText.MaxInputLength + 1);
+
+        Assert.NotEmpty(TimeOfDayAutocompleteHandler.BuildSuggestions(atLimit, asEnd: false));
+        Assert.Empty(TimeOfDayAutocompleteHandler.BuildSuggestions(overLimit, asEnd: false));
+    }
+
+    [Fact]
     public void There_are_never_more_suggestions_than_discord_shows()
     {
         // "1" could still become 1, 10, 11 or 12 o'clock, morning or evening, and 13:00 to 19:30.

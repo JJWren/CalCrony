@@ -12,7 +12,7 @@ namespace CalCrony.Web.Tests;
 /// <summary>The available-hours card on My settings: what it shows when nothing is saved and when
 /// a week is, what Save sends, when Save is refused before it is sent, Reset, a failed load, the
 /// zone it names, and the notice about what saving hours allows.</summary>
-public class AvailableHoursComponentTests : TestContext
+public class AvailableHoursComponentTests : BunitContext
 {
     private const long UserId = 42;
     private const string HoursPath = "/users/42/available-hours";

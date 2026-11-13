@@ -44,6 +44,12 @@ public class TimeOfDayAutocompleteHandler : AutocompleteHandler
     /// time the input names exactly placed first.</returns>
     public static List<AutocompleteResult> BuildSuggestions(string? input, bool asEnd)
     {
+        // Text longer than a time can be cannot become one, so nothing is offered for it.
+        if (input is { Length: > TimeOfDayText.MaxInputLength })
+        {
+            return [];
+        }
+
         var step = AvailableHoursLimits.StepMinutes;
         var first = asEnd ? step : 0;
         var last = asEnd ? AvailableHoursLimits.MinutesPerDay : AvailableHoursLimits.MinutesPerDay - step;
