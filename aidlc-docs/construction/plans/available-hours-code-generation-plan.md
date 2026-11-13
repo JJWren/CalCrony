@@ -483,8 +483,8 @@ ticked in the turn its step completes.
       inside 1,024 each and the embed inside 6,000; the worst case builds.
 
 **5. Web**
-- [ ] 5.1 `CalCronyWebApiClient`: the three methods.
-- [ ] 5.2 `AvailableHoursCard` and the page (4.9). `AvailableHoursComponentTests`: nothing saved →
+- [x] 5.1 `CalCronyWebApiClient`: the three methods.
+- [x] 5.2 `AvailableHoursCard` and the page (4.9). `AvailableHoursComponentTests`: nothing saved →
       the default week ticked and its note; a saved week → its rows; Save sends the ticked rows
       and nothing else; no day ticked, and a row out of order, each disable Save with their text;
       Reset sends the delete and shows the default; a failed load offers nothing to save; both

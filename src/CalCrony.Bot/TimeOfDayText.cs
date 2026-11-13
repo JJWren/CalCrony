@@ -15,25 +15,11 @@ public static class TimeOfDayText
     private const int Noon = 12 * MinutesPerHour;
 
     /// <summary>Formats a time of day on the 12-hour clock: "8 AM", "6:30 PM", "12 PM" for noon,
-    /// "12 AM" for the start of a day. 1440 — the end of a day — is "midnight".</summary>
+    /// "12 AM" for the start of a day. 1440 — the end of a day — is "midnight". The wording is
+    /// <see cref="TimeOfDay.Format"/>'s, which the web app shares.</summary>
     /// <param name="minutes">Minutes from midnight, 0 to 1440.</param>
     /// <returns>The display text.</returns>
-    public static string Format(int minutes)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(minutes);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(minutes, AvailableHoursLimits.MinutesPerDay);
-
-        if (minutes == AvailableHoursLimits.MinutesPerDay)
-        {
-            return "midnight";
-        }
-
-        var hour = minutes / MinutesPerHour;
-        var minute = minutes % MinutesPerHour;
-        var hourOnDial = hour % 12 == 0 ? 12 : hour % 12;
-        var suffix = hour < 12 ? "AM" : "PM";
-        return minute == 0 ? $"{hourOnDial} {suffix}" : $"{hourOnDial}:{minute:00} {suffix}";
-    }
+    public static string Format(int minutes) => TimeOfDay.Format(minutes);
 
     /// <summary>A time of day on the 24-hour clock, two digits each: "06:00", "18:30", and "24:00"
     /// for the end of a day. This is the value a suggestion sends, and <see cref="TryParse"/> reads

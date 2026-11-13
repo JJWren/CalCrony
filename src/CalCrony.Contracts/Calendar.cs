@@ -109,6 +109,37 @@ public static class AvailableHoursLimits
     public const int DefaultEndMinute = 1380;
 }
 
+/// <summary>How a time of day — minutes from midnight, the form available hours take on the wire —
+/// is written for a member. One place, so Discord and the web app write the same time the same
+/// way.</summary>
+public static class TimeOfDay
+{
+    private const int MinutesPerHour = 60;
+
+    /// <summary>Formats a time of day on the 12-hour clock: "8 AM", "6:30 PM", "12 PM" for noon,
+    /// "12 AM" for the start of a day. <see cref="AvailableHoursLimits.MinutesPerDay"/> — the end
+    /// of a day — is "midnight".</summary>
+    /// <param name="minutes">Minutes from midnight, 0 to <see cref="AvailableHoursLimits.MinutesPerDay"/>.</param>
+    /// <returns>The display text.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The time lies outside one day.</exception>
+    public static string Format(int minutes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(minutes);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(minutes, AvailableHoursLimits.MinutesPerDay);
+
+        if (minutes == AvailableHoursLimits.MinutesPerDay)
+        {
+            return "midnight";
+        }
+
+        var hour = minutes / MinutesPerHour;
+        var minute = minutes % MinutesPerHour;
+        var hourOnDial = hour % 12 == 0 ? 12 : hour % 12;
+        var suffix = hour < 12 ? "AM" : "PM";
+        return minute == 0 ? $"{hourOnDial} {suffix}" : $"{hourOnDial}:{minute:00} {suffix}";
+    }
+}
+
 /// <summary>One weekday of a member's available hours: a single range on that member's own wall
 /// clock.</summary>
 /// <param name="Day">The weekday.</param>

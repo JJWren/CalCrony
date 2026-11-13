@@ -211,6 +211,29 @@ public sealed class CalCronyWebApiClient(HttpClient http)
     public Task<ApiResult<UserSettingsDto>> PutUserSettingsAsync(long userId, UserSettingsDto settings, CancellationToken ct = default) =>
         SendAsync<UserSettingsDto>(http.PutAsJsonAsync($"/users/{userId}/settings", settings, ct), ct);
 
+    /// <summary>Reads the signed-in user's available hours: the saved week, or the default one
+    /// marked as not set.</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<AvailableHoursDto>> GetAvailableHoursAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<AvailableHoursDto>(http.GetAsync($"/users/{userId}/available-hours", ct), ct);
+
+    /// <summary>Saves the signed-in user's available hours, replacing the whole week.</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="request">The week to save.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<AvailableHoursDto>> PutAvailableHoursAsync(long userId, SetAvailableHoursRequest request, CancellationToken ct = default) =>
+        SendAsync<AvailableHoursDto>(http.PutAsJsonAsync($"/users/{userId}/available-hours", request, ct), ct);
+
+    /// <summary>Clears the signed-in user's saved hours, so the default hours apply again.</summary>
+    /// <param name="userId">The Discord user id.</param>
+    /// <param name="ct">Cancels the request.</param>
+    /// <returns>The call result: the value on success, a display-ready error otherwise.</returns>
+    public Task<ApiResult<Unit>> ResetAvailableHoursAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<Unit>(http.DeleteAsync($"/users/{userId}/available-hours", ct), ct);
+
     /// <summary>Parses natural-language datetime text for live previews.</summary>
     /// <param name="request">The request body.</param>
     /// <param name="ct">Cancels the request.</param>

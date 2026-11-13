@@ -308,6 +308,70 @@ public class ThemeComponentTests : TestContext
         Assert.Contains("members of the servers you share with CalCrony can check when", cut.Markup);
     }
 
+    [Fact]
+    public async Task The_settings_page_shows_the_hours_card_once_settings_have_loaded_and_hands_it_their_timezone()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = SettingsPageAnswers("Europe/Berlin");
+
+        var cut = Render<UserSettings>();
+
+        // The card says which zone its times are read in, from what the page loaded.
+        cut.WaitForAssertion(() => Assert.Contains("Times are read in your timezone, Europe/Berlin.", cut.Markup));
+        Assert.True(cut.Find("#ah-on-Monday").HasAttribute("checked"));
+    }
+
+    [Fact]
+    public async Task The_settings_page_shows_no_hours_card_when_the_settings_cannot_be_loaded()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = SettingsPageAnswers("Europe/Berlin");
+        handler.StatusFor = req => req.RequestUri!.AbsolutePath == "/users/42/settings"
+            ? HttpStatusCode.InternalServerError
+            : HttpStatusCode.OK;
+
+        var cut = Render<UserSettings>();
+
+        // A card shown now would name a zone the page never read.
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".alert-danger")));
+        Assert.Empty(cut.FindAll("#available-hours"));
+    }
+
+    [Fact]
+    public async Task The_settings_pages_own_saves_carry_no_hours()
+    {
+        var handler = UseApi();
+        await SetupAuthAsync(signedIn: true);
+        handler.JsonFor = SettingsPageAnswers("Europe/Berlin");
+
+        var cut = Render<UserSettings>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#ah-save")));
+
+        // The timezone card's Save comes first on the page; the hours card has its own.
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Save" && b.Id != "ah-save").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(HttpMethod.Put, handler.LastRequest!.Method));
+        Assert.Equal("/users/42/settings", handler.LastRequest!.RequestUri!.AbsolutePath);
+
+        // Hours travel on their own routes: a settings write cannot wipe what it does not carry.
+        Assert.DoesNotContain("hours", handler.PutBody!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("days", handler.PutBody!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>What the API says to a settings page for user 42: settings with the given
+    /// timezone, a saved week of hours, and no linked calendar.</summary>
+    private static Func<HttpRequestMessage, string?> SettingsPageAnswers(string timeZone) => req => req.RequestUri!.AbsolutePath switch
+    {
+        "/users/42/settings" => JsonSerializer.Serialize(new UserSettingsDto(timeZone, true, "slate"), JsonWeb),
+        "/users/42/available-hours" => JsonSerializer.Serialize(
+            new AvailableHoursDto(true, [new AvailableHoursDayDto(DayOfWeek.Monday, 1080, 1380)]), JsonWeb),
+        "/calendar/connections/42" => JsonSerializer.Serialize(new CalendarConnectionStatusDto(false, null, null), JsonWeb),
+        var p when p.Contains("timezone") => "[]",
+        _ => null,
+    };
+
     private CapturingHandler UseApi()
     {
         var handler = new CapturingHandler();
