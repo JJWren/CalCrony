@@ -492,14 +492,14 @@ ticked in the turn its step completes.
       own saves still send no hours.
 
 **6. Docs**
-- [ ] 6.1 `README.md`: the bullet and the two rows (4.11); the word count re-run and at most 400.
-- [ ] 6.2 `Docs.razor`: the new entry, the reworded sentences and the row. `DocsPageTests`: the
+- [x] 6.1 `README.md`: the bullet and the two rows (4.11); the word count re-run and at most 400.
+- [x] 6.2 `Docs.razor`: the new entry, the reworded sentences and the row. `DocsPageTests`: the
       entry names both surfaces, "only you", the default and the by-name rule; the availability
       entry says a member can be picked once they have saved hours.
-- [ ] 6.3 Both privacy copies (4.11), read side by side afterwards for the passages they share.
+- [x] 6.3 Both privacy copies (4.11), read side by side afterwards for the passages they share.
       `ComponentTests`: the privacy page names available hours and what saving them allows.
-- [ ] 6.4 `CONTEXT.md`: the two terms.
-- [ ] 6.5 `live-e2e-script.md` §12: the hours items, and the must-pass item replaced.
+- [x] 6.4 `CONTEXT.md`: the two terms.
+- [x] 6.5 `live-e2e-script.md` §12: the hours items, and the must-pass item replaced.
 
 **7. Verification**
 - [ ] 7.1 `dotnet build CalCrony.slnx -c Release` without warnings from the new code;

@@ -39,7 +39,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 - Up to 5 scheduled pings per event (`/notify`), a start announcement, and one-off `/remind`, all crash-safe.
 - DM reminders, **opt-in** per user only.
 - ICS subscribe feed per server (`/link`) with full recurrence; **opt-in** public web calendar behind an unguessable link.
-- Google Calendar, free/busy scope only (`/availability`): grids for a role or event, free slots for yourself or a role.
+- Google Calendar, free/busy scope only (`/availability`): role or event grids, free slots for a member or role within their available hours.
 
 **Polls**
 - Standard and time polls: up to 10 options, single or multi vote, anonymous, voter-added options, auto-close, live bars; a time poll's winner becomes an event.
@@ -80,14 +80,14 @@ Most features work from both Discord and the web app; roles, restrictions and li
 | `/poll time question slots [anonymous allow-options closes restrict-to]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
 | `/template save name event` · `/template list` · `/template edit name [fields...]` · `/template delete name` | Save an event's setup for reuse · browse · edit · delete (creator or manager) |
-| `/settings view` · `/settings timezone` · `/settings dm-reminders` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` · `/settings public-calendar mode:on\|off\|new-link` | Personal and server timezone · DM reminders opt-in · where web-created embeds post · native-event mirroring · the public calendar link |
+| `/settings view` · `/settings timezone` · `/settings dm-reminders` · `/settings available-hours set\|off\|reset` · `/settings server-timezone` · `/settings default-channel` · `/settings native-events` · `/settings public-calendar mode:on\|off\|new-link` | Personal and server timezone · DM reminders opt-in · your available hours · where web-created embeds post · native-event mirroring · the public calendar link |
 | `/help` | What CalCrony is, first steps, and links to docs, the community server, and support |
 | `/timestamp when` | Convert natural language into Discord `<t:...>` codes |
 | `/link` | This server's ICS subscribe URL |
 | `/calendar connect` · `status` · `disconnect` | Link/unlink your Google Calendar (works in DMs) |
 | `/availability role role when [duration]` | Free/busy grid for everyone holding a role |
 | `/availability event name` | Free/busy grid for everyone RSVP'd to the event's attending option ("Going" by default), over the event's own window |
-| `/availability slots who [when days duration]` | Free slots for yourself or a role over 1–14 days (default 7, from today): times every counted member is free, 8 AM–11 PM in each member's timezone. Only you see the reply |
+| `/availability slots who [when days duration]` | Free slots for a member or a role over 1–14 days (default 7, from today): times every counted member is free, inside each member's available hours (8 AM–11 PM until they save their own). You can always pick yourself; another member once they have saved hours. Only you see the reply |
 
 ## Solution layout
 

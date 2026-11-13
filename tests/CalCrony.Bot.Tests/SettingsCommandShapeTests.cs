@@ -102,11 +102,9 @@ public class SettingsCommandShapeTests : IAsyncLifetime
             .Select(field => field.GetCustomAttribute<ChoiceDisplayAttribute>()?.Name)
             .ToList();
 
+        // The names are what the Docs page writes in its example (days:weekdays), so they stay plain.
         Assert.Equal(
-            [
-                "every day", "weekdays (Mon–Fri)", "weekends (Sat, Sun)",
-                "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
-            ],
+            ["every day", "weekdays", "weekends", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
             labels);
         Assert.InRange(labels.Count, 1, DiscordChoiceLimit);
         Assert.All(labels, label => Assert.InRange(label!.Length, 1, DiscordDescriptionLimit));

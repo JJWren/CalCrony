@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-11-11** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
+**Last updated: 2026-11-13** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -27,8 +27,12 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
   rather than you handing it over yourself, which is why it is scoped this narrowly.
 - Content you create: event titles/descriptions/locations, poll questions and options, RSVP
   choices, reminders, notification messages, and templates.
-- Preferences: per-user and per-server timezone, DM-confirmation setting, interface theme,
-  server settings.
+- Preferences: per-user and per-server timezone, DM-confirmation and DM-reminder settings
+  (reminders by DM are off unless you turn them on yourself — no server or event creator can),
+  your available hours if you save them (the weekly hours you say you are usually available;
+  saving them lets members of the servers you share with CalCrony list your free slots by name,
+  which shows roughly the hours you keep, and resetting them takes that back),
+  interface theme, server settings.
 - Web sign-in (optional, Discord OAuth with `identify` + `guilds` scopes only): your username,
   display name, avatar hash, and a snapshot of which servers you're in (used to scope what the
   web app shows you). Session security data: hashed refresh tokens and short-lived login-state
@@ -36,10 +40,17 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
 
 **From Google** (optional, only if you link a calendar): an encrypted OAuth token with the
 read-only **free/busy** scope. CalCrony never sees event titles, details, or attendees from your
-Google calendar — only busy/free time blocks, fetched on demand and not stored.
+Google calendar — only busy/free time blocks, fetched on demand when someone runs an
+availability check and not stored.
 
 **Message content**: CalCrony only processes the slash-command inputs and component interactions
 sent to it. It does not read your server's messages.
+
+**Public calendar** (optional, per server, off by default): if a server manager turns it on,
+anyone holding that server's calendar link can see its event titles, start times, durations,
+locations, and channel names without signing in. Descriptions, RSVPs, and member names are
+never shown there, the pages ask search engines not to index them, and managers can turn the
+calendar off or replace the link at any time.
 
 ## Google user data & Limited Use
 
@@ -90,6 +101,8 @@ and **Google** (only for the free/busy lookups you enable).
   server's managers and are automatically purged after **90 days**.
 - **Google connection**: disconnecting (`/calendar disconnect` or the web app) deletes the
   stored tokens immediately.
+- **Available hours**: kept until you reset them (`/settings available-hours reset` or the web
+  app), which deletes them at once.
 - **Removal requests**: to have a server's or your own data deleted, open a
   [GitHub issue](https://github.com/JJWren/CalCrony/issues) or contact the operator; deletion is
   manual but honored.

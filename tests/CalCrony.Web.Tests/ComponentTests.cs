@@ -113,6 +113,16 @@ public class ComponentTests : TestContext
         // Free/busy now also feeds /availability slots, and the Limited Use sentence says so.
         Assert.Contains("availability grids and free-slot lists", privacy.Markup);
 
+        // Available hours are stored once saved, and the policy says what saving them allows and
+        // how they are deleted.
+        var policy = string.Join(" ", privacy.Markup.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("your available hours if you save them", policy);
+        Assert.Contains(
+            "saving them lets members of the servers you share with CalCrony list your free slots by name, " +
+            "which shows roughly the hours you keep, and resetting them takes that back",
+            policy);
+        Assert.Contains("kept until you reset them", policy);
+
         var terms = Render<Terms>();
         Assert.Contains("Terms of Service", terms.Markup);
         Assert.NotNull(terms.Find("a[href='/privacy']"));

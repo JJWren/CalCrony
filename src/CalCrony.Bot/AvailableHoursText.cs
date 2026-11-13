@@ -11,10 +11,10 @@ public enum AvailableHoursDays
     [ChoiceDisplay("every day")] EveryDay,
 
     /// <summary>Monday to Friday.</summary>
-    [ChoiceDisplay("weekdays (Mon–Fri)")] Weekdays,
+    [ChoiceDisplay("weekdays")] Weekdays,
 
     /// <summary>Saturday and Sunday.</summary>
-    [ChoiceDisplay("weekends (Sat, Sun)")] Weekends,
+    [ChoiceDisplay("weekends")] Weekends,
 
     /// <summary>Monday alone.</summary>
     [ChoiceDisplay("Monday")] Monday,
