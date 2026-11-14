@@ -63,8 +63,7 @@ public class ReleaseWorkflowTests
     [Fact]
     public void The_announce_step_pings_the_one_role_and_allows_no_other_mention()
     {
-        string script = Workflow.StepScript(AnnounceJob, AnnounceStep);
-        string commands = string.Join('\n', script.Split('\n').Where(line => !line.TrimStart().StartsWith('#')));
+        string commands = Workflow.StepCommands(AnnounceJob, AnnounceStep);
 
         Assert.Contains($"role_id=\"{Announcement.ReleasePingRoleId}\"\n", commands, StringComparison.Ordinal);
         Assert.Contains("allowed_mentions: {roles: [$role]}}'", commands, StringComparison.Ordinal);
@@ -101,11 +100,81 @@ public class ReleaseWorkflowTests
         Assert.Contains(OldBody, before);
         int position = 0;
 
-        foreach (string line in before.Where(line => line != OldBody && !ReleaseWorkflow.IsComment(line)))
+        foreach (string line in ReleaseWorkflow.Commands(before).Where(line => line != OldBody))
         {
             int found = now.IndexOf(line, position);
             Assert.True(found >= 0, $"The step no longer has this line, or has it out of order: {line}");
             position = found + 1;
+        }
+    }
+
+    [Fact]
+    public void Only_a_line_that_is_a_comment_to_bash_is_left_out_of_what_the_tests_pin()
+    {
+        // The tests below pin each script's commands and leave its comments out. A number sign
+        // after a line that ends in a backslash is no comment: bash joins the two lines, and the
+        // rest of the command is cut off. Inside quoted text over several lines, and inside a
+        // here-document, it is text.
+        string[] script =
+        [
+            "# A comment before any command.",
+            "tool render \\",
+            "  # joined to the line above by bash",
+            "  --version 1.2.3",
+            "jq -n '.first",
+            "  # part of the program in single quotes",
+            "  | .second'",
+            "  # A comment between commands, indented.",
+            "echo \"first line",
+            "# part of the text in double quotes",
+            "last line, with an escaped \\\" in it\"",
+            "# A comment after the text has closed.",
+            "echo \"done # not a comment either\"",
+            "cat <<END",
+            "# part of the here-document",
+            "END",
+        ];
+
+        Assert.Equal(
+            [
+                "tool render \\",
+                "  # joined to the line above by bash",
+                "  --version 1.2.3",
+                "jq -n '.first",
+                "  # part of the program in single quotes",
+                "  | .second'",
+                "echo \"first line",
+                "# part of the text in double quotes",
+                "last line, with an escaped \\\" in it\"",
+                "echo \"done # not a comment either\"",
+                "cat <<END",
+                "# part of the here-document",
+                "END",
+            ],
+            ReleaseWorkflow.Commands(script));
+    }
+
+    [Fact]
+    public void Every_comment_in_the_workflows_scripts_stands_where_a_command_could_start()
+    {
+        // So leaving comments out of the pins leaves nothing out that bash would run. A script
+        // with a comment line the filter keeps would show it here by name.
+        (string Job, string Step)[] steps =
+        [
+            (AnnounceJob, AnnounceStep),
+            (SummaryJob, "Read the notes release-please wrote"),
+            (SummaryJob, "Build the release texts"),
+            (SummaryJob, MentionsStep["- name: ".Length..]),
+            (PreviewJob, "Find the open release PR"),
+            (PreviewJob, "Write the comment"),
+            (PreviewJob, "Post or update the comment"),
+        ];
+
+        foreach ((string job, string step) in steps)
+        {
+            Assert.DoesNotContain(
+                Workflow.StepCommands(job, step).Split('\n'),
+                line => line.TrimStart().StartsWith('#'));
         }
     }
 

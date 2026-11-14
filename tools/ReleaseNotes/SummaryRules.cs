@@ -39,7 +39,7 @@ public static class SummaryRules
     /// were.</param>
     /// <param name="HasLooseBacktick">Whether a run of backticks on the line has no partner.</param>
     /// <param name="HasSwallowedBacktick">Whether a backtick met outside code stands where GitHub
-    /// would not open code with it: glued to a web address, or right after a dollar sign.</param>
+    /// may not open code with it: glued to a web address, or right after a dollar sign.</param>
     private readonly record struct LineReading(string Text, bool HasLooseBacktick, bool HasSwallowedBacktick);
 
     /// <summary>Checks a summary against every rule.</summary>
@@ -219,7 +219,7 @@ public static class SummaryRules
 
         if (reading.HasSwallowedBacktick)
         {
-            Add(problems, number, "A backtick glued to a web address or to a `$` does not open code on GitHub: the address takes it along, and `$` starts a formula with it. Put a space before the code.");
+            Add(problems, number, "A backtick glued to a web address or to a `$` may not open code on GitHub: an address takes it along, and code between two `$` is a formula. Put a space before the code.");
         }
 
         if (content.StartsWith("[^", StringComparison.Ordinal) || content.StartsWith("[!", StringComparison.Ordinal))
@@ -258,11 +258,12 @@ public static class SummaryRules
         }
     }
 
-    /// <summary>Tells whether a backtick would not open code on GitHub because of the word it
+    /// <summary>Tells whether a backtick may not open code on GitHub because of the word it
     /// follows: a web address, which GitHub links by itself up to the next space and which takes
-    /// the backtick along, or a dollar sign, after which a backtick starts a formula. Only a
-    /// backtick met outside code is asked about; once code is open, the backtick that closes it
-    /// is read as that whatever stands before it.</summary>
+    /// the backtick along, or a dollar sign, which makes a formula of the code when another
+    /// dollar sign follows it. A dollar sign is refused either way, which is the safe side. Only
+    /// a backtick met outside code is asked about; once code is open, the backtick that closes
+    /// it is read as that whatever stands before it.</summary>
     /// <param name="read">The line as far as it has been read, with spaces where its code and
     /// its links were, so that those end a word as a space does.</param>
     /// <returns>Whether a backtick here is taken along by what stands before it.</returns>

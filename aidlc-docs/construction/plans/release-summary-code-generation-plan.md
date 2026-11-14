@@ -225,10 +225,10 @@ The tool, `tools/ReleaseNotes` (no package references):
 **5. Verification**
 - [x] 5.1 A Release build with no errors and no new warnings; the full suite green.
 - [x] 5.2 `preview 0.37.0` run; the exact Discord message and release notes kept as the evidence for the pull request.
-- [ ] 5.3 Two review agents, one on security and one on correctness and quality, read the local commits before anything is pushed, as on the last three changes; findings answered.
+- [x] 5.3 Two review agents, one on security and one on correctness and quality, read the local commits before anything is pushed, as on the last three changes; findings answered. (Three rounds and a confirmation round: sections 11 to 14.)
 
 **6. Bookkeeping and delivery — each outward step on Joshua's own go-ahead**
-- [ ] 6.1 `audit.md` entries throughout; `aidlc-state.md` carries a section for this work.
+- [x] 6.1 `audit.md` entries throughout; `aidlc-state.md` carries a section for this work. (Up to the completion gate; the entries go on from there.)
 - [ ] 6.2 `master` merged into the branch (it will have gained the 0.37.0 records by then), `audit.md` kept in the order of its timestamps; then the push and the pull request.
 - [ ] 6.3 The workflow run once by hand from the branch (the `workflow_dispatch` trigger it already has), so that GitHub parses the changed file and release-please runs and finds nothing to do. (As built after review: the preview job runs from `master` only, so on a run from the branch it is skipped.) Checks green; Copilot's review if it starts, the two agents if it does not.
 - [ ] 6.4 The squash merge through the REST call. It cuts no release.
@@ -518,7 +518,7 @@ that the token a workflow run gets may call the Markdown API and is given mentio
 GitHub documents the first. The step's control exists for the second: if a run's answer about a
 certain mention does not look like one, the summary is left out and the log says why.
 
-## 13. Review round 3 (2026-11-14), and the change as it stands
+## 13. Review round 3 (2026-11-14)
 
 The same two agents read commit `45adb31`, the answers to round 2. Both report every one of their
 round-2 findings closed. The security reviewer found no security problem; the quality reviewer
@@ -533,7 +533,7 @@ had added, and each a few smaller things.
 | Info (security) | The step's search also matched a mention's class typed into a summary as text. Such a summary would have been left out, with a warning that named a mention. | The search is tied to the link tag. A test gives the step the class as text and as code, and it passes. |
 | Question (security) | The examples pointed at a YouTube handle nobody had checked: a public guide naming an address anyone could register. | They use `example.com`, which is reserved for examples. |
 | Statements (security) | Four were not true: the documents' line on backticks, which described half of what the rule did; "both found one major problem" in section 12 and in the audit entry; "every step carries on" in a workflow comment, though the last step does not; and "never ends red". | The rule now does what the line says. Section 12 says who rated what, and the next audit entry corrects the last. The comment says "every step that does the work". The documents say a failed step does not end the job red. |
-| Nits (quality) | 1. No test that runs the step failed the request about the summary alone, so three bends of the script failed only the test that pins its text; one of them would have published a summary without an answer. 2. The time-limit test compared the steps' sum with a number written in the test. 3. Two guards had no test: a tab after a numbered marker, and `WWW.` in capitals. 4. Three comments still spoke of the announce step alone. 5. Three statements in section 12. 6. The tests that pin a script pinned its comments too. | 1. The stand-in `gh` fails one request at a time, and each of the three bends now fails a test that runs the step. 2. It reads the job's limit from the file. 3. Both have tests. 4. Corrected. 5. Corrected in place, each marked. 6. The pins compare a script's commands and leave its comments out. |
+| Nits (quality) | 1. No test that runs the step failed the request about the summary alone, so three bends of the script failed only the test that pins its text; one of them would have published a summary without an answer. 2. The time-limit test compared the steps' sum with a number written in the test. 3. Two guards had no test: a tab after a numbered marker, and `WWW.` in capitals. 4. Three comments still spoke of the announce step alone. 5. Three statements in section 12. 6. The tests that pin a script pinned its comments too. | 1. The stand-in `gh` fails one request at a time, and each of the three bends now fails a test that runs the step. 2. It reads the job's limit from the file. 3. Both have tests. 4. Corrected. 5. Corrected in place, each marked. 6. The pins compare a script's commands and leave its comments out. (The confirmation round found this left out too much: section 14.) |
 
 **Limits the reviewers noted, which are not findings.**
 
@@ -559,7 +559,9 @@ for. It is a check for mistakes, and GitHub has the last word at release time.
 - No code block, fenced with backticks or with tildes. Code is written in backticks on one line. A
   backtick with no partner on its line is refused. So is a backtick that would open code but is
   glued to a web address (`://` or `www.` earlier in the same word) or stands right after a `$`:
-  there GitHub does not open code. What the code itself holds or ends in does not matter.
+  an address takes the backtick along, and code between two `$` is a formula. (Corrected in the
+  confirmation round: this said GitHub "does not open code" there, which for a `$` is so only
+  when another `$` follows the code.) What the code itself holds or ends in does not matter.
 - No `<` outside code other than a whole link `<https://…>` or `<http://…>` with no backtick in
   it, and no HTML entity.
 - No `@` followed by a letter, a digit or an underscore outside code. A web address with an `@` in
@@ -602,3 +604,49 @@ for. It is a check for mistakes, and GitHub has the last word at release time.
 
 **Still not run.** The jobs on GitHub, jq 1.7.1, and what a workflow run's token gets back from
 the render API, as above. The release path first runs at the next release, and fails safe.
+
+## 14. Confirmation round (2026-11-14), and the change as it stands
+
+Both agents were asked to confirm round 3's answers on the diff from `45adb31` to `f9b7c4e` alone.
+The rules listed in section 13 are the rules as they are; this round changed the wording of one
+message and one test helper.
+
+**Security.** Nothing that is live on GitHub passes the check: all 31 forms GitHub had rendered
+as a mention in earlier rounds are refused, and of the reviewer's 297 crafted folders ten changed
+verdict, all from refused to passing and all code on GitHub. Sixteen new attempts to break the
+narrowed rule all came back from GitHub as code. The step's search tied to the link tag behaves:
+the class typed as text passes, and a mention, the two live shapes and an organization's name
+fail it. One statement was still a little too broad, in four places: a `$` glued to code is a
+formula on GitHub only when another `$` follows the code; without it GitHub opens code as usual.
+The check refuses both, which is the safe side, but the message, `CONTRIBUTING.md` and section 13
+said the backtick "does not open code" in either case. They now say it may not, and that code
+between two `$` is a formula.
+
+**Quality.** Everything of round 3 is closed, and nothing in section 13 that could be checked is
+untrue. One thing was wrong in the answer to nit 6. The tests that pin a script had been made to
+leave out every line that starts with a number sign. After a line that ends in a backslash such a
+line is no comment: bash joins the two, and the rest of the command is cut off. A comment put
+there would have passed every test while the step lost its arguments. Now a number-sign line is
+left out only where a command could start: not after a backslash, not inside quoted text that
+runs over several lines, not after a here-document has begun. The helper counts quotes plainly,
+which can only err towards pinning more. A test holds it to that, another says that every comment
+in the workflow's scripts stands where a command could start, and five new changes of that kind —
+the reviewer's own among them — each fail a test.
+
+**These last two answers were checked by me and not read again by the agents.** Each agent's
+round costs far more than the change it would confirm: a wording, and a helper of the tests.
+
+**What was run after these changes.**
+
+- Windows: 351 new tests, 334 green and 17 skipped — the fourteen that run a step's own script
+  with bash and the three that make a symbolic link. Linux, offline, with the real jq 1.8.1 and
+  `CI=true`: all 351 green.
+- 203 changes that each take one rule or guard out, or bend it: the 198 of section 13 and the
+  five above. All 203 fail a test: 196 here, and the seven about links on Linux. The eleven that
+  bend a script which is run for real were run on Linux again, and each fails a test that runs it.
+- Release build of the whole solution from scratch, the full suite and the image job's test
+  command, on the final code: as in section 13.
+- The numbers of section 13 that this round did not touch stand: the build's 22 warnings, the
+  1,292 earlier tests, the image job's command, and the requests to GitHub's renderer from this
+  session, thirty-three. In this round the security reviewer made about thirty more of its own,
+  without a login and with made-up text; the quality reviewer none.

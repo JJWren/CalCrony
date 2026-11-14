@@ -144,17 +144,63 @@ internal sealed class ReleaseWorkflow
     /// <returns>The script's lines other than comments, each ended by a line feed.</returns>
     public string StepCommands(string jobName, string stepName) =>
         string.Concat(
-            StepScript(jobName, stepName)
-                .TrimEnd('\n')
-                .Split('\n')
-                .Where(line => !IsComment(line))
+            Commands(StepScript(jobName, stepName).TrimEnd('\n').Split('\n'))
                 .Select(line => $"{line}\n"));
 
-    /// <summary>Tells whether a line of a script is a comment: a number sign first, after any
-    /// indentation.</summary>
+    /// <summary>Gives the lines of a script that are not comments. A line that starts with a
+    /// number sign is a comment only where a command could start. After a line that ends in a
+    /// backslash it is not one: bash joins it to the command above, where it cuts off the rest.
+    /// Inside quoted text that runs over several lines, or inside a here-document, it is part of
+    /// that text. All of those stay, so that such a line is seen by whatever pins the commands.
+    /// Quotes are counted plainly, line by line, which can only err one way: a lone quote inside
+    /// the other kind keeps the comments after it in.</summary>
+    /// <param name="script">The script's lines.</param>
+    /// <returns>The lines that are commands or parts of commands, in order.</returns>
+    public static IReadOnlyList<string> Commands(IEnumerable<string> script)
+    {
+        List<string> commands = [];
+        bool isContinued = false;
+        bool isInSingleQuotes = false;
+        bool isInDoubleQuotes = false;
+        bool hasHereDocument = false;
+
+        foreach (string line in script)
+        {
+            bool couldStartCommand = !isContinued && !isInSingleQuotes && !isInDoubleQuotes && !hasHereDocument;
+
+            if (couldStartCommand && line.TrimStart().StartsWith('#'))
+            {
+                continue;
+            }
+
+            commands.Add(line);
+            isContinued = line.EndsWith('\\');
+            isInSingleQuotes ^= line.Count(character => character == '\'') % 2 == 1;
+            isInDoubleQuotes ^= CountUnescaped(line, '"') % 2 == 1;
+            hasHereDocument |= line.Contains("<<", StringComparison.Ordinal);
+        }
+
+        return commands;
+    }
+
+    /// <summary>Counts a character in a line, leaving out each one that follows a backslash.</summary>
     /// <param name="line">A line of a script.</param>
-    /// <returns>Whether the line is a comment.</returns>
-    public static bool IsComment(string line) => line.TrimStart().StartsWith('#');
+    /// <param name="wanted">The character to count.</param>
+    /// <returns>How many times the character stands there unescaped.</returns>
+    private static int CountUnescaped(string line, char wanted)
+    {
+        int count = 0;
+
+        for (int index = 0; index < line.Length; index++)
+        {
+            if (line[index] == wanted && (index == 0 || line[index - 1] != '\\'))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 
     /// <summary>Gives the indentation of a job's steps.</summary>
     /// <param name="jobName">The job's key.</param>
