@@ -10,7 +10,10 @@ web — re-run as step 0.1). **Branch**: `feature/available-hours` → PR
 `feat: per-member available hours for free slots`.
 **Status**: approved by Joshua on 2026-11-13 (UTC), as written ("Approve the plan"); code
 generated the same day and reviewed in three rounds (section 9 records what differs from the plan
-and what each round found); awaiting Joshua at the completion gate, with nothing pushed.
+and what each round found); approved at the completion gate that day ("Continue"), and PR #177
+opened; squash-merged the same day as `b5b90d6` on his go-ahead ("Merge now"). The must-pass
+live item passed and build and test was approved that day; released as 0.37.0 (`f904e33`) and
+rolled out to prod the same day (section 8).
 
 As with unit 1, this file is the unit's functional design (sections 1–5) followed by its
 code-generation plan (sections 6–8), approved together.
@@ -540,17 +543,52 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       `aidlc-state.md`, `audit.md`). The branch starts from `master` a079441 with unit 1's three
       local record commits on top, so they go out with it. Code commits follow by layer.
       — Committed locally on 2026-11-12, with the plan still awaiting approval.
-- [ ] 8.2 *Go-ahead:* push and open the PR. Body: what it does; the shape of the change; what
+- [x] 8.2 *Go-ahead:* push and open the PR. Body: what it does; the shape of the change; what
       saving hours allows and where a member is told; the migration and rolling back; behaviour
       for existing servers and members (nothing changes until a member saves hours); test counts.
-      `Closes #171`.
-- [ ] 8.3 Review: Copilot's rounds if its review starts — the events list is checked two minutes
-      after opening; otherwise the two review agents on each commit, as on unit 1.
-- [ ] 8.4 *Go-ahead:* squash merge. The test stack picks up `:main` and applies the migration;
-      the §12 items are run there, unit 1's still-open ones with them.
-- [ ] 8.5 `aidlc-state.md` marks unit 2 merged; build and test follows, then the release.
-- [ ] 8.6 *Go-ahead:* release 0.37.0 (PR #175). *Go-ahead:* prod — backup first, then the pinned
-      tag; the migration is additive, so rolling the image back stays safe.
+      `Closes #171`. — PR #177, opened 2026-11-13T17:00:34Z at head `bf9902c` on Joshua's
+      "Continue" at the completion gate, with the description sent to him beforehand; the body
+      also has the review rounds and the known limits.
+- [x] 8.3 Review: Copilot's rounds if its review starts — the events list is checked two minutes
+      after opening; otherwise the two review agents on each commit, as on unit 1. — Copilot's
+      review did not start: three minutes after opening the PR had no review request, no review
+      and no event. The two agents had read its head, `bf9902c`, before it was pushed and had no
+      finding on it (section 9), so every commit on the PR is reviewed. A commit pushed later
+      gets a round of its own.
+- [x] 8.4 *Go-ahead:* squash merge. The test stack picks up `:main` and applies the migration;
+      the §12 items are run there, unit 1's still-open ones with them. — Joshua's go-ahead came
+      on 2026-11-13 ("Merge now"), and PR #177 was squash-merged at 2026-11-13T20:22:55Z as
+      `b5b90d6`, at the commit both agents had passed: the two commits have the same tree, and
+      issue #171 closed with the merge. The test stack took `:main` at that commit at 20:27Z
+      (API, bot and web; the database container left as it was), the API applied
+      `AddAvailableHours` at start, and Discord's command list for the test server shows the
+      nested group and `who`'s new description as built. Still ahead at that point, and the
+      reason this box stayed open: the §12 items for both units, which need a member in Discord
+      — the must-pass item first. A first run that day, from one account, was reported as passed
+      (`build-and-test-summary.md` has what it covered); the must-pass item was not part of it,
+      the test server having one person in it. A second run that day, with a second account in
+      the server, covered the item's three lookups by name — refused, listed once hours were
+      saved, refused again after a reset: Joshua reported each as expected, and the stack's log
+      has three lookups answered that way in that order. Its last part, an account from outside
+      the server that has saved hours, was run on its own after that, and he reported it
+      refused; the stack is consistent with that and cannot confirm it. One case of the item
+      was not run live — the refusal of a member who has a calendar linked — and rests on the
+      API's tests. Joshua approved build and test on 2026-11-13 ("Yes, proceed") with the §12
+      items as they stood (`build-and-test-summary.md` says what was run, block by block;
+      anything not named there was not run), and the box is ticked on that approval.
+- [x] 8.5 `aidlc-state.md` marks unit 2 merged; build and test follows, then the release.
+      — Marked 2026-11-13. Build and test followed that day: the suite was green on `master`
+      at `b5b90d6`, and `build-and-test-summary.md` gained a section for the feature with the
+      table the live pass filled in. Release PR #175 (0.37.0) listed both units and waited for
+      its go-ahead, which step 8.6 records.
+- [x] 8.6 *Go-ahead:* release 0.37.0 (PR #175). *Go-ahead:* prod — backup first, then the pinned
+      tag; the migration is additive, so rolling the image back stays safe. — Released on
+      2026-11-13 on Joshua's go-ahead ("Release 0.37.0"): PR #175 squash-merged at 22:01:58Z as
+      `f904e33`, `v0.37.0` tagged and published, the three images out. Prod followed the same
+      day on his go-ahead ("Roll out to prod"): the backup
+      `calcrony-prod-pre-0.37.0-20261113T221558Z.sql` first, then the pinned tag, app services
+      only. The API restarted at 22:16:24Z and applied `AddAvailableHours`, and `/health`
+      reports 0.37.0.
 
 For the live pass, because no test can cover them: Discord accepting the nested group at
 registration; the suggestions as they appear while typing; the card at phone width; and the lines
@@ -560,7 +598,8 @@ in the two modules that no test reaches, the bot's tests having no way to stand 
   else Discord can resolve by id — since this unit the one thing that keeps a lookup by name
   inside a server the two share, as the API holds no membership (review round 1, S1); the line
   that hands `ByName` on; and the line that checks the answer before replying. The must-pass
-  item of 4.11 covers all three.
+  item of 4.11 runs all three; a pass shows the first two working and the third letting a
+  by-name answer through, its refusal of any other answer being pinned in `FreeSlotTargetTests`.
 - in `SettingsModule`: that `view` appends the hours line, and that `set` and `off` read before
   they write and write nothing when a read fails (R19). The rules themselves — which week a save
   starts from, the two refusals of `off`, every reply — are pure functions with tests.
