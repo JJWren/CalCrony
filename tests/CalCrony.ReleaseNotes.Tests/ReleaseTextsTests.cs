@@ -65,19 +65,36 @@ public class ReleaseTextsTests
 
         // It keeps as much as fits: the next line would not have.
         string nextLine = summary[(kept.Length + 1)..].Split('\n')[0];
-        Assert.True(kept.Length + 1 + nextLine.Length + 2 + ReleaseTexts.Pointer.Length + 4 > SummaryRules.MaxLength);
+        Assert.True(kept.Length + 1 + nextLine.Length + 2 + ReleaseTexts.Pointer.Length > SummaryRules.MaxLength);
     }
 
     [Fact]
-    public void A_cut_inside_a_code_block_closes_the_block_before_the_pointer()
+    public void A_cut_text_is_exactly_as_long_as_the_limit_allows_when_a_line_is_cut_inside()
     {
-        string summary = "### What's new\n\n- One change.\n\n```\n" + string.Join('\n', Enumerable.Range(1, 200).Select(number => $"/command number:{number}")) + "\n```";
+        string forDiscord = ReleaseTexts.DiscordSummary(new string('a', SummaryRules.MaxLength + 1));
+
+        Assert.Equal(SummaryRules.MaxLength, forDiscord.Length);
+    }
+
+    [Fact]
+    public void A_cut_never_leaves_a_heading_with_nothing_under_it()
+    {
+        // One long bullet does not fit as a whole line; dropping it would leave the heading alone.
+        string summary = "### What's new\n\n- " + new string('a', SummaryRules.MaxLength);
 
         string forDiscord = ReleaseTexts.DiscordSummary(summary);
 
         Assert.True(forDiscord.Length <= SummaryRules.MaxLength);
-        Assert.EndsWith($"\n```\n\n{ReleaseTexts.Pointer}", forDiscord, StringComparison.Ordinal);
-        Assert.Equal(2, forDiscord.Split('\n').Count(line => line == "```"));
+        Assert.StartsWith("### What's new\n\n- aaaa", forDiscord, StringComparison.Ordinal);
+        Assert.EndsWith($"a\n\n{ReleaseTexts.Pointer}", forDiscord, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_line_that_does_not_fit_after_other_content_is_left_out_whole()
+    {
+        string summary = "### What's new\n\n- A short change.\n- " + new string('a', SummaryRules.MaxLength);
+
+        Assert.Equal($"### What's new\n\n- A short change.\n\n{ReleaseTexts.Pointer}", ReleaseTexts.DiscordSummary(summary));
     }
 
     [Fact]

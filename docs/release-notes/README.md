@@ -24,11 +24,13 @@ file and when, how to pick its name, and what happens at release time. In short:
 
 - Start with `### What's new` and at least one bullet. `### How to use it` is optional and comes after it.
 - No other headings, and no tables, images, HTML or horizontal rules: Discord and GitHub show those differently.
+- Write code in backticks on one line. No code blocks.
 - Write `@name` only inside backticks, so that nobody is mentioned, and anything in `<angle brackets>` too. A link as `<https://…>` is fine.
-- Close every code block you open, and keep invisible control characters out.
+- Keep invisible characters out.
 - At most 1,800 characters, so the announcement fits in one Discord message.
 
-The `build-test` check holds every file here to those rules. To see what a release would post:
+The `build-test` check holds every file here to those rules, and a release leaves out a file that
+breaks one. To see what a release would post:
 
 ```bash
 dotnet run --project tools/ReleaseNotes -- preview --version 0.38.0

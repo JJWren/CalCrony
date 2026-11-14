@@ -2,26 +2,23 @@ using System.Text.Json;
 
 namespace CalCrony.ReleaseNotes.Tests;
 
-/// <summary>Release 0.37.0 as it would have gone out with its summary: the repository's own
-/// <c>docs/release-notes/0.37.0.md</c> and the notes release-please really wrote for that release,
-/// compared character for character with the texts kept beside these tests. Those files are what
-/// the release notes and the Discord message look like; they were put together apart from the
-/// tool, from the summary, the real notes and the announcement's first line.</summary>
+/// <summary>Release 0.37.0 as it would have gone out with its summary: the summary as it was
+/// first written and the notes release-please really wrote for that release, compared character
+/// for character with the texts kept beside these tests. Those files are what the release notes
+/// and the Discord message look like; they were put together apart from the tool, from the
+/// summary, the real notes and the announcement's first line. Everything here reads the copies
+/// in <c>Fixtures/0.37.0</c>, so <c>docs/release-notes/0.37.0.md</c> itself can be corrected later
+/// without touching these tests.</summary>
 public class SampleReleaseTests
 {
     private const string Tag = "v0.37.0";
     private const string ReleaseUrl = "https://github.com/JJWren/CalCrony/releases/tag/v0.37.0";
 
-    private static readonly ReleaseVersion Version = new(0, 37, 0);
-
     [Fact]
-    public void The_summary_is_in_the_repository_and_keeps_the_rules()
+    public void The_summary_keeps_the_rules()
     {
-        ReleaseSummary? summary = ReleaseSummary.Find(Repository.Root, Version);
-
-        Assert.NotNull(summary);
-        Assert.Empty(SummaryRules.Check(summary.Text));
-        Assert.Equal(706, summary.Text.Length);
+        Assert.Empty(SummaryRules.Check(Summary()));
+        Assert.Equal(706, Summary().Length);
     }
 
     [Fact]
@@ -57,7 +54,30 @@ public class SampleReleaseTests
             JsonSerializer.Serialize(body.RootElement.GetProperty("allowed_mentions")));
     }
 
-    /// <summary>Reads the repository's summary for 0.37.0.</summary>
+    [Fact]
+    public void The_render_command_writes_those_release_notes_and_hands_on_that_summary()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.37.0", Summary());
+        string notes = checkout.Write("notes.md", Repository.ReadFixture("0.37.0/release-please-notes.md"));
+        string rendered = checkout.PathOf("release-notes.md");
+        string outputs = checkout.PathOf("outputs.txt");
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int exitCode = Cli.Run(
+            ["render", "--version", "0.37.0", "--notes", notes, "--out", rendered, "--github-output", outputs, "--root", checkout.Root],
+            output,
+            error);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(Repository.ReadFixture("0.37.0/release-notes.md") + "\n", File.ReadAllText(rendered));
+        string[] outputLines = File.ReadAllText(outputs).Split('\n');
+        Assert.Equal("has_summary=true", outputLines[0]);
+        Assert.Equal(Summary(), string.Join('\n', outputLines[2..^2]));
+    }
+
+    /// <summary>Reads the summary for 0.37.0 as it was first written.</summary>
     /// <returns>The summary's normalized text.</returns>
-    private static string Summary() => Repository.Read(ReleaseSummary.PathFor(Version));
+    private static string Summary() => Repository.ReadFixture("0.37.0/summary.md");
 }

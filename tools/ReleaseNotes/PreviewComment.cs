@@ -12,6 +12,7 @@ public static class PreviewComment
     public const string Marker = "<!-- release-summary-preview -->";
 
     private const string Rule = "---";
+    private const int MinFenceLength = 3;
 
     /// <summary>Writes the comment for a release about to be made.</summary>
     /// <param name="preview">What the checkout holds for the release.</param>
@@ -22,7 +23,11 @@ public static class PreviewComment
         StringBuilder comment = new();
         comment.Append(CultureInfo.InvariantCulture, $"{Marker}\n### Release summary for {preview.Version}\n\n");
 
-        if (preview.HasSummary)
+        if (preview.IsHeldBack)
+        {
+            AppendHeldBack(comment, preview);
+        }
+        else if (preview.HasSummary)
         {
             AppendSummary(comment, preview);
         }
@@ -37,37 +42,41 @@ public static class PreviewComment
         return comment.ToString();
     }
 
-    /// <summary>Appends the summary as it will go out, and what the rules found wrong with it.</summary>
+    /// <summary>Appends the summary as it will go out. The only thing that can be wrong with it
+    /// here is its length.</summary>
     /// <param name="comment">The comment being written.</param>
-    /// <param name="preview">A preview that has a summary.</param>
+    /// <param name="preview">A preview whose summary the rules let through.</param>
     private static void AppendSummary(StringBuilder comment, ReleasePreview preview)
     {
-        string path = ReleaseSummary.PathFor(preview.Version);
         string text = preview.Summary!.Text;
 
-        comment.Append(CultureInfo.InvariantCulture, $"`{path}` is on `master` ({text.Length:N0} of {SummaryRules.MaxLength:N0} characters). ");
+        comment.Append(CultureInfo.InvariantCulture, $"`{ReleaseSummary.PathFor(preview.Version)}` is on `master` ({text.Length:N0} of {SummaryRules.MaxLength:N0} characters). ");
         comment.Append("When this pull request is merged, the text between the two rules goes on top of the release notes and into the Discord announcement, under its usual first line.\n\n");
         comment.Append(CultureInfo.InvariantCulture, $"{Rule}\n\n{text}\n\n{Rule}\n\n");
 
         if (preview.Problems.Count > 0)
         {
-            comment.Append("**The check found problems with the file.** Fix them through a pull request before merging this one:\n\n");
-
-            foreach (SummaryProblem problem in preview.Problems)
-            {
-                string place = problem.Line > 0 ? string.Create(CultureInfo.InvariantCulture, $"line {problem.Line}") : "the file";
-                comment.Append(CultureInfo.InvariantCulture, $"- {place}: {problem.Message}\n");
-            }
-
-            comment.Append('\n');
-        }
-
-        if (text.Length > SummaryRules.MaxLength)
-        {
-            comment.Append("As it stands, Discord gets it cut at a line end, with a pointer to the release notes.\n\n");
+            comment.Append("**The file is too long.** As it stands the release notes get all of it, and Discord gets it cut at a line end with a pointer to the release notes:\n\n");
+            AppendProblems(comment, preview);
         }
 
         comment.Append("To change the text, change the file through a pull request before merging this one.\n\n");
+    }
+
+    /// <summary>Appends what the rules found wrong with a summary that will be left out, and the
+    /// file as it is — as code, so that nothing in it is rendered and nobody it names is
+    /// notified by this comment.</summary>
+    /// <param name="comment">The comment being written.</param>
+    /// <param name="preview">A preview whose summary the rules refuse.</param>
+    private static void AppendHeldBack(StringBuilder comment, ReleasePreview preview)
+    {
+        string text = preview.Summary!.Text;
+        string fence = new('`', Math.Max(MinFenceLength, LongestBacktickRun(text) + 1));
+
+        comment.Append(CultureInfo.InvariantCulture, $"`{ReleaseSummary.PathFor(preview.Version)}` is on `master`, but **the check refuses it, so as it stands this release goes out without a summary**: the changelog lines as release notes, and a Discord announcement with the link alone. What the check found:\n\n");
+        AppendProblems(comment, preview);
+        comment.Append(CultureInfo.InvariantCulture, $"The file as it is:\n\n{fence}text\n{text}\n{fence}\n\n");
+        comment.Append("To have the summary go out, fix the file through a pull request before merging this one.\n\n");
     }
 
     /// <summary>Appends what happens without a summary and how to add one.</summary>
@@ -81,6 +90,22 @@ public static class PreviewComment
         comment.Append(CultureInfo.InvariantCulture, $"No summary has been written for this release: `{path}` {state}. ");
         comment.Append("Merged as it is, the release goes out as it always has: the changelog lines as release notes, and a Discord announcement with the link alone.\n\n");
         comment.Append("To add one, merge a pull request that adds that file before merging this one. `CONTRIBUTING.md` (\"Release summary\") says what goes in it.\n\n");
+    }
+
+    /// <summary>Appends the problems as a list, each with its line.</summary>
+    /// <param name="comment">The comment being written.</param>
+    /// <param name="preview">A preview with problems.</param>
+    private static void AppendProblems(StringBuilder comment, ReleasePreview preview)
+    {
+        foreach (SummaryProblem problem in preview.Problems)
+        {
+            string place = problem.Line > 0
+                ? string.Create(CultureInfo.InvariantCulture, $"line {problem.Line}")
+                : "the file";
+            comment.Append(CultureInfo.InvariantCulture, $"- {place}: {problem.Message}\n");
+        }
+
+        comment.Append('\n');
     }
 
     /// <summary>Appends the summaries that look left behind, when there are any.</summary>
@@ -101,5 +126,23 @@ public static class PreviewComment
         }
 
         comment.Append('\n');
+    }
+
+    /// <summary>Gives the length of the longest run of backticks in a text, so that a fence
+    /// around the text can be made longer than anything inside it.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The number of backticks in the longest run, 0 when there is none.</returns>
+    private static int LongestBacktickRun(string text)
+    {
+        int longest = 0;
+        int current = 0;
+
+        foreach (char character in text)
+        {
+            current = character == '`' ? current + 1 : 0;
+            longest = Math.Max(longest, current);
+        }
+
+        return longest;
     }
 }

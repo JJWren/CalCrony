@@ -1,15 +1,19 @@
 namespace CalCrony.ReleaseNotes.Tests;
 
 /// <summary>The rules a release summary keeps to. Each rule has a text that breaks it and nothing
-/// else, so a rule taken out of the check fails its own test; and the things a summary is meant to
-/// contain — commands in backticks, links, a code block — pass.</summary>
+/// else, so a rule taken out of the check fails its own test; the things a summary is meant to
+/// hold — commands in backticks, links, lists — pass; and the ways two reviews found to get a
+/// mention past the check on GitHub are each refused by name.</summary>
 public class SummaryRulesTests
 {
+    private const string Opening = "### What's new\n\n- One change.\n\n";
+
     private const string Good = """
         ### What's new
 
         - **Free slots.** `/availability slots` lists the times a member is free.
         - A second change, with a [link](https://calcrony.app/docs) and <https://calcrony.app>.
+        - `/availability slots`
 
         ### How to use it
 
@@ -44,6 +48,7 @@ public class SummaryRulesTests
 
         Assert.Equal(0, problem.Line);
         Assert.Equal("The file is empty.", problem.Message);
+        Assert.False(problem.IsLength);
     }
 
     [Theory]
@@ -51,13 +56,17 @@ public class SummaryRulesTests
     [InlineData("### What’s new")]
     [InlineData("### Whats new")]
     [InlineData("### What's New")]
+    [InlineData("### What's new ")]
     [InlineData("What's new")]
+    [InlineData("- ### What's new")]
     public void The_first_line_is_the_whats_new_heading_exactly(string firstLine)
     {
         SummaryProblem problem = Assert.Single(Check($"{firstLine}\n\n- One change."));
 
         Assert.Equal(1, problem.Line);
-        Assert.Equal("The first line must be `### What's new`.", problem.Message);
+        Assert.Equal(
+            "The first line must be exactly `### What's new`: a straight apostrophe, nothing before it and nothing after.",
+            problem.Message);
     }
 
     [Theory]
@@ -69,9 +78,14 @@ public class SummaryRulesTests
     [InlineData("### How to use it ")]
     [InlineData("### How To Use It")]
     [InlineData("   ## Indented")]
+    [InlineData("- # Big, inside a bullet")]
+    [InlineData("1. ## Inside a numbered step")]
+    [InlineData("> ### Inside a quote")]
+    [InlineData("- > - # Nested three deep")]
+    [InlineData("- ### How to use it")]
     public void No_heading_but_the_two_is_allowed(string heading)
     {
-        SummaryProblem problem = Assert.Single(Check($"### What's new\n\n- One change.\n\n{heading}\n\nText."));
+        SummaryProblem problem = Assert.Single(Check($"{Opening}{heading}\n\nText."));
 
         Assert.Equal(5, problem.Line);
         Assert.StartsWith("Only two headings are allowed", problem.Message, StringComparison.Ordinal);
@@ -81,7 +95,7 @@ public class SummaryRulesTests
     public void The_how_to_heading_comes_once()
     {
         SummaryProblem problem = Assert.Single(
-            Check("### What's new\n\n- One change.\n\n### How to use it\n\n1. A step.\n\n### How to use it\n\n1. Again."));
+            Check($"{Opening}### How to use it\n\n1. A step.\n\n### How to use it\n\n1. Again."));
 
         Assert.Equal(9, problem.Line);
         Assert.StartsWith("Only two headings are allowed", problem.Message, StringComparison.Ordinal);
@@ -102,12 +116,18 @@ public class SummaryRulesTests
     [Theory]
     [InlineData("| Command | What it does |", "Tables do not render in Discord")]
     [InlineData("  | a | b |", "Tables do not render in Discord")]
+    [InlineData("--- | ---", "Tables do not render in Discord")]
+    [InlineData(":-- | --:", "Tables do not render in Discord")]
+    [InlineData("> | quoted | table |", "Tables do not render in Discord")]
     [InlineData("See ![the grid](https://calcrony.app/grid.png).", "Images do not show in Discord")]
-    [InlineData("---", "A line of dashes")]
-    [InlineData("***", "A line of dashes")]
-    [InlineData("___", "A line of dashes")]
-    [InlineData("===", "A line of dashes")]
-    [InlineData("- - -", "A line of dashes")]
+    [InlineData("---", "A line of only dashes or equals signs")]
+    [InlineData("***", "A line of only dashes or equals signs")]
+    [InlineData("___", "A line of only dashes or equals signs")]
+    [InlineData("===", "A line of only dashes or equals signs")]
+    [InlineData("- - -", "A line of only dashes or equals signs")]
+    [InlineData("=", "A line of only dashes or equals signs")]
+    [InlineData("--", "A line of only dashes or equals signs")]
+    [InlineData("-", "A line of only dashes or equals signs")]
     [InlineData("Line one.<br>Line two.", "`<` outside backticks")]
     [InlineData("<details>More</details>", "`<` outside backticks")]
     [InlineData("<!-- a note to self -->", "`<` outside backticks")]
@@ -115,84 +135,145 @@ public class SummaryRulesTests
     [InlineData("Posted in <#123456789012345678>.", "`<` outside backticks")]
     [InlineData("Use </availability slots:123> to try it.", "`<` outside backticks")]
     [InlineData("Slots < 60 minutes are left out.", "`<` outside backticks")]
+    [InlineData("A link cut short: <https://calcrony.app/docs and more.", "`<` outside backticks")]
+    [InlineData("Not a web link: <mailto:someone>.", "`<` outside backticks")]
+    [InlineData("Fish &amp; chips.", "An HTML entity")]
     [InlineData("Thanks to @everyone who tested.", "`@` followed by a name")]
     [InlineData("Run /availability slots who:@GM to see it.", "`@` followed by a name")]
     [InlineData("Write to help@calcrony.app.", "`@` followed by a name")]
-    [InlineData("An unclosed `code span with @GM in it.", "`@` followed by a name")]
+    [InlineData("A name that starts with an underscore: @_someone.", "`@` followed by a name")]
+    [InlineData("An address that names someone before the host: https://someone@calcrony.app/docs.", "`@` followed by a name")]
+    [InlineData("An address with no host: https://@someone.", "`@` followed by a name")]
+    [InlineData("An address whose host is only a dot: https://./@someone.", "`@` followed by a name")]
+    [InlineData("An address whose host has no dot: https://localhost/@someone.", "`@` followed by a name")]
+    [InlineData("An address that ends in a name: https://calcrony.app@someone.", "`@` followed by a name")]
+    [InlineData("A link's text is still text: [@someone](https://calcrony.app).", "`@` followed by a name")]
+    [InlineData("```", "Code blocks are not allowed")]
+    [InlineData("```text", "Code blocks are not allowed")]
+    [InlineData("~~~", "Code blocks are not allowed")]
+    [InlineData("- ```", "Code blocks are not allowed")]
+    [InlineData("An unclosed `code span.", "A backtick with no partner")]
+    [InlineData("Two ticks open ``and one closes`.", "A backtick with no partner")]
     public void Text_that_one_side_would_show_differently_is_refused(string line, string message)
     {
-        SummaryProblem problem = Assert.Single(Check($"### What's new\n\n- One change.\n\n{line}"));
+        SummaryProblem problem = Assert.Single(Check($"{Opening}{line}"));
 
         Assert.Equal(5, problem.Line);
         Assert.StartsWith(message, problem.Message, StringComparison.Ordinal);
+        Assert.False(problem.IsLength);
+    }
+
+    [Theory]
+    [InlineData("```/availability slots``` thanks @someone")]
+    [InlineData("\\` @someone \\`")]
+    [InlineData("<https://example.com/`> @someone `")]
+    [InlineData("&#64;someone")]
+    [InlineData("&#x40;someone")]
+    [InlineData("&commat;someone")]
+    [InlineData("Ask <@123456789012345678> or <@&1543943300132769802>.")]
+    [InlineData("An unclosed `code span with @someone in it.")]
+    public void The_ways_found_to_get_a_mention_past_the_check_are_refused(string line)
+    {
+        // Each of these is, or leads to, a live mention on GitHub. What matters is that the line
+        // is refused; several break more than one rule.
+        IReadOnlyList<SummaryProblem> problems = Check($"{Opening}{line}");
+
+        Assert.NotEmpty(problems);
+        Assert.All(problems, problem => Assert.Equal(5, problem.Line));
+        Assert.True(SummaryRules.HoldSummaryBack(problems));
     }
 
     [Fact]
-    public void A_discord_mention_written_out_breaks_both_rules()
+    public void Code_that_runs_over_a_line_end_is_refused_where_it_opens()
     {
-        IReadOnlyList<SummaryProblem> problems = Check("### What's new\n\n- One change.\n\nAsk <@123456789012345678> or <@&1543943300132769802>.");
+        // On GitHub the code opened on the first line closes on the second, which leaves the name
+        // after it as text. Read by itself the second line looks harmless, so the first is refused.
+        IReadOnlyList<SummaryProblem> problems = Check($"{Opening}A span that opens here `and\ncloses here` @someone `more");
 
-        Assert.Equal(2, problems.Count);
-        Assert.All(problems, problem => Assert.Equal(5, problem.Line));
-        Assert.Contains(problems, problem => problem.Message.StartsWith("`<` outside backticks", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Message.StartsWith("`@` followed by a name", StringComparison.Ordinal));
+        SummaryProblem problem = Assert.Single(problems);
+        Assert.Equal(5, problem.Line);
+        Assert.StartsWith("A backtick with no partner", problem.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_code_block_cannot_hide_text_from_the_check()
+    {
+        // Lines the first version of the check skipped as the inside of a code block.
+        IReadOnlyList<SummaryProblem> problems = Check($"{Opening}```text\n```js\n```\n@someone\n```text\n```js\n```");
+
+        Assert.Equal([5, 6, 7, 8, 9, 10, 11], problems.Select(problem => problem.Line));
+        Assert.StartsWith("`@` followed by a name", problems[3].Message, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData("Run `/availability slots who:@GM`.")]
     [InlineData("Run ``who: ` @GM`` — a lone backtick inside a double pair does not end the code.")]
-    [InlineData("#hashtag at the start of a line is text, not a heading.")]
+    [InlineData("Run ```who:@GM``` — three backticks in the middle of a line are still code.")]
     [InlineData("  - An indented bullet, with `who:@GM` in code.")]
+    [InlineData("- `/availability slots`")]
+    [InlineData("#hashtag at the start of a line is text, not a heading.")]
+    [InlineData("- #1 on the list is not a heading either.")]
     [InlineData("The reply reads `<t:1700000000:R>` as a time.")]
     [InlineData("More at <https://calcrony.app/docs> and <http://localhost:8080>.")]
     [InlineData("The docs: [calcrony.app/docs](https://calcrony.app/docs).")]
+    [InlineData("- Watch <https://www.youtube.com/@CalCrony>.")]
+    [InlineData("- Watch https://www.youtube.com/@CalCrony or [the channel](https://www.youtube.com/@CalCrony).")]
     [InlineData("**Bold**, *italic* and ~~struck~~ text.")]
     [InlineData("> A quoted line.")]
     [InlineData("An @ sign by itself, and one at the end @")]
     [InlineData("A table-like line inside code: `| a | b |`.")]
+    [InlineData("Either this | or that, in a sentence.")]
+    [InlineData("Questions & answers, R&D, and a semicolon; none of it an entity.")]
+    [InlineData("An escaped backtick \\` stays one character, and `code` after it is still code.")]
     [InlineData("\tA line that starts with a tab.")]
-    [InlineData("Emoji are fine: 🎉 and 👨\u200D👩\u200D👧.")]
     public void What_a_summary_is_meant_to_hold_passes(string line)
     {
-        Assert.Empty(Check($"### What's new\n\n- One change.\n\n{line}"));
-    }
-
-    [Fact]
-    public void A_code_block_may_hold_anything()
-    {
-        string text = "### What's new\n\n- One change.\n\n```\n# not a heading\n| not | a table |\n<not html> @nobody ![not an image]\n---\n```";
-
-        Assert.Empty(Check(text));
-    }
-
-    [Fact]
-    public void A_code_block_has_to_be_closed()
-    {
-        SummaryProblem problem = Assert.Single(Check("### What's new\n\n- One change.\n\n```\n/availability slots"));
-
-        Assert.Equal(5, problem.Line);
-        Assert.Equal("The code block opened here is never closed.", problem.Message);
+        Assert.Empty(Check($"{Opening}{line}"));
     }
 
     [Theory]
-    [InlineData("A right-to-left override: \u202E.", "U+202E")]
-    [InlineData("An isolate: \u2066.", "U+2066")]
-    [InlineData("A bell: \u0007.", "U+0007")]
-    [InlineData("An escape: \u001B[31m.", "U+001B")]
-    public void Characters_nobody_can_see_in_review_are_refused(string line, string codePoint)
+    [InlineData(0x202E)]
+    [InlineData(0x202A)]
+    [InlineData(0x2066)]
+    [InlineData(0x2069)]
+    [InlineData(0x200B)]
+    [InlineData(0x200E)]
+    [InlineData(0x2060)]
+    [InlineData(0xFEFF)]
+    [InlineData(0x00AD)]
+    [InlineData(0x2028)]
+    [InlineData(0x2029)]
+    [InlineData(0x0007)]
+    [InlineData(0x001B)]
+    [InlineData(0x007F)]
+    [InlineData(0x009F)]
+    [InlineData(0xE0001)]
+    [InlineData(0xE0067)]
+    public void Characters_nobody_can_see_in_review_are_refused(int codePoint)
     {
-        SummaryProblem problem = Assert.Single(Check($"### What's new\n\n- One change.\n\n{line}"));
+        string line = $"A character nobody can see: {char.ConvertFromUtf32(codePoint)}.";
+
+        SummaryProblem problem = Assert.Single(Check($"{Opening}{line}"));
 
         Assert.Equal(5, problem.Line);
-        Assert.Equal($"An invisible control character ({codePoint}); remove it.", problem.Message);
+        Assert.Equal($"An invisible character (U+{codePoint:X4}); remove it.", problem.Message);
     }
 
     [Fact]
-    public void An_invisible_character_is_refused_inside_a_code_block_too()
+    public void An_invisible_character_is_refused_inside_code_too()
     {
-        SummaryProblem problem = Assert.Single(Check("### What's new\n\n- One change.\n\n```\n\u202E\n```"));
+        SummaryProblem problem = Assert.Single(Check($"{Opening}Run `/slots{char.ConvertFromUtf32(0x202E)}`."));
 
-        Assert.Equal(6, problem.Line);
+        Assert.Equal(5, problem.Line);
+        Assert.StartsWith("An invisible character (U+202E)", problem.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_joiner_that_emoji_are_built_with_is_allowed()
+    {
+        string joiner = char.ConvertFromUtf32(0x200D);
+
+        Assert.Empty(Check($"{Opening}Emoji are fine: 🎉 and 👨{joiner}👩{joiner}👧."));
     }
 
     [Fact]
@@ -202,14 +283,17 @@ public class SummaryRulesTests
     }
 
     [Fact]
-    public void One_character_over_the_limit_is_refused()
+    public void One_character_over_the_limit_is_a_problem_of_length_alone()
     {
-        SummaryProblem problem = Assert.Single(Check(TextOfLength(SummaryRules.MaxLength + 1)));
+        IReadOnlyList<SummaryProblem> problems = Check(TextOfLength(SummaryRules.MaxLength + 1));
+        SummaryProblem problem = Assert.Single(problems);
 
         Assert.Equal(0, problem.Line);
+        Assert.True(problem.IsLength);
         Assert.Equal(
             "The summary is 1,801 characters; the limit is 1,800, which keeps the Discord announcement inside Discord's 2,000.",
             problem.Message);
+        Assert.False(SummaryRules.HoldSummaryBack(problems));
     }
 
     [Fact]
@@ -219,7 +303,16 @@ public class SummaryRulesTests
         string text = "### What's new\n\n- " + string.Concat(Enumerable.Repeat("🎉", 900));
 
         Assert.Equal(1818, text.Length);
-        Assert.Contains(Check(text), problem => problem.Line == 0);
+        Assert.Contains(Check(text), problem => problem.IsLength);
+    }
+
+    [Fact]
+    public void Only_a_problem_other_than_length_holds_a_summary_back()
+    {
+        Assert.False(SummaryRules.HoldSummaryBack([]));
+        Assert.False(SummaryRules.HoldSummaryBack(Check(TextOfLength(SummaryRules.MaxLength + 50))));
+        Assert.True(SummaryRules.HoldSummaryBack(Check(TextOfLength(SummaryRules.MaxLength + 50) + "\n\n| a table |")));
+        Assert.True(SummaryRules.HoldSummaryBack(Check(string.Empty)));
     }
 
     [Fact]
@@ -228,6 +321,16 @@ public class SummaryRulesTests
         IReadOnlyList<SummaryProblem> problems = Check("Wrong first line\n\n| a table |\n\n@someone");
 
         Assert.Equal([1, 1, 3, 5], problems.Select(problem => problem.Line));
+    }
+
+    [Fact]
+    public void Line_ends_of_any_kind_are_read_as_line_ends()
+    {
+        Assert.Empty(Check(Good.ReplaceLineEndings("\r\n")));
+        Assert.Empty(Check(Good.ReplaceLineEndings("\r")));
+
+        SummaryProblem problem = Assert.Single(Check("### What's new\r\r- One change.\r\r@someone"));
+        Assert.Equal(5, problem.Line);
     }
 
     /// <summary>Checks a text the way the tool does: normalized first.</summary>

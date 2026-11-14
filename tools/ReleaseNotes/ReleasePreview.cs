@@ -13,8 +13,12 @@ public sealed record ReleasePreview(
     IReadOnlyList<SummaryProblem> Problems,
     IReadOnlyList<ReleaseVersion> Leftovers)
 {
-    /// <summary>Whether the release has text to carry: a summary file that is not empty.</summary>
+    /// <summary>Whether a summary has been written: a file for the version that is not empty.</summary>
     public bool HasSummary => Summary is { Text.Length: > 0 };
+
+    /// <summary>Whether the summary that has been written is kept out of the release because the
+    /// rules refuse it (<see cref="SummaryRules.HoldSummaryBack"/>).</summary>
+    public bool IsHeldBack => HasSummary && SummaryRules.HoldSummaryBack(Problems);
 
     /// <summary>Reads a checkout for a release about to be made.</summary>
     /// <param name="repositoryRoot">The folder the repository is checked out in, at the commit

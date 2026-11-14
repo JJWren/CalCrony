@@ -27,6 +27,8 @@ public class CliTests
     [InlineData("preview", "--version", "0.38.0", "--notes", "no-such-file.md")]
     [InlineData("render", "--version", "0.38.0")]
     [InlineData("comment", "--title", "chore(master): release 0.38.0")]
+    [InlineData("check", "--root", "no-such-folder")]
+    [InlineData("preview", "--version", "0.38.0", "--root", "no-such-folder")]
     public void A_wrong_command_line_is_a_usage_error(params string[] arguments)
     {
         CommandResult result = Run(arguments);
@@ -50,11 +52,14 @@ public class CliTests
     }
 
     [Fact]
-    public void Check_passes_a_checkout_with_no_folder_at_all()
+    public void Check_run_where_there_is_no_folder_of_summaries_says_so_instead_of_passing()
     {
         using TemporaryCheckout checkout = new();
 
-        Assert.Equal(0, Run("check", "--root", checkout.Root).ExitCode);
+        CommandResult result = Run("check", "--root", checkout.Root);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.StartsWith("docs/release-notes was not found under ", result.Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -154,10 +159,10 @@ public class CliTests
     }
 
     [Fact]
-    public void Render_warns_about_a_summary_that_breaks_a_rule_and_carries_on()
+    public void Render_sends_out_a_summary_that_is_only_too_long_with_a_warning_and_cuts_it_for_discord()
     {
         using TemporaryCheckout checkout = new();
-        string overLong = "### What's new\n\n- One change.\n\nThanks @everyone.\n\n" + new string('a', 1800);
+        string overLong = "### What's new\n\n- One change.\n- " + new string('a', 1800);
         checkout.WriteSummary("0.38.0", overLong);
         string notes = checkout.Write("notes.md", Notes);
         string outputs = checkout.PathOf("outputs.txt");
@@ -167,14 +172,35 @@ public class CliTests
             "render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--github-output", outputs, "--root", checkout.Root);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("::warning file=docs/release-notes/0.38.0.md::The summary is 1,850 characters", result.Output, StringComparison.Ordinal);
-        Assert.Contains("::warning file=docs/release-notes/0.38.0.md,line=5::`@` followed by a name", result.Output, StringComparison.Ordinal);
+        Assert.Contains("::warning file=docs/release-notes/0.38.0.md::The summary is 1,832 characters", result.Output, StringComparison.Ordinal);
 
         // GitHub's notes take the whole summary; Discord's text is cut to fit.
         Assert.StartsWith(overLong, File.ReadAllText(rendered), StringComparison.Ordinal);
-        string forDiscord = string.Join('\n', File.ReadAllText(outputs).Split('\n')[2..^2]);
-        Assert.True(forDiscord.Length <= SummaryRules.MaxLength);
-        Assert.EndsWith(ReleaseTexts.Pointer, forDiscord, StringComparison.Ordinal);
+        string[] outputLines = File.ReadAllText(outputs).Split('\n');
+        Assert.Equal("has_summary=true", outputLines[0]);
+        Assert.Equal($"### What's new\n\n- One change.\n\n{ReleaseTexts.Pointer}", string.Join('\n', outputLines[2..^2]));
+    }
+
+    [Theory]
+    [InlineData("Thanks @everyone.", "line=5::`@` followed by a name")]
+    [InlineData("| a | table |", "line=5::Tables do not render in Discord")]
+    [InlineData("```", "line=5::Code blocks are not allowed")]
+    public void Render_leaves_out_a_summary_the_check_refuses_and_the_release_goes_out_as_before(string line, string warning)
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.38.0", $"### What's new\n\n- One change.\n\n{line}");
+        string notes = checkout.Write("notes.md", Notes);
+        string outputs = checkout.PathOf("outputs.txt");
+        string rendered = checkout.PathOf("release-notes.md");
+
+        CommandResult result = Run(
+            "render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--github-output", outputs, "--root", checkout.Root);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"::warning file=docs/release-notes/0.38.0.md,{warning}", result.Output, StringComparison.Ordinal);
+        Assert.Contains("The check refuses docs/release-notes/0.38.0.md, so it is left out", result.Output, StringComparison.Ordinal);
+        Assert.False(File.Exists(rendered));
+        Assert.Equal("has_summary=false\ndiscord_summary=\n", File.ReadAllText(outputs));
     }
 
     [Fact]
@@ -255,17 +281,69 @@ public class CliTests
         Assert.Contains("summary found", result.Output, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Comment_refuses_a_title_that_names_no_version()
+    [Theory]
+    [InlineData("feat: something else")]
+    [InlineData("chore(master): release 1.0.0-rc.1")]
+    public void Comment_writes_nothing_for_a_title_that_names_no_plain_version_and_still_succeeds(string title)
     {
         using TemporaryCheckout checkout = new();
         string comment = checkout.PathOf("comment.md");
 
-        CommandResult result = Run("comment", "--title", "feat: something else", "--out", comment, "--root", checkout.Root);
+        CommandResult result = Run("comment", "--title", title, "--out", comment, "--root", checkout.Root);
 
-        Assert.Equal(1, result.ExitCode);
+        Assert.Equal(0, result.ExitCode);
         Assert.False(File.Exists(comment));
-        Assert.Contains("is not a release pull request's title", result.Error, StringComparison.Ordinal);
+        Assert.Contains("No comment written.", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Preview_says_when_the_check_refuses_the_summary_and_shows_the_release_without_it()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.38.0", "### What's new\n\n- One change.\n\nThanks @everyone.");
+
+        CommandResult result = Run("preview", "--version", "0.38.0", "--root", checkout.Root);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("  docs/release-notes/0.38.0.md:5: `@` followed by a name", result.Output, StringComparison.Ordinal);
+        Assert.Contains("The check refuses it, so the release would go out without it", result.Output, StringComparison.Ordinal);
+        Assert.Contains("== Discord announcement (130 of 2,000 characters) ==", result.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("@everyone", result.Output, StringComparison.Ordinal);
+    }
+
+    [SymbolicLinkFact]
+    public void A_link_named_for_a_version_is_not_read_as_a_summary()
+    {
+        using TemporaryCheckout checkout = new();
+        string elsewhere = checkout.Write("elsewhere/not-ours.txt", "### What's new\n\n- Not the repository's to publish.");
+        string notes = checkout.Write("notes.md", Notes);
+        string outputs = checkout.PathOf("outputs.txt");
+        Directory.CreateDirectory(checkout.PathOf("docs/release-notes"));
+        File.CreateSymbolicLink(checkout.PathOf("docs/release-notes/0.38.0.md"), elsewhere);
+
+        CommandResult rendered = Run(
+            "render", "--version", "0.38.0", "--notes", notes, "--out", checkout.PathOf("release-notes.md"), "--github-output", outputs, "--root", checkout.Root);
+        CommandResult check = Run("check", "--root", checkout.Root);
+
+        Assert.Equal(0, rendered.ExitCode);
+        Assert.Equal("has_summary=false\ndiscord_summary=\n", File.ReadAllText(outputs));
+        Assert.False(File.Exists(checkout.PathOf("release-notes.md")));
+        Assert.Equal(1, check.ExitCode);
+        Assert.StartsWith("docs/release-notes/0.38.0.md: not a release summary. A summary is a plain file", check.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_folder_named_for_a_version_is_not_read_as_a_summary()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.Write("docs/release-notes/0.38.0.md/inside.md", Summary);
+
+        CommandResult check = Run("check", "--root", checkout.Root);
+
+        Assert.Equal(1, check.ExitCode);
+        Assert.StartsWith("docs/release-notes/0.38.0.md: not a release summary.", check.Output, StringComparison.Ordinal);
+        Assert.Null(ReleaseSummary.Find(checkout.Root, new ReleaseVersion(0, 38, 0)));
+        Assert.Empty(SummaryFolder.Versions(checkout.Root));
     }
 
     /// <summary>Runs the tool in this process.</summary>

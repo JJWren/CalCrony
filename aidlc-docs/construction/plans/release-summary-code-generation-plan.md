@@ -230,7 +230,7 @@ The tool, `tools/ReleaseNotes` (no package references):
 **6. Bookkeeping and delivery — each outward step on Joshua's own go-ahead**
 - [ ] 6.1 `audit.md` entries throughout; `aidlc-state.md` carries a section for this work.
 - [ ] 6.2 `master` merged into the branch (it will have gained the 0.37.0 records by then), `audit.md` kept in the order of its timestamps; then the push and the pull request.
-- [ ] 6.3 The workflow run once by hand from the branch (the `workflow_dispatch` trigger it already has), so that GitHub parses the changed file and the path where nothing is released runs: release-please finds nothing to do, and the preview job finds no open release PR. Checks green; Copilot's review if it starts, the two agents if it does not.
+- [ ] 6.3 The workflow run once by hand from the branch (the `workflow_dispatch` trigger it already has), so that GitHub parses the changed file and release-please runs and finds nothing to do. (As built after review: the preview job runs from `master` only, so on a run from the branch it is skipped.) Checks green; Copilot's review if it starts, the two agents if it does not.
 - [ ] 6.4 The squash merge through the REST call. It cuts no release.
 
 What cannot be run before a real release: the two jobs that only exist when one is created. They are
@@ -243,7 +243,7 @@ covered by the tool's tests and by the announce step run for real in CI (2.7), a
 |---|---|
 | A mistake in the workflow file stops every job, release-please included. | 3.4 and 6.3: the file is parsed locally and then by GitHub itself, from the branch, before the merge. |
 | The summary's file name does not match the version released. | The announcement is as today, nothing breaks. Q3 A shows it on the release PR beforehand. |
-| A summary pings someone. | `allowed_mentions` names the one role and is unchanged, so nothing else in the text can ping in Discord; the check refuses mentions outside code, which also covers GitHub's `@name`. |
+| A summary pings someone. | `allowed_mentions` names the one role and is unchanged, so nothing else in the text can ping in Discord. On GitHub, where `@name` notifies, the check refuses a mention outside code in the forms it knows (section 11), and a summary it refuses is not published. |
 | The summary job breaks on a release day. | D5: `announce-release` does not depend on its success. |
 | Text from an untrusted source reaches the announcement. | The text comes only from a file at the release tag, which got there through a reviewed PR — the same trust as the workflow file. Nothing is read from PR titles, comments or forks. |
 
@@ -254,7 +254,10 @@ covered by the tool's tests and by the announce step run for real in CI (2.7), a
 - Any change to how release-please versions, writes `CHANGELOG.md` or opens its PR.
 - A summary as a condition for releasing. It stays optional by design.
 
-## 10. As built (2026-11-14): what differs from the plan as approved, and what was run
+## 10. As first built (2026-11-14, commit `9ae3677`): what differed from the plan as approved, and what was run
+
+This section is the state the two reviewers read. Section 11 records what their review changed;
+where the two differ, section 11 is how it is now.
 
 **Differences.**
 
@@ -311,3 +314,96 @@ covered by the tool's tests and by the announce step run for real in CI (2.7), a
 **Not run, and why.** The release workflow itself: it runs only on a push to `master` or by hand.
 Step 6.3 has GitHub parse the file and run the no-release path from the branch after the push; the
 two jobs of the release path first run at the next release, and fail safe (D5).
+
+## 11. Review round 1 (2026-11-14), and the change as it stands
+
+Two agents read commit `9ae3677`, each in a copy of its own: one on security and privacy, one on
+correctness and quality. Neither found anything critical or major. Security: one medium, five low,
+four notes. Quality: five minor and a group of nits. Three statements of this plan did not hold when
+they were checked — D5's "nothing about a summary can hold a release back", section 8's "the check
+refuses mentions" and section 10's "only the two steps that call GitHub are given a token" — and
+each is made true below.
+
+**What they found, and what was done.**
+
+| # | Finding | Answer |
+|---|---|---|
+| S1, medium | `publish-images` runs the whole suite on the tag, and the suite now checks every summary file. A file that breaks a rule and reached `master` — two pull requests that each fit and together do not, or a merge past a red check — would have stopped the images and the announcement, on a tag that cannot change. | The image job leaves the release-notes tests out with a test filter. The exact command was run here: it exits 0 and runs all 1,292 tests of the three product projects. This is the one change to `publish-images`, which section 6 called unchanged. |
+| S2, low | The tool was built and run in a step that held the job's token, and it followed a symbolic link, so a link committed as a summary could have put what it pointed at into the public notes. | No step that runs the tool has a token, in either job. A link named for a version is not a summary: the release reads nothing through it, and `check` reports it. |
+| S3, low; Q5, minor | Ways to get text past the check that GitHub then reads as a mention, a heading or a table: a line that starts with three backticks and goes on; a fence with a language inside a block; a backtick after a backslash; a backtick inside a link in angle brackets; HTML entities; code that runs over a line end; an underline of one or two characters; a table without a leading pipe; a heading inside a bullet; several invisible characters. One false alarm: an `@` in a link's address. And at release time nothing was refused: a summary with a mention the check had caught still went out. | The rules were rewritten to read every line by itself, the way GitHub reads a line (below). At release time a summary the check refuses for anything but its length is left out. The comment on the release PR shows such a file as code, so that the comment itself notifies nobody. |
+| S4, low | A failed summary job left a red run after the ping had gone out, and "Re-run failed jobs" would have pinged a second time. | Every step of the job carries on after a failure, so the job never ends red; a last step puts a warning on the run, and `CONTRIBUTING.md` says not to re-run the job. |
+| S5, low; Q4, minor | Nothing bounded how long the summary job could hold the announcement back. | A time limit on every step and on the job. |
+| S6, low; Q1, minor | The preview job read the commit its run was started for, so a re-run, a run from a branch, or two merges in quick succession could write about older files while saying "is on `master`". | The job runs from `master` only and checks out the head of `master`. |
+| Q2, minor | Twelve of thirteen one-line changes to the wiring of the two new jobs failed no test; each would have switched the summary off without a sign. | The settings and the script of every step of both jobs are pinned as text, and so is the announce step's whole script. 25 such changes are now among the mutations. |
+| Q3, minor; S note | The tests ran the step with `bash -eo pipefail`; the runner gives a step that names no shell `bash -e`. | The announce step now says `shell: bash`. With it the step fails when jq fails, whatever the webhook answers to the empty request curl still sends. The tests run each version of the step with the flags it has. |
+| S note | `gh pr list` returns the first 30 pull requests before the filter is applied. | The lookup asks for the Actions bot's pull requests (`--app github-actions`). |
+| Q nits | `check` run outside the repository passed with nothing checked. A release PR for a prerelease would have failed the preview job on every push. The first-line message looked the same as what the author had written. A cut could leave the heading alone. Four small branches had no test. A correction to `docs/release-notes/0.37.0.md` would have failed the sample's tests. Four statements in `CONTRIBUTING.md` and one comment in the workflow file said more than is true. | `check` says so and exits 2. `comment` writes nothing for such a title and succeeds, and the job posts nothing. The message says what "exactly" means. A line that does not fit is cut inside when only headings came before it. Each branch has a test. The sample's tests read copies kept beside them. The statements are corrected. |
+
+**Not taken.**
+
+- *A second post when Discord refuses the first* (security note): posting the line alone if Discord
+  answers 400 to the message with the summary. No input was found that makes Discord refuse, the
+  length is guarded twice, and this is the step that holds the webhook, so it stays as small as it
+  is. If a post is refused the step fails, as it always has, and the line can be posted by hand.
+- *Narrower permissions for `release-please` and `publish-images`, and no token left in the image
+  job's checkout* (security note; not from this change): Joshua's to decide, as a change of its own.
+- *actionlint in CI* (quality): the same.
+
+**The rules as they are now.** They replace the list in section 10. Every line is read by itself.
+
+- The first line is exactly `### What's new`, and at least one bullet stands under it.
+  `### How to use it` may follow once, on a line of its own. No other heading, at any depth of list
+  or quote.
+- No table: a line that starts with a pipe, or a row of dashes between pipes. No image. No line of
+  only dashes or only equals signs, of any length, and no three or more asterisks or underscores
+  alone.
+- No code block, fenced with backticks or with tildes, at the margin or inside a list. Code is
+  written in backticks on one line, and a backtick with no partner on its line is refused. This is
+  new: a block was where both reviewers could make the check and GitHub disagree about what is
+  code, and with no state carried from one line to the next there is nothing left to disagree
+  about.
+- No `<` outside code other than a whole link `<https://…>`, and no HTML entity.
+- No `@` followed by a name outside code. An `@` in the path of a web address is not a mention;
+  one before the host, or after a host that is not a real one, is.
+- No control character other than a tab, no format character other than the joiner emoji are built
+  with, and no line or paragraph separator.
+- At most 1,800 characters in UTF-16 units. This is the one problem that does not keep a summary
+  out of a release: such a file still goes out, cut for Discord.
+
+**Other differences from the plan as approved**, beside those of section 10:
+
+- The comment on the release PR shows the summary's text and says where it goes. It does not show
+  the whole Discord message with its first line, as Q3 A put it; `preview` shows that.
+- Step 6.3's run from the branch has GitHub parse the file and runs release-please alone; the
+  preview job is skipped there.
+- Section 10's "a code block that is opened is closed" and "only the two steps that call GitHub
+  are given a token" are superseded by the rows above.
+
+**What was run after these changes.**
+
+- Release build from scratch: no errors, the baseline's 22 warnings, none in the new projects.
+- Windows: the 1,292 earlier tests green; of 294 new ones, 284 green and 10 skipped — the nine that
+  run the announce step's script, and one that creates a symbolic link, which this Windows user may
+  not.
+- Linux, with nothing skipped: all 294 pass. This ran offline in the .NET SDK container that was
+  already on this machine (Ubuntu 24.04, bash 5.2.21, curl 8.5.0), with a real jq 1.8.1 binary and
+  the libraries it needs copied out of another local image, and with `CI=true`. So the announce
+  step's own script has been executed with a real jq: with no summary it posts byte for byte what
+  the step of v0.37.0 posts, and with the 0.37.0 summary it posts the message kept beside the
+  tests. The runner has jq 1.7.1, which was not to be had here; CI is the first run on that.
+- The reviewers had run the same before me, each in its own way: the security reviewer the script
+  alone with jq 1.8.2, the quality reviewer the test project with jq 1.8.1. The quality reviewer
+  also ran actionlint 1.7.12 and shellcheck 0.11.0 on the workflow file as it was then, both
+  clean, and the security reviewer rendered its inputs with GitHub's Markdown API — two
+  unauthenticated calls with made-up text.
+- 148 changes that each take one rule or guard out, or bend it: 45 in the rules, 11 in the texts,
+  9 in the announcement, 3 in the outputs, 8 in the preview and its comment, 4 in versions, 5 in
+  reading a summary, 4 in the folder, 10 in the commands, 4 in the warnings, 2 in the title and
+  changelog readers, 42 in the workflow file and 1 in the sample. All 148 fail a test: 146 here,
+  and the two about links on Linux, where a link can be made.
+- The workflow file parses as YAML, and no file in the change holds a control, format or separator
+  character.
+
+**Still not run.** The jobs on GitHub. How GitHub evaluates the job-output expression, what
+`!cancelled()` gives after a job-level timeout, and jq 1.7.1 are taken from documentation or from a
+neighbouring version. Step 6.3 covers the parse; the release path first runs at the next release.

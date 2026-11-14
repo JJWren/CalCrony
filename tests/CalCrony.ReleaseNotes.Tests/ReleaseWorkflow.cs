@@ -1,11 +1,12 @@
 namespace CalCrony.ReleaseNotes.Tests;
 
-/// <summary>The release workflow's file, read as text: a job's lines, and the script of one of
-/// its steps exactly as the runner would execute it.</summary>
+/// <summary>The release workflow's file, read as text: a job's lines, a step's settings, and the
+/// script of a step exactly as the runner would execute it.</summary>
 internal sealed class ReleaseWorkflow
 {
     private const string RepositoryPath = ".github/workflows/release-please.yml";
     private const string JobIndent = "  ";
+    private const string RunBlock = "run: |";
 
     private readonly string[] lines;
 
@@ -49,17 +50,62 @@ internal sealed class ReleaseWorkflow
     /// <returns>The lines under the key, trimmed, without comments or blank lines.</returns>
     public IReadOnlyList<string> Block(string jobName, string key)
     {
-        IReadOnlyList<string> job = Job(jobName);
+        List<string> job = Job(jobName).ToList();
         string opening = $"{JobIndent}{JobIndent}{key}:";
-        int start = job.ToList().IndexOf(opening);
+        int start = job.IndexOf(opening);
         Assert.True(start >= 0, $"The job {jobName} has no block named {key}.");
 
         return job
             .Skip(start + 1)
-            .TakeWhile(line => line.Trim().Length == 0 || LeadingSpaces(line) > opening.Length - key.Length - 1)
+            .TakeWhile(line => line.Trim().Length == 0 || LeadingSpaces(line) > LeadingSpaces(opening))
             .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Where(IsSetting)
             .ToList();
+    }
+
+    /// <summary>Gives the names of a job's steps in order: what follows <c>- name:</c> or
+    /// <c>- uses:</c>.</summary>
+    /// <param name="jobName">The job's key.</param>
+    /// <returns>Each step's first line, trimmed.</returns>
+    public IReadOnlyList<string> StepLabels(string jobName) =>
+        Job(jobName)
+            .Where(line => line.TrimStart().StartsWith("- ", StringComparison.Ordinal) && LeadingSpaces(line) == StepIndent(jobName))
+            .Select(line => line.Trim())
+            .ToList();
+
+    /// <summary>Gives a step's settings: its lines from the first to its <c>run</c> line, or to
+    /// its end when it runs an action. The script of a <c>run: |</c> block is not among them
+    /// (<see cref="StepScript"/> gives that).</summary>
+    /// <param name="jobName">The job's key.</param>
+    /// <param name="label">The step's first line, trimmed: <c>- name: …</c> or <c>- uses: …</c>.</param>
+    /// <returns>The step's lines, trimmed, without comments or blank lines.</returns>
+    public IReadOnlyList<string> Step(string jobName, string label)
+    {
+        List<string> job = Job(jobName).ToList();
+        int start = job.FindIndex(line => line.Trim() == label);
+        Assert.True(start >= 0, $"The job {jobName} has no step that starts with \"{label}\".");
+        int indent = LeadingSpaces(job[start]);
+        List<string> settings = [label];
+
+        foreach (string line in job.Skip(start + 1))
+        {
+            if (line.Trim().Length > 0 && LeadingSpaces(line) <= indent)
+            {
+                break;
+            }
+
+            if (IsSetting(line.Trim()))
+            {
+                settings.Add(line.Trim());
+            }
+
+            if (line.Trim() == RunBlock)
+            {
+                break;
+            }
+        }
+
+        return settings;
     }
 
     /// <summary>Gives the script of a step's <c>run: |</c> block, without the block's indentation,
@@ -72,7 +118,7 @@ internal sealed class ReleaseWorkflow
         List<string> job = Job(jobName).ToList();
         int step = job.FindIndex(line => line.Trim() == $"- name: {stepName}");
         Assert.True(step >= 0, $"The job {jobName} has no step named {stepName}.");
-        int run = job.FindIndex(step, line => line.Trim() == "run: |");
+        int run = job.FindIndex(step, line => line.Trim() == RunBlock);
         Assert.True(run >= 0, $"The step {stepName} has no run block.");
         int indent = LeadingSpaces(job[run]);
         List<string> script = [];
@@ -90,6 +136,18 @@ internal sealed class ReleaseWorkflow
         return string.Join('\n', script).TrimEnd('\n') + "\n";
     }
 
+    /// <summary>Gives the indentation of a job's steps.</summary>
+    /// <param name="jobName">The job's key.</param>
+    /// <returns>The number of spaces before each step's dash.</returns>
+    private int StepIndent(string jobName)
+    {
+        List<string> job = Job(jobName).ToList();
+        int steps = job.IndexOf($"{JobIndent}{JobIndent}steps:");
+        Assert.True(steps >= 0, $"The job {jobName} has no steps.");
+
+        return LeadingSpaces(job.Skip(steps + 1).First(line => line.TrimStart().StartsWith("- ", StringComparison.Ordinal)));
+    }
+
     /// <summary>Tells whether a line opens a job: a key at the first level under <c>jobs:</c>.</summary>
     /// <param name="line">A line of the workflow file.</param>
     /// <returns>Whether the line is a job's key.</returns>
@@ -98,6 +156,11 @@ internal sealed class ReleaseWorkflow
         && line.StartsWith(JobIndent, StringComparison.Ordinal)
         && line[JobIndent.Length] is not (' ' or '#')
         && line.TrimEnd().EndsWith(':');
+
+    /// <summary>Tells whether a trimmed line says something: not blank and not a comment.</summary>
+    /// <param name="trimmed">A line without its outer spaces.</param>
+    /// <returns>Whether the line is a setting.</returns>
+    private static bool IsSetting(string trimmed) => trimmed.Length > 0 && !trimmed.StartsWith('#');
 
     /// <summary>Counts the spaces a line starts with.</summary>
     /// <param name="line">A line of the workflow file.</param>

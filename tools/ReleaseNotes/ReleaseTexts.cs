@@ -10,7 +10,6 @@ public static class ReleaseTexts
     public const string Pointer = "*…continued in the release notes.*";
 
     private const string Rule = "---";
-    private const string CodeFence = "```";
     private const string BlankLine = "\n\n";
 
     /// <summary>Puts a summary on top of the notes release-please wrote: the summary, a rule, then
@@ -37,8 +36,9 @@ public static class ReleaseTexts
     /// <summary>The summary as the Discord announcement carries it: as written. A summary over
     /// <see cref="SummaryRules.MaxLength"/> — which the check on every pull request refuses, so
     /// this is for a file that reached a release anyway — is cut after its last whole line that
-    /// fits, a code block the cut leaves open is closed, and <see cref="Pointer"/> follows.</summary>
-    /// <param name="summary">The summary's normalized text.</param>
+    /// fits, and <see cref="Pointer"/> follows.</summary>
+    /// <param name="summary">The summary's normalized text, with nothing wrong with it but, at
+    /// most, its length.</param>
     /// <returns>Text of at most <see cref="SummaryRules.MaxLength"/> characters.</returns>
     public static string DiscordSummary(string summary)
     {
@@ -49,61 +49,52 @@ public static class ReleaseTexts
             return summary;
         }
 
-        // Room for the pointer, the blank line before it, and a fence on a line of its own.
-        int budget = SummaryRules.MaxLength - Pointer.Length - BlankLine.Length - (CodeFence.Length + 1);
-        string kept = KeepWholeLines(summary, budget);
-        string closing = IsCodeBlockOpen(kept) ? "\n" + CodeFence : string.Empty;
-
-        return $"{kept}{closing}{BlankLine}{Pointer}";
+        int budget = SummaryRules.MaxLength - Pointer.Length - BlankLine.Length;
+        return $"{Cut(summary, budget)}{BlankLine}{Pointer}";
     }
 
     /// <summary>Keeps the leading lines of a text that fit a number of characters, without the
-    /// blank lines the cut leaves at the end. A first line longer than that by itself is cut
-    /// inside the line.</summary>
-    /// <param name="text">Normalized text, so its first line is not blank.</param>
+    /// blank lines the cut leaves at the end. A line that does not fit ends the text — unless
+    /// nothing but headings came before it: a heading with nothing under it says nothing, so that
+    /// line is cut inside instead.</summary>
+    /// <param name="text">Normalized text, longer than the budget.</param>
     /// <param name="budget">The most characters to keep.</param>
     /// <returns>The part kept.</returns>
-    private static string KeepWholeLines(string text, int budget)
+    private static string Cut(string text, int budget)
     {
         StringBuilder kept = new();
+        bool hasContent = false;
 
         foreach (string line in text.Split('\n'))
         {
-            bool isFirst = kept.Length == 0;
-            int lengthWithLine = isFirst ? line.Length : kept.Length + 1 + line.Length;
+            string separator = kept.Length == 0 ? string.Empty : "\n";
+            int room = budget - kept.Length - separator.Length;
 
-            if (lengthWithLine > budget)
+            if (line.Length > room)
             {
+                if (!hasContent && room > 0)
+                {
+                    kept.Append(separator).Append(CutInsideLine(line, room));
+                }
+
                 break;
             }
 
-            if (!isFirst)
-            {
-                kept.Append('\n');
-            }
-
-            kept.Append(line);
+            kept.Append(separator).Append(line);
+            hasContent |= line.Trim().Length > 0 && !line.StartsWith('#');
         }
 
-        return kept.Length > 0
-            ? kept.ToString().TrimEnd()
-            : CutInsideLine(text, budget);
+        return kept.ToString().TrimEnd();
     }
 
-    /// <summary>Cuts a text at a number of characters, one earlier when that would split a
+    /// <summary>Cuts a line at a number of characters, one earlier when that would split a
     /// character that takes two.</summary>
-    /// <param name="text">The text, longer than the budget.</param>
-    /// <param name="budget">The most characters to keep.</param>
-    /// <returns>The leading part of the text.</returns>
-    private static string CutInsideLine(string text, int budget)
+    /// <param name="line">The line, longer than the room left.</param>
+    /// <param name="room">The most characters to keep, at least one.</param>
+    /// <returns>The leading part of the line.</returns>
+    private static string CutInsideLine(string line, int room)
     {
-        int length = char.IsHighSurrogate(text[budget - 1]) ? budget - 1 : budget;
-        return text[..length].TrimEnd();
+        int length = char.IsHighSurrogate(line[room - 1]) ? room - 1 : room;
+        return line[..length];
     }
-
-    /// <summary>Tells whether a text ends inside a fenced code block.</summary>
-    /// <param name="text">The text.</param>
-    /// <returns>Whether an odd number of its lines are code fences.</returns>
-    private static bool IsCodeBlockOpen(string text) =>
-        text.Split('\n').Count(SummaryRules.IsCodeFence) % 2 == 1;
 }

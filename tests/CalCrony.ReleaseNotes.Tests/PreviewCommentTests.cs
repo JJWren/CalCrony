@@ -120,16 +120,67 @@ public class PreviewCommentTests
     }
 
     [Fact]
-    public void What_the_rules_find_is_listed_under_the_summary()
+    public void A_summary_that_is_only_too_long_is_shown_with_what_becomes_of_it()
     {
         using TemporaryCheckout checkout = new();
-        checkout.WriteSummary("0.38.0", "### What's new\n\n- One change.\n\nThanks @everyone.\n\n" + new string('a', 1800));
+        string summary = "### What's new\n\n- " + new string('a', 1800);
+        checkout.WriteSummary("0.38.0", summary);
+
+        ReleasePreview preview = ReleasePreview.Gather(checkout.Root, Next);
+        string comment = PreviewComment.Build(preview);
+
+        Assert.True(preview.HasSummary);
+        Assert.False(preview.IsHeldBack);
+        Assert.Contains($"---\n\n{summary}\n\n---\n\n**The file is too long.**", comment, StringComparison.Ordinal);
+        Assert.Contains("Discord gets it cut at a line end with a pointer to the release notes:\n\n- the file: The summary is 1,818 characters; the limit is 1,800", comment, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_summary_the_check_refuses_is_shown_as_code_with_what_is_wrong()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.38.0", "### What's new\n\n- One change.\n\nThanks @everyone.\n");
+
+        ReleasePreview preview = ReleasePreview.Gather(checkout.Root, Next);
+        string comment = PreviewComment.Build(preview);
+
+        Assert.True(preview.IsHeldBack);
+        Assert.Equal(
+            """
+            <!-- release-summary-preview -->
+            ### Release summary for 0.38.0
+
+            `docs/release-notes/0.38.0.md` is on `master`, but **the check refuses it, so as it stands this release goes out without a summary**: the changelog lines as release notes, and a Discord announcement with the link alone. What the check found:
+
+            - line 5: `@` followed by a name outside backticks is a mention: GitHub notifies the user of that name. Put it in backticks.
+
+            The file as it is:
+
+            ```text
+            ### What's new
+
+            - One change.
+
+            Thanks @everyone.
+            ```
+
+            To have the summary go out, fix the file through a pull request before merging this one.
+
+            This comment is rewritten on every push to `master`.
+            """.ReplaceLineEndings("\n"),
+            comment);
+    }
+
+    [Fact]
+    public void Nothing_in_a_refused_summary_can_close_the_code_it_is_shown_as()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.38.0", "### What's new\n\n- One change.\n\n````\n@everyone\n````");
 
         string comment = PreviewComment.Build(ReleasePreview.Gather(checkout.Root, Next));
 
-        Assert.Contains("**The check found problems with the file.**", comment, StringComparison.Ordinal);
-        Assert.Contains("- the file: The summary is 1,850 characters; the limit is 1,800", comment, StringComparison.Ordinal);
-        Assert.Contains("- line 5: `@` followed by a name", comment, StringComparison.Ordinal);
-        Assert.Contains("As it stands, Discord gets it cut at a line end", comment, StringComparison.Ordinal);
+        // The fence is one backtick longer than the longest run inside it.
+        Assert.Contains("\n\n`````text\n### What's new\n", comment, StringComparison.Ordinal);
+        Assert.Contains("\n````\n@everyone\n````\n`````\n\n", comment, StringComparison.Ordinal);
     }
 }

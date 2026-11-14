@@ -87,12 +87,19 @@ public static class Cli
             return UsageError;
         }
 
+        if (!Directory.Exists(SummaryFolder.PathIn(options.Root)))
+        {
+            error.WriteLine(
+                $"{ReleaseSummary.FolderPath} was not found under {options.Root}. Run the check from the repository root, or name it with --root.");
+            return UsageError;
+        }
+
         int problemCount = 0;
 
         foreach (string name in SummaryFolder.UnexpectedNames(options.Root))
         {
             output.WriteLine(
-                $"{ReleaseSummary.FolderPath}/{name}: not a release summary. A summary is named for its version, like 0.38.0.md, and {SummaryFolder.ReadMeFileName} is the only other file here.");
+                $"{ReleaseSummary.FolderPath}/{name}: not a release summary. A summary is a plain file named for its version, like 0.38.0.md — not a folder and not a link — and {SummaryFolder.ReadMeFileName} is the only other file here.");
             problemCount++;
         }
 
@@ -141,14 +148,17 @@ public static class Cli
         }
 
         string path = ReleaseSummary.PathFor(version);
-        string summaryText = ReleaseSummary.Find(options.Root, version)?.Text ?? string.Empty;
+        string written = ReleaseSummary.Find(options.Root, version)?.Text ?? string.Empty;
+        IReadOnlyList<SummaryProblem> problems = written.Length == 0 ? [] : SummaryRules.Check(written);
+        bool isHeldBack = SummaryRules.HoldSummaryBack(problems);
+        string summaryText = isHeldBack ? string.Empty : written;
         string tag = Announcement.TagFor(version);
         string releaseUrl = Announcement.ReleaseUrl(options.Value("repository") ?? DefaultRepository, tag);
         string discordSummary = ReleaseTexts.DiscordSummary(summaryText);
         string content = Announcement.Content(tag, releaseUrl, discordSummary);
         string existingNotes = notes ?? NotesPlaceholder;
 
-        if (summaryText.Length == 0)
+        if (written.Length == 0)
         {
             output.WriteLine(
                 $"No release summary for {version}: {path} is missing or empty. The release would go out as it always has.");
@@ -157,11 +167,16 @@ public static class Cli
         {
             output.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"Release summary for {version}: {path}, {summaryText.Length:N0} of {SummaryRules.MaxLength:N0} characters."));
+                $"Release summary for {version}: {path}, {written.Length:N0} of {SummaryRules.MaxLength:N0} characters."));
 
-            foreach (SummaryProblem problem in SummaryRules.Check(summaryText))
+            foreach (SummaryProblem problem in problems)
             {
                 output.WriteLine($"  {Locate(path, problem)}");
+            }
+
+            if (isHeldBack)
+            {
+                output.WriteLine("The check refuses it, so the release would go out without it, as it always has.");
             }
         }
 
@@ -181,8 +196,10 @@ public static class Cli
 
     /// <summary>Release time. Writes the release notes with the version's summary on top, and
     /// hands the summary for Discord on as a job output. Without a summary it writes no file and
-    /// says so in the outputs; what the rules find wrong with a summary is reported as warnings
-    /// and holds nothing back.</summary>
+    /// says so in the outputs. What the rules find wrong with a summary is reported as warnings:
+    /// one that is only too long still goes out, cut short for Discord, and one the rules refuse
+    /// for any other reason is left out, so the release goes out as it would without it. The
+    /// command succeeds either way.</summary>
     /// <param name="arguments">The command's options.</param>
     /// <param name="output">Where the command's report and its warnings go.</param>
     /// <param name="error">Where a complaint about the command line goes.</param>
@@ -208,9 +225,19 @@ public static class Cli
             return Success;
         }
 
-        foreach (SummaryProblem problem in SummaryRules.Check(summaryText))
+        IReadOnlyList<SummaryProblem> problems = SummaryRules.Check(summaryText);
+
+        foreach (SummaryProblem problem in problems)
         {
-            output.WriteLine(Annotate(path, problem));
+            output.WriteLine(WorkflowCommand.Warning(path, problem.Line, problem.Message));
+        }
+
+        if (SummaryRules.HoldSummaryBack(problems))
+        {
+            output.WriteLine(
+                $"The check refuses {path}, so it is left out: the release notes and the announcement stay as they are.");
+            WriteOutputs(outputsPath, false, string.Empty);
+            return Success;
         }
 
         string discordSummary = ReleaseTexts.DiscordSummary(summaryText);
@@ -226,10 +253,12 @@ public static class Cli
     }
 
     /// <summary>Writes the comment for the open release pull request, whose title names the
-    /// version.</summary>
+    /// version. A title that names no plain version — a prerelease, say — gets no comment: the
+    /// command writes no file and still succeeds, so the job that runs it on every push does not
+    /// fail for as long as such a pull request is open.</summary>
     /// <param name="arguments">The command's options.</param>
     /// <param name="output">Where the command's report goes.</param>
-    /// <param name="error">Where a complaint about the command line or the title goes.</param>
+    /// <param name="error">Where a complaint about the command line goes.</param>
     /// <returns>The command's exit code.</returns>
     private static int Comment(IReadOnlyList<string> arguments, TextWriter output, TextWriter error)
     {
@@ -242,8 +271,8 @@ public static class Cli
 
         if (!ReleasePullRequest.TryReadVersion(title, out ReleaseVersion version))
         {
-            error.WriteLine($"\"{title}\" is not a release pull request's title: it does not end in \"release\" and a version.");
-            return Failure;
+            output.WriteLine($"\"{title}\" does not end in \"release\" and a version of three numbers, so there is no summary to look for. No comment written.");
+            return Success;
         }
 
         ReleasePreview preview = ReleasePreview.Gather(options.Root, version);
@@ -270,14 +299,20 @@ public static class Cli
         TextWriter error,
         out CliOptions options)
     {
-        if (CliOptions.TryParse(arguments, required, optional, out options, out string problem))
+        if (!CliOptions.TryParse(arguments, required, optional, out options, out string problem))
         {
-            return true;
+            error.WriteLine(problem);
+            error.WriteLine(Usage);
+            return false;
         }
 
-        error.WriteLine(problem);
-        error.WriteLine(Usage);
-        return false;
+        if (!Directory.Exists(options.Root))
+        {
+            error.WriteLine($"The folder {options.Root} does not exist.");
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>Reads the <c>--version</c> option.</summary>
@@ -346,20 +381,4 @@ public static class Cli
         problem.Line > 0
             ? string.Create(CultureInfo.InvariantCulture, $"{path}:{problem.Line}: {problem.Message}")
             : $"{path}: {problem.Message}";
-
-    /// <summary>Writes a problem as a warning GitHub Actions shows on the run.</summary>
-    /// <param name="path">The summary's repository path.</param>
-    /// <param name="problem">The problem.</param>
-    /// <returns>The workflow command.</returns>
-    private static string Annotate(string path, SummaryProblem problem)
-    {
-        string message = problem.Message
-            .Replace("%", "%25", StringComparison.Ordinal)
-            .Replace("\r", "%0D", StringComparison.Ordinal)
-            .Replace("\n", "%0A", StringComparison.Ordinal);
-
-        return problem.Line > 0
-            ? string.Create(CultureInfo.InvariantCulture, $"::warning file={path},line={problem.Line}::{message}")
-            : $"::warning file={path}::{message}";
-    }
 }
