@@ -10,7 +10,7 @@ public class PreviewCommentTests
     private static readonly ReleaseVersion Next = new(0, 38, 0);
 
     [Fact]
-    public void With_a_summary_the_comment_shows_it_between_two_rules()
+    public void With_a_summary_the_comment_shows_it_as_code()
     {
         using TemporaryCheckout checkout = new();
         checkout.Write(Changelog.FileName, ChangelogAt0370);
@@ -23,21 +23,35 @@ public class PreviewCommentTests
             <!-- release-summary-preview -->
             ### Release summary for 0.38.0
 
-            `docs/release-notes/0.38.0.md` is on `master` (29 of 1,800 characters). When this pull request is merged, the text between the two rules goes on top of the release notes and into the Discord announcement, under its usual first line.
+            `docs/release-notes/0.38.0.md` is on `master` (29 of 1,800 characters). When this pull request is merged, this text goes on top of the release notes and into the Discord announcement, under its usual first line. It is shown here as code, not as it will look:
 
-            ---
-
+            ```text
             ### What's new
 
             - One change.
+            ```
 
-            ---
-
-            To change the text, change the file through a pull request before merging this one.
+            At release time GitHub is asked whether the text mentions anyone, and a summary that does is left out. To change the text, change the file through a pull request before merging this one.
 
             This comment is rewritten on every push to `master`.
             """.ReplaceLineEndings("\n"),
             comment);
+    }
+
+    [Fact]
+    public void Nothing_in_a_summary_that_goes_out_can_close_the_code_it_is_shown_as()
+    {
+        // A comment notifies whoever it mentions the moment it is posted, so the summary is never
+        // rendered in it: the fence is one backtick longer than the longest run inside it.
+        using TemporaryCheckout checkout = new();
+        string summary = "### What's new\n\n- Run ```who:@GM``` to see it.";
+        checkout.WriteSummary("0.38.0", summary);
+
+        ReleasePreview preview = ReleasePreview.Gather(checkout.Root, Next);
+        string comment = PreviewComment.Build(preview);
+
+        Assert.False(preview.IsHeldBack);
+        Assert.Contains($"not as it will look:\n\n````text\n{summary}\n````\n\nAt release time", comment, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -131,8 +145,11 @@ public class PreviewCommentTests
 
         Assert.True(preview.HasSummary);
         Assert.False(preview.IsHeldBack);
-        Assert.Contains($"---\n\n{summary}\n\n---\n\n**The file is too long.**", comment, StringComparison.Ordinal);
-        Assert.Contains("Discord gets it cut at a line end with a pointer to the release notes:\n\n- the file: The summary is 1,818 characters; the limit is 1,800", comment, StringComparison.Ordinal);
+        Assert.Contains(
+            $"not as it will look:\n\n```text\n{summary}\n```\n\n**The file is too long.** As it stands the release notes get all of it, and Discord gets it cut short, with a pointer to the release notes:\n\n- the file: The summary is 1,818 characters; the limit is 1,800",
+            comment,
+            StringComparison.Ordinal);
+        Assert.Contains("inside Discord's 2,000.\n\nAt release time GitHub is asked", comment, StringComparison.Ordinal);
     }
 
     [Fact]

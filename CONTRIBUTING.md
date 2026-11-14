@@ -62,7 +62,7 @@ The changelog lines release-please writes come from PR titles and are written fo
 
 **Where.** One file per release, named for its version: `docs/release-notes/0.38.0.md`. The version is the one in the open release PR's title. If no release PR is open, your change is the first since the last release, and the version follows from it: after 0.37.4 a `feat:` makes 0.38.0 and a `fix:` makes 0.37.5. If a later `feat:` moves the number, rename the file in that PR; the comment on the release PR names a file left behind.
 
-**Who and when.** Whoever opens a PR that changes something users will notice writes the file, or adds to it, in that same PR, next to the README and Docs page edits. Before merging the release PR, read its "Release summary" comment; anything missing or wrong goes in through a small `docs:` PR first. A summary on its own is `docs:`, so it rides with the next release rather than causing one.
+**Who and when.** Whoever opens a PR that changes something users will notice writes the file, or adds to it, in that same PR, next to the README and Docs page edits. Before merging the release PR, read its "Release summary" comment, which shows the file as code so that nothing in it can notify anyone; anything missing or wrong goes in through a small `docs:` PR first. A summary on its own is `docs:`, so it rides with the next release rather than causing one.
 
 **What.** Major changes; minor ones when they matter to users or are all the release has. Plain words, commands in backticks:
 
@@ -80,23 +80,24 @@ The changelog lines release-please writes come from PR titles and are written fo
 **The rules.** The file is posted as written to two places that render Markdown differently, and one of them, GitHub, notifies anyone a text mentions. The `build-test` check holds every file in the folder to these rules:
 
 - The first line is `### What's new`, with at least one bullet under it. `### How to use it` may follow, once, on a line of its own. No other headings, inside a list or a quote either.
-- No tables, images, HTML, horizontal rules or lines of only dashes or equals signs.
-- Code is written in backticks on one line. No code blocks, and no backtick without its partner on the same line.
-- `@name` only inside backticks: outside them GitHub notifies the user of that name. An `@` in a link's address is fine.
+- No tables, images, HTML, footnotes, alert boxes (`> [!NOTE]`), horizontal rules or lines of only dashes or equals signs.
+- Code is written in backticks on one line, with a space before it: a backtick glued to a web address or to a `$` is not code on GitHub. No code blocks, and no backtick without its partner on the same line.
+- `@name` only inside backticks: outside them GitHub notifies the user of that name. A web address with an `@` in it is written whole in angle brackets: `<https://www.youtube.com/@CalCrony>`, or `[the channel](<https://www.youtube.com/@CalCrony>)` as a link.
 - Anything in `<angle brackets>` goes in backticks too, because one side or the other shows it as raw text. A link written as `<https://…>` is fine. No HTML entities such as `&amp;`.
 - No invisible characters: control characters, zero-width spaces, marks that reorder text.
 - At most 1,800 characters. Discord takes 2,000 in a message, and the announcement's first line needs room as well.
 
-The check knows the usual ways a summary goes wrong, and the ways two reviews found to slip a mention past it. It is not a Markdown parser, so read the result as well.
+The check knows the usual ways a summary goes wrong, and the ways its reviews found to slip a mention past it. It is not a Markdown parser, and GitHub reads more into some text than the check follows. So at release time GitHub itself is asked: it renders the summary, without posting it, and a summary in which it reads a mention of a person or a team is left out.
 
 **Preview.** `dotnet run --project tools/ReleaseNotes -- preview --version 0.38.0` prints the Discord message and the release notes that version would get, and sends nothing; `-- check` runs the rules by hand.
 
 **At release time** a summary can add to a release and cannot hold one back:
 
 - With no file for the version, the notes and the announcement are what they were before summaries existed: the changelog lines, and a ping with a link.
-- A file the check refuses is left out, with the same result. One that is only too long still goes out, cut at a line end for Discord with a pointer to the release notes. (`build-test` is red on a pull request that adds either, so this takes a merge past a red check, or two pull requests that each fit and together do not.)
+- A file the check refuses is left out, with the same result. One that is only too long still goes out, cut short for Discord with a pointer to the release notes. (`build-test` is red on a pull request that adds either, so this takes a merge past a red check, or two pull requests that each fit and together do not.)
+- A file in which GitHub reads a mention of a person or a team is left out as well, and so is one GitHub could not be asked about. The check should have refused such a file already; this is the backstop for what it misses.
 - The file is read at the release's tag, so one added after the release PR is merged is too late for that release. Add it to the GitHub release by hand.
-- The `release-summary` job never ends red, and the release's images are published without running the summary tests. If the run shows a "Release summary" warning, the summary could not be added: add it to the release notes by hand. **Do not re-run that job** — a re-run takes the `announce-release` job with it and pings a second time.
+- The `release-summary` job never ends red, and the release's images are published without running the summary tests. If the run shows a "Release summary" warning, the summary is not in the announcement and may be missing from the release notes: check them, and add it by hand if it is missing, without the mention if the warning names one. **Do not re-run that job** — a re-run takes the `announce-release` job with it and pings a second time.
 
 ## Issues — how they open and close
 

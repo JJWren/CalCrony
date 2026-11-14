@@ -29,7 +29,7 @@ public static class Cli
               Check every summary in docs/release-notes against the rules.
           preview --version <version> [--notes <file>] [--repository <owner/name>]
               Show what a release would post to Discord and put on GitHub. Sends nothing.
-          render --version <version> --notes <file> --out <file> [--github-output <file>]
+          render --version <version> --notes <file> --out <file> [--summary-out <file>] [--github-output <file>]
               Release time: write the release notes with the summary on top.
           comment --title <title> --out <file>
               Write the comment for the open release pull request.
@@ -85,6 +85,13 @@ public static class Cli
         if (!TryReadOptions(arguments, [], [], error, out CliOptions options))
         {
             return UsageError;
+        }
+
+        if (SummaryFolder.IsReachedThroughLink(options.Root))
+        {
+            output.WriteLine(
+                $"{ReleaseSummary.FolderPath} is reached through a link. Summaries are plain files in a plain folder; nothing is read through a link.");
+            return Failure;
         }
 
         if (!Directory.Exists(SummaryFolder.PathIn(options.Root)))
@@ -199,14 +206,15 @@ public static class Cli
     /// says so in the outputs. What the rules find wrong with a summary is reported as warnings:
     /// one that is only too long still goes out, cut short for Discord, and one the rules refuse
     /// for any other reason is left out, so the release goes out as it would without it. The
-    /// command succeeds either way.</summary>
+    /// command succeeds either way. With <c>--summary-out</c> it also writes the summary by
+    /// itself, for the workflow to show to GitHub's own renderer before anything is published.</summary>
     /// <param name="arguments">The command's options.</param>
     /// <param name="output">Where the command's report and its warnings go.</param>
     /// <param name="error">Where a complaint about the command line goes.</param>
     /// <returns>The command's exit code.</returns>
     private static int Render(IReadOnlyList<string> arguments, TextWriter output, TextWriter error)
     {
-        if (!TryReadOptions(arguments, ["version", "notes", "out"], ["github-output"], error, out CliOptions options)
+        if (!TryReadOptions(arguments, ["version", "notes", "out"], ["github-output", "summary-out"], error, out CliOptions options)
             || !TryReadVersion(options, error, out ReleaseVersion version)
             || !TryReadNotes(options, error, out string? notes))
         {
@@ -215,6 +223,7 @@ public static class Cli
 
         string path = ReleaseSummary.PathFor(version);
         string? outputsPath = options.Value("github-output");
+        string? summaryPath = options.Value("summary-out");
         string summaryText = ReleaseSummary.Find(options.Root, version)?.Text ?? string.Empty;
 
         if (summaryText.Length == 0)
@@ -243,6 +252,12 @@ public static class Cli
         string discordSummary = ReleaseTexts.DiscordSummary(summaryText);
         string outPath = options.Required("out");
         File.WriteAllText(outPath, ReleaseTexts.ReleaseNotes(summaryText, notes ?? string.Empty) + "\n");
+
+        if (summaryPath is not null)
+        {
+            File.WriteAllText(summaryPath, summaryText + "\n");
+        }
+
         WriteOutputs(outputsPath, true, discordSummary);
 
         output.WriteLine(string.Create(

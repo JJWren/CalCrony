@@ -146,6 +146,45 @@ public class CliTests
     }
 
     [Fact]
+    public void Render_also_writes_the_summary_by_itself_when_asked()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.38.0", Summary.Replace("\n", "\r\n", StringComparison.Ordinal) + "\r\n");
+        string notes = checkout.Write("notes.md", Notes);
+        string rendered = checkout.PathOf("release-notes.md");
+        string alone = checkout.PathOf("summary.md");
+
+        CommandResult result = Run(
+            "render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--summary-out", alone, "--root", checkout.Root);
+
+        // The workflow shows this file to GitHub before it publishes the other, so it holds the
+        // summary exactly as the release notes open with it.
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal($"{Summary}\n", File.ReadAllText(alone));
+        Assert.StartsWith($"{Summary}\n\n---\n\n", File.ReadAllText(rendered), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_writes_no_summary_by_itself_for_a_release_that_goes_out_without_one()
+    {
+        using TemporaryCheckout checkout = new();
+        string notes = checkout.Write("notes.md", Notes);
+        string rendered = checkout.PathOf("release-notes.md");
+        string alone = checkout.PathOf("summary.md");
+
+        Run("render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--summary-out", alone, "--root", checkout.Root);
+
+        Assert.False(File.Exists(alone));
+
+        checkout.WriteSummary("0.38.0", "### What's new\n\n- One change.\n\nThanks @everyone.");
+
+        Run("render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--summary-out", alone, "--root", checkout.Root);
+
+        Assert.False(File.Exists(alone));
+        Assert.False(File.Exists(rendered));
+    }
+
+    [Fact]
     public void Render_reads_the_summary_named_for_the_version_and_no_other()
     {
         using TemporaryCheckout checkout = new();
@@ -167,15 +206,18 @@ public class CliTests
         string notes = checkout.Write("notes.md", Notes);
         string outputs = checkout.PathOf("outputs.txt");
         string rendered = checkout.PathOf("release-notes.md");
+        string alone = checkout.PathOf("summary.md");
 
         CommandResult result = Run(
-            "render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--github-output", outputs, "--root", checkout.Root);
+            "render", "--version", "0.38.0", "--notes", notes, "--out", rendered, "--summary-out", alone, "--github-output", outputs, "--root", checkout.Root);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("::warning file=docs/release-notes/0.38.0.md::The summary is 1,832 characters", result.Output, StringComparison.Ordinal);
 
-        // GitHub's notes take the whole summary; Discord's text is cut to fit.
+        // GitHub's notes take the whole summary, and so does the file GitHub is asked about;
+        // Discord's text is cut to fit.
         Assert.StartsWith(overLong, File.ReadAllText(rendered), StringComparison.Ordinal);
+        Assert.Equal($"{overLong}\n", File.ReadAllText(alone));
         string[] outputLines = File.ReadAllText(outputs).Split('\n');
         Assert.Equal("has_summary=true", outputLines[0]);
         Assert.Equal($"### What's new\n\n- One change.\n\n{ReleaseTexts.Pointer}", string.Join('\n', outputLines[2..^2]));
@@ -330,6 +372,51 @@ public class CliTests
         Assert.False(File.Exists(checkout.PathOf("release-notes.md")));
         Assert.Equal(1, check.ExitCode);
         Assert.StartsWith("docs/release-notes/0.38.0.md: not a release summary. A summary is a plain file", check.Output, StringComparison.Ordinal);
+    }
+
+    [SymbolicLinkFact]
+    public void A_folder_of_summaries_that_is_a_link_is_not_read_at_all()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.Write("elsewhere/0.38.0.md", "### What's new\n\n- Not the repository's to publish.");
+        string notes = checkout.Write("notes.md", Notes);
+        string outputs = checkout.PathOf("outputs.txt");
+        Directory.CreateDirectory(checkout.PathOf("docs"));
+        Directory.CreateSymbolicLink(checkout.PathOf("docs/release-notes"), checkout.PathOf("elsewhere"));
+
+        CommandResult rendered = Run(
+            "render", "--version", "0.38.0", "--notes", notes, "--out", checkout.PathOf("release-notes.md"), "--github-output", outputs, "--root", checkout.Root);
+        CommandResult check = Run("check", "--root", checkout.Root);
+
+        Assert.True(SummaryFolder.IsReachedThroughLink(checkout.Root));
+        Assert.Equal(0, rendered.ExitCode);
+        Assert.Equal("has_summary=false\ndiscord_summary=\n", File.ReadAllText(outputs));
+        Assert.Equal(1, check.ExitCode);
+        Assert.StartsWith("docs/release-notes is reached through a link.", check.Output, StringComparison.Ordinal);
+        Assert.Empty(SummaryFolder.EntryNames(checkout.Root));
+    }
+
+    [SymbolicLinkFact]
+    public void A_docs_folder_that_is_a_link_is_not_read_either()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.Write("elsewhere/release-notes/0.38.0.md", "### What's new\n\n- Not the repository's to publish.");
+        Directory.CreateSymbolicLink(checkout.PathOf("docs"), checkout.PathOf("elsewhere"));
+
+        Assert.True(SummaryFolder.IsReachedThroughLink(checkout.Root));
+        Assert.Null(ReleaseSummary.Find(checkout.Root, new ReleaseVersion(0, 38, 0)));
+        Assert.Empty(SummaryFolder.EntryNames(checkout.Root));
+    }
+
+    [Fact]
+    public void A_plain_folder_of_summaries_is_not_taken_for_a_link()
+    {
+        using TemporaryCheckout checkout = new();
+        checkout.WriteSummary("0.38.0", Summary);
+
+        Assert.False(SummaryFolder.IsReachedThroughLink(checkout.Root));
+        Assert.False(SummaryFolder.IsReachedThroughLink(checkout.PathOf("no-such-checkout")));
+        Assert.Equal(["0.38.0.md"], SummaryFolder.EntryNames(checkout.Root));
     }
 
     [Fact]

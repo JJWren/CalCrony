@@ -243,7 +243,7 @@ covered by the tool's tests and by the announce step run for real in CI (2.7), a
 |---|---|
 | A mistake in the workflow file stops every job, release-please included. | 3.4 and 6.3: the file is parsed locally and then by GitHub itself, from the branch, before the merge. |
 | The summary's file name does not match the version released. | The announcement is as today, nothing breaks. Q3 A shows it on the release PR beforehand. |
-| A summary pings someone. | `allowed_mentions` names the one role and is unchanged, so nothing else in the text can ping in Discord. On GitHub, where `@name` notifies, the check refuses a mention outside code in the forms it knows (section 11), and a summary it refuses is not published. |
+| A summary pings someone. | `allowed_mentions` names the one role and is unchanged, so nothing else in the text can ping in Discord. On GitHub, where `@name` notifies, the check refuses a mention outside code in the forms it knows, and a summary it refuses is not published; and before a summary is published GitHub itself is asked whether it reads a mention in it (section 12). |
 | The summary job breaks on a release day. | D5: `announce-release` does not depend on its success. |
 | Text from an untrusted source reaches the announcement. | The text comes only from a file at the release tag, which got there through a reviewed PR — the same trust as the workflow file. Nothing is read from PR titles, comments or forks. |
 
@@ -256,8 +256,8 @@ covered by the tool's tests and by the announce step run for real in CI (2.7), a
 
 ## 10. As first built (2026-11-14, commit `9ae3677`): what differed from the plan as approved, and what was run
 
-This section is the state the two reviewers read. Section 11 records what their review changed;
-where the two differ, section 11 is how it is now.
+This section is the state the two reviewers first read. Sections 11 and 12 record what their two
+reviews changed; where a later section differs from this one, the later one is how it is now.
 
 **Differences.**
 
@@ -315,7 +315,7 @@ where the two differ, section 11 is how it is now.
 Step 6.3 has GitHub parse the file and run the no-release path from the branch after the push; the
 two jobs of the release path first run at the next release, and fail safe (D5).
 
-## 11. Review round 1 (2026-11-14), and the change as it stands
+## 11. Review round 1 (2026-11-14)
 
 Two agents read commit `9ae3677`, each in a copy of its own: one on security and privacy, one on
 correctness and quality. Neither found anything critical or major. Security: one medium, five low,
@@ -336,7 +336,7 @@ each is made true below.
 | S6, low; Q1, minor | The preview job read the commit its run was started for, so a re-run, a run from a branch, or two merges in quick succession could write about older files while saying "is on `master`". | The job runs from `master` only and checks out the head of `master`. |
 | Q2, minor | Twelve of thirteen one-line changes to the wiring of the two new jobs failed no test; each would have switched the summary off without a sign. | The settings and the script of every step of both jobs are pinned as text, and so is the announce step's whole script. 25 such changes are now among the mutations. |
 | Q3, minor; S note | The tests ran the step with `bash -eo pipefail`; the runner gives a step that names no shell `bash -e`. | The announce step now says `shell: bash`. With it the step fails when jq fails, whatever the webhook answers to the empty request curl still sends. The tests run each version of the step with the flags it has. |
-| S note | `gh pr list` returns the first 30 pull requests before the filter is applied. | The lookup asks for the Actions bot's pull requests (`--app github-actions`). |
+| S note | `gh pr list` returns the first 30 pull requests before the filter is applied. | The lookup asks for the Actions bot's pull requests (`--app github-actions`). (Replaced in round 2 by a lookup of the exact branch: section 12.) |
 | Q nits | `check` run outside the repository passed with nothing checked. A release PR for a prerelease would have failed the preview job on every push. The first-line message looked the same as what the author had written. A cut could leave the heading alone. Four small branches had no test. A correction to `docs/release-notes/0.37.0.md` would have failed the sample's tests. Four statements in `CONTRIBUTING.md` and one comment in the workflow file said more than is true. | `check` says so and exits 2. `comment` writes nothing for such a title and succeeds, and the job posts nothing. The message says what "exactly" means. A line that does not fit is cut inside when only headings came before it. Each branch has a test. The sample's tests read copies kept beside them. The statements are corrected. |
 
 **Not taken.**
@@ -349,22 +349,28 @@ each is made true below.
   job's checkout* (security note; not from this change): Joshua's to decide, as a change of its own.
 - *actionlint in CI* (quality): the same.
 
-**The rules as they are now.** They replace the list in section 10. Every line is read by itself.
+**The rules after round 1.** They replaced the list in section 10; section 12 has the rules as they
+are now. Every line is read by itself. Round 2 showed that four statements in this list said more
+than the check does. They are corrected here, each marked, so that nothing in this document still
+claims them.
 
 - The first line is exactly `### What's new`, and at least one bullet stands under it.
-  `### How to use it` may follow once, on a line of its own. No other heading, at any depth of list
-  or quote.
-- No table: a line that starts with a pipe, or a row of dashes between pipes. No image. No line of
-  only dashes or only equals signs, of any length, and no three or more asterisks or underscores
-  alone.
+  `### How to use it` may follow once, on a line of its own. No other heading, behind list and
+  quote markers either. (Corrected: this said "at any depth of list or quote". A heading inside a
+  footnote was not seen, nor one behind a quote marker or a tab.)
+- A line that starts with a pipe, or a row of dashes between pipes, is refused as a table. No
+  image. No line of only dashes or only equals signs, of any length, and no three or more asterisks
+  or underscores alone. (Corrected: this said "no table" outright. It names the two lines the check
+  looks for.)
 - No code block, fenced with backticks or with tildes, at the margin or inside a list. Code is
   written in backticks on one line, and a backtick with no partner on its line is refused. This is
   new: a block was where both reviewers could make the check and GitHub disagree about what is
-  code, and with no state carried from one line to the next there is nothing left to disagree
-  about.
+  code. (Corrected: this went on to say that with no state carried from one line to the next there
+  was nothing left to disagree about. Round 2 found three more shapes, within one line.)
 - No `<` outside code other than a whole link `<https://…>`, and no HTML entity.
-- No `@` followed by a name outside code. An `@` in the path of a web address is not a mention;
-  one before the host, or after a host that is not a real one, is.
+- No `@` followed by a name outside code. (Corrected: round 1 let an `@` in the path of a bare web
+  address through, as "not a mention". GitHub reads such a path differently from the check in
+  three shapes, and round 2 took the exemption out.)
 - No control character other than a tab, no format character other than the joiner emoji are built
   with, and no line or paragraph separator.
 - At most 1,800 characters in UTF-16 units. This is the one problem that does not keep a summary
@@ -407,3 +413,104 @@ each is made true below.
 **Still not run.** The jobs on GitHub. How GitHub evaluates the job-output expression, what
 `!cancelled()` gives after a job-level timeout, and jq 1.7.1 are taken from documentation or from a
 neighbouring version. Step 6.3 covers the parse; the release path first runs at the next release.
+
+## 12. Review round 2 (2026-11-14), and the change as it stands
+
+The same two agents read commit `275834d`, the answers to round 1. Both found one major problem,
+which round 1's own fix had brought in. The quality reviewer also found three minor ones and a
+group of nits. The security reviewer found three shapes of text that still passed the check and are
+live mentions on GitHub, and four statements in section 11 that were not true; those are corrected
+there, each marked.
+
+**What they found, and what was done.**
+
+| # | Finding | Answer |
+|---|---|---|
+| Major, both | Round 1 let every step of `release-summary` carry on after a failure. So when reading the release's notes failed part-way, the next step still ran, on an empty or half-written file, and with nothing under it the summary would have *replaced* the notes release-please wrote. | The notes are written under another name and moved into place only when the read succeeded, and the step that builds the texts runs only when the read did. A test runs the step's own script against a stand-in `gh` that fails part-way. |
+| Security A | Three shapes the check passed and GitHub reads as a mention. A backtick inside a bare web address: GitHub takes the address up to the next space, backtick and all, so the "code" after it is text. A bare address inside square brackets, where round 1's exemption for an `@` in an address's path also hid an entity or an image. And a formula — `$`, then code, then `$` — inside which GitHub reads mentions. Two more shapes gave a heading or a box: a footnote and an alert. | Two answers. *The check:* the exemption is gone, and only a link written whole in angle brackets is not text; a backtick in a word after `://` or `www.`, or right after `$`, is refused; so is a line that starts a footnote or an alert. *And what the reviewer recommended as the answer that lasts:* the check stays a check for mistakes, and GitHub decides. Before the release is edited, `release-summary` has GitHub render the summary — its Markdown API, which posts nothing — and leaves the summary out when the answer holds a mention of a person or a team. It first asks about a text that is a mention for certain, the repository owner's name: if that answer does not look like a mention, the question means nothing, and the summary is left out too. So is one GitHub could not be asked about. |
+| Security A, the comment | The release PR's comment rendered a summary the check had passed, and a comment notifies whoever it mentions the moment it is posted, before any release. | The comment always shows the summary as code, in a fence longer than any run of backticks in it. |
+| Quality, minor | The preview job looked for release-please's pull request with `--app`, which goes through a search index: it can be behind, and it does not match a branch exactly. | The job asks for the pull request by its exact branch in this repository (`pulls?state=open&head=<owner>:release-please--branches--master`) and takes it only when the Actions bot opened it from this repository. Run read-only against the repository: it finds merged PR #175 when asked for closed ones, and prints nothing while none is open. |
+| Quality, minor | A heading or a rule line behind a quote marker, or after a tab, was not seen. | List and quote markers are taken off together with the spaces and tabs after them, and a rule line is looked for both in the whole line and behind its markers. |
+| Quality, minor; security note | The last step's warning could say something untrue. It spoke whenever any step had failed, and said the summary "could not be added" when it might have been. | It speaks when the texts were not built, when GitHub read a mention or could not be asked, or when the release was not edited. What it says holds in each case: the summary is not in the announcement and may be missing from the notes. |
+| Nits, both | The job's time limit, 15 minutes, was under the sum of its steps', 17. The preview job's `concurrency` block had no test. Some guards had no test. Two documents said "trimmed" where "cut short" was meant. A cut could end on a heading. A comment in a test helper said more than is true. A folder that is a link was followed, though a file that is one was not. The state file called the work reviewed before it was. | The job has 25 minutes and its steps 19 together, and a test adds them up. The block is pinned. Each guard has a test. The words are corrected. A heading left at the end of a cut is dropped with the blank lines. The comment is corrected. Nothing is read through a link: not a file, not `docs/release-notes`, not `docs`. The state file says where the work stands. |
+
+**Not taken.** Nothing new in this round. The three of section 11 stand, and are Joshua's to decide.
+
+**One limit to know.** GitHub is asked at release time only. The comment on the release PR shows the
+text and says that the question will be asked, but it cannot say what the answer will be. A summary
+reaches that point with a live mention only if it got one past the check, in a shape nobody has
+found yet; the release then goes out without the summary, and the run carries a warning.
+
+**The rules as they are now.** They replace section 11's list. Every line is read by itself. The
+list says what the check looks for. It is a check for mistakes, and GitHub has the last word at
+release time.
+
+- The first line is exactly `### What's new`, and at least one bullet stands under it.
+  `### How to use it` may follow once, on a line of its own. No other heading: one to six number
+  signs and a space, at the start of a line or behind list and quote markers and the spaces or tabs
+  after them.
+- A line that starts with a pipe, or a row of dashes between pipes, is refused as a table. No
+  image. No line of only dashes or only equals signs, of any length, and no three or more asterisks
+  or underscores alone, whole or behind list and quote markers.
+- No line that starts a footnote (`[^`) or an alert box (`[!`).
+- No code block, fenced with backticks or with tildes. Code is written in backticks on one line. A
+  backtick with no partner on its line is refused, and so is a backtick in a word that holds a web
+  address before it (`://` or `www.`), or right after a `$`.
+- No `<` outside code other than a whole link `<https://…>` or `<http://…>`, and no HTML entity.
+- No `@` followed by a letter, a digit or an underscore outside code. A web address with an `@` in
+  it has to be written whole in angle brackets.
+- No control character other than a tab, no format character other than the joiner emoji are built
+  with, and no line or paragraph separator.
+- At most 1,800 characters in UTF-16 units. This is the one problem that does not keep a summary
+  out of a release: such a file still goes out, cut short for Discord.
+
+**The release path as it is now.** `release-summary` has seven steps. Each but the last carries on
+after a failure and has a time limit of its own, 19 minutes together under the job's 25. It checks
+out the tag and keeps no token; sets up the SDK; reads the notes release-please wrote; builds the
+texts, with no token; asks GitHub whether the summary mentions anyone; puts the summary on top of
+the notes; and, when a summary may be missing, says so in a warning on the run. The announcement
+gets the summary only when the notes got it.
+
+**Other differences from the plan as approved**, beside those of sections 10 and 11:
+
+- `render` takes `--summary-out`, and writes the summary by itself there for the question to GitHub.
+- D2 let an `@` stand in a link's address. It now has to be a link written whole in angle brackets.
+
+**What was run after these changes.**
+
+- Release build of the whole solution from scratch: no errors, the baseline's 22 warnings, none in
+  the new projects.
+- Windows: the 1,292 earlier tests green; of 337 new ones, 321 green and 16 skipped — the thirteen
+  that run a step's own script with bash, and three that make a symbolic link, which this Windows
+  user may not.
+- Linux, with nothing skipped: all 337 pass. As in round 1 this ran offline in the .NET SDK
+  container already on this machine, with the real jq 1.8.1 and `CI=true`.
+- The image job's test command, with its filter: exits 0 and runs the 1,292 earlier tests.
+- The step that asks GitHub, run for real. Its script was taken out of the workflow file and run
+  here with the real `gh` against GitHub's Markdown API, with made-up text and a public sample
+  repository as the context: sixteen requests in all, over three versions of the script, the last
+  seven with the script as it stands. A line with a mention failed the step with the warning. A
+  line with `who:@GM` in backticks passed. The reviewer's first shape — a backtick inside a bare
+  web address, then a name — failed it: GitHub reads the mention there, which is what the step is
+  for. And with an owner name that does not exist the step stopped at its control. Nothing from
+  this repository was sent, and nothing was posted anywhere. The requests went out under the login
+  `gh` has on this machine.
+- 191 changes that each take one rule or guard out, or bend it: 60 in the rules, 15 in the texts,
+  9 in the announcement, 3 in the outputs, 10 in the preview and its comment, 4 in versions, 5 in
+  reading a summary, 8 in the folder, 13 in the commands, 4 in the warnings, 2 in the title and
+  changelog readers, 57 in the workflow file and 1 in the sample. All 191 fail a test: 184 here,
+  and the seven about links on Linux, where a link can be made. Seven of the workflow ones bend
+  the scripts of the two steps that are run for real. Those were run on Linux as well, and each
+  fails a test that runs the script, not only the test that pins its text. Writing the list found
+  two pieces of code no test could miss, because nothing depended on them: a flag set just before
+  the loop it was read in ended, and a second refusal of a backtick inside a link in angle
+  brackets, which the rule for backticks in web addresses already refuses. Both are gone.
+- The workflow file parses as YAML, and none of the 55 files in the change holds a control, format
+  or separator character.
+- `check` passes on this checkout, and `preview --version 0.37.0` with the real notes gives the
+  same texts as before: the Discord message is 838 of 2,000 characters.
+
+**Still not run.** The jobs on GitHub, as in section 11. One thing more is taken from documentation:
+that the token a workflow run gets may call the Markdown API and is given mentions as links there.
+GitHub documents the first. The step's control exists for the second: if a run's answer about a
+certain mention does not look like one, the summary is left out and the log says why.

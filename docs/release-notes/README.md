@@ -23,14 +23,16 @@ file and when, how to pick its name, and what happens at release time. In short:
 ```
 
 - Start with `### What's new` and at least one bullet. `### How to use it` is optional and comes after it.
-- No other headings, and no tables, images, HTML or horizontal rules: Discord and GitHub show those differently.
-- Write code in backticks on one line. No code blocks.
-- Write `@name` only inside backticks, so that nobody is mentioned, and anything in `<angle brackets>` too. A link as `<https://…>` is fine.
+- No other headings, and no tables, images, HTML, footnotes or horizontal rules: Discord and GitHub show those differently.
+- Write code in backticks on one line, with a space before it. No code blocks.
+- Write `@name` only inside backticks, so that nobody is mentioned, and anything in `<angle brackets>` too. A link as `<https://…>` is fine, and a web address with an `@` in it has to be written that way.
 - Keep invisible characters out.
 - At most 1,800 characters, so the announcement fits in one Discord message.
 
-The `build-test` check holds every file here to those rules, and a release leaves out a file that
-breaks one. To see what a release would post:
+The `build-test` check holds every file here to those rules. A release leaves out a file that
+breaks one, except that a file which is only too long goes out cut short. It also leaves out a
+file in which GitHub, asked at release time, reads a mention of a person or a team. To see what a
+release would post:
 
 ```bash
 dotnet run --project tools/ReleaseNotes -- preview --version 0.38.0

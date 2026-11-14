@@ -90,6 +90,25 @@ public class ReleaseTextsTests
     }
 
     [Fact]
+    public void A_cut_never_ends_on_a_heading_either()
+    {
+        // The how-to heading fits and its first step does not; the heading goes with it.
+        string whatsNew = "### What's new\n\n- " + new string('a', 1700);
+        string summary = whatsNew + "\n\n### How to use it\n\n1. " + new string('b', 300);
+
+        Assert.Equal($"{whatsNew}\n\n{ReleaseTexts.Pointer}", ReleaseTexts.DiscordSummary(summary));
+    }
+
+    [Fact]
+    public void A_text_with_nothing_but_headings_keeps_its_first_line()
+    {
+        // Nothing in it is content, so the cut would leave nothing at all; the first line stays.
+        string summary = "### What's new\n" + string.Join('\n', Enumerable.Repeat("#", 1000));
+
+        Assert.Equal($"### What's new\n\n{ReleaseTexts.Pointer}", ReleaseTexts.DiscordSummary(summary));
+    }
+
+    [Fact]
     public void A_line_that_does_not_fit_after_other_content_is_left_out_whole()
     {
         string summary = "### What's new\n\n- A short change.\n- " + new string('a', SummaryRules.MaxLength);

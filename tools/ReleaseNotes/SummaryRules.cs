@@ -7,8 +7,10 @@ namespace CalCrony.ReleaseNotes;
 /// to GitHub, so the rules hold it to a shape both show alike, to a length the announcement has
 /// room for, and to text that mentions nobody. Every line is read by itself, the way GitHub
 /// reads a line — what is code, what a backslash does — because GitHub is where a mention
-/// notifies. Code that runs over several lines is refused rather than followed, so there is no
-/// state from one line to the next for the check and GitHub to disagree about.</summary>
+/// notifies, and code that runs over several lines is refused rather than followed. This is a
+/// check for the mistakes people make, not a Markdown parser: GitHub carries more from one line
+/// to the next than it follows. The release workflow therefore asks GitHub itself whether a
+/// summary mentions anyone before it publishes one.</summary>
 public static class SummaryRules
 {
     /// <summary>The most characters a summary may have. Discord takes 2,000 in a message, and the
@@ -25,11 +27,13 @@ public static class SummaryRules
     private const int MaxHeadingLevel = 6;
     private const int MinRuleLength = 3;
     private const int MaxListNumberLength = 9;
+    private const int MinEntityNameLength = 2;
     private const int ZeroWidthJoiner = 0x200D;
     private const string RuleCharacters = "-*_=";
     private const string BacktickFence = "```";
     private const string TildeFence = "~~~";
     private static readonly string[] LinkSchemes = ["https://", "http://"];
+    private static readonly char[] WordBreaks = [' ', '\t'];
 
     /// <summary>Checks a summary against every rule.</summary>
     /// <param name="text">The summary's normalized text (<see cref="ReleaseSummary.Normalize"/>).</param>
@@ -120,12 +124,12 @@ public static class SummaryRules
     /// <returns>What the line holds inside its lists and quotes, without leading spaces.</returns>
     private static string StripContainers(string line)
     {
-        string rest = line.TrimStart(' ');
+        string rest = line.TrimStart(' ', '\t');
         int marker = ContainerMarkerLength(rest);
 
         while (marker > 0)
         {
-            rest = rest[marker..].TrimStart(' ');
+            rest = rest[marker..].TrimStart(' ', '\t');
             marker = ContainerMarkerLength(rest);
         }
 
@@ -142,7 +146,7 @@ public static class SummaryRules
             return 1;
         }
 
-        if (text.Length >= 2 && text[0] is '-' or '*' or '+' && text[1] == ' ')
+        if (text.Length >= 2 && text[0] is '-' or '*' or '+' && text[1] is ' ' or '\t')
         {
             return 2;
         }
@@ -157,7 +161,7 @@ public static class SummaryRules
         bool isNumbered = digits > 0
             && digits + 1 < text.Length
             && text[digits] is '.' or ')'
-            && text[digits + 1] == ' ';
+            && text[digits + 1] is ' ' or '\t';
 
         return isNumbered ? digits + 2 : 0;
     }
@@ -205,6 +209,16 @@ public static class SummaryRules
             Add(problems, number, "A backtick with no partner on its line: code opens and closes on the same line.");
         }
 
+        if (HasBacktickGitHubReadsOtherwise(line))
+        {
+            Add(problems, number, "A backtick inside a web address or right after `$` is not code on GitHub: the address swallows it, and `$` starts a formula. Put a space before the code.");
+        }
+
+        if (content.StartsWith("[^", StringComparison.Ordinal) || content.StartsWith("[!", StringComparison.Ordinal))
+        {
+            Add(problems, number, "Footnotes and alert boxes are GitHub's own; Discord shows them as typed. Write it as plain text.");
+        }
+
         if (content.StartsWith('|') || IsTableDelimiterRow(content.Trim()))
         {
             Add(problems, number, "Tables do not render in Discord; use a list.");
@@ -215,7 +229,7 @@ public static class SummaryRules
             Add(problems, number, "Images do not show in Discord; remove it or link to it.");
         }
 
-        if (IsRule(line.Trim()))
+        if (IsRule(line.Trim()) || IsRule(content.Trim()))
         {
             Add(problems, number, "A line of only dashes or equals signs is a rule or a heading on GitHub and plain characters in Discord; remove it.");
         }
@@ -234,6 +248,32 @@ public static class SummaryRules
         {
             Add(problems, number, "`@` followed by a name outside backticks is a mention: GitHub notifies the user of that name. Put it in backticks.");
         }
+    }
+
+    /// <summary>Tells whether a line has a backtick that GitHub does not read as the start or end
+    /// of code: one right after a dollar sign, where GitHub starts a formula, or one inside a web
+    /// address, which GitHub links by itself up to the next space and which then holds the
+    /// backtick as part of the address.</summary>
+    /// <param name="line">The line as written.</param>
+    /// <returns>Whether such a backtick is there.</returns>
+    private static bool HasBacktickGitHubReadsOtherwise(string line)
+    {
+        for (int index = line.IndexOf('`', StringComparison.Ordinal);
+            index >= 0;
+            index = line.IndexOf('`', index + 1))
+        {
+            int wordStart = line.LastIndexOfAny(WordBreaks, index) + 1;
+            ReadOnlySpan<char> before = line.AsSpan(wordStart, index - wordStart);
+
+            if (before.EndsWith("$", StringComparison.Ordinal)
+                || before.Contains("://", StringComparison.Ordinal)
+                || before.Contains("www.", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Adds a problem for the first character of a line that cannot be seen in review:
@@ -317,9 +357,9 @@ public static class SummaryRules
         return dashes.Length > 0 && dashes.All(character => character == '-');
     }
 
-    /// <summary>Tells whether a line has an HTML entity: an ampersand, then a name or a number
-    /// sign and digits, then a semicolon. GitHub turns <c>&amp;#64;</c> into an at sign and then
-    /// reads the mention.</summary>
+    /// <summary>Tells whether a line has an HTML entity: an ampersand, then a name of two letters
+    /// or more or a number sign and digits, then a semicolon. GitHub turns <c>&amp;#64;</c> into
+    /// an at sign and then reads the mention.</summary>
     /// <param name="text">The line with its code and its links blanked out.</param>
     /// <returns>Whether an entity is there.</returns>
     private static bool HasEntity(string text)
@@ -338,7 +378,9 @@ public static class SummaryRules
                 end++;
             }
 
-            bool hasName = end > nameStart && (isNumeric || char.IsAsciiLetter(text[nameStart]));
+            bool hasName = isNumeric
+                ? end > nameStart
+                : end - nameStart >= MinEntityNameLength && char.IsAsciiLetter(text[nameStart]);
 
             if (hasName && end < text.Length && text[end] == ';')
             {
@@ -369,11 +411,10 @@ public static class SummaryRules
     }
 
     /// <summary>Blanks out what a line holds that is not text: its code spans, backticks
-    /// included; its links written whole in angle brackets; and the addresses of its other links,
-    /// where an at sign is part of the address. It goes left to right as GitHub does: a
-    /// character after a backslash is that character and opens nothing, so <c>\`</c> starts no
-    /// code; a link ends where its address ends, whatever is inside; and a run of backticks with
-    /// no run of the same length after it on the line stays, and is reported.</summary>
+    /// included, and its links written whole in angle brackets. It goes left to right as GitHub
+    /// does within a line: a character after a backslash is that character and opens nothing, so
+    /// <c>\`</c> starts no code; a link in angle brackets ends at its closing bracket; and a run
+    /// of backticks with no run of the same length after it on the line stays, and is reported.</summary>
     /// <param name="line">One line of the summary.</param>
     /// <param name="hasLooseBacktick">Whether a run of backticks on the line has no partner.</param>
     /// <returns>The line, the same length, with spaces where its code and its links were.</returns>
@@ -401,9 +442,9 @@ public static class SummaryRules
                 hasLooseBacktick |= !isBlanked;
                 length = isBlanked ? closing + runLength - index : runLength;
             }
-            else
+            else if (character == '<')
             {
-                int linkLength = character == '<' ? AutolinkLength(line, index) : AddressLength(line, index);
+                int linkLength = AutolinkLength(line, index);
                 isBlanked = linkLength > 0;
                 length = Math.Max(linkLength, 1);
             }
@@ -424,7 +465,8 @@ public static class SummaryRules
     }
 
     /// <summary>Reads a link written whole in angle brackets: <c>&lt;https://…&gt;</c> or
-    /// <c>&lt;http://…&gt;</c>, with no space, backtick or angle bracket before its end.</summary>
+    /// <c>&lt;http://…&gt;</c>, with no space or angle bracket before its end. (A backtick in
+    /// one is refused by the rule for backticks in web addresses.)</summary>
     /// <param name="line">The line.</param>
     /// <param name="start">The position of the opening angle bracket.</param>
     /// <returns>The link's length with both brackets, or 0 when no such link starts there.</returns>
@@ -446,60 +488,13 @@ public static class SummaryRules
                 return index + 2;
             }
 
-            if (char.IsWhiteSpace(character) || character is '<' or '`')
+            if (char.IsWhiteSpace(character) || character == '<')
             {
                 return 0;
             }
         }
 
         return 0;
-    }
-
-    /// <summary>Reads a web address written bare or as a link's target: a scheme, a host name
-    /// with a dot in it, then a path that runs to the next space, bracket or backtick. Only what
-    /// follows the host is the path: in <c>https://name@host</c> the at sign is not in a path,
-    /// and it stays visible to the check.</summary>
-    /// <param name="line">The line.</param>
-    /// <param name="start">The position to read from.</param>
-    /// <returns>The address's length, or 0 when none starts there.</returns>
-    private static int AddressLength(string line, int start)
-    {
-        ReadOnlySpan<char> rest = line.AsSpan(start);
-        int scheme = SchemeLength(rest);
-        bool isInsideWord = start > 0 && char.IsLetterOrDigit(line[start - 1]);
-
-        if (scheme == 0 || isInsideWord)
-        {
-            return 0;
-        }
-
-        int end = scheme;
-        int dots = 0;
-        bool isHostWellFormed = true;
-
-        while (end < rest.Length && (char.IsAsciiLetterOrDigit(rest[end]) || rest[end] is '-' or '.'))
-        {
-            bool isDot = rest[end] == '.';
-            bool followsNoName = end == scheme || rest[end - 1] == '.';
-            isHostWellFormed &= !(isDot && followsNoName);
-            dots += isDot ? 1 : 0;
-            end++;
-        }
-
-        if (end == scheme || dots == 0 || !isHostWellFormed || rest[end - 1] == '.')
-        {
-            return 0;
-        }
-
-        if (end < rest.Length && rest[end] is '/' or '?' or '#')
-        {
-            while (end < rest.Length && !char.IsWhiteSpace(rest[end]) && rest[end] is not ('<' or '>' or ')' or '`'))
-            {
-                end++;
-            }
-        }
-
-        return end;
     }
 
     /// <summary>Measures a web scheme at the start of a text.</summary>

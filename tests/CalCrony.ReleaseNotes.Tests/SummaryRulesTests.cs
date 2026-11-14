@@ -2,7 +2,7 @@ namespace CalCrony.ReleaseNotes.Tests;
 
 /// <summary>The rules a release summary keeps to. Each rule has a text that breaks it and nothing
 /// else, so a rule taken out of the check fails its own test; the things a summary is meant to
-/// hold — commands in backticks, links, lists — pass; and the ways two reviews found to get a
+/// hold — commands in backticks, links, lists — pass; and the ways the reviews found to get a
 /// mention past the check on GitHub are each refused by name.</summary>
 public class SummaryRulesTests
 {
@@ -83,6 +83,11 @@ public class SummaryRulesTests
     [InlineData("> ### Inside a quote")]
     [InlineData("- > - # Nested three deep")]
     [InlineData("- ### How to use it")]
+    [InlineData("-\t# After a hyphen and a tab")]
+    [InlineData("- \t# After a hyphen, a space and a tab")]
+    [InlineData("+ # Under a plus bullet")]
+    [InlineData("1) ## Under a numbered step written with a bracket")]
+    [InlineData("\t## After a tab")]
     public void No_heading_but_the_two_is_allowed(string heading)
     {
         SummaryProblem problem = Assert.Single(Check($"{Opening}{heading}\n\nText."));
@@ -128,6 +133,9 @@ public class SummaryRulesTests
     [InlineData("=", "A line of only dashes or equals signs")]
     [InlineData("--", "A line of only dashes or equals signs")]
     [InlineData("-", "A line of only dashes or equals signs")]
+    [InlineData("> ---", "A line of only dashes or equals signs")]
+    [InlineData("> ==", "A line of only dashes or equals signs")]
+    [InlineData("- > --", "A line of only dashes or equals signs")]
     [InlineData("Line one.<br>Line two.", "`<` outside backticks")]
     [InlineData("<details>More</details>", "`<` outside backticks")]
     [InlineData("<!-- a note to self -->", "`<` outside backticks")]
@@ -137,17 +145,28 @@ public class SummaryRulesTests
     [InlineData("Slots < 60 minutes are left out.", "`<` outside backticks")]
     [InlineData("A link cut short: <https://calcrony.app/docs and more.", "`<` outside backticks")]
     [InlineData("Not a web link: <mailto:someone>.", "`<` outside backticks")]
+    [InlineData("Not a link, with a space in it: <https://calcrony.app/docs and more>.", "`<` outside backticks")]
+    [InlineData("A tag inside what looks like a link: <https://calcrony.app/<b> and on.", "`<` outside backticks")]
     [InlineData("Fish &amp; chips.", "An HTML entity")]
     [InlineData("Thanks to @everyone who tested.", "`@` followed by a name")]
     [InlineData("Run /availability slots who:@GM to see it.", "`@` followed by a name")]
     [InlineData("Write to help@calcrony.app.", "`@` followed by a name")]
     [InlineData("A name that starts with an underscore: @_someone.", "`@` followed by a name")]
     [InlineData("An address that names someone before the host: https://someone@calcrony.app/docs.", "`@` followed by a name")]
-    [InlineData("An address with no host: https://@someone.", "`@` followed by a name")]
-    [InlineData("An address whose host is only a dot: https://./@someone.", "`@` followed by a name")]
-    [InlineData("An address whose host has no dot: https://localhost/@someone.", "`@` followed by a name")]
-    [InlineData("An address that ends in a name: https://calcrony.app@someone.", "`@` followed by a name")]
+    [InlineData("A bare address is text like any other: https://www.youtube.com/@CalCrony.", "`@` followed by a name")]
+    [InlineData("So is the address of a link: [the channel](https://www.youtube.com/@CalCrony).", "`@` followed by a name")]
+    [InlineData("And an address in square brackets: [https://example.com/@someone].", "`@` followed by a name")]
     [InlineData("A link's text is still text: [@someone](https://calcrony.app).", "`@` followed by a name")]
+    [InlineData("A name after a link's closing bracket: [docs](https://calcrony.app/docs)@someone.", "`@` followed by a name")]
+    [InlineData("An entity in an address: https://example.com/&#64;someone.", "An HTML entity")]
+    [InlineData("See https://example.com/a`b` for more.", "A backtick inside a web address or right after `$`")]
+    [InlineData("See www.example.com/a`b` for more.", "A backtick inside a web address or right after `$`")]
+    [InlineData("See ftp://example.com/a`b` for more.", "A backtick inside a web address or right after `$`")]
+    [InlineData("Code first, `like this`, then https://example.com/a`b` after it.", "A backtick inside a web address or right after `$`")]
+    [InlineData("A formula: $`a + b`$.", "A backtick inside a web address or right after `$`")]
+    [InlineData("[^1]: A footnote.", "Footnotes and alert boxes")]
+    [InlineData("[^1]: # A heading inside a footnote", "Footnotes and alert boxes")]
+    [InlineData("> [!WARNING]", "Footnotes and alert boxes")]
     [InlineData("```", "Code blocks are not allowed")]
     [InlineData("```text", "Code blocks are not allowed")]
     [InlineData("~~~", "Code blocks are not allowed")]
@@ -172,6 +191,11 @@ public class SummaryRulesTests
     [InlineData("&commat;someone")]
     [InlineData("Ask <@123456789012345678> or <@&1543943300132769802>.")]
     [InlineData("An unclosed `code span with @someone in it.")]
+    [InlineData("See https://example.com/a`b @someone `c` for more.")]
+    [InlineData("See www.example.com/a`b @someone `c` for more.")]
+    [InlineData("[https://example.com/@someone]")]
+    [InlineData("[a bracket that never closes, then https://example.com/@someone")]
+    [InlineData("$`a @someone b`$")]
     public void The_ways_found_to_get_a_mention_past_the_check_are_refused(string line)
     {
         // Each of these is, or leads to, a live mention on GitHub. What matters is that the line
@@ -181,6 +205,16 @@ public class SummaryRulesTests
         Assert.NotEmpty(problems);
         Assert.All(problems, problem => Assert.Equal(5, problem.Line));
         Assert.True(SummaryRules.HoldSummaryBack(problems));
+    }
+
+    [Fact]
+    public void A_dash_and_a_space_under_a_line_of_text_is_an_underline_too()
+    {
+        // GitHub reads the line above it as a heading; read as a list marker, the line is empty.
+        SummaryProblem problem = Assert.Single(Check($"{Opening}A title\n- \n\nMore text."));
+
+        Assert.Equal(6, problem.Line);
+        Assert.StartsWith("A line of only dashes or equals signs", problem.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -217,13 +251,17 @@ public class SummaryRulesTests
     [InlineData("More at <https://calcrony.app/docs> and <http://localhost:8080>.")]
     [InlineData("The docs: [calcrony.app/docs](https://calcrony.app/docs).")]
     [InlineData("- Watch <https://www.youtube.com/@CalCrony>.")]
-    [InlineData("- Watch https://www.youtube.com/@CalCrony or [the channel](https://www.youtube.com/@CalCrony).")]
+    [InlineData("- Watch [the channel](<https://www.youtube.com/@CalCrony>).")]
     [InlineData("**Bold**, *italic* and ~~struck~~ text.")]
     [InlineData("> A quoted line.")]
     [InlineData("An @ sign by itself, and one at the end @")]
     [InlineData("A table-like line inside code: `| a | b |`.")]
     [InlineData("Either this | or that, in a sentence.")]
-    [InlineData("Questions & answers, R&D, and a semicolon; none of it an entity.")]
+    [InlineData("Questions & answers, R&D, A&B; and a semicolon; none of it an entity.")]
+    [InlineData("An address with a port, written whole in angle brackets: <https://calcrony.app:8443/@CalCrony>.")]
+    [InlineData("A bare address, then code after a space: https://calcrony.app/docs `/availability slots`.")]
+    [InlineData("A price of $5, and `$5` in code.")]
+    [InlineData("A bare address, a tab, then code: https://calcrony.app/docs\t`/availability slots`.")]
     [InlineData("An escaped backtick \\` stays one character, and `code` after it is still code.")]
     [InlineData("\tA line that starts with a tab.")]
     public void What_a_summary_is_meant_to_hold_passes(string line)

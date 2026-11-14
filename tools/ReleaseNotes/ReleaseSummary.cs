@@ -49,7 +49,7 @@ public sealed record ReleaseSummary(ReleaseVersion Version, string Text)
     }
 
     /// <summary>Reads a version's summary from a checkout of the repository. Only a plain file
-    /// counts: a link named for the version is not followed.</summary>
+    /// in a plain folder counts: a link is not followed, whether it is the file or its folder.</summary>
     /// <param name="repositoryRoot">The folder the repository is checked out in.</param>
     /// <param name="version">The release.</param>
     /// <returns>The summary, or null when no plain file is named for that version.</returns>
@@ -57,7 +57,7 @@ public sealed record ReleaseSummary(ReleaseVersion Version, string Text)
     {
         string path = Path.Combine(repositoryRoot, PathFor(version));
 
-        return SummaryFolder.IsPlainFile(path)
+        return SummaryFolder.IsPlainFile(repositoryRoot, $"{version}{Extension}")
             ? new ReleaseSummary(version, Normalize(File.ReadAllText(path)))
             : null;
     }

@@ -55,7 +55,7 @@ internal sealed class FakeWebhook : IDisposable
             headers[line[..colon].Trim()] = line[(colon + 1)..].Trim();
         }
 
-        // curl asks before sending a body of more than a kilobyte.
+        // A client may ask before it sends its body; it gets its go-ahead.
         if (headers.TryGetValue("Expect", out string? expectation)
             && expectation.Equals("100-continue", StringComparison.OrdinalIgnoreCase))
         {

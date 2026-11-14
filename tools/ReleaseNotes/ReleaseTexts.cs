@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace CalCrony.ReleaseNotes;
 
 /// <summary>The two texts a release summary becomes: the GitHub release notes with the summary on
@@ -35,8 +33,8 @@ public static class ReleaseTexts
 
     /// <summary>The summary as the Discord announcement carries it: as written. A summary over
     /// <see cref="SummaryRules.MaxLength"/> — which the check on every pull request refuses, so
-    /// this is for a file that reached a release anyway — is cut after its last whole line that
-    /// fits, and <see cref="Pointer"/> follows.</summary>
+    /// this is for a file that reached a release anyway — is cut short, after its last whole line
+    /// that fits where it can, and <see cref="Pointer"/> follows.</summary>
     /// <param name="summary">The summary's normalized text, with nothing wrong with it but, at
     /// most, its length.</param>
     /// <returns>Text of at most <see cref="SummaryRules.MaxLength"/> characters.</returns>
@@ -53,39 +51,51 @@ public static class ReleaseTexts
         return $"{Cut(summary, budget)}{BlankLine}{Pointer}";
     }
 
-    /// <summary>Keeps the leading lines of a text that fit a number of characters, without the
-    /// blank lines the cut leaves at the end. A line that does not fit ends the text — unless
-    /// nothing but headings came before it: a heading with nothing under it says nothing, so that
-    /// line is cut inside instead.</summary>
+    /// <summary>Keeps the leading lines of a text that fit a number of characters. A line that
+    /// does not fit ends the text — unless nothing but headings came before it, in which case
+    /// that line is cut inside instead. The blank lines the cut leaves at the end are dropped,
+    /// and so is a heading left there with nothing under it: a heading alone says nothing.</summary>
     /// <param name="text">Normalized text, longer than the budget.</param>
     /// <param name="budget">The most characters to keep.</param>
     /// <returns>The part kept.</returns>
     private static string Cut(string text, int budget)
     {
-        StringBuilder kept = new();
+        List<string> kept = [];
+        int length = 0;
         bool hasContent = false;
 
         foreach (string line in text.Split('\n'))
         {
-            string separator = kept.Length == 0 ? string.Empty : "\n";
-            int room = budget - kept.Length - separator.Length;
+            int separator = kept.Count == 0 ? 0 : 1;
+            int room = budget - length - separator;
 
             if (line.Length > room)
             {
                 if (!hasContent && room > 0)
                 {
-                    kept.Append(separator).Append(CutInsideLine(line, room));
+                    kept.Add(CutInsideLine(line, room));
                 }
 
                 break;
             }
 
-            kept.Append(separator).Append(line);
-            hasContent |= line.Trim().Length > 0 && !line.StartsWith('#');
+            kept.Add(line);
+            length += separator + line.Length;
+            hasContent |= IsContent(line);
         }
 
-        return kept.ToString().TrimEnd();
+        while (kept.Count > 1 && !IsContent(kept[^1]))
+        {
+            kept.RemoveAt(kept.Count - 1);
+        }
+
+        return string.Join('\n', kept);
     }
+
+    /// <summary>Tells whether a line says something by itself: it is neither blank nor a heading.</summary>
+    /// <param name="line">One line of a summary.</param>
+    /// <returns>Whether the line is content.</returns>
+    private static bool IsContent(string line) => line.Trim().Length > 0 && !line.StartsWith('#');
 
     /// <summary>Cuts a line at a number of characters, one earlier when that would split a
     /// character that takes two.</summary>
