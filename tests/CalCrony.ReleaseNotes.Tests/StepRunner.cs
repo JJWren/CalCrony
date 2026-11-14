@@ -25,8 +25,8 @@ internal enum StepShell
 /// shell setting gives it, and the step's <c>env</c> as environment variables.</summary>
 internal static class StepRunner
 {
-    /// <summary>Why the tests that run the announce step are skipped on a machine that cannot
-    /// run it.</summary>
+    /// <summary>Why the tests that run a step's script are skipped on a machine that cannot run
+    /// one.</summary>
     public const string WhyNot = "Needs bash, jq and curl on the PATH of a Linux or macOS machine; the CI runner has them.";
 
     private static readonly string[] Tools = ["bash", "jq", "curl"];
@@ -35,7 +35,8 @@ internal static class StepRunner
     private static readonly string[] BashShellFlags = ["--noprofile", "--norc", "-eo", "pipefail"];
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
-    /// <summary>Whether this machine can run the announce step's script.</summary>
+    /// <summary>Whether this machine can run a step's script. The announce step needs all three
+    /// tools; the tests of the other steps are held to the same, so that one answer serves.</summary>
     public static bool CanRun { get; } = !OperatingSystem.IsWindows() && Tools.All(IsOnPath);
 
     /// <summary>Runs a script as the runner runs a <c>run</c> step.</summary>

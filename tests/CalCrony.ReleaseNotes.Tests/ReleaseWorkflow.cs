@@ -136,6 +136,26 @@ internal sealed class ReleaseWorkflow
         return string.Join('\n', script).TrimEnd('\n') + "\n";
     }
 
+    /// <summary>Gives the commands of a step's <c>run: |</c> block: its script without the lines
+    /// that are comments, so that a test which pins the commands does not also pin the wording
+    /// of a comment.</summary>
+    /// <param name="jobName">The job's key.</param>
+    /// <param name="stepName">The step's name.</param>
+    /// <returns>The script's lines other than comments, each ended by a line feed.</returns>
+    public string StepCommands(string jobName, string stepName) =>
+        string.Concat(
+            StepScript(jobName, stepName)
+                .TrimEnd('\n')
+                .Split('\n')
+                .Where(line => !IsComment(line))
+                .Select(line => $"{line}\n"));
+
+    /// <summary>Tells whether a line of a script is a comment: a number sign first, after any
+    /// indentation.</summary>
+    /// <param name="line">A line of a script.</param>
+    /// <returns>Whether the line is a comment.</returns>
+    public static bool IsComment(string line) => line.TrimStart().StartsWith('#');
+
     /// <summary>Gives the indentation of a job's steps.</summary>
     /// <param name="jobName">The job's key.</param>
     /// <returns>The number of spaces before each step's dash.</returns>

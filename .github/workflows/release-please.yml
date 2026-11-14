@@ -74,9 +74,10 @@ jobs:
   # text to announce-release. Without a file for the version it changes nothing. It runs
   # beside publish-images, so the notes are complete before the announcement links to them.
   #
-  # Every step carries on after a failure, so this job never ends red. A red job invites
-  # "Re-run failed jobs", and re-running this one re-runs announce-release too, which pings a
-  # second time. What went wrong is said by the last step instead.
+  # Every step that does the work carries on after a failure, so a failed step does not end
+  # this job red. A red job invites "Re-run failed jobs", and re-running this one re-runs
+  # announce-release too, which pings a second time. What went wrong is said by the last step
+  # instead, which only prints.
   release-summary:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -152,7 +153,8 @@ jobs:
           to_html() {
             gh api markdown -f mode=gfm -f context="$GITHUB_REPOSITORY" -F text=@"$1"
           }
-          mention='class="[^"]*(user|team)-mention'
+          # A mention is a link with this class; the same words typed into a summary are not one.
+          mention='<a [^>]*class="[^"]*(user|team)-mention'
           # First a text that is a mention for certain. If GitHub's answer to that one does not
           # look like a mention, its answer about the summary would mean nothing.
           printf '@%s\n' "$GITHUB_REPOSITORY_OWNER" > "$RUNNER_TEMP/control.md"

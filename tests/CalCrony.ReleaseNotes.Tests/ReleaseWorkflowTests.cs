@@ -8,9 +8,10 @@ namespace CalCrony.ReleaseNotes.Tests;
 /// these tests read its file. They hold the announce job to what it was — no access to the
 /// repository, a ping for the one role and nothing else, the message the tool previews — and
 /// they pin how the two new jobs are wired, because a slip there would not fail a release: it
-/// would quietly switch the summary off. Where bash, jq and curl exist — the CI runner — the
-/// announce step's own script is then run against a stand-in webhook on this machine, so what it
-/// would post is seen without posting anything.</summary>
+/// would quietly switch the summary off. Where bash, jq and curl exist — the CI runner — three
+/// steps' own scripts are then run on this machine: the announce step against a stand-in
+/// webhook, so what it would post is seen without posting anything, and the summary job's read
+/// of the notes and its question to GitHub against a stand-in <c>gh</c>.</summary>
 public class ReleaseWorkflowTests
 {
     private const string ImagesJob = "publish-images";
@@ -91,16 +92,16 @@ public class ReleaseWorkflowTests
     [Fact]
     public void The_step_is_the_one_before_summaries_with_the_summary_added()
     {
-        // Every line of the step as it was at v0.37.0 is still there, in order, but for the line
-        // that built the body, which now also takes the summary.
+        // Every command of the step as it was at v0.37.0 is still there, in order, but for the
+        // line that built the body, which now also takes the summary.
         const string OldBody = "  '{content: $content, allowed_mentions: {roles: [$role]}}' \\";
         string[] before = Repository.ReadFixture("announce-step-before-summaries.sh").Split('\n');
-        List<string> now = Workflow.StepScript(AnnounceJob, AnnounceStep).TrimEnd('\n').Split('\n').ToList();
+        List<string> now = Workflow.StepCommands(AnnounceJob, AnnounceStep).TrimEnd('\n').Split('\n').ToList();
 
         Assert.Contains(OldBody, before);
         int position = 0;
 
-        foreach (string line in before.Where(line => line != OldBody))
+        foreach (string line in before.Where(line => line != OldBody && !ReleaseWorkflow.IsComment(line)))
         {
             int found = now.IndexOf(line, position);
             Assert.True(found >= 0, $"The step no longer has this line, or has it out of order: {line}");
@@ -120,11 +121,7 @@ public class ReleaseWorkflowTests
               echo "DISCORD_RELEASE_WEBHOOK secret not set; skipping announcement."
               exit 0
             fi
-            # Role id of @Release Ping in the community server; ids are public, the webhook URL
-            # is the secret. allowed_mentions pins the ping to exactly this role.
             role_id="1543943300132769802"
-            # The summary goes under the usual line when there is one and the whole message stays
-            # inside Discord's 2,000 characters; otherwise the line stands alone.
             jq -n \
               --arg content "<@&${role_id}> **CalCrony ${RELEASE_TAG}** just shipped — release notes: ${RELEASE_URL}" \
               --arg summary "$SUMMARY" \
@@ -135,7 +132,7 @@ public class ReleaseWorkflowTests
             | curl -sf -X POST -H "Content-Type: application/json" -d @- "$WEBHOOK_URL"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepScript(AnnounceJob, AnnounceStep));
+            Workflow.StepCommands(AnnounceJob, AnnounceStep));
     }
 
     [Fact]
@@ -177,14 +174,18 @@ public class ReleaseWorkflowTests
         // The job's limit is a backstop: were it the smaller one, it would end the job red before
         // the steps' own limits, which carry on, had their say.
         const string Limit = "timeout-minutes: ";
+        const string JobLimit = "    timeout-minutes: ";
+
+        string jobLine = Assert.Single(Workflow.Job(SummaryJob), line => line.StartsWith(JobLimit, StringComparison.Ordinal));
+        int jobLimit = int.Parse(jobLine[JobLimit.Length..], CultureInfo.InvariantCulture);
 
         int stepLimits = Workflow.StepLabels(SummaryJob)
             .SelectMany(label => Workflow.Step(SummaryJob, label))
             .Where(line => line.StartsWith(Limit, StringComparison.Ordinal))
             .Sum(line => int.Parse(line[Limit.Length..], CultureInfo.InvariantCulture));
 
-        Assert.Equal(19, stepLimits);
-        Assert.True(stepLimits < 25);
+        Assert.True(stepLimits > 0);
+        Assert.True(stepLimits < jobLimit, $"The steps may take {stepLimits} minutes together; the job has {jobLimit}.");
     }
 
     [Fact]
@@ -263,7 +264,7 @@ public class ReleaseWorkflowTests
             mv "$RUNNER_TEMP/notes.partial" "$RUNNER_TEMP/notes.md"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepScript(SummaryJob, "Read the notes release-please wrote"));
+            Workflow.StepCommands(SummaryJob, "Read the notes release-please wrote"));
 
         Assert.Equal(
             [
@@ -304,7 +305,7 @@ public class ReleaseWorkflowTests
               --github-output "$GITHUB_OUTPUT"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepScript(SummaryJob, "Build the release texts"));
+            Workflow.StepCommands(SummaryJob, "Build the release texts"));
     }
 
     [Fact]
@@ -328,9 +329,7 @@ public class ReleaseWorkflowTests
             to_html() {
               gh api markdown -f mode=gfm -f context="$GITHUB_REPOSITORY" -F text=@"$1"
             }
-            mention='class="[^"]*(user|team)-mention'
-            # First a text that is a mention for certain. If GitHub's answer to that one does not
-            # look like a mention, its answer about the summary would mean nothing.
+            mention='<a [^>]*class="[^"]*(user|team)-mention'
             printf '@%s\n' "$GITHUB_REPOSITORY_OWNER" > "$RUNNER_TEMP/control.md"
             to_html "$RUNNER_TEMP/control.md" > "$RUNNER_TEMP/control.html"
             if ! grep -Eq "$mention" "$RUNNER_TEMP/control.html"; then
@@ -338,8 +337,6 @@ public class ReleaseWorkflowTests
               exit 1
             fi
             to_html "$RUNNER_TEMP/summary.md" > "$RUNNER_TEMP/summary.html"
-            # grep answers 0 for a mention and 1 for none; any other answer is no answer, and the
-            # step fails on it as it does on a mention.
             found=0
             grep -Eq "$mention" "$RUNNER_TEMP/summary.html" || found=$?
             if [ "$found" -eq 0 ]; then
@@ -348,11 +345,11 @@ public class ReleaseWorkflowTests
             [ "$found" -eq 1 ]
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepScript(SummaryJob, MentionsStep["- name: ".Length..]));
+            Workflow.StepCommands(SummaryJob, MentionsStep["- name: ".Length..]));
     }
 
     [Fact]
-    public void No_step_of_the_summary_job_can_end_it_red_and_the_last_one_says_what_failed()
+    public void Every_working_step_of_the_summary_job_carries_on_after_a_failure_and_the_last_one_says_so()
     {
         IReadOnlyList<string> labels = Workflow.StepLabels(SummaryJob);
 
@@ -415,7 +412,7 @@ public class ReleaseWorkflowTests
     {
         using TemporaryCheckout folder = new();
 
-        StepResult step = await AskAboutMentionsAsync(folder, OwnerMentionHtml, HarmlessHtml, 0);
+        StepResult step = await AskAboutMentionsAsync(folder, Answered(OwnerMentionHtml), Answered(HarmlessHtml));
 
         Assert.Equal(0, step.ExitCode);
         Assert.DoesNotContain("::warning", step.Output, StringComparison.Ordinal);
@@ -440,7 +437,7 @@ public class ReleaseWorkflowTests
 
         foreach (string html in new[] { person, team })
         {
-            StepResult step = await AskAboutMentionsAsync(folder, OwnerMentionHtml, html, 0);
+            StepResult step = await AskAboutMentionsAsync(folder, Answered(OwnerMentionHtml), Answered(html));
 
             Assert.NotEqual(0, step.ExitCode);
             Assert.Contains(MentionWarning, step.Output, StringComparison.Ordinal);
@@ -448,19 +445,40 @@ public class ReleaseWorkflowTests
     }
 
     [AnnounceStepFact]
+    public async Task Text_that_only_looks_like_a_mention_is_not_taken_for_one()
+    {
+        // The word, and the very class GitHub gives a mention, typed into a summary as text and
+        // as code. GitHub leaves the quotes as they are, so only the link tag tells the two apart.
+        using TemporaryCheckout folder = new();
+        string html = "<p dir=\"auto\">It says class=\"user-mention\" where a mention is, and <code class=\"notranslate\">class=\"team-mention\"</code> for a team.</p>";
+
+        StepResult step = await AskAboutMentionsAsync(folder, Answered(OwnerMentionHtml), Answered(html));
+
+        Assert.Equal(0, step.ExitCode);
+        Assert.DoesNotContain("::warning", step.Output, StringComparison.Ordinal);
+    }
+
+    [AnnounceStepFact]
     public async Task When_github_cannot_be_asked_the_step_fails_without_calling_it_a_mention()
     {
         using TemporaryCheckout folder = new();
 
-        // The request fails.
-        StepResult refused = await AskAboutMentionsAsync(folder, OwnerMentionHtml, HarmlessHtml, 1);
+        // The request about the certain mention fails, though what it printed looks right.
+        StepResult noControl = await AskAboutMentionsAsync(folder, Failed(OwnerMentionHtml), Answered(HarmlessHtml));
 
-        Assert.NotEqual(0, refused.ExitCode);
-        Assert.DoesNotContain(MentionWarning, refused.Output, StringComparison.Ordinal);
+        Assert.NotEqual(0, noControl.ExitCode);
+        Assert.DoesNotContain(MentionWarning, noControl.Output, StringComparison.Ordinal);
+
+        // The request about the summary fails, and it alone; what it printed holds no mention.
+        // Without an answer the summary must not go out.
+        StepResult noAnswer = await AskAboutMentionsAsync(folder, Answered(OwnerMentionHtml), Failed(HarmlessHtml));
+
+        Assert.NotEqual(0, noAnswer.ExitCode);
+        Assert.DoesNotContain(MentionWarning, noAnswer.Output, StringComparison.Ordinal);
 
         // GitHub answers, but not even its answer to a certain mention looks like one: whatever
         // it then says about the summary would pass, so the step stops there.
-        StepResult changed = await AskAboutMentionsAsync(folder, "<p dir=\"auto\">@JJWren</p>", HarmlessHtml, 0);
+        StepResult changed = await AskAboutMentionsAsync(folder, Answered("<p dir=\"auto\">@JJWren</p>"), Answered(HarmlessHtml));
 
         Assert.NotEqual(0, changed.ExitCode);
         Assert.Contains("GitHub did not read @JJWren as a mention", changed.Output, StringComparison.Ordinal);
@@ -471,7 +489,7 @@ public class ReleaseWorkflowTests
         string grep = folder.Write("bin/grep", "#!/bin/sh\ncase \"$*\" in *control.html*) exit 0 ;; *) exit 2 ;; esac\n");
         MakeExecutable(grep);
 
-        StepResult unread = await AskAboutMentionsAsync(folder, OwnerMentionHtml, HarmlessHtml, 0);
+        StepResult unread = await AskAboutMentionsAsync(folder, Answered(OwnerMentionHtml), Answered(HarmlessHtml));
 
         Assert.NotEqual(0, unread.ExitCode);
         Assert.DoesNotContain(MentionWarning, unread.Output, StringComparison.Ordinal);
@@ -501,14 +519,12 @@ public class ReleaseWorkflowTests
         // a branch whose name only starts the same way.
         Assert.Equal(
             """
-            # release-please's own PR and no other: asked for by its exact branch in this
-            # repository, and taken only when the Actions bot opened it from this repository.
             gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:release-please--branches--master" \
               --jq 'map(select(.user.login == "github-actions[bot]" and .head.repo.full_name == .base.repo.full_name)) | first // empty | "number=\(.number)", "title=\(.title)"' \
               >> "$GITHUB_OUTPUT"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepScript(PreviewJob, "Find the open release PR"));
+            Workflow.StepCommands(PreviewJob, "Find the open release PR"));
     }
 
     [Fact]
@@ -537,7 +553,7 @@ public class ReleaseWorkflowTests
               --out "$RUNNER_TEMP/comment.md"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepScript(PreviewJob, "Write the comment"));
+            Workflow.StepCommands(PreviewJob, "Write the comment"));
     }
 
     [Fact]
@@ -574,7 +590,7 @@ public class ReleaseWorkflowTests
 
             """.ReplaceLineEndings("\n").Replace("MARKER", PreviewComment.Marker, StringComparison.Ordinal);
 
-        Assert.Equal(expected, Workflow.StepScript(PreviewJob, "Post or update the comment"));
+        Assert.Equal(expected, Workflow.StepCommands(PreviewJob, "Post or update the comment"));
     }
 
     [Fact]
@@ -705,28 +721,41 @@ public class ReleaseWorkflowTests
         Assert.Empty(sentByUnnamed.Body);
     }
 
+    /// <summary>What the stand-in <c>gh</c> does with one request.</summary>
+    /// <param name="Html">What it prints.</param>
+    /// <param name="ExitCode">What it exits with.</param>
+    private sealed record GitHubAnswer(string Html, int ExitCode);
+
+    /// <summary>A request GitHub answered.</summary>
+    /// <param name="html">The answer.</param>
+    /// <returns>The answer, with the exit code of success.</returns>
+    private static GitHubAnswer Answered(string html) => new(html, 0);
+
+    /// <summary>A request that failed after printing something.</summary>
+    /// <param name="html">What was printed before the failure.</param>
+    /// <returns>That text, with an exit code of failure.</returns>
+    private static GitHubAnswer Failed(string html) => new(html, 1);
+
     /// <summary>Runs the step that asks GitHub about mentions, with a stand-in <c>gh</c> in front
-    /// of the real one: it notes its arguments, answers the certain mention and the summary with
-    /// the HTML it is given, and exits as it is told to. Nothing is asked of GitHub.</summary>
+    /// of the real one: it notes its arguments, and for the certain mention and for the summary
+    /// it prints the HTML it is given and exits as it is told to, each request by itself.
+    /// Nothing is asked of GitHub.</summary>
     /// <param name="folder">The folder standing in for the runner's temporary folder.</param>
-    /// <param name="controlHtml">What the stand-in answers for the certain mention.</param>
-    /// <param name="summaryHtml">What the stand-in answers for the summary.</param>
-    /// <param name="exitCode">The exit code of every request.</param>
+    /// <param name="control">What the stand-in does with the request about the certain mention.</param>
+    /// <param name="summary">What the stand-in does with the request about the summary.</param>
     /// <returns>What the step's script left behind.</returns>
     private static async Task<StepResult> AskAboutMentionsAsync(
         TemporaryCheckout folder,
-        string controlHtml,
-        string summaryHtml,
-        int exitCode)
+        GitHubAnswer control,
+        GitHubAnswer summary)
     {
         const string StandIn = """
             #!/bin/sh
             printf '%s\n' "$@" >> "$FAKE_ARGUMENTS"
             case "$*" in
-              *control.md*) printf '%s\n' "$FAKE_CONTROL" ;;
-              *) printf '%s\n' "$FAKE_SUMMARY" ;;
+              *control.md*) printf '%s\n' "$FAKE_CONTROL"; exit "$FAKE_CONTROL_EXIT" ;;
+              *) printf '%s\n' "$FAKE_SUMMARY"; exit "$FAKE_SUMMARY_EXIT" ;;
             esac
-            exit "$FAKE_EXIT"
 
             """;
 
@@ -741,9 +770,10 @@ public class ReleaseWorkflowTests
             ["GITHUB_REPOSITORY"] = "JJWren/CalCrony",
             ["GITHUB_REPOSITORY_OWNER"] = "JJWren",
             ["FAKE_ARGUMENTS"] = folder.PathOf("gh-arguments.txt"),
-            ["FAKE_CONTROL"] = controlHtml,
-            ["FAKE_SUMMARY"] = summaryHtml,
-            ["FAKE_EXIT"] = exitCode.ToString(CultureInfo.InvariantCulture),
+            ["FAKE_CONTROL"] = control.Html,
+            ["FAKE_CONTROL_EXIT"] = control.ExitCode.ToString(CultureInfo.InvariantCulture),
+            ["FAKE_SUMMARY"] = summary.Html,
+            ["FAKE_SUMMARY_EXIT"] = summary.ExitCode.ToString(CultureInfo.InvariantCulture),
         };
 
         return await StepRunner.RunAsync(

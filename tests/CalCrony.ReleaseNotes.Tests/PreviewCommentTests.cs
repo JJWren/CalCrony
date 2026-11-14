@@ -169,7 +169,7 @@ public class PreviewCommentTests
 
             `docs/release-notes/0.38.0.md` is on `master`, but **the check refuses it, so as it stands this release goes out without a summary**: the changelog lines as release notes, and a Discord announcement with the link alone. What the check found:
 
-            - line 5: `@` followed by a name outside backticks is a mention: GitHub notifies the user of that name. Put it in backticks.
+            - line 5: `@` followed by a name outside backticks is a mention: GitHub notifies the user of that name. Put it in backticks, or write a web address that has it whole in angle brackets: `<https://…>`.
 
             The file as it is:
 

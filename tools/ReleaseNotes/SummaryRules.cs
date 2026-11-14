@@ -33,7 +33,14 @@ public static class SummaryRules
     private const string BacktickFence = "```";
     private const string TildeFence = "~~~";
     private static readonly string[] LinkSchemes = ["https://", "http://"];
-    private static readonly char[] WordBreaks = [' ', '\t'];
+
+    /// <summary>What reading one line from left to right gives.</summary>
+    /// <param name="Text">The line, the same length, with spaces where its code and its links
+    /// were.</param>
+    /// <param name="HasLooseBacktick">Whether a run of backticks on the line has no partner.</param>
+    /// <param name="HasSwallowedBacktick">Whether a backtick met outside code stands where GitHub
+    /// would not open code with it: glued to a web address, or right after a dollar sign.</param>
+    private readonly record struct LineReading(string Text, bool HasLooseBacktick, bool HasSwallowedBacktick);
 
     /// <summary>Checks a summary against every rule.</summary>
     /// <param name="text">The summary's normalized text (<see cref="ReleaseSummary.Normalize"/>).</param>
@@ -196,7 +203,8 @@ public static class SummaryRules
     /// <param name="problems">The list to add to.</param>
     private static void AddTextProblems(string line, string content, int number, List<SummaryProblem> problems)
     {
-        string text = MaskInline(line, out bool hasLooseBacktick);
+        LineReading reading = ReadLine(line);
+        string text = reading.Text;
         bool isFence = content.StartsWith(BacktickFence, StringComparison.Ordinal)
             || content.StartsWith(TildeFence, StringComparison.Ordinal);
 
@@ -204,14 +212,14 @@ public static class SummaryRules
         {
             Add(problems, number, "Code blocks are not allowed in a summary; put a command in backticks on one line.");
         }
-        else if (hasLooseBacktick)
+        else if (reading.HasLooseBacktick)
         {
             Add(problems, number, "A backtick with no partner on its line: code opens and closes on the same line.");
         }
 
-        if (HasBacktickGitHubReadsOtherwise(line))
+        if (reading.HasSwallowedBacktick)
         {
-            Add(problems, number, "A backtick inside a web address or right after `$` is not code on GitHub: the address swallows it, and `$` starts a formula. Put a space before the code.");
+            Add(problems, number, "A backtick glued to a web address or to a `$` does not open code on GitHub: the address takes it along, and `$` starts a formula with it. Put a space before the code.");
         }
 
         if (content.StartsWith("[^", StringComparison.Ordinal) || content.StartsWith("[!", StringComparison.Ordinal))
@@ -246,34 +254,32 @@ public static class SummaryRules
 
         if (HasMention(text))
         {
-            Add(problems, number, "`@` followed by a name outside backticks is a mention: GitHub notifies the user of that name. Put it in backticks.");
+            Add(problems, number, "`@` followed by a name outside backticks is a mention: GitHub notifies the user of that name. Put it in backticks, or write a web address that has it whole in angle brackets: `<https://…>`.");
         }
     }
 
-    /// <summary>Tells whether a line has a backtick that GitHub does not read as the start or end
-    /// of code: one right after a dollar sign, where GitHub starts a formula, or one inside a web
-    /// address, which GitHub links by itself up to the next space and which then holds the
-    /// backtick as part of the address.</summary>
-    /// <param name="line">The line as written.</param>
-    /// <returns>Whether such a backtick is there.</returns>
-    private static bool HasBacktickGitHubReadsOtherwise(string line)
+    /// <summary>Tells whether a backtick would not open code on GitHub because of the word it
+    /// follows: a web address, which GitHub links by itself up to the next space and which takes
+    /// the backtick along, or a dollar sign, after which a backtick starts a formula. Only a
+    /// backtick met outside code is asked about; once code is open, the backtick that closes it
+    /// is read as that whatever stands before it.</summary>
+    /// <param name="read">The line as far as it has been read, with spaces where its code and
+    /// its links were, so that those end a word as a space does.</param>
+    /// <returns>Whether a backtick here is taken along by what stands before it.</returns>
+    private static bool TakesBacktickAlong(StringBuilder read)
     {
-        for (int index = line.IndexOf('`', StringComparison.Ordinal);
-            index >= 0;
-            index = line.IndexOf('`', index + 1))
-        {
-            int wordStart = line.LastIndexOfAny(WordBreaks, index) + 1;
-            ReadOnlySpan<char> before = line.AsSpan(wordStart, index - wordStart);
+        int wordStart = read.Length;
 
-            if (before.EndsWith("$", StringComparison.Ordinal)
-                || before.Contains("://", StringComparison.Ordinal)
-                || before.Contains("www.", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+        while (wordStart > 0 && read[wordStart - 1] is not (' ' or '\t'))
+        {
+            wordStart--;
         }
 
-        return false;
+        string word = read.ToString(wordStart, read.Length - wordStart);
+
+        return word.EndsWith('$')
+            || word.Contains("://", StringComparison.Ordinal)
+            || word.Contains("www.", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Adds a problem for the first character of a line that cannot be seen in review:
@@ -410,19 +416,20 @@ public static class SummaryRules
         return false;
     }
 
-    /// <summary>Blanks out what a line holds that is not text: its code spans, backticks
-    /// included, and its links written whole in angle brackets. It goes left to right as GitHub
-    /// does within a line: a character after a backslash is that character and opens nothing, so
+    /// <summary>Reads a line from left to right as GitHub does within a line, and blanks out what
+    /// it holds that is not text: its code spans, backticks included, and its links written whole
+    /// in angle brackets. A character after a backslash is that character and opens nothing, so
     /// <c>\`</c> starts no code; a link in angle brackets ends at its closing bracket; and a run
     /// of backticks with no run of the same length after it on the line stays, and is reported.</summary>
     /// <param name="line">One line of the summary.</param>
-    /// <param name="hasLooseBacktick">Whether a run of backticks on the line has no partner.</param>
-    /// <returns>The line, the same length, with spaces where its code and its links were.</returns>
-    private static string MaskInline(string line, out bool hasLooseBacktick)
+    /// <returns>The line with its code and links blanked out, and what was found about its
+    /// backticks.</returns>
+    private static LineReading ReadLine(string line)
     {
         StringBuilder masked = new(line.Length);
         int index = 0;
-        hasLooseBacktick = false;
+        bool hasLooseBacktick = false;
+        bool hasSwallowedBacktick = false;
 
         while (index < line.Length)
         {
@@ -440,6 +447,7 @@ public static class SummaryRules
                 int closing = FindClosingRun(line, index + runLength, runLength);
                 isBlanked = closing >= 0;
                 hasLooseBacktick |= !isBlanked;
+                hasSwallowedBacktick |= TakesBacktickAlong(masked);
                 length = isBlanked ? closing + runLength - index : runLength;
             }
             else if (character == '<')
@@ -461,12 +469,13 @@ public static class SummaryRules
             index += length;
         }
 
-        return masked.ToString();
+        return new LineReading(masked.ToString(), hasLooseBacktick, hasSwallowedBacktick);
     }
 
     /// <summary>Reads a link written whole in angle brackets: <c>&lt;https://…&gt;</c> or
-    /// <c>&lt;http://…&gt;</c>, with no space or angle bracket before its end. (A backtick in
-    /// one is refused by the rule for backticks in web addresses.)</summary>
+    /// <c>&lt;http://…&gt;</c>, with no space, angle bracket or backtick before its end. GitHub
+    /// takes a backtick as part of such a link; it is not let through here, so that what looks
+    /// like code inside a link is refused rather than trusted.</summary>
     /// <param name="line">The line.</param>
     /// <param name="start">The position of the opening angle bracket.</param>
     /// <returns>The link's length with both brackets, or 0 when no such link starts there.</returns>
@@ -488,7 +497,7 @@ public static class SummaryRules
                 return index + 2;
             }
 
-            if (char.IsWhiteSpace(character) || character == '<')
+            if (char.IsWhiteSpace(character) || character is '<' or '`')
             {
                 return 0;
             }

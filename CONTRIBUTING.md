@@ -81,8 +81,8 @@ The changelog lines release-please writes come from PR titles and are written fo
 
 - The first line is `### What's new`, with at least one bullet under it. `### How to use it` may follow, once, on a line of its own. No other headings, inside a list or a quote either.
 - No tables, images, HTML, footnotes, alert boxes (`> [!NOTE]`), horizontal rules or lines of only dashes or equals signs.
-- Code is written in backticks on one line, with a space before it: a backtick glued to a web address or to a `$` is not code on GitHub. No code blocks, and no backtick without its partner on the same line.
-- `@name` only inside backticks: outside them GitHub notifies the user of that name. A web address with an `@` in it is written whole in angle brackets: `<https://www.youtube.com/@CalCrony>`, or `[the channel](<https://www.youtube.com/@CalCrony>)` as a link.
+- Code is written in backticks on one line. Put a space before code that follows a web address or a `$`: glued to either, the backtick does not open code on GitHub. No code blocks, and no backtick without its partner on the same line.
+- `@name` only inside backticks: outside them GitHub notifies the user of that name. A web address with an `@` in it goes in backticks too, or whole in angle brackets where it should stay a link: `<https://example.com/@someone>`, or `[the channel](<https://example.com/@someone>)`.
 - Anything in `<angle brackets>` goes in backticks too, because one side or the other shows it as raw text. A link written as `<https://…>` is fine. No HTML entities such as `&amp;`.
 - No invisible characters: control characters, zero-width spaces, marks that reorder text.
 - At most 1,800 characters. Discord takes 2,000 in a message, and the announcement's first line needs room as well.
@@ -97,7 +97,7 @@ The check knows the usual ways a summary goes wrong, and the ways its reviews fo
 - A file the check refuses is left out, with the same result. One that is only too long still goes out, cut short for Discord with a pointer to the release notes. (`build-test` is red on a pull request that adds either, so this takes a merge past a red check, or two pull requests that each fit and together do not.)
 - A file in which GitHub reads a mention of a person or a team is left out as well, and so is one GitHub could not be asked about. The check should have refused such a file already; this is the backstop for what it misses.
 - The file is read at the release's tag, so one added after the release PR is merged is too late for that release. Add it to the GitHub release by hand.
-- The `release-summary` job never ends red, and the release's images are published without running the summary tests. If the run shows a "Release summary" warning, the summary is not in the announcement and may be missing from the release notes: check them, and add it by hand if it is missing, without the mention if the warning names one. **Do not re-run that job** — a re-run takes the `announce-release` job with it and pings a second time.
+- A step of the `release-summary` job that fails does not end the job red, and the release's images are published without running the summary tests. If the run shows a "Release summary" warning, the summary is not in the announcement and may be missing from the release notes: check them, and add it by hand if it is missing, without the mention if the warning names one. **Do not re-run that job** — a re-run takes the `announce-release` job with it and pings a second time.
 
 ## Issues — how they open and close
 
