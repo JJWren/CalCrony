@@ -223,12 +223,19 @@ A box is ticked in the turn its step completes.
 Approving this plan covers the changes above and committing them locally. Everything that leaves
 this machine waits for its own go-ahead.
 
-- [ ] 7.1 *Go-ahead:* push the branch and open the PR, after taking `master` in if it has moved
-      (the audit entries then go in by timestamp).
+- [x] 7.1 *Go-ahead:* push the branch and open the PR, after taking `master` in if it has moved
+      (the audit entries then go in by timestamp). *(2026-11-16, on the go-ahead at the completion
+      gate: pushed at 16:51Z, and pull request #180 opened at 16:52:08Z. `master` moved between
+      the two, when pull request #179 merged at 16:51:53Z, so it was taken in straight after:
+      the audit entries in the order of their stamps, and both new sections of the state file
+      kept.)*
 - [ ] 7.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
       `:main`.
 - [ ] 7.3 *Go-ahead:* release 0.37.1 — the release PR that release-please opens — with a short
-      summary and a two-line how-to for the notes, shown to Joshua first.
+      summary and a two-line how-to for the notes, shown to Joshua first. *(Since pull request
+      #179 the summary is a file in the pull request that makes the change:
+      `docs/release-notes/0.37.1.md` was added to #180 with the merge of `master`, and its text
+      is put to Joshua before the merge.)*
 - [ ] 7.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
       No migration.
 
@@ -394,6 +401,13 @@ code and the new statements sound. Their further points of wording were taken, a
 live script's clause about when the two builds differ and the split of the 273 phrases above.
 The branch was then rebuilt as two commits with the same content, and both read that before the
 completion gate.
+
+**After the gate.** `master` moved as the branch was pushed (step 7.1) and was taken in. With it
+came the release summary's convention, so the pull request also carries
+`docs/release-notes/0.37.1.md`: one bullet on what is new and two steps of how-to, passed by the
+repository's check. On the merged tree the Release build has no error and 22 warnings, and
+1,723 tests are green — 813 API, 418 bot, 153 web and 339 for the release-notes tool that came
+with `master`, with 17 more of the tool's skipped on Windows, which CI runs.
 
 **Noticed while probing, not part of this fix.** Each is true of every weekday, short or full,
 and is listed for Joshua to take up or leave:

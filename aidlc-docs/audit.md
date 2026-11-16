@@ -1604,3 +1604,10 @@ Availability for @GM
 **Context**: Construction — code generation complete (approved); build and test next, on the pull request's checks.
 
 ---
+## Build and test — short weekend days: pushed, pull request #180 opened, `master` taken in
+**Timestamp**: 2026-11-16T16:56:59Z
+**User Input**: (none — continuation of "Continue to next stage")
+**AI Response**: The branch was pushed at 16:51Z, three commits on `master` as it then stood, and pull request #180, `fix: read sat and sun as Saturday and Sunday in date text`, was opened at 16:52:08Z. Between the two, at 16:51:53Z, pull request #179 was merged as `4af1305`, so #180 opened with a conflict in this file and in the state file, the two that both branches add to. `master` was merged into the branch straight after: this file's entries from both sides in the order of their stamps, three of #179's among this branch's of 2026-11-16, and both new sections of the state file, the release summary's first because it started earlier. Nothing else conflicted, and against `master` the branch still changed its own seven files alone. #179 brought a convention that applies here: a change users will notice has its release summary in the same pull request, one file per release, named for its version. With no release pull request open and 0.37.0 the last release, a `fix:` makes 0.37.1, so `docs/release-notes/0.37.1.md` is added: one bullet on what is new and two steps of how-to. The repository's check passes it, and the preview shows it as it would be posted (405 of 1,800 characters). Its text goes to Joshua before the merge, as the plan's step 7.3 promised for the release. Run on the merged tree: the Release build with no error and 22 warnings; 1,723 tests green — 813 API, 418 bot, 153 web and 339 for the release-notes tool — and 17 of the tool's skipped, the ones that run a workflow step's own script, which are skipped on Windows and run in CI. Pushed to the pull request with this entry. The merge of #180 waits for Joshua's go-ahead.
+**Context**: Build and test — the pull request is open; its checks and Joshua's go-ahead to merge are next.
+
+---
