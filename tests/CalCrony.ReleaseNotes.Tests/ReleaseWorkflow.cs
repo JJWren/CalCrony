@@ -83,9 +83,9 @@ internal sealed class ReleaseWorkflow
             .Select(line => line.Trim())
             .ToList();
 
-    /// <summary>Gives a step's settings: its lines from the first to its <c>run</c> line, or to
-    /// its end when it runs an action. The script of a <c>run: |</c> block is not among them
-    /// (<see cref="StepScript"/> gives that).</summary>
+    /// <summary>Gives a step's settings: every line of the step from its first to its last, but
+    /// for the script of a <c>run: |</c> block (<see cref="StepScript"/> gives that). A setting
+    /// written after such a block is a setting like any other, and is among them.</summary>
     /// <param name="jobName">The job's key.</param>
     /// <param name="label">The step's first line, trimmed: <c>- name: …</c> or <c>- uses: …</c>.</param>
     /// <returns>The step's lines, trimmed, without comments or blank lines.</returns>
@@ -96,26 +96,101 @@ internal sealed class ReleaseWorkflow
         Assert.True(start >= 0, $"The job {jobName} has no step that starts with \"{label}\".");
         int indent = LeadingSpaces(job[start]);
         List<string> settings = [label];
+        int blockIndent = -1;
 
         foreach (string line in job.Skip(start + 1))
         {
-            if (line.Trim().Length > 0 && LeadingSpaces(line) <= indent)
+            string trimmed = line.Trim();
+
+            if (blockIndent >= 0 && (trimmed.Length == 0 || LeadingSpaces(line) > blockIndent))
+            {
+                continue;
+            }
+
+            blockIndent = -1;
+
+            if (trimmed.Length > 0 && LeadingSpaces(line) <= indent)
             {
                 break;
             }
 
-            if (IsSetting(line.Trim()))
+            if (IsSetting(trimmed))
             {
-                settings.Add(line.Trim());
+                settings.Add(trimmed);
             }
 
-            if (line.Trim() == RunBlock)
+            if (trimmed == RunBlock)
             {
-                break;
+                blockIndent = LeadingSpaces(line);
             }
         }
 
         return settings;
+    }
+
+    /// <summary>Gives the keys of a job: what stands directly under its name, such as
+    /// <c>needs</c>, <c>if</c> and <c>steps</c>.</summary>
+    /// <param name="jobName">The job's key.</param>
+    /// <returns>The keys, in the order of the file, without their colons.</returns>
+    public IReadOnlyList<string> JobKeys(string jobName) =>
+        KeysAt(Job(jobName).Skip(1), JobIndent.Length * 2);
+
+    /// <summary>Gives the keys the workflow file has at its outermost level.</summary>
+    /// <returns>The keys, in the order of the file, without their colons.</returns>
+    public IReadOnlyList<string> TopLevelKeys() => KeysAt(lines, 0);
+
+    /// <summary>Gives the lines of the file that are structure: every line but the text of a
+    /// block (under a key whose value is <c>|</c> or <c>&gt;</c>), blank lines and comments.</summary>
+    /// <returns>The lines, in the order of the file, as they stand.</returns>
+    public IReadOnlyList<string> StructureLines() => SplitLines().Structure;
+
+    /// <summary>Gives the lines of the file that are not structure: the text of every block, and
+    /// the comments outside the blocks.</summary>
+    /// <returns>The lines, in the order of the file, as they stand, without the blank ones.</returns>
+    public IReadOnlyList<string> TextLines() => SplitLines().Text;
+
+    /// <summary>Sorts the file's lines into structure and text.</summary>
+    /// <returns>The structure lines, and the lines of blocks and comments.</returns>
+    private (IReadOnlyList<string> Structure, IReadOnlyList<string> Text) SplitLines()
+    {
+        List<string> structure = [];
+        List<string> text = [];
+        int blockIndent = -1;
+
+        foreach (string line in lines)
+        {
+            string trimmed = line.Trim();
+
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            if (blockIndent >= 0 && LeadingSpaces(line) > blockIndent)
+            {
+                text.Add(line);
+                continue;
+            }
+
+            blockIndent = -1;
+
+            if (!IsSetting(trimmed))
+            {
+                text.Add(line);
+                continue;
+            }
+
+            structure.Add(line);
+
+            if (OpensBlock(trimmed))
+            {
+                string key = line.TrimStart(' ');
+                key = key.StartsWith("- ", StringComparison.Ordinal) ? key[2..].TrimStart(' ') : key;
+                blockIndent = line.Length - key.Length;
+            }
+        }
+
+        return (structure, text);
     }
 
     /// <summary>Gives the script of a step's <c>run: |</c> block, without the block's indentation,
@@ -213,6 +288,30 @@ internal sealed class ReleaseWorkflow
     /// <param name="line">A line of the workflow file.</param>
     /// <returns>The number of leading spaces.</returns>
     public static int LeadingSpaces(string line) => line.Length - line.TrimStart(' ').Length;
+
+    /// <summary>Gives the keys written at one indentation among some lines.</summary>
+    /// <param name="among">The lines to look at.</param>
+    /// <param name="indent">The number of spaces before each key wanted.</param>
+    /// <returns>The keys, in order, without their colons.</returns>
+    private static IReadOnlyList<string> KeysAt(IEnumerable<string> among, int indent) =>
+        among
+            .Where(line => LeadingSpaces(line) == indent && IsSetting(line.Trim()) && line.Contains(':', StringComparison.Ordinal))
+            .Select(line => line.Trim()[..line.Trim().IndexOf(':', StringComparison.Ordinal)])
+            .ToList();
+
+    /// <summary>Tells whether a line's value opens a block of text: a <c>|</c> or a <c>&gt;</c>
+    /// after the key's colon, with or without the marks that may follow it.</summary>
+    /// <param name="trimmed">A line without its outer spaces.</param>
+    /// <returns>Whether the lines under it, indented deeper, are text and not structure.</returns>
+    private static bool OpensBlock(string trimmed)
+    {
+        int colon = trimmed.IndexOf(": ", StringComparison.Ordinal);
+        string value = colon >= 0 ? trimmed[(colon + 2)..].Trim() : string.Empty;
+
+        return value.Length > 0
+            && value[0] is '|' or '>'
+            && value[1..].All(mark => mark is '-' or '+' || char.IsAsciiDigit(mark));
+    }
 
     /// <summary>Cuts a number-sign line down to its indentation and the number sign, and leaves
     /// any other line as it is.</summary>

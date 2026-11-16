@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace CalCrony.ReleaseNotes.Tests;
 
@@ -155,23 +156,72 @@ public class ReleaseWorkflowTests
     }
 
     [Fact]
-    public void No_script_in_the_workflow_has_an_expression_in_it()
+    public void An_expression_stands_only_in_the_one_line_value_of_a_plain_key_and_never_in_a_script()
     {
         // GitHub fills in an expression before bash sees a script, in a comment as much as in a
-        // command, and what it fills in is then read as shell. Values reach a script through its
-        // env, never through its text.
-        string[] lines = Workflow.Scripts().SelectMany(script => script.Lines).ToArray();
+        // command, and what it fills in is then read as shell. So no block of text and no comment
+        // holds one, and where one stands it is the value of a plain key on that key's line, the
+        // key being neither run nor shell. Values reach a script through its env.
+        Regex plainKey = new("^ *(- )?(?<key>[A-Za-z_][A-Za-z0-9_-]*): ");
 
-        Assert.All(lines, line => Assert.DoesNotContain("${{", line, StringComparison.Ordinal));
+        Assert.All(Workflow.TextLines(), line => Assert.DoesNotContain("${{", line, StringComparison.Ordinal));
 
-        // And the scripts looked at are the scripts: each line of every pinned one is among them.
-        HashSet<string> found = lines.Select(line => line.Trim()).ToHashSet();
+        string[] withExpression = Workflow.StructureLines()
+            .Where(line => line.Contains("${{", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(withExpression);
+
+        foreach (string line in withExpression)
+        {
+            Match match = plainKey.Match(line);
+
+            Assert.True(match.Success, $"An expression outside the value of a plain key: {line.Trim()}");
+            Assert.DoesNotContain(match.Groups["key"].Value, new[] { "run", "shell" });
+        }
+
+        // And the text looked at holds the scripts: each line of every pinned one is in it.
+        HashSet<string> text = Workflow.TextLines().Select(line => line.Trim()).ToHashSet();
 
         foreach ((string job, string step) in PinnedSteps)
         {
             Assert.All(
                 Workflow.StepScript(job, step).Split('\n', StringSplitOptions.RemoveEmptyEntries),
-                line => Assert.Contains(line.Trim(), found));
+                line => Assert.Contains(line.Trim(), text));
+        }
+    }
+
+    [Fact]
+    public void Outside_its_blocks_of_text_the_workflow_file_is_plain_keys_with_one_line_values()
+    {
+        // These tests read the file as text. A YAML reader makes the same of it as long as the
+        // file keeps to this: a key is a plain word and a colon, alone or after a dash, and its
+        // value stands on its line or is a block. A key in quotes, a space before the colon, a
+        // step written in braces, a value that runs on over lines, a line of a script that has
+        // slipped out of its block: each is refused here, because the tests would not see it.
+        Regex plain = new("^ *(- )?[A-Za-z_][A-Za-z0-9_-]*:( .+)?$");
+
+        Assert.All(Workflow.StructureLines(), line => Assert.Matches(plain, line));
+    }
+
+    [Fact]
+    public void The_workflow_and_its_three_jobs_have_these_keys_and_no_others()
+    {
+        // A key more changes what runs without touching a line the other tests pin: a matrix on
+        // the announce job would post more than once, and an env or defaults for the whole
+        // workflow could change the shell of every step.
+        Assert.Equal(["name", "on", "permissions", "jobs"], Workflow.TopLevelKeys());
+        Assert.Equal(["needs", "if", "runs-on", "permissions", "steps"], Workflow.JobKeys(AnnounceJob));
+        Assert.Equal(
+            ["needs", "if", "runs-on", "timeout-minutes", "permissions", "outputs", "env", "steps"],
+            Workflow.JobKeys(SummaryJob));
+        Assert.Equal(
+            ["needs", "if", "runs-on", "timeout-minutes", "concurrency", "permissions", "steps"],
+            Workflow.JobKeys(PreviewJob));
+
+        foreach (string job in new[] { AnnounceJob, SummaryJob, PreviewJob })
+        {
+            Assert.Contains("    runs-on: ubuntu-latest", Workflow.Job(job));
         }
     }
 
@@ -199,12 +249,14 @@ public class ReleaseWorkflowTests
             else
             {
                 // A plain text ends where YAML would end it: at " #", which starts a comment, and
-                // it may not hold ": ", start with a quote, or start another kind of block.
+                // it may not hold ": " or end in a colon, start with a quote, or start another
+                // kind of block.
                 string line = Assert.Single(script.Lines);
 
                 Assert.Matches("^[A-Za-z]", line);
                 Assert.DoesNotContain(" #", line, StringComparison.Ordinal);
                 Assert.DoesNotContain(": ", line, StringComparison.Ordinal);
+                Assert.False(line.TrimEnd().EndsWith(':'), line);
             }
         }
     }
@@ -212,18 +264,25 @@ public class ReleaseWorkflowTests
     [Fact]
     public void The_workflow_file_has_no_character_that_two_readers_could_take_differently()
     {
-        // No tab, no space but the plain one, nothing invisible. Such a character is a line end
-        // or indentation to one reader of the file (YAML, bash, these tests) and not to another.
+        // No tab, no space but the plain one, nothing invisible, nothing that is not a character
+        // at all (which is also what a byte that is not UTF-8 is read as). Such a thing is a line
+        // end or indentation to one reader of the file (YAML, bash, these tests) and not to
+        // another, or stops one reader and not the next.
+        const int ReplacementCharacter = 0xFFFD;
         string text = File.ReadAllText(Path.Combine(Repository.Root, ReleaseWorkflow.RepositoryPath));
 
         foreach (Rune rune in text.EnumerateRunes())
         {
             bool isLineEndOrSpace = rune.Value is '\n' or '\r' or ' ';
             bool isVisible = !Rune.IsWhiteSpace(rune)
+                && rune.Value != ReplacementCharacter
                 && Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.Control
                     or UnicodeCategory.Format
                     or UnicodeCategory.LineSeparator
-                    or UnicodeCategory.ParagraphSeparator);
+                    or UnicodeCategory.ParagraphSeparator
+                    or UnicodeCategory.OtherNotAssigned
+                    or UnicodeCategory.PrivateUse
+                    or UnicodeCategory.Surrogate);
 
             Assert.True(isLineEndOrSpace || isVisible, $"U+{rune.Value:X4} is in {ReleaseWorkflow.RepositoryPath}.");
         }

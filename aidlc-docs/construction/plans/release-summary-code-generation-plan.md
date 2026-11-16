@@ -656,7 +656,7 @@ round costs far more than the change it would confirm: a wording, and a helper o
   session, thirty-three. In this round the security reviewer made about thirty more of its own,
   without a login and with made-up text; the quality reviewer none.
 
-## 15. The pull request, and a fresh read of the last two commits (2026-11-16); the change as it stands
+## 15. The pull request, and a fresh read of the last two commits (2026-11-16)
 
 **Steps 6.2 and 6.3, on Joshua's "B) Continue".** `master` had gained the 0.37.0 records
 (`56b61ab`, pull request #178) and nothing else. It was merged into the branch as `55062f6`. Two
@@ -716,3 +716,46 @@ two requests to GitHub's renderer, without a login and with made-up text.
 **Still not run.** `release-summary` and the announcement with a summary: they exist only when a
 release is created. The preview job first runs on the push to `master` that the merge makes; with
 no release pull request open it finds none and posts nothing.
+
+## 16. The fresh reader's second report (2026-11-16), and the change as it stands
+
+The fresh agent confirmed commit `edfcc58`: its findings A, B and C and the nit are closed, all
+twelve of its earlier probes fail a test, and bash's own parser says that taking out any of the
+comment lines then in the scripts changes nothing bash does. Asked whether a change to the
+workflow could still go unseen by the tests, it named these.
+
+| # | Still unseen | Answer |
+|---|---|---|
+| 1 | A setting written after a script's block — `if: false` after the announce script, another shell after a step's script, an `env` after the tool's — because the reader of a step's settings stopped at `run: \|`. | It reads the whole step, the script apart, so a setting after a block is in the pinned list like any other. |
+| 2 | A `run` key in a form the reader of scripts does not know — in quotes, with a space before its colon, a step written in braces, a value that runs on over lines — could hold an expression unseen, in a job the tests do not pin. | The rule is turned round and made about the whole file. An expression may stand only in the value of a plain key on that key's line, the key being neither `run` nor `shell`, and never in a block of text or a comment. And outside its blocks of text the file must be plain keys with one-line values, which refuses each of those forms. |
+| 3 | The older job's build script is pinned by nothing: a command added to it passes, and so does a comment at the steps' indentation inside it, which breaks the file. | The second is refused by the rule of row 2: the script lines such a comment leaves stranded are not plain keys. The first stays as it was before this change: these tests pin the announce job and the two new jobs, and of `publish-images` only its one changed line. |
+| 4 | The character test let through U+FFFF and a byte that is not UTF-8. | It refuses what is no character: unassigned, private-use and surrogate code points, and the replacement character an unreadable byte becomes. |
+| 5 | A one-line script that ends in a colon passes and is not valid YAML. | Refused. |
+| 6 | Outside the scripts: a `strategy` on the announce job, an `env` for the whole workflow. | The workflow's keys and the three jobs' keys are pinned, and each of the three runs on `ubuntu-latest`. |
+
+A caveat the agent named stands: a number-sign line that is data — inside quoted text, or in a
+here-document — would have its wording unpinned once someone wrote one. The scripts have none.
+
+**What these tests are, and are not.** They read a YAML file as text and hold it to a plain form
+in which that reading is right. They catch a slip, and most changes made in passing. They are not
+a YAML reader, and they do not stand against someone set on getting a change past them, who can
+change the tests as well; that is what the review of a pull request is for. A workflow linter in
+CI, one of the three things section 11 left for Joshua to decide, would be the other half.
+
+**This last commit changes tests and records only, and was checked by me and not read again by an
+agent.** Each of the rows above is a change made on a copy that now fails a test.
+
+**What was run after these changes.**
+
+- Release build of the whole solution from scratch: no errors, the baseline's 22 warnings.
+- The 1,292 earlier tests green. 355 new ones: on Windows 338 green and 17 skipped (the fourteen
+  that run a step's script with bash, the three that make a symbolic link); on Linux, offline,
+  with the real jq 1.8.1 and `CI=true`, all 355 green.
+- 216 changes that each take one rule or guard out, or bend it: the 207 of section 15 and nine
+  for the rows above. All 216 fail a test: 209 here, and the seven about links on Linux. The
+  eleven that bend a script which is run for real were run on Linux again, and each fails a test
+  that runs it.
+- The other way round: every comment line inside the scripts, thirteen of them, reworded on a
+  copy. No test fails, which is what leaving a comment's wording unpinned was for.
+- On GitHub, the pull request's second head (`edfcc58`) passed its checks: six passing, none
+  failing.
