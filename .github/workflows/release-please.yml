@@ -7,14 +7,21 @@ on:
   # 2026-07-19 — merges landed with zero check suites), which silently skips the release roll.
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-  packages: write
+# Nothing by default beyond the read of the repository's metadata that every token has. Each
+# job below states what it needs, and a job added without a permissions block of its own gets
+# no more than that.
+permissions: {}
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # contents: write is the release branch and its commit, then the tag and the GitHub release.
+    # pull-requests: write is the release PR, its two labels and the comment left on it at
+    # release time. The action's README lists issues: write as well. This job made both labels
+    # at the first release without it, and the workflow has never had it.
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       version: ${{ steps.release.outputs.version }}
@@ -32,12 +39,20 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
+    # contents: read is the checkout of the tag; packages: write is the push to GHCR. The same
+    # two that publish-main has in ci.yml, which pushes the same three packages.
+    permissions:
+      contents: read
+      packages: write
     env:
       VERSION: ${{ needs.release-please.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
+          # No later step uses git, and the tests, two steps later, are code from the
+          # repository, so the token is not left behind in the checkout's git config.
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@v4
         with:
