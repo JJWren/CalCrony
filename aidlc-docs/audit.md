@@ -1520,3 +1520,10 @@ Availability for @GM
 **Context**: Construction — code generation: waits for Joshua at the completion gate.
 
 ---
+## Construction — short weekend days: code generation approved at the completion gate
+**Timestamp**: 2026-11-16T16:50:16Z
+**User Input**: "Continue to next stage"
+**AI Response**: His answer to "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage": B, with what stops being read left as built. Read first (16:50Z): `master` on GitHub is still at `56b61ab`, so there is nothing to take in; pull request #179 is open and not merged. Next, as B was put to him: the branch `fix/short-weekend-days` is pushed, two commits on `master` and this entry in a third, and the pull request `fix: read sat and sun as Saturday and Sunday in date text` is opened. The merge, the release and the prod rollout each wait for their own go-ahead. He also started, as a session of its own, the older gaps listed at the end of the plan's section 8, which are not part of this fix.
+**Context**: Construction — code generation complete (approved); build and test next, on the pull request's checks.
+
+---

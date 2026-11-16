@@ -8,7 +8,8 @@ give 1,292 tests green at that release, re-run as step 0.1.
 **Branch**: `fix/short-weekend-days` → PR `fix: read sat and sun as Saturday and Sunday in date text`.
 **Status**: written 2026-11-15; approved by Joshua on 2026-11-16 as written, with Q1 answered A
 (section 4). Generated and reviewed the same day (section 8), with the review's answers read
-again by both reviewers. Committed locally, not pushed. The completion gate is next.
+again by both reviewers, and approved at the completion gate that day ("Continue to next
+stage"). Delivery is section 7.
 
 A small fix, so the workflow runs at minimal depth: the task is the requirement; no user stories,
 application design, units, NFR or infrastructure stages; one unit, and this file is both its
