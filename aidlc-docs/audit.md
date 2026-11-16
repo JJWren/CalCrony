@@ -1611,3 +1611,10 @@ Availability for @GM
 **Context**: Build and test — the pull request is open; its checks and Joshua's go-ahead to merge are next.
 
 ---
+## Build and test — short weekend days: the merge of pull request #180, asked
+**Timestamp**: 2026-11-16T16:58:10Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Put to Joshua: "Merge pull request #180 once its checks are green?", with the text of `docs/release-notes/0.37.1.md` for him to pass or reword first. Read at 16:58Z: the pull request is mergeable at `3f5537d`; `pr-title` and the secrets scan are green, `build-test` and the code scan are still running, and nothing has failed; no review has started and none is requested; auto-merge is off. Said with the question: the two review agents read the fix before it was pushed, and have not read the merge of `master` or the summary file, which the repository's check passed.
+**Context**: Build and test — waits for the pull request's checks and Joshua's go-ahead to merge.
+
+---
