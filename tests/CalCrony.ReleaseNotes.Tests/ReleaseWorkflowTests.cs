@@ -31,6 +31,17 @@ public class ReleaseWorkflowTests
 
     private static readonly ReleaseWorkflow Workflow = ReleaseWorkflow.Load();
 
+    private static readonly (string Job, string Step)[] PinnedSteps =
+    [
+        (AnnounceJob, AnnounceStep),
+        (SummaryJob, "Read the notes release-please wrote"),
+        (SummaryJob, "Build the release texts"),
+        (SummaryJob, "Ask GitHub whether the summary mentions anyone"),
+        (PreviewJob, "Find the open release PR"),
+        (PreviewJob, "Write the comment"),
+        (PreviewJob, "Post or update the comment"),
+    ];
+
     [Fact]
     public void The_announce_job_has_no_permissions_no_checkout_and_one_step()
     {
@@ -63,7 +74,7 @@ public class ReleaseWorkflowTests
     [Fact]
     public void The_announce_step_pings_the_one_role_and_allows_no_other_mention()
     {
-        string commands = Workflow.StepCommands(AnnounceJob, AnnounceStep);
+        string commands = Workflow.StepScriptWithoutCommentWording(AnnounceJob, AnnounceStep);
 
         Assert.Contains($"role_id=\"{Announcement.ReleasePingRoleId}\"\n", commands, StringComparison.Ordinal);
         Assert.Contains("allowed_mentions: {roles: [$role]}}'", commands, StringComparison.Ordinal);
@@ -91,16 +102,17 @@ public class ReleaseWorkflowTests
     [Fact]
     public void The_step_is_the_one_before_summaries_with_the_summary_added()
     {
-        // Every command of the step as it was at v0.37.0 is still there, in order, but for the
-        // line that built the body, which now also takes the summary.
+        // Every line of the step as it was at v0.37.0 is still there, in order, a comment as a
+        // comment whatever it now says, but for the line that built the body, which now also
+        // takes the summary.
         const string OldBody = "  '{content: $content, allowed_mentions: {roles: [$role]}}' \\";
         string[] before = Repository.ReadFixture("announce-step-before-summaries.sh").Split('\n');
-        List<string> now = Workflow.StepCommands(AnnounceJob, AnnounceStep).TrimEnd('\n').Split('\n').ToList();
+        List<string> now = Workflow.StepScriptWithoutCommentWording(AnnounceJob, AnnounceStep).TrimEnd('\n').Split('\n').ToList();
 
         Assert.Contains(OldBody, before);
         int position = 0;
 
-        foreach (string line in ReleaseWorkflow.Commands(before).Where(line => line != OldBody))
+        foreach (string line in ReleaseWorkflow.WithoutCommentWording(before).Where(line => line != OldBody))
         {
             int found = now.IndexOf(line, position);
             Assert.True(found >= 0, $"The step no longer has this line, or has it out of order: {line}");
@@ -109,72 +121,111 @@ public class ReleaseWorkflowTests
     }
 
     [Fact]
-    public void Only_a_line_that_is_a_comment_to_bash_is_left_out_of_what_the_tests_pin()
+    public void A_pinned_script_keeps_every_line_and_drops_only_what_a_comment_says()
     {
-        // The tests below pin each script's commands and leave its comments out. A number sign
-        // after a line that ends in a backslash is no comment: bash joins the two lines, and the
-        // rest of the command is cut off. Inside quoted text over several lines, and inside a
-        // here-document, it is text.
+        // The tests below pin each script with the wording of its comments taken out. Every line
+        // stays in its place, so a number-sign line put anywhere shows: after a line that ends in
+        // a backslash, where bash would join the two and cut the command short, as much as
+        // between two commands. Only a space or a tab is indentation, as in bash.
+        string noBreakSpace = char.ConvertFromUtf32(0xA0);
         string[] script =
         [
             "# A comment before any command.",
             "tool render \\",
             "  # joined to the line above by bash",
             "  --version 1.2.3",
-            "jq -n '.first",
-            "  # part of the program in single quotes",
-            "  | .second'",
-            "  # A comment between commands, indented.",
-            "echo \"first line",
-            "# part of the text in double quotes",
-            "last line, with an escaped \\\" in it\"",
-            "# A comment after the text has closed.",
-            "echo \"done # not a comment either\"",
-            "cat <<END",
-            "# part of the here-document",
-            "END",
+            "\t# A comment after a tab.",
+            "echo \"done # not at the start of the line\"",
+            $"{noBreakSpace}# not indentation to bash, so not a comment",
+            "#",
         ];
 
         Assert.Equal(
             [
+                "#",
                 "tool render \\",
-                "  # joined to the line above by bash",
+                "  #",
                 "  --version 1.2.3",
-                "jq -n '.first",
-                "  # part of the program in single quotes",
-                "  | .second'",
-                "echo \"first line",
-                "# part of the text in double quotes",
-                "last line, with an escaped \\\" in it\"",
-                "echo \"done # not a comment either\"",
-                "cat <<END",
-                "# part of the here-document",
-                "END",
+                "\t#",
+                "echo \"done # not at the start of the line\"",
+                $"{noBreakSpace}# not indentation to bash, so not a comment",
+                "#",
             ],
-            ReleaseWorkflow.Commands(script));
+            ReleaseWorkflow.WithoutCommentWording(script));
     }
 
     [Fact]
-    public void Every_comment_in_the_workflows_scripts_stands_where_a_command_could_start()
+    public void No_script_in_the_workflow_has_an_expression_in_it()
     {
-        // So leaving comments out of the pins leaves nothing out that bash would run. A script
-        // with a comment line the filter keeps would show it here by name.
-        (string Job, string Step)[] steps =
-        [
-            (AnnounceJob, AnnounceStep),
-            (SummaryJob, "Read the notes release-please wrote"),
-            (SummaryJob, "Build the release texts"),
-            (SummaryJob, MentionsStep["- name: ".Length..]),
-            (PreviewJob, "Find the open release PR"),
-            (PreviewJob, "Write the comment"),
-            (PreviewJob, "Post or update the comment"),
-        ];
+        // GitHub fills in an expression before bash sees a script, in a comment as much as in a
+        // command, and what it fills in is then read as shell. Values reach a script through its
+        // env, never through its text.
+        string[] lines = Workflow.Scripts().SelectMany(script => script.Lines).ToArray();
 
-        foreach ((string job, string step) in steps)
+        Assert.All(lines, line => Assert.DoesNotContain("${{", line, StringComparison.Ordinal));
+
+        // And the scripts looked at are the scripts: each line of every pinned one is among them.
+        HashSet<string> found = lines.Select(line => line.Trim()).ToHashSet();
+
+        foreach ((string job, string step) in PinnedSteps)
         {
-            Assert.DoesNotContain(
-                Workflow.StepCommands(job, step).Split('\n'),
-                line => line.TrimStart().StartsWith('#'));
+            Assert.All(
+                Workflow.StepScript(job, step).Split('\n', StringSplitOptions.RemoveEmptyEntries),
+                line => Assert.Contains(line.Trim(), found));
+        }
+    }
+
+    [Fact]
+    public void Every_script_is_one_plain_line_or_a_block_that_starts_at_its_own_indentation()
+    {
+        // These tests read the workflow file as text. That is what a YAML reader makes of it as
+        // long as a script is either a plain text on its key's line or a block under "run: |"
+        // whose lines all start two spaces in from the key: a block's first line sets its
+        // indentation, and a line indented less than the first is no longer part of it.
+        IReadOnlyList<RunScript> scripts = Workflow.Scripts();
+
+        Assert.NotEmpty(scripts);
+
+        foreach (RunScript script in scripts)
+        {
+            if (script.IsBlock)
+            {
+                string[] written = script.Lines.Where(line => line.Trim().Length > 0).ToArray();
+
+                Assert.NotEmpty(written);
+                Assert.Equal(script.KeyIndent + 2, ReleaseWorkflow.LeadingSpaces(written[0]));
+                Assert.All(written, line => Assert.True(ReleaseWorkflow.LeadingSpaces(line) >= script.KeyIndent + 2, line));
+            }
+            else
+            {
+                // A plain text ends where YAML would end it: at " #", which starts a comment, and
+                // it may not hold ": ", start with a quote, or start another kind of block.
+                string line = Assert.Single(script.Lines);
+
+                Assert.Matches("^[A-Za-z]", line);
+                Assert.DoesNotContain(" #", line, StringComparison.Ordinal);
+                Assert.DoesNotContain(": ", line, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [Fact]
+    public void The_workflow_file_has_no_character_that_two_readers_could_take_differently()
+    {
+        // No tab, no space but the plain one, nothing invisible. Such a character is a line end
+        // or indentation to one reader of the file (YAML, bash, these tests) and not to another.
+        string text = File.ReadAllText(Path.Combine(Repository.Root, ReleaseWorkflow.RepositoryPath));
+
+        foreach (Rune rune in text.EnumerateRunes())
+        {
+            bool isLineEndOrSpace = rune.Value is '\n' or '\r' or ' ';
+            bool isVisible = !Rune.IsWhiteSpace(rune)
+                && Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.Control
+                    or UnicodeCategory.Format
+                    or UnicodeCategory.LineSeparator
+                    or UnicodeCategory.ParagraphSeparator);
+
+            Assert.True(isLineEndOrSpace || isVisible, $"U+{rune.Value:X4} is in {ReleaseWorkflow.RepositoryPath}.");
         }
     }
 
@@ -190,7 +241,11 @@ public class ReleaseWorkflowTests
               echo "DISCORD_RELEASE_WEBHOOK secret not set; skipping announcement."
               exit 0
             fi
+            #
+            #
             role_id="1543943300132769802"
+            #
+            #
             jq -n \
               --arg content "<@&${role_id}> **CalCrony ${RELEASE_TAG}** just shipped — release notes: ${RELEASE_URL}" \
               --arg summary "$SUMMARY" \
@@ -201,7 +256,7 @@ public class ReleaseWorkflowTests
             | curl -sf -X POST -H "Content-Type: application/json" -d @- "$WEBHOOK_URL"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepCommands(AnnounceJob, AnnounceStep));
+            Workflow.StepScriptWithoutCommentWording(AnnounceJob, AnnounceStep));
     }
 
     [Fact]
@@ -333,7 +388,7 @@ public class ReleaseWorkflowTests
             mv "$RUNNER_TEMP/notes.partial" "$RUNNER_TEMP/notes.md"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepCommands(SummaryJob, "Read the notes release-please wrote"));
+            Workflow.StepScriptWithoutCommentWording(SummaryJob, "Read the notes release-please wrote"));
 
         Assert.Equal(
             [
@@ -374,7 +429,7 @@ public class ReleaseWorkflowTests
               --github-output "$GITHUB_OUTPUT"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepCommands(SummaryJob, "Build the release texts"));
+            Workflow.StepScriptWithoutCommentWording(SummaryJob, "Build the release texts"));
     }
 
     [Fact]
@@ -398,7 +453,10 @@ public class ReleaseWorkflowTests
             to_html() {
               gh api markdown -f mode=gfm -f context="$GITHUB_REPOSITORY" -F text=@"$1"
             }
+            #
             mention='<a [^>]*class="[^"]*(user|team)-mention'
+            #
+            #
             printf '@%s\n' "$GITHUB_REPOSITORY_OWNER" > "$RUNNER_TEMP/control.md"
             to_html "$RUNNER_TEMP/control.md" > "$RUNNER_TEMP/control.html"
             if ! grep -Eq "$mention" "$RUNNER_TEMP/control.html"; then
@@ -406,6 +464,8 @@ public class ReleaseWorkflowTests
               exit 1
             fi
             to_html "$RUNNER_TEMP/summary.md" > "$RUNNER_TEMP/summary.html"
+            #
+            #
             found=0
             grep -Eq "$mention" "$RUNNER_TEMP/summary.html" || found=$?
             if [ "$found" -eq 0 ]; then
@@ -414,7 +474,7 @@ public class ReleaseWorkflowTests
             [ "$found" -eq 1 ]
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepCommands(SummaryJob, MentionsStep["- name: ".Length..]));
+            Workflow.StepScriptWithoutCommentWording(SummaryJob, MentionsStep["- name: ".Length..]));
     }
 
     [Fact]
@@ -588,12 +648,14 @@ public class ReleaseWorkflowTests
         // a branch whose name only starts the same way.
         Assert.Equal(
             """
+            #
+            #
             gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:release-please--branches--master" \
               --jq 'map(select(.user.login == "github-actions[bot]" and .head.repo.full_name == .base.repo.full_name)) | first // empty | "number=\(.number)", "title=\(.title)"' \
               >> "$GITHUB_OUTPUT"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepCommands(PreviewJob, "Find the open release PR"));
+            Workflow.StepScriptWithoutCommentWording(PreviewJob, "Find the open release PR"));
     }
 
     [Fact]
@@ -622,7 +684,7 @@ public class ReleaseWorkflowTests
               --out "$RUNNER_TEMP/comment.md"
 
             """.ReplaceLineEndings("\n"),
-            Workflow.StepCommands(PreviewJob, "Write the comment"));
+            Workflow.StepScriptWithoutCommentWording(PreviewJob, "Write the comment"));
     }
 
     [Fact]
@@ -659,7 +721,7 @@ public class ReleaseWorkflowTests
 
             """.ReplaceLineEndings("\n").Replace("MARKER", PreviewComment.Marker, StringComparison.Ordinal);
 
-        Assert.Equal(expected, Workflow.StepCommands(PreviewJob, "Post or update the comment"));
+        Assert.Equal(expected, Workflow.StepScriptWithoutCommentWording(PreviewJob, "Post or update the comment"));
     }
 
     [Fact]

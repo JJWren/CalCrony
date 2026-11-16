@@ -1,12 +1,22 @@
 namespace CalCrony.ReleaseNotes.Tests;
 
+/// <summary>One script of the workflow file: a <c>run</c> key and what it runs.</summary>
+/// <param name="KeyIndent">The number of spaces before the <c>run</c> key.</param>
+/// <param name="Lines">The script's lines as they stand in the file, indentation included; for a
+/// script written on its key's own line, that one text.</param>
+/// <param name="IsBlock">Whether the script is a block under <c>run: |</c>.</param>
+internal sealed record RunScript(int KeyIndent, IReadOnlyList<string> Lines, bool IsBlock);
+
 /// <summary>The release workflow's file, read as text: a job's lines, a step's settings, and the
 /// script of a step exactly as the runner would execute it.</summary>
 internal sealed class ReleaseWorkflow
 {
-    private const string RepositoryPath = ".github/workflows/release-please.yml";
+    /// <summary>Where the workflow file is, from the repository root.</summary>
+    public const string RepositoryPath = ".github/workflows/release-please.yml";
+
     private const string JobIndent = "  ";
     private const string RunBlock = "run: |";
+    private const string RunKey = "run: ";
 
     private readonly string[] lines;
 
@@ -136,70 +146,82 @@ internal sealed class ReleaseWorkflow
         return string.Join('\n', script).TrimEnd('\n') + "\n";
     }
 
-    /// <summary>Gives the commands of a step's <c>run: |</c> block: its script without the lines
-    /// that are comments, so that a test which pins the commands does not also pin the wording
-    /// of a comment.</summary>
+    /// <summary>Gives a step's script with the wording of its comments taken out
+    /// (<see cref="WithoutCommentWording(IEnumerable{string})"/>), for a test to pin.</summary>
     /// <param name="jobName">The job's key.</param>
     /// <param name="stepName">The step's name.</param>
-    /// <returns>The script's lines other than comments, each ended by a line feed.</returns>
-    public string StepCommands(string jobName, string stepName) =>
+    /// <returns>The script, each line ended by a line feed, each number-sign line cut down to
+    /// its indentation and the number sign.</returns>
+    public string StepScriptWithoutCommentWording(string jobName, string stepName) =>
         string.Concat(
-            Commands(StepScript(jobName, stepName).TrimEnd('\n').Split('\n'))
+            WithoutCommentWording(StepScript(jobName, stepName).TrimEnd('\n').Split('\n'))
                 .Select(line => $"{line}\n"));
 
-    /// <summary>Gives the lines of a script that are not comments. A line that starts with a
-    /// number sign is a comment only where a command could start. After a line that ends in a
-    /// backslash it is not one: bash joins it to the command above, where it cuts off the rest.
-    /// Inside quoted text that runs over several lines, or inside a here-document, it is part of
-    /// that text. All of those stay, so that such a line is seen by whatever pins the commands.
-    /// Quotes are counted plainly, line by line, which can only err one way: a lone quote inside
-    /// the other kind keeps the comments after it in.</summary>
+    /// <summary>Cuts every number-sign line of a script down to its indentation and the number
+    /// sign. A test that pins the result pins every command and the place of every comment, and
+    /// leaves free only what a comment says. Nothing is decided here about what bash takes for a
+    /// comment: a number-sign line added, taken out or moved changes the result wherever it
+    /// stands — also inside a command that runs over several lines, where it would cut the
+    /// command short. Only spaces and tabs count as indentation, as in bash. Two things about a
+    /// comment's text still matter, and other tests hold them: that it has no expression in it,
+    /// which GitHub fills in before bash sees the script, and no character that ends a line for
+    /// one reader and not for another.</summary>
     /// <param name="script">The script's lines.</param>
-    /// <returns>The lines that are commands or parts of commands, in order.</returns>
-    public static IReadOnlyList<string> Commands(IEnumerable<string> script)
+    /// <returns>The lines, in order, each number-sign line without its text.</returns>
+    public static IReadOnlyList<string> WithoutCommentWording(IEnumerable<string> script) =>
+        script.Select(WithoutCommentWording).ToList();
+
+    /// <summary>Gives every script in the workflow file, of every job: each block under
+    /// <c>run: |</c> and each script written on its key's own line.</summary>
+    /// <returns>The scripts, in the order of the file.</returns>
+    public IReadOnlyList<RunScript> Scripts()
     {
-        List<string> commands = [];
-        bool isContinued = false;
-        bool isInSingleQuotes = false;
-        bool isInDoubleQuotes = false;
-        bool hasHereDocument = false;
+        List<RunScript> scripts = [];
+        int index = 0;
 
-        foreach (string line in script)
+        while (index < lines.Length)
         {
-            bool couldStartCommand = !isContinued && !isInSingleQuotes && !isInDoubleQuotes && !hasHereDocument;
+            string line = lines[index];
+            string key = line.TrimStart(' ');
+            key = key.StartsWith("- ", StringComparison.Ordinal) ? key[2..].TrimStart(' ') : key;
+            int keyIndent = line.Length - key.Length;
+            index++;
 
-            if (couldStartCommand && line.TrimStart().StartsWith('#'))
+            if (key == RunBlock)
             {
-                continue;
-            }
+                List<string> block = [];
 
-            commands.Add(line);
-            isContinued = line.EndsWith('\\');
-            isInSingleQuotes ^= line.Count(character => character == '\'') % 2 == 1;
-            isInDoubleQuotes ^= CountUnescaped(line, '"') % 2 == 1;
-            hasHereDocument |= line.Contains("<<", StringComparison.Ordinal);
+                while (index < lines.Length && (lines[index].Trim().Length == 0 || LeadingSpaces(lines[index]) > keyIndent))
+                {
+                    block.Add(lines[index]);
+                    index++;
+                }
+
+                scripts.Add(new RunScript(keyIndent, block, true));
+            }
+            else if (key.StartsWith(RunKey, StringComparison.Ordinal) || key == RunKey.TrimEnd())
+            {
+                string text = key.Length > RunKey.Length ? key[RunKey.Length..] : string.Empty;
+                scripts.Add(new RunScript(keyIndent, [text], false));
+            }
         }
 
-        return commands;
+        return scripts;
     }
 
-    /// <summary>Counts a character in a line, leaving out each one that follows a backslash.</summary>
+    /// <summary>Counts the spaces a line starts with.</summary>
+    /// <param name="line">A line of the workflow file.</param>
+    /// <returns>The number of leading spaces.</returns>
+    public static int LeadingSpaces(string line) => line.Length - line.TrimStart(' ').Length;
+
+    /// <summary>Cuts a number-sign line down to its indentation and the number sign, and leaves
+    /// any other line as it is.</summary>
     /// <param name="line">A line of a script.</param>
-    /// <param name="wanted">The character to count.</param>
-    /// <returns>How many times the character stands there unescaped.</returns>
-    private static int CountUnescaped(string line, char wanted)
+    /// <returns>The line, without its text when it starts with a number sign.</returns>
+    private static string WithoutCommentWording(string line)
     {
-        int count = 0;
-
-        for (int index = 0; index < line.Length; index++)
-        {
-            if (line[index] == wanted && (index == 0 || line[index - 1] != '\\'))
-            {
-                count++;
-            }
-        }
-
-        return count;
+        int indentation = line.Length - line.TrimStart(' ', '\t').Length;
+        return indentation < line.Length && line[indentation] == '#' ? line[..(indentation + 1)] : line;
     }
 
     /// <summary>Gives the indentation of a job's steps.</summary>
@@ -227,9 +249,4 @@ internal sealed class ReleaseWorkflow
     /// <param name="trimmed">A line without its outer spaces.</param>
     /// <returns>Whether the line is a setting.</returns>
     private static bool IsSetting(string trimmed) => trimmed.Length > 0 && !trimmed.StartsWith('#');
-
-    /// <summary>Counts the spaces a line starts with.</summary>
-    /// <param name="line">A line of the workflow file.</param>
-    /// <returns>The number of leading spaces.</returns>
-    private static int LeadingSpaces(string line) => line.Length - line.TrimStart(' ').Length;
 }

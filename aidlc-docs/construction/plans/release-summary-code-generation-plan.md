@@ -229,8 +229,8 @@ The tool, `tools/ReleaseNotes` (no package references):
 
 **6. Bookkeeping and delivery — each outward step on Joshua's own go-ahead**
 - [x] 6.1 `audit.md` entries throughout; `aidlc-state.md` carries a section for this work. (Up to the completion gate; the entries go on from there.)
-- [ ] 6.2 `master` merged into the branch (it will have gained the 0.37.0 records by then), `audit.md` kept in the order of its timestamps; then the push and the pull request.
-- [ ] 6.3 The workflow run once by hand from the branch (the `workflow_dispatch` trigger it already has), so that GitHub parses the changed file and release-please runs and finds nothing to do. (As built after review: the preview job runs from `master` only, so on a run from the branch it is skipped.) Checks green; Copilot's review if it starts, the two agents if it does not.
+- [x] 6.2 `master` merged into the branch (it will have gained the 0.37.0 records by then), `audit.md` kept in the order of its timestamps; then the push and the pull request. (2026-11-16, on Joshua's "B) Continue": merge `55062f6`, pull request #179. Section 15.)
+- [x] 6.3 The workflow run once by hand from the branch (the `workflow_dispatch` trigger it already has), so that GitHub parses the changed file and release-please runs and finds nothing to do. (As built after review: the preview job runs from `master` only, so on a run from the branch it is skipped.) Checks green; Copilot's review if it starts, the two agents if it does not. (2026-11-16: run 43890372277 succeeded and released nothing; `build-test` and `pr-title` green on #179, all 351 new tests passing on the runner with none skipped; Copilot's review did not start. Section 15.)
 - [ ] 6.4 The squash merge through the REST call. It cuts no release.
 
 What cannot be run before a real release: the two jobs that only exist when one is created. They are
@@ -559,7 +559,8 @@ for. It is a check for mistakes, and GitHub has the last word at release time.
 - No code block, fenced with backticks or with tildes. Code is written in backticks on one line. A
   backtick with no partner on its line is refused. So is a backtick that would open code but is
   glued to a web address (`://` or `www.` earlier in the same word) or stands right after a `$`:
-  an address takes the backtick along, and code between two `$` is a formula. (Corrected in the
+  an address takes the backtick along, and code with a `$` glued to each end is a formula.
+  (Corrected in the
   confirmation round: this said GitHub "does not open code" there, which for a `$` is so only
   when another `$` follows the code.) What the code itself holds or ends in does not matter.
 - No `<` outside code other than a whole link `<https://…>` or `<http://…>` with no backtick in
@@ -605,7 +606,7 @@ for. It is a check for mistakes, and GitHub has the last word at release time.
 **Still not run.** The jobs on GitHub, jq 1.7.1, and what a workflow run's token gets back from
 the render API, as above. The release path first runs at the next release, and fails safe.
 
-## 14. Confirmation round (2026-11-14), and the change as it stands
+## 14. Confirmation round (2026-11-14)
 
 Both agents were asked to confirm round 3's answers on the diff from `45adb31` to `f9b7c4e` alone.
 The rules listed in section 13 are the rules as they are; this round changed the wording of one
@@ -620,7 +621,8 @@ fail it. One statement was still a little too broad, in four places: a `$` glued
 formula on GitHub only when another `$` follows the code; without it GitHub opens code as usual.
 The check refuses both, which is the safe side, but the message, `CONTRIBUTING.md` and section 13
 said the backtick "does not open code" in either case. They now say it may not, and that code
-between two `$` is a formula.
+with a `$` glued to each end is a formula. (Worded more exactly on 2026-11-16: this said "code
+between two `$`".)
 
 **Quality.** Everything of round 3 is closed, and nothing in section 13 that could be checked is
 untrue. One thing was wrong in the answer to nit 6. The tests that pin a script had been made to
@@ -631,10 +633,13 @@ left out only where a command could start: not after a backslash, not inside quo
 runs over several lines, not after a here-document has begun. The helper counts quotes plainly,
 which can only err towards pinning more. A test holds it to that, another says that every comment
 in the workflow's scripts stands where a command could start, and five new changes of that kind —
-the reviewer's own among them — each fail a test.
+the reviewer's own among them — each fail a test. (Corrected on 2026-11-16: the helper described
+here did not hold. Counting quotes can err the other way too, and a comment is not inert on
+GitHub. It is replaced: section 15.)
 
 **These last two answers were checked by me and not read again by the agents.** Each agent's
 round costs far more than the change it would confirm: a wording, and a helper of the tests.
+(A fresh agent read them on 2026-11-16, and found the helper wanting: section 15.)
 
 **What was run after these changes.**
 
@@ -650,3 +655,64 @@ round costs far more than the change it would confirm: a wording, and a helper o
   1,292 earlier tests, the image job's command, and the requests to GitHub's renderer from this
   session, thirty-three. In this round the security reviewer made about thirty more of its own,
   without a login and with made-up text; the quality reviewer none.
+
+## 15. The pull request, and a fresh read of the last two commits (2026-11-16); the change as it stands
+
+**Steps 6.2 and 6.3, on Joshua's "B) Continue".** `master` had gained the 0.37.0 records
+(`56b61ab`, pull request #178) and nothing else. It was merged into the branch as `55062f6`. Two
+files conflicted, as expected. In `aidlc-docs/audit.md` both sides had only appended; their
+entries, 26 from `master` and 9 from this branch, are kept whole and stand in the order of their
+timestamps. In `aidlc-docs/aidlc-state.md` this branch's section follows `master`'s text. A
+script checked both before anything was written. The branch was pushed and pull request #179
+opened at 2026-11-16T14:51:52Z. The release workflow was then started once by hand from the
+branch, after checking that it could release nothing (no release pull request open; v0.37.0 both
+the latest release and the newest version in `CHANGELOG.md`; without a `target-branch` the action
+works on the default branch). Run 43890372277 succeeded in fifteen seconds: GitHub parsed the
+changed file, `release-please` found nothing to release, and the other four jobs were skipped.
+Nothing was created, and nothing was posted to Discord.
+
+**On GitHub's runner** (`build-test` on #179, image ubuntu-26.04): all 1,643 tests passed, the
+351 of the new project among them with none skipped. That is the first run of the three steps'
+scripts against the runner's own bash, jq and curl. `pr-title` passed. No Copilot review was
+requested on #179; the agents' rounds stand in for it.
+
+**A fresh agent then read the two commits no reviewer had read**: `0799ea4`, the confirmation
+round's two corrections, and the merge `55062f6`. The merge holds: the common start is a byte
+prefix of both sides' audit log, the 35 entries are each there once and whole with their stamps
+ascending, the state file is `master`'s followed by this branch's section, and no other file
+differs from both parents. The wording about `$` holds, with one nit. In the helper of the tests
+it found three things, all in what the confirmation round's answer had built.
+
+| # | Finding | Answer |
+|---|---|---|
+| A | A comment is not inert on GitHub. An expression in it is filled in before bash sees the script, and what is filled in is then read as shell. The tests left comments out of what they pin, so a comment naming the summary's output would have passed every test while putting the summary's text, line by line, into the announce step's shell, beside the webhook secret. | A test: no script in the workflow has an expression in it, in a comment or anywhere else. Values reach a script through `env`. |
+| B | The tests read the workflow file as text, not as YAML. A comment behind a no-break space is a comment to the tests and a command to bash. A line end of another kind inside a comment ends the line for a YAML reader and not for the tests. A comment indented deeper, as a block's first line, makes the file invalid. | Only a space or a tab indents a comment. Three tests hold the file to what makes the two readings agree: no character that two readers could take differently; every script either a plain text on its key's line or a block under `run: \|` that starts at its own indentation; and the test of row A. |
+| C | Section 14 said that counting quotes "can only err towards pinning more". It can err the other way: after an apostrophe inside double quotes, a number-sign line inside quoted text over several lines was dropped. | The counting is gone. The tests no longer decide what bash takes for a comment. Each number-sign line is cut down to its number sign and stays where it stands, so a line added, taken out or moved changes the pinned text wherever it is, and only what a comment says is free. |
+| Nit | "Code between two `$`" is a formula only when a `$` is glued to each end. | The message and `CONTRIBUTING.md` say so. |
+
+The reviewer also put a marker comment at each of 228 positions in the seven pinned scripts and
+asked bash's own parser: every number-sign line the old helper dropped was a true comment, so
+nothing wrong had got through; the fault was in what the helper claimed and in what it would have
+let through later. Sections 13 and 14 are corrected in place where they said otherwise.
+
+**What was run after these changes.**
+
+- Release build of the whole solution from scratch: no errors, the baseline's 22 warnings.
+- The 1,292 earlier tests green. 353 new ones: on Windows 336 green and 17 skipped (the fourteen
+  that run a step's script with bash, the three that make a symbolic link); on Linux, offline,
+  with the real jq 1.8.1 and `CI=true`, all 353 green.
+- 207 changes that each take one rule or guard out, or bend it: the 203 of section 14 and four
+  from this read — an expression in a comment, a comment behind a no-break space, a block whose
+  first line is indented deeper, and a one-line script with a comment at its end. All 207 fail a
+  test: 200 here, and the seven about links on Linux. The eleven that bend a script which is run
+  for real were run on Linux again, and each fails a test that runs it.
+- The workflow file parses as YAML, and no file in the change holds a control, format or
+  separator character.
+
+**Requests to GitHub in this part of the work.** The reads and the three writes named above (the
+push, the pull request, the start of the workflow), all on Joshua's go-ahead. The fresh agent made
+two requests to GitHub's renderer, without a login and with made-up text.
+
+**Still not run.** `release-summary` and the announcement with a summary: they exist only when a
+release is created. The preview job first runs on the push to `master` that the merge makes; with
+no release pull request open it finds none and posts nothing.

@@ -81,7 +81,7 @@ The changelog lines release-please writes come from PR titles and are written fo
 
 - The first line is `### What's new`, with at least one bullet under it. `### How to use it` may follow, once, on a line of its own. No other headings, inside a list or a quote either.
 - No tables, images, HTML, footnotes, alert boxes (`> [!NOTE]`), horizontal rules or lines of only dashes or equals signs.
-- Code is written in backticks on one line. Put a space before code that follows a web address or a `$`: GitHub takes a backtick glued to an address as part of the address, and reads code between two `$` as a formula. No code blocks, and no backtick without its partner on the same line.
+- Code is written in backticks on one line. Put a space before code that follows a web address or a `$`: GitHub takes a backtick glued to an address as part of the address, and reads code with a `$` glued to each end as a formula. No code blocks, and no backtick without its partner on the same line.
 - `@name` only inside backticks: outside them GitHub notifies the user of that name. A web address with an `@` in it goes in backticks too, or whole in angle brackets where it should stay a link: `<https://example.com/@someone>`, or `[the channel](<https://example.com/@someone>)`.
 - Anything in `<angle brackets>` goes in backticks too, because one side or the other shows it as raw text. A link written as `<https://…>` is fine. No HTML entities such as `&amp;`.
 - No invisible characters: control characters, zero-width spaces, marks that reorder text.
