@@ -16,7 +16,8 @@ design, units, NFR and infrastructure stages are skipped: CI tooling, one stakeh
 member of a server sees. **Baseline**: `master` 4af1305 (pull request #179 merged). **Branch**:
 `ci/lint-workflows`, in a worktree of its own → PR `ci: lint the workflow files with actionlint and
 shellcheck` (`ci:` cuts no release).
-**Status**: written 2026-11-16; waiting for Joshua's approval.
+**Status**: approved by Joshua on 2026-11-16, as written ("Approve as recommended"): Q1 answered A,
+and D1–D9 stand.
 
 ## 1. What exists today (verified 2026-11-16, on `master` 4af1305)
 
@@ -146,7 +147,7 @@ Answer with the letter; the recommendation is marked.
   say.
 - D) Other (describe).
 
-[Answer]:
+[Answer]: A — the recommended option; Joshua, 2026-11-16.
 
 The ruleset is not changed by this work under any answer.
 
@@ -257,16 +258,16 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 - [x] 0.3 The job drafted on a scratch copy, linted, and its two scripts run on Linux; the wrong-pin runs; the thirteen broken copies, the release-notes tests on the seven made from `release-please.yml`, and the controls (section 2).
 
 **1. The job — `.github/workflows/ci.yml`**
-- [ ] 1.1 `lint-workflows` added after `pr-title`, as in section 5. No other line of the file changes.
-- [ ] 1.2 On the file as written: the linter finds nothing in the three workflow files; the file parses as YAML with the same three jobs as before plus the new one; no control, format or separator character; the repository holds it with LF.
-- [ ] 1.3 The job's two scripts taken out of the file as written and run on Linux again, ending 0.
+- [x] 1.1 `lint-workflows` added after `pr-title`, as in section 5. No other line of the file changes.
+- [x] 1.2 On the file as written: the linter finds nothing in the three workflow files; the file parses as YAML with the same three jobs as before plus the new one; no control, format or separator character; the repository holds it with LF. (2026-11-16: section 9.)
+- [x] 1.3 The job's two scripts taken out of the file as written and run on Linux again, ending 0. (2026-11-16: both are byte for byte the scripts run before the plan.)
 
 **2. `CONTRIBUTING.md`**
-- [ ] 2.1 Step 3 of "Pull request cycle" and the new part "Workflow files are linted", worded for the answer to Q1. With Q1 A, the paragraph on the ruleset names the check as well.
+- [x] 2.1 Step 3 of "Pull request cycle" and the new part "Workflow files are linted", worded for the answer to Q1. With Q1 A, the paragraph on the ruleset names the check as well. (2026-11-16, for Q1 A; one paragraph more than section 5 shows: section 9.)
 
 **3. Verification**
-- [ ] 3.1 The broken copies made again from the file as written and linted with the pinned Linux binaries; the outputs kept for the pull request's description.
-- [ ] 3.2 The release-notes tests (`tests/CalCrony.ReleaseNotes.Tests`), the one project that reads repository files, run here. The whole suite is left to `build-test` on the pull request: this change touches no code and no file a test reads.
+- [x] 3.1 The broken copies made again from the file as written and linted with the pinned Linux binaries; the outputs kept for the pull request's description. (2026-11-16: thirteen fail, the unchanged copy passes; the output is byte for byte that of section 2.)
+- [x] 3.2 The release-notes tests (`tests/CalCrony.ReleaseNotes.Tests`), the one project that reads repository files, run here. The whole suite is left to `build-test` on the pull request: this change touches no code and no file a test reads. (2026-11-16, Windows: 338 pass, 17 skipped, none fail.)
 - [ ] 3.3 Two review agents read the local commit (D8); findings answered.
 
 **4. Records and delivery — each outward step on Joshua's own go-ahead**
@@ -297,3 +298,55 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
   reaches a script), and a Dependabot configuration that would raise pinned actions.
 - Findings shown as annotations on a pull request's diff. The job's log has the file, line and
   column of each.
+
+## 9. As built (2026-11-16): what differs from the plan as approved, and what was run
+
+**The job** is the text of section 5, character for character. `ci.yml` as written is the file as
+it was with that text appended: 49 lines added, none changed. As the repository holds it, it is
+byte for byte the scratch copy the runs of section 2 used.
+
+**`CONTRIBUTING.md`** is the text of section 5, worded for Q1 A — the new part says "It is a
+required check", and the paragraph on the ruleset names `lint-workflows` beside `build-test` and
+`pr-title` — with two differences:
+
+- The command stands in a code block of its own, like the commands of "Local dev quickstart".
+- One paragraph more, on excepting a finding. It is D6 written for a contributor, and it corrects
+  D6's wording in two places: the comment goes on the line above the command, not on the command's
+  line, and the reason cannot follow it as plain text. Tried on scratch copies with the pinned
+  Linux binaries, an unquoted variable in `publish-main`'s script each time:
+
+  | The script has | The linter |
+  |---|---|
+  | the unquoted variable, nothing else | fails, SC2086 |
+  | `# shellcheck disable=SC2086` on the line above it, the reason in a comment above that | passes |
+  | `# shellcheck disable=SC2086 # the reason` on the line above it | passes |
+  | `# shellcheck disable=SC2086 -- the reason` on the line above it | fails: shellcheck cannot read the directive (SC1072, SC1073) |
+  | the first form, placed above an earlier command instead | fails, SC2086 |
+
+  So an exception covers the one command it stands above, which is what the paragraph says.
+
+**Until the ruleset is changed, `CONTRIBUTING.md` is ahead of it.** The text says the check is
+required from the moment this is merged. It becomes so when Joshua adds it to `protect-master`
+(step 4.5).
+
+**What was run on the files as written.**
+
+- The linter, both tools, on the three workflow files: nothing found — the Windows binaries on the
+  checkout (CRLF), the pinned Linux binaries on the files as the repository holds them (LF).
+- `ci.yml` read as YAML before and after: `build-test`, `publish-main` and `pr-title` are the same
+  key for key and value for value, the workflow's other keys are the same, and `lint-workflows` is
+  the one new job, the last. Its four pins are text, not numbers. No control, format or separator
+  character and no tab; the job's own text is plain ASCII.
+- The job's two scripts, taken out of the file as written: byte for byte the two run before the
+  plan, and run again on Linux (WSL Ubuntu) the way the runner runs a step. Both archives
+  downloaded, both checksums matched, both tools printed their versions, the lint ended 0.
+- The thirteen broken copies, made again from the file as written: all fail, the unchanged copy
+  passes, and the output is byte for byte that of section 2.
+- The release-notes tests, on Windows: 338 pass, 17 skipped, none fail.
+- The workflow files of the open pull request #181 (`ci/narrow-release-job-permissions`, head
+  `1a7f16b`), read from its branch without touching it: nothing found, alone and with this job
+  added to its `ci.yml`.
+
+**Not run.** The job on GitHub's runner: the pull request's own run is the first. The whole test
+suite: this change touches no code and no file a test reads, and `build-test` runs it on the pull
+request.
