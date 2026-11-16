@@ -6,7 +6,7 @@ This document is the standard for how changes, releases, and issues flow through
 
 `master` is the trunk and is **always releasable**. No direct pushes; every change lands through a pull request.
 
-> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
+> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` + `lint-workflows` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
 
 | Branch prefix | Use for | Example |
 |---|---|---|
@@ -26,9 +26,23 @@ Rules of thumb:
 
 1. **Open a PR into `master`.** Fill in the template; link issues with `Closes #n` so merges close them automatically.
 2. **Title must be a conventional commit** (`type(scope)!: summary`). CI enforces this (`pr-title` check) because the squash commit takes its message from the PR title, and versions are computed from those messages.
-3. **CI must be green** — `build-test` runs the full suite, including Testcontainers integration tests.
+3. **CI must be green** — `build-test` runs the full suite, including Testcontainers integration tests, and `lint-workflows` reads the workflow files ([below](#workflow-files-are-linted)).
 4. **Review** — solo-maintainer flow: self-review the diff in the PR UI, and/or run `/code-review` (Claude) on the branch; fix findings before merge. If a second human is ever involved, request their review instead.
 5. **Squash merge only.** The branch is deleted automatically after merge.
+
+### Workflow files are linted
+
+The `lint-workflows` check runs [actionlint](https://github.com/rhysd/actionlint) on every file in `.github/workflows/`, and actionlint hands the bash in their `run:` steps to [shellcheck](https://github.com/koalaman/shellcheck). No check on a pull request executes the release workflow or the `publish-main` job — both run on a push to `master` — so this is what reads a change to them before the merge. It is a required check, and every finding fails it, down to an unquoted variable.
+
+To run it locally, install both tools ([actionlint](https://github.com/rhysd/actionlint/blob/v1.7.12/docs/install.md), [shellcheck](https://github.com/koalaman/shellcheck#installing)) and run this in the repository root:
+
+```bash
+actionlint
+```
+
+It prints nothing when it finds nothing. CI pins actionlint 1.7.12 and shellcheck 0.11.0 — `ci.yml` has the versions and their checksums — so use those if your result and CI's differ. Without shellcheck on the `PATH`, actionlint leaves the shell checks out and does not say so: `actionlint -verbose` shows whether the `shellcheck` rule was disabled. A shellcheck finding is reported at the step's `run:` line; the message carries the line and column inside the script.
+
+A finding is fixed, not switched off. Where one really has to be excepted, except that one command: a `# shellcheck disable=SC2086` comment on the line above it in the script, with the reason after a second `#` or in a comment above. No rule is switched off for the whole run.
 
 ## Versioning & releases — conventional commits + release-please
 

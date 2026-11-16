@@ -90,3 +90,52 @@ jobs:
             ci
             perf
             build
+
+  # Reads every file in .github/workflows/ with actionlint, which hands the bash of their run:
+  # steps to shellcheck. No check on a pull request executes release-please.yml (it runs on a
+  # push to master and by hand), so without this a slip in it would first show after the merge.
+  # CONTRIBUTING.md ("Pull request cycle") says how to run the same two tools locally.
+  lint-workflows:
+    name: lint-workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # Pinned to a commit, like everything this job fetches: the commit of the v7.0.1 tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Both linters come from their projects' releases on GitHub, each held to one version and
+      # to the SHA-256 of its linux x86_64 archive. To move to a newer release, change a version
+      # and its checksum together. actionlint lists its checksums in the release's
+      # actionlint_<version>_checksums.txt; shellcheck publishes none, so take the digest GitHub
+      # lists for the archive on the release page.
+      - name: Download actionlint and shellcheck
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+          SHELLCHECK_VERSION: "0.11.0"
+          SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          # Checked before anything is unpacked: a file that is not the pinned one stops the job.
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz \
+            | sha256sum --check --strict -
+          mkdir lint-tools
+          tar -xzf actionlint.tar.gz -C lint-tools actionlint
+          tar -xJf shellcheck.tar.xz -C lint-tools --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+
+      # actionlint leaves the shell checks out, and says nothing, when it cannot run shellcheck.
+      # So it is given shellcheck's path, and each tool prints its version first: a tool that
+      # does not run fails the step there.
+      - name: Lint the workflow files
+        run: |
+          "$RUNNER_TEMP/lint-tools/actionlint" -version
+          "$RUNNER_TEMP/lint-tools/shellcheck" --version
+          "$RUNNER_TEMP/lint-tools/actionlint" -color -shellcheck "$RUNNER_TEMP/lint-tools/shellcheck"
