@@ -16,7 +16,8 @@ NFR and infrastructure stages are skipped: release tooling, with nothing in it a
 needs` (`ci:` cuts no release; the change takes effect with the run its own merge starts).
 **Status**: generated on the local branch on 2026-11-16 and read by two review agents the same day
 (section 8). On Joshua's go-ahead of that day the branch was pushed, the workflow run once by hand
-from it (section 4) and pull request #181 opened. The merge waits for his go-ahead.
+from it (section 4) and pull request #181 opened; on his go-ahead for the merge it was squash-merged
+the same day as `ab32e96`. Step 5.1, the read of the next release's run, stays open.
 
 ## 1. What exists today (verified 2026-11-16)
 
@@ -202,6 +203,15 @@ Nothing was written: no release PR, no branch, no tag, no release. The other fou
 skipped. What the run does not show: a write under the new token, since there was nothing to
 write, and anything of `publish-images`.
 
+**The run the merge started (2026-11-16)**: run 43977699270, from `master` at `ab32e96`, 23:15:34Z
+to 23:15:55Z, green — the workflow's first run from `master` with the default at none. The log of
+`release-please` gives its token as `Contents: write`, `Metadata: read`, `PullRequests: write`. It
+considered the three commits since v0.37.0, found no user-facing one and skipped, so again nothing
+was written. `release-summary-preview` ran, as it does on every push to `master`, with the token
+its own block gives — `Contents: read`, `Metadata: read`, `PullRequests: write`, the same as in the
+push run before this change (43912177390) — found no open release PR and did nothing more. The
+other three jobs were skipped.
+
 **Cannot be run before a release**: `publish-images` as a whole, and what `release-please` writes
 at release time. Both happen only when a release is created. **So the first full run of this change
 is the next release.** What that release does for the first time:
@@ -223,6 +233,9 @@ which uses both of `release-please`'s permissions before any release. If #180 is
 release PR is opened under the old token and this change's run finds it unchanged. Unless another
 `feat:` or `fix:` follows before the release, the release itself is then the first time the job
 writes with its own.
+
+**As it went (2026-11-16):** this change was merged first, with #180 still open. So the next `feat:`
+or `fix:` to reach `master`, #180 if it is merged next, opens the release PR under the new token.
 
 ## 5. What a release would look like if a permission were missing
 
@@ -292,7 +305,9 @@ writes with its own.
 - [x] 4.2 On his go-ahead: the workflow started once by hand from the branch, after the checks of
   section 4; its result goes into the pull request's description. (2026-11-16: run 43973160250,
   green; section 4.)
-- [ ] 4.3 On his go-ahead: the squash merge.
+- [x] 4.3 On his go-ahead: the squash merge. (2026-11-16: his go-ahead at 23:14Z; merged at
+  23:15:32Z as `ab32e96`, through the REST call, at the head `1a7f16b` and no other. Section 4 has
+  the run the merge started.)
 - [ ] 5.1 At the next release: its run read for the two jobs' tokens and for a release that went out
   whole. Until then section 4's "cannot be run" stands.
 
