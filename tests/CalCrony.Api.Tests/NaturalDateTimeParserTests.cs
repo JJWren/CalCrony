@@ -327,7 +327,6 @@ public class NaturalDateTimeParserTests
 
     [Theory]
     [InlineData("banana hammock")]
-    [InlineData("sat")]             // the recognizer reads mon–fri as weekdays, but not sat or sun
     public void Day_resolution_refuses_what_it_cannot_read(string text)
     {
         var ok = CreateParser().TryResolveDay(text, Chicago, out _, out var error);
@@ -361,5 +360,369 @@ public class NaturalDateTimeParserTests
         Assert.Equal(default, day);
         // The same refusal as TryResolve's: it names the limit and does not quote the text.
         Assert.Equal($"The date/time text must be at most {DateTextLimits.MaxLength} characters.", error);
+    }
+
+    // ----- The short weekend days: "sat" and "sun" read as "saturday" and "sunday" do -----
+    //
+    // The recognizer reads mon–fri wherever they stand, but "sat" and "sun" only in some forms
+    // ("next sat", "on sun"). Elsewhere it dropped them and read the rest, so "sat 6pm" was today
+    // at 6 PM. The parser spells the two out before the recognizer is given the text.
+
+    // Saturday the 18th at 10:00 and at 23:30, and Sunday the 19th at 10:00, all in Chicago.
+    private static readonly Instant SaturdayMorning = Instant.FromUtc(2026, 7, 18, 15, 0);
+    private static readonly Instant SaturdayLateEvening = Instant.FromUtc(2026, 7, 19, 4, 30);
+    private static readonly Instant SundayMorning = Instant.FromUtc(2026, 7, 19, 15, 0);
+
+    // A wall-clock hour in Chicago on a day of July 2026.
+    private static Instant JulyInChicago(int day, int hour) =>
+        new LocalDateTime(2026, 7, day, hour, 0).InZoneStrictly(Chicago).ToInstant();
+
+    [Theory]
+    [InlineData("sat", 18, 9)]              // a bare day is 09:00, as for every other day
+    [InlineData("sun", 19, 9)]
+    [InlineData("Sat", 18, 9)]
+    [InlineData("SUN", 19, 9)]
+    [InlineData("sat.", 18, 9)]
+    [InlineData("sat 6pm", 18, 18)]         // was today at 6 PM: the day was dropped
+    [InlineData("sun at noon", 19, 12)]
+    [InlineData("6pm sat", 18, 18)]
+    [InlineData("sat, 6pm", 18, 18)]
+    [InlineData("sat morning", 18, 8)]
+    [InlineData("sat or sun", 18, 9)]       // the earlier of the two…
+    [InlineData("sun or sat", 18, 9)]       // …whichever comes first in the text: both are spelled out
+    [InlineData("a week from sat", 25, 9)]
+    [InlineData("on sat morning", 18, 8)]
+    public void A_short_weekend_day_is_read_in_a_date_and_time(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    [Fact]
+    public void A_short_weekend_day_is_read_beside_a_zone_abbreviation()
+    {
+        // The caller's zone is UTC; "CST" selects Chicago, where it is Wednesday at 10:00.
+        var ok = CreateParser().TryResolve("sat 6pm CST", DateTimeZone.Utc, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(18, 18), result);
+    }
+
+    [Theory]
+    [InlineData("sat", 18)]
+    [InlineData("sun", 19)]
+    [InlineData("sat 6pm", 18)]             // was today: only the time was read
+    [InlineData("sun at noon", 19)]
+    [InlineData("6pm sat", 18)]
+    [InlineData("sat (6pm)", 18)]
+    [InlineData("sat or sun", 18)]
+    [InlineData("sun or sat", 18)]
+    [InlineData("on sun night", 19)]
+    public void A_short_weekend_day_is_read_as_a_day(string text, int julyDay)
+    {
+        var ok = CreateParser().TryResolveDay(text, Chicago, out var day, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(new LocalDate(2026, 7, julyDay), day);
+    }
+
+    [Theory]
+    [InlineData("next sat", 25, 9)]
+    [InlineData("this sun", 19, 9)]
+    [InlineData("on sat", 18, 9)]
+    [InlineData("on sat 6pm", 18, 18)]
+    [InlineData("noon on sun", 19, 12)]
+    [InlineData("sat jul 18", 18, 9)]
+    [InlineData("sat next week", 25, 9)]
+    public void Forms_the_recognizer_already_read_answer_as_before(string text, int julyDay, int hour)
+    {
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolve(text, Chicago, out var result, out var error), error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+        Assert.True(parser.TryResolveDay(text, Chicago, out var day, out error), error);
+        Assert.Equal(new LocalDate(2026, 7, julyDay), day);
+    }
+
+    [Fact]
+    public void A_refusal_quotes_the_text_as_it_was_typed()
+    {
+        // Only the recognizer is given the spelled-out text.
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve("last sat", Chicago, out _, out var error));
+        Assert.Equal("\"last sat\" resolves to a time in the past.", error);
+        Assert.False(parser.TryResolveDay("last sat", Chicago, out _, out error));
+        Assert.Equal("\"last sat\" is a day that has already passed.", error);
+    }
+
+    // The other short weekdays, which the recognizer has always read, pinned for comparison.
+    [Theory]
+    [InlineData("mon", 20)]
+    [InlineData("tue", 21)]
+    [InlineData("tues", 21)]
+    [InlineData("wed", 15)]         // it is Wednesday
+    [InlineData("weds", 15)]
+    [InlineData("thu", 16)]
+    [InlineData("thur", 16)]
+    [InlineData("thurs", 16)]
+    [InlineData("fri", 17)]
+    public void The_other_short_weekdays_read_as_days_as_before(string text, int julyDay)
+    {
+        var ok = CreateParser().TryResolveDay(text, Chicago, out var day, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(new LocalDate(2026, 7, julyDay), day);
+    }
+
+    [Theory]
+    [InlineData("mon 6pm", 20, 18)]
+    [InlineData("fri at noon", 17, 12)]
+    public void The_other_short_weekdays_read_with_a_time_as_before(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    // The rule itself. "{day}" stands for the weekend day: once as "sat" or "sun", once as the
+    // full name. Both readers must then give the same answer — the same instant or day, or the
+    // same refusal — on a Wednesday, on the Saturday itself early and late, and on the Sunday.
+    [Theory]
+    [InlineData("{day}")]
+    [InlineData("{day}.")]
+    [InlineData("{day} 6pm")]
+    [InlineData("{day} 9am")]
+    [InlineData("{day} at noon")]
+    [InlineData("6pm {day}")]
+    [InlineData("{day}, 6pm")]
+    [InlineData("{day} (6pm)")]
+    [InlineData("{day} morning")]
+    [InlineData("{day} night")]
+    [InlineData("on {day}")]
+    [InlineData("on {day} morning")]
+    [InlineData("next {day}")]
+    [InlineData("this {day}")]
+    [InlineData("last {day}")]
+    [InlineData("a week from {day}")]
+    [InlineData("{day} next week")]
+    [InlineData("{day} jul 25")]
+    [InlineData("{day} or mon")]
+    [InlineData("fri or {day}")]
+    [InlineData("{day} down")]
+    [InlineData("the {day}")]
+    [InlineData("by {day}")]
+    [InlineData("by {day} 6pm")]
+    [InlineData("every {day} 8pm")]
+    [InlineData("mon to {day}")]
+    public void A_short_weekend_day_reads_exactly_as_its_full_name(string phrase)
+    {
+        var parser = CreateParser();
+
+        foreach (var (shortName, fullName) in new[] { ("sat", "saturday"), ("sun", "sunday") })
+        {
+            var typed = phrase.Replace("{day}", shortName, StringComparison.Ordinal);
+            var spelledOut = phrase.Replace("{day}", fullName, StringComparison.Ordinal);
+
+            foreach (var moment in new[] { Now, SaturdayMorning, SaturdayLateEvening, SundayMorning })
+            {
+                // The text and the moment ride along in both tuples, so a failure names its case.
+                var read = parser.TryResolve(typed, Chicago, out var result, out var error, moment);
+                var fullRead = parser.TryResolve(spelledOut, Chicago, out var fullResult, out var fullError, moment);
+                Assert.Equal(
+                    (typed, moment, fullRead, fullResult, QuotingTheTextAsTyped(fullError, spelledOut, typed)),
+                    (typed, moment, read, result, error));
+
+                var readDay = parser.TryResolveDay(typed, Chicago, out var day, out var dayError, moment);
+                var fullReadDay = parser.TryResolveDay(spelledOut, Chicago, out var fullDay, out var fullDayError, moment);
+                Assert.Equal(
+                    (typed, moment, fullReadDay, fullDay, QuotingTheTextAsTyped(fullDayError, spelledOut, typed)),
+                    (typed, moment, readDay, day, dayError));
+            }
+        }
+    }
+
+    // The refusal the full name gets, as it reads for the text as typed. Every refusal quotes the
+    // text once, ahead of anything else it puts in quotation marks.
+    private static string? QuotingTheTextAsTyped(string? error, string spelledOut, string typed)
+    {
+        if (error is null)
+        {
+            return null;
+        }
+
+        var quoted = $"\"{spelledOut}\"";
+        var at = error.IndexOf(quoted, StringComparison.Ordinal);
+        return at < 0 ? error : string.Concat(error.AsSpan(0, at), $"\"{typed}\"", error.AsSpan(at + quoted.Length));
+    }
+
+    // Reading as the full name does also means being refused where the full name is. Before, the
+    // short form was dropped and the rest of the text was read: each of these was today at the
+    // time it names.
+    [Theory]
+    [InlineData("by sat 6pm")]              // as "by saturday 6pm" and "by fri 6pm": an end with no start
+    [InlineData("until sun 18:00")]
+    [InlineData("before sat at noon")]
+    [InlineData("every sat 8pm")]           // as "every saturday 8pm": a repeat, not a date
+    public void Where_the_full_name_is_not_understood_neither_is_the_short_form(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve(text, Chicago, out _, out var error));
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error);
+        Assert.False(parser.TryResolveDay(text, Chicago, out _, out error));
+        Assert.StartsWith($"Could not understand \"{text}\" as a day.", error);
+    }
+
+    [Fact]
+    public void A_range_that_ends_on_a_short_weekend_day_is_read_as_a_range()
+    {
+        // On a Wednesday "mon to sat" is a range under way, as "monday to saturday" and "mon to
+        // fri" are: no instant, because its start has passed, and today as a day. Before, "sat"
+        // was dropped and "mon" was read alone: next Monday.
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve("mon to sat", Chicago, out _, out var error));
+        Assert.Equal("\"mon to sat\" resolves to a time in the past.", error);
+        Assert.True(parser.TryResolveDay("mon to sat", Chicago, out var day, out error), error);
+        Assert.Equal(new LocalDate(2026, 7, 15), day);
+    }
+
+    // The recognizer refuses these whether or not the letters in them are spelled out, so this
+    // shows only that they are still refused. What holds the two word boundaries in place is
+    // Only_a_word_of_its_own_is_spelled_out_and_takes_up_room, further down.
+    [Theory]
+    [InlineData("sunrise")]
+    [InlineData("sunny")]
+    [InlineData("sundown")]
+    [InlineData("satisfy")]
+    [InlineData("saturn")]
+    [InlineData("sats")]
+    [InlineData("suns")]
+    [InlineData("sat6pm")]
+    public void A_longer_word_that_holds_the_letters_is_still_refused(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve(text, Chicago, out _, out var error));
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error);
+        Assert.False(parser.TryResolveDay(text, Chicago, out _, out error));
+        Assert.StartsWith($"Could not understand \"{text}\" as a day.", error);
+    }
+
+    [Theory]
+    [InlineData("sat down", 18)]
+    [InlineData("sun up", 19)]
+    [InlineData("the sun", 19)]
+    [InlineData("sat-nav", 18)]
+    [InlineData("mon down", 20)]        // for comparison: read as Monday before this change too
+    public void A_short_weekend_day_counts_wherever_it_stands_as_a_word_of_its_own(string text, int julyDay)
+    {
+        // The recognizer skips the words it does not read, so "mon down" has always been Monday.
+        // "sat" and "sun" follow that same rule, not a list of the words that may stand beside
+        // them: the short form and the full name can then never read differently.
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolveDay(text, Chicago, out var day, out var error), error);
+        Assert.Equal(new LocalDate(2026, 7, julyDay), day);
+        Assert.True(parser.TryResolve(text, Chicago, out var result, out error), error);
+        Assert.Equal(JulyInChicago(julyDay, 9), result);
+    }
+
+    [Fact]
+    public void On_the_day_itself_the_short_form_reads_as_the_full_name_does()
+    {
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolveDay("sat", Chicago, out var day, out var error, SaturdayMorning), error);
+        Assert.Equal(new LocalDate(2026, 7, 18), day);
+        Assert.True(parser.TryResolve("sat 6pm", Chicago, out var result, out error, SaturdayMorning), error);
+        Assert.Equal(JulyInChicago(18, 18), result);
+
+        // As a date and time a bare day is 09:00, which has passed, and for a weekday named on its
+        // own day the recognizer offers last week's and today's, not next week's: refused, as
+        // "saturday" is, in the words that were typed.
+        Assert.False(parser.TryResolve("sat", Chicago, out _, out error, SaturdayMorning));
+        Assert.Equal("\"sat\" resolves to a time in the past.", error);
+
+        // The same for a time already behind. With the day dropped, this was tomorrow at 9 AM.
+        Assert.False(parser.TryResolve("sat 9am", Chicago, out _, out error, SaturdayMorning));
+        Assert.Equal("\"sat 9am\" resolves to a time in the past.", error);
+    }
+
+    // Spelling out lengthens the text: "sat" by five characters, "sun" by three. The recognizer is
+    // still never given more than the limit: text that spelling out would take past it is read as
+    // typed. As in the length tests above, the texts are one phrase filled out with dots.
+    [Fact]
+    public void A_short_weekend_day_is_spelled_out_only_while_the_text_stays_within_the_limit()
+    {
+        var parser = CreateParser();
+        // Exactly at the limit once "sat" is spelled out…
+        var fits = "sat 6pm".PadRight(DateTextLimits.MaxLength - 5, '.');
+        // …and one character over it: read as typed, so the time alone, today.
+        var doesNotFit = "sat 6pm".PadRight(DateTextLimits.MaxLength - 4, '.');
+
+        Assert.True(parser.TryResolve(fits, Chicago, out var result, out var error), error);
+        Assert.Equal(JulyInChicago(18, 18), result);
+        Assert.True(parser.TryResolveDay(fits, Chicago, out var day, out error), error);
+        Assert.Equal(new LocalDate(2026, 7, 18), day);
+
+        Assert.True(parser.TryResolve(doesNotFit, Chicago, out result, out error), error);
+        Assert.Equal(JulyInChicago(15, 18), result);
+        Assert.True(parser.TryResolveDay(doesNotFit, Chicago, out day, out error), error);
+        Assert.Equal(new LocalDate(2026, 7, 15), day);
+    }
+
+    [Fact]
+    public void Text_with_two_short_weekend_days_is_spelled_out_in_full_or_not_at_all()
+    {
+        var parser = CreateParser();
+        // Exactly at the limit with both spelled out: "sat" grows by five characters, "sun" by three…
+        var fits = "sat or sun".PadRight(DateTextLimits.MaxLength - 8, '.');
+        // …and one character over it. The one that would still fit is not spelled out on its
+        // own: the text is read as typed, and as typed neither short form is read.
+        var doesNotFit = "sat or sun".PadRight(DateTextLimits.MaxLength - 7, '.');
+
+        Assert.True(parser.TryResolve(fits, Chicago, out var result, out var error), error);
+        Assert.Equal(JulyInChicago(18, 9), result);
+        Assert.True(parser.TryResolveDay(fits, Chicago, out var day, out error), error);
+        Assert.Equal(new LocalDate(2026, 7, 18), day);
+
+        Assert.False(parser.TryResolve(doesNotFit, Chicago, out _, out error));
+        Assert.Equal($"Could not understand \"{doesNotFit}\" as a date/time.", error);
+        Assert.False(parser.TryResolveDay(doesNotFit, Chicago, out _, out error));
+        Assert.StartsWith($"Could not understand \"{doesNotFit}\" as a day.", error);
+    }
+
+    [Theory]
+    [InlineData("landsat")]     // ends in the letters
+    [InlineData("sunrise")]     // begins with them
+    public void Only_a_word_of_its_own_is_spelled_out_and_takes_up_room(string longerWord)
+    {
+        // 95 characters. With "sat" spelled out the recognizer is given exactly the limit. Were
+        // part of the longer word spelled out as well, that would be over it, and the text would
+        // be read as typed: today at 6 PM.
+        var text = "sat 6pm".PadRight(DateTextLimits.MaxLength - 5 - longerWord.Length, '.') + longerWord;
+
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(18, 18), result);
+    }
+
+    [Fact]
+    public void Text_over_the_length_limit_is_refused_with_a_short_weekend_day_in_it_too()
+    {
+        var parser = CreateParser();
+        var overLimit = "sat 6pm".PadRight(DateTextLimits.MaxLength + 1, '.');
+        var tooLong = $"The date/time text must be at most {DateTextLimits.MaxLength} characters.";
+
+        Assert.False(parser.TryResolve(overLimit, Chicago, out _, out var error));
+        Assert.Equal(tooLong, error);
+        Assert.False(parser.TryResolveDay(overLimit, Chicago, out _, out error));
+        Assert.Equal(tooLong, error);
     }
 }
