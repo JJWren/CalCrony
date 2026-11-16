@@ -54,7 +54,9 @@ internal sealed class ReleaseWorkflow
         return lines[start..end];
     }
 
-    /// <summary>Gives the lines nested under a key of a job, such as its <c>permissions</c>.</summary>
+    /// <summary>Gives the lines nested under a key of a job, such as its <c>permissions</c>. They
+    /// end where YAML ends them: at the next setting indented no deeper than the key. A comment
+    /// ends nothing, however it is indented, so a setting that follows one is still among them.</summary>
     /// <param name="jobName">The job's key.</param>
     /// <param name="key">A key directly under the job, without its colon.</param>
     /// <returns>The lines under the key, trimmed, without comments or blank lines.</returns>
@@ -67,7 +69,7 @@ internal sealed class ReleaseWorkflow
 
         return job
             .Skip(start + 1)
-            .TakeWhile(line => line.Trim().Length == 0 || LeadingSpaces(line) > LeadingSpaces(opening))
+            .TakeWhile(line => !IsSetting(line.Trim()) || LeadingSpaces(line) > LeadingSpaces(opening))
             .Select(line => line.Trim())
             .Where(IsSetting)
             .ToList();
@@ -85,7 +87,9 @@ internal sealed class ReleaseWorkflow
 
     /// <summary>Gives a step's settings: every line of the step from its first to its last, but
     /// for the script of a <c>run: |</c> block (<see cref="StepScript"/> gives that). A setting
-    /// written after such a block is a setting like any other, and is among them.</summary>
+    /// written after such a block is a setting like any other, and is among them. The step ends
+    /// where YAML ends it, at the next setting indented no deeper than its dash; a comment ends
+    /// nothing, however it is indented.</summary>
     /// <param name="jobName">The job's key.</param>
     /// <param name="label">The step's first line, trimmed: <c>- name: …</c> or <c>- uses: …</c>.</param>
     /// <returns>The step's lines, trimmed, without comments or blank lines.</returns>
@@ -109,7 +113,7 @@ internal sealed class ReleaseWorkflow
 
             blockIndent = -1;
 
-            if (trimmed.Length > 0 && LeadingSpaces(line) <= indent)
+            if (IsSetting(trimmed) && LeadingSpaces(line) <= indent)
             {
                 break;
             }
@@ -138,6 +142,27 @@ internal sealed class ReleaseWorkflow
     /// <summary>Gives the keys the workflow file has at its outermost level.</summary>
     /// <returns>The keys, in the order of the file, without their colons.</returns>
     public IReadOnlyList<string> TopLevelKeys() => KeysAt(lines, 0);
+
+    /// <summary>Gives the names of the workflow's jobs: every key at the first level under
+    /// <c>jobs:</c>, up to the next key at the outermost level. A job's key has to stand alone on
+    /// its line, with no value and no comment after its colon: <see cref="Job"/> does not see a
+    /// job written any other way, and would read it as part of the job above it.</summary>
+    /// <returns>The names, in the order of the file, without their colons.</returns>
+    public IReadOnlyList<string> JobNames()
+    {
+        int jobs = Array.IndexOf(lines, "jobs:");
+        Assert.True(jobs >= 0, "The workflow has no jobs.");
+
+        List<string> keys = lines
+            .Skip(jobs + 1)
+            .TakeWhile(line => line.Length == 0 || line[0] is ' ' or '#')
+            .Where(line => LeadingSpaces(line) == JobIndent.Length && IsSetting(line.Trim()))
+            .ToList();
+
+        Assert.All(keys, key => Assert.True(IsJobKey(key), $"A job's key does not stand alone on its line: {key.Trim()}"));
+
+        return keys.Select(key => key.Trim().TrimEnd(':')).ToList();
+    }
 
     /// <summary>Gives the lines of the file that are structure: every line but the text of a
     /// block (under a key whose value is <c>|</c> or <c>&gt;</c>), blank lines and comments.</summary>

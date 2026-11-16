@@ -9,12 +9,15 @@ namespace CalCrony.ReleaseNotes.Tests;
 /// these tests read its file. They hold the announce job to what it was — no access to the
 /// repository, a ping for the one role and nothing else, the message the tool previews — and
 /// they pin how the two new jobs are wired, because a slip there would not fail a release: it
-/// would quietly switch the summary off. Where bash, jq and curl exist — the CI runner — three
+/// would quietly switch the summary off. They hold every job to the permissions it states as
+/// well, the two older jobs among them: one taken away there can stop a release part-way, and one
+/// added would fail no other check. Where bash, jq and curl exist — the CI runner — three
 /// steps' own scripts are then run on this machine: the announce step against a stand-in
 /// webhook, so what it would post is seen without posting anything, and the summary job's read
 /// of the notes and its question to GitHub against a stand-in <c>gh</c>.</summary>
 public class ReleaseWorkflowTests
 {
+    private const string ReleaseJob = "release-please";
     private const string ImagesJob = "publish-images";
     private const string AnnounceJob = "announce-release";
     private const string SummaryJob = "release-summary";
@@ -34,6 +37,7 @@ public class ReleaseWorkflowTests
 
     private static readonly (string Job, string Step)[] PinnedSteps =
     [
+        (ImagesJob, "Build and push images"),
         (AnnounceJob, AnnounceStep),
         (SummaryJob, "Read the notes release-please wrote"),
         (SummaryJob, "Build the release texts"),
@@ -222,6 +226,192 @@ public class ReleaseWorkflowTests
         foreach (string job in new[] { AnnounceJob, SummaryJob, PreviewJob })
         {
             Assert.Contains("    runs-on: ubuntu-latest", Workflow.Job(job));
+        }
+    }
+
+    [Fact]
+    public void The_workflow_starts_on_a_push_to_master_or_by_hand_and_on_nothing_else()
+    {
+        // The jobs' tokens exist whenever the workflow runs. A trigger more, for pull requests
+        // say, would have them exist for events that people outside the repository can cause.
+        Assert.Equal(
+            ["on:", "  push:", "    branches: [master]", "  workflow_dispatch:"],
+            Workflow.StructureLines().SkipWhile(line => line != "on:").TakeWhile(line => line == "on:" || line.StartsWith(' ')));
+    }
+
+    [Fact]
+    public void The_workflow_gives_no_permissions_by_default_and_each_of_its_five_jobs_states_its_own()
+    {
+        // What stands at the outermost level is what a job without a permissions block of its own
+        // holds. It is the empty set, which leaves a token the read of the repository's metadata
+        // that every token has and nothing more: under the default of before, such a job held
+        // write access to the repository's contents, its pull requests and its packages. A job
+        // added here states its permissions too, once, and its name goes into this list.
+        Assert.Equal(
+            ["permissions: {}"],
+            Workflow.StructureLines().Where(line => line.StartsWith("permissions:", StringComparison.Ordinal)));
+
+        IReadOnlyList<string> jobs = Workflow.JobNames();
+
+        Assert.Equal([ReleaseJob, ImagesJob, SummaryJob, AnnounceJob, PreviewJob], jobs);
+        Assert.All(jobs, job => Assert.Single(Workflow.JobKeys(job), key => key == "permissions"));
+    }
+
+    [Fact]
+    public void The_release_job_may_write_the_repository_and_its_pull_requests_and_nothing_else()
+    {
+        // The release branch and its commit, the tag and the release are contents; the release
+        // PR, its two labels and the comment on it are pull requests. It publishes no package.
+        // And it asks for nothing on issues, which the action's README lists as well: this job
+        // made both of its labels at the first release without it, and the workflow has never
+        // had it. A key more on the job, such as a container or an environment, would change
+        // what it runs as without touching the block.
+        Assert.Equal(["runs-on", "permissions", "outputs", "steps"], Workflow.JobKeys(ReleaseJob));
+        Assert.Contains("    runs-on: ubuntu-latest", Workflow.Job(ReleaseJob));
+        Assert.Equal(["contents: write", "pull-requests: write"], Workflow.Block(ReleaseJob, "permissions"));
+
+        // One step, the action, and it is given no token of its own. It then takes the job's,
+        // so what the block says is what the action can do.
+        const string Action = "- uses: googleapis/release-please-action@v4";
+
+        Assert.Equal([Action], Workflow.StepLabels(ReleaseJob));
+        Assert.Equal([Action, "id: release", "with:", "release-type: simple"], Workflow.Step(ReleaseJob, Action));
+
+        // What the job hands on is what the action reported, and nothing else. It decides
+        // whether the image job runs, and which tag that job checks out, tests and publishes.
+        Assert.Equal(
+            [
+                "release_created: ${{ steps.release.outputs.release_created }}",
+                "version: ${{ steps.release.outputs.version }}",
+                "tag_name: ${{ steps.release.outputs.tag_name }}",
+                "html_url: ${{ steps.release.outputs.html_url }}",
+            ],
+            Workflow.Block(ReleaseJob, "outputs"));
+    }
+
+    [Fact]
+    public void The_images_job_may_read_the_repository_and_push_packages_and_names_its_token_for_the_login_alone()
+    {
+        IReadOnlyList<string> job = Workflow.Job(ImagesJob);
+
+        // For a release only, on GitHub's own runner, with the two permissions that the job
+        // publishing the :main images has in ci.yml.
+        Assert.Equal(["needs", "if", "runs-on", "permissions", "env", "steps"], Workflow.JobKeys(ImagesJob));
+        Assert.Contains("    needs: release-please", job);
+        Assert.Contains("    if: needs.release-please.outputs.release_created == 'true'", job);
+        Assert.Contains("    runs-on: ubuntu-latest", job);
+        Assert.Equal(["contents: read", "packages: write"], Workflow.Block(ImagesJob, "permissions"));
+
+        // One variable for every step, the version. A variable more would reach every step too,
+        // the three actions among them, and could send the login or the pushes somewhere else.
+        Assert.Equal(["VERSION: ${{ needs.release-please.outputs.version }}"], Workflow.Block(ImagesJob, "env"));
+
+        // Five steps, in this order. The checkout leaves no token in git's config, and the tests,
+        // which are code from the repository, run before the step that is given the token.
+        Assert.Equal(
+            [
+                "- uses: actions/checkout@v4",
+                "- uses: actions/setup-dotnet@v4",
+                "- name: Test release commit",
+                "- name: Log in to GHCR",
+                "- name: Build and push images",
+            ],
+            Workflow.StepLabels(ImagesJob));
+        Assert.Equal(
+            [
+                "- uses: actions/checkout@v4",
+                "with:",
+                "ref: ${{ needs.release-please.outputs.tag_name }}",
+                "persist-credentials: false",
+            ],
+            Workflow.Step(ImagesJob, "- uses: actions/checkout@v4"));
+        Assert.Equal(
+            ["- uses: actions/setup-dotnet@v4", "with:", "dotnet-version: 10.0.x"],
+            Workflow.Step(ImagesJob, "- uses: actions/setup-dotnet@v4"));
+        Assert.Equal(
+            [
+                "- name: Log in to GHCR",
+                "uses: docker/login-action@v3",
+                "with:",
+                "registry: ghcr.io",
+                "username: ${{ github.actor }}",
+                "password: ${{ secrets.GITHUB_TOKEN }}",
+            ],
+            Workflow.Step(ImagesJob, "- name: Log in to GHCR"));
+
+        // The build step is given its script and nothing else, and the script is this one. It
+        // runs after the login, so it is the one place where free text is within reach of the
+        // token. If you change it on purpose, change this text with it.
+        Assert.Equal(
+            ["- name: Build and push images", "run: |"],
+            Workflow.Step(ImagesJob, "- name: Build and push images"));
+        Assert.Equal(
+            """
+            OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+            build_and_push() {
+              local dockerfile="$1" image="ghcr.io/${OWNER}/$2"
+              docker build --build-arg VERSION="${VERSION}" -f "${dockerfile}" \
+                -t "${image}:${VERSION}" -t "${image}:latest" .
+              docker push "${image}:${VERSION}"
+              docker push "${image}:latest"
+            }
+            build_and_push src/CalCrony.Api/Dockerfile calcrony-api
+            build_and_push src/CalCrony.Bot/Dockerfile calcrony-bot
+            build_and_push src/CalCrony.Web/Dockerfile calcrony-web
+
+            """.ReplaceLineEndings("\n"),
+            Workflow.StepScriptWithoutCommentWording(ImagesJob, "Build and push images"));
+
+        // Every expression in the job. The token is named once, for the login. The checkout
+        // takes it by the action's own default, and no other step is given it under any name.
+        Assert.Equal(
+            [
+                "VERSION: ${{ needs.release-please.outputs.version }}",
+                "ref: ${{ needs.release-please.outputs.tag_name }}",
+                "username: ${{ github.actor }}",
+                "password: ${{ secrets.GITHUB_TOKEN }}",
+            ],
+            job.Where(line => line.Contains("${{", StringComparison.Ordinal)).Select(line => line.Trim()));
+    }
+
+    [Fact]
+    public void Every_job_has_its_keys_four_spaces_in_and_nothing_stands_further_out()
+    {
+        // These tests look for a job's keys at four spaces. YAML takes them wherever the job's
+        // first key stands. A job with its keys at three could keep, in a block of text under one
+        // of them, the very lines the tests look for at four, and its real ones out of their sight.
+        foreach (string name in Workflow.JobNames())
+        {
+            string[] written = Workflow.Job(name)
+                .Skip(1)
+                .Where(line => line.Trim().Length > 0 && !line.TrimStart().StartsWith('#'))
+                .ToArray();
+
+            Assert.NotEmpty(written);
+            Assert.Equal(4, ReleaseWorkflow.LeadingSpaces(written[0]));
+            Assert.All(written, line => Assert.True(ReleaseWorkflow.LeadingSpaces(line) >= 4, $"{name}: {line.Trim()}"));
+        }
+    }
+
+    [Fact]
+    public void Only_a_script_is_a_block_of_text_and_a_quoted_value_closes_on_its_line()
+    {
+        // Outside a script the tests take every line for a key with its value. A value that YAML
+        // reads over several lines could hold lines that are settings to the tests and text to
+        // YAML: a block of text under a key other than run, or a quoted value still open at the
+        // end of its line.
+        Regex opensBlock = new("^ *(- )?[A-Za-z_][A-Za-z0-9_-]*: [|>]");
+        Regex opensQuote = new("^ *(- )?[A-Za-z_][A-Za-z0-9_-]*: ['\"]");
+        Regex closedQuote = new("^ *(- )?[A-Za-z_][A-Za-z0-9_-]*: (\"[^\"]*\"|'[^']*')$");
+
+        foreach (string line in Workflow.StructureLines())
+        {
+            Assert.True(
+                !opensBlock.IsMatch(line) || line.TrimStart(' ', '-') == "run: |",
+                $"A block of text outside a script: {line.Trim()}");
+            Assert.True(
+                !opensQuote.IsMatch(line) || closedQuote.IsMatch(line),
+                $"A quoted value that does not close on its line: {line.Trim()}");
         }
     }
 
