@@ -3,6 +3,8 @@
 *Research date: 2026-08-31. Method: CalCrony features inventoried from this repo's source and README; sesh features confirmed only on sesh-owned pages (home page, manual, premium page, Time Finder page, official roadmap). Third-party sources were not used as evidence.*
 
 > **Status 2026-09-02:** the RSVP v2 batch this analysis motivated has shipped — §3.6 per-option attendee roles in v0.32.0 (#144), §3.5 role-restricted signup in v0.34.0 (#150), §3.3 multiple RSVPs per user in v0.35.0 (#154). The three rows below say so; the rest of the table is the 2026-08-31 snapshot.
+>
+> **Status 2026-11-13:** free slots and per-member available hours shipped in v0.37.0 (#171): `/availability slots` lists when a member, or everyone holding a role, is free over 1–14 days, and a member without a linked calendar is counted on the weekly hours they save. Row 7.1 below says so.
 
 **Sesh sources (first-party):**
 
@@ -92,7 +94,7 @@ CalCrony recurrence (`src/CalCrony.Contracts/Series.cs`): every-N Day/Week/Month
 
 | # | Sesh feature | Sesh source | CalCrony status |
 |---|---|---|---|
-| 7.1 | **Time Finder** — members manually input availability; the tool finds "optimal time slots that work for as many people as possible"; premium adds "Time Finder advanced settings" | <https://sesh.fyi/time-finder>; <https://sesh.fyi/premium> | **Partial.** CalCrony covers the space differently: time polls with fixed creator-chosen slots (`PollModule.cs`) and a Google free/busy grid (`AvailabilityModule.cs`, `src/CalCrony.Web/Components/AvailabilityGrid.razor`). It has no manual paint-your-availability grid for members without a linked calendar, and no optimizer over open-ended ranges. |
+| 7.1 | **Time Finder** — members manually input availability; the tool finds "optimal time slots that work for as many people as possible"; premium adds "Time Finder advanced settings" | <https://sesh.fyi/time-finder>; <https://sesh.fyi/premium> | **Covered in part since v0.37.0** (#171, 2026-11-13): `/availability slots` lists when a member, or every counted member of a role, is free over 1–14 days (`FreeSlotsService.cs`, `FreeSlotCalculator.cs`), and members can save weekly available hours (`/settings available-hours`, or the card under My settings); a member who has saved them is counted even without a linked calendar. Still different from Time Finder: availability is a weekly pattern plus Google free/busy rather than a grid painted date by date; a slot is time that is free for *every* counted member, not a ranking of times by how many can make it; and time polls (`PollModule.cs`) remain the way to vote on candidate times. |
 
 ## 8. Gaps — server administration
 
@@ -140,4 +142,5 @@ Build order (interleaved: the quick-ship batch lands while the RSVP overhaul is 
 **Deliberately declined:** inbound/two-way Google Calendar sync (§6.1) — permanently, per ADR 0003:
 the free/busy-only scope is the product's privacy differentiator, and the ICS feed covers outbound;
 and vote-gated perks (§9.4) — top.gg votes are a support ask, never a feature gate. The `/ai`
-command (§2.1) and a Time Finder equivalent (§7.1) remain noted but unscheduled.
+command (§2.1) remains noted but unscheduled; the Time Finder space (§7.1) is covered in part
+since v0.37.0.

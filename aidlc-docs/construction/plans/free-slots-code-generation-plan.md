@@ -7,7 +7,7 @@ application design (`inception/application-design/availability-free-slots-design
 **Baseline**: `master` 4911a1f (v0.36.3; the audit trail records 810 tests green at that release —
 re-run as step 0.1). **Branch**: `feature/availability-free-slots` → PR
 `feat: free slots for a member or role (/availability slots)`.
-**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivery under way (section 8). Amended 2026-11-12 for D11, Joshua's decision on who can be named in `who:` — sections 1, 2, 4.6 and 4.8 are changed in place, and section 9 records it.
+**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivered: merged as `a079441` on 2026-11-12 and released in 0.37.0 on 2026-11-13 (section 8). Amended 2026-11-12 for D11, Joshua's decision on who can be named in `who:` — sections 1, 2, 4.6 and 4.8 are changed in place, and section 9 records it.
 
 As the workflow plan set out, this file is the unit's functional design (sections 1–5) followed by
 its code-generation plan (sections 6–8), approved together. Unit 2 (`available-hours`) gets its own
@@ -506,7 +506,7 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       a member's free time in one ephemeral reply — the same data `/availability role` gives window
       by window — and only for members of the server); no migration; test counts. — PR #172, opened
       2026-11-11 at head `cd30f84` with `Refs #171`; the body also lists the known limits.
-- [ ] 8.4 Copilot rounds until an approval with no open threads. *Go-ahead:* squash merge. The test
+- [x] 8.4 Copilot rounds until an approval with no open threads. *Go-ahead:* squash merge. The test
       stack picks up `:main`; the new §12 items are run there. — Blocked 2026-11-11: checks green,
       but Copilot's review did not start on opening or on a push, and requesting it by hand
       registered nothing. Joshua's decision the same day: two review agents in Copilot's place —
@@ -521,10 +521,15 @@ Everything that leaves this machine waits for its own go-ahead, as the workflow 
       go-ahead to merge the PR came the same day ("After 0.36.4"): once PR #174 has been merged.
       That happened at 22:05:39Z, and PR #172 was squash-merged at 2026-11-12T23:24:12Z as
       `a079441`. The test stack took `:main` at that commit at 23:29Z, and Discord's command list
-      for the test guild shows the subcommand as built. Still ahead: the new §12 items there,
-      which need a member in Discord — the must-pass item first.
+      for the test guild showed the subcommand as built. Still ahead at that point: the new §12
+      items there, which need a member in Discord — the must-pass item first. That item passed
+      on 2026-11-13, in the form unit 2 gave it, on the build with both units, with one case of
+      it resting on the API's tests; `build-and-test-summary.md` has the runs and says what was
+      run of the other items, block by block. Joshua approved build and test that day ("Yes,
+      proceed") with the items as they stood, and the box is ticked on that approval.
 - [x] 8.5 `aidlc-state.md` marks unit 1 merged; unit 2's plan follows. The release waits for unit 2.
-      — Marked 2026-11-12. Release PR #175 (0.37.0) is open and waits for unit 2.
+      — Marked 2026-11-12. Release PR #175 (0.37.0) was open by then and waited for unit 2; it
+      was merged on 2026-11-13.
 
 **One question before the branch is pushed** (not before code generation starts):
 
