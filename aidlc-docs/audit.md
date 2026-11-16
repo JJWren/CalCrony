@@ -1562,3 +1562,10 @@ Availability for @GM
 **Context**: Construction — code generation, part 1 (the plan): waits for Joshua's answers to Q1–Q5.
 
 ---
+## Construction — date text gaps: plan approved, Q1 to Q5 answered A
+**Timestamp**: 2026-11-16T23:13:36Z
+**User Input**: "Approve, all A"
+**AI Response**: The plan is approved as written, with each of its five questions answered A. Q1: `by`, `until` and `before` in front of a date read as the date and time named, in the date-and-time reader only, and neither in front of a whole period nor beside a length of time; the day reader keeps its refusal. Q2: a refusal that says the text repeats and what to type, from both readers, wherever a repeat stands in the text, so `friday 8pm every week` is refused too. Q3: next week's for a weekday typed on its own day once its time is behind, alone and with a time. Q4: a time written apart from its day is read on that day, and a further time beside a day that has its own is not read. Q5: wait for pull request #180 to merge, then build on `master`. `easter sat` is left as it is. The answer is written into the plan's five `[Answer]:` lines. Read at 23:13Z: pull request #180 is open with its checks green and not merged, and `master` is at `4af1305`, so by Q5 nothing is generated in the repository yet. The stamp is the first clock read after his answer.
+**Context**: Construction — code generation: the plan is approved; generation waits for pull request #180 to be on `master` (Q5).
+
+---

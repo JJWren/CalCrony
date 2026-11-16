@@ -9,7 +9,8 @@ anything is built. Handed over on 2026-11-16 from the session that wrote that fi
 was run as it stands on pull request #180, open and not merged, because the five were found on
 that code and `sat` and `sun` must go on reading exactly as their full names do.
 **Branch**: `fix/date-text-gaps` → one pull request, a `fix:`, titled once the scope is decided.
-**Status**: written 2026-11-16. Waits for Joshua's answers to Q1–Q5 (section 4). Nothing is built.
+**Status**: written 2026-11-16 and approved by Joshua the same day, as written, with Q1–Q5 each
+answered A (section 4). By Q5, generation waits for pull request #180 to be on `master`.
 
 A change inside one class, so the workflow runs at minimal depth, as on the fix for `sat` and
 `sun`: the task is the requirement; no user stories, application design, units, NFR or
@@ -343,7 +344,7 @@ Q1 — `by`, `until`, `before` in front of a date
 - D) Leave it as it is.
 - E) Other (describe).
 
-[Answer]:
+[Answer]: A — Joshua, 2026-11-16: "Approve, all A".
 
 Q2 — `every …`
 
@@ -355,7 +356,7 @@ Q2 — `every …`
 - C) Leave it as it is.
 - D) Other (describe).
 
-[Answer]:
+[Answer]: A — Joshua, 2026-11-16: "Approve, all A".
 
 Q3 — A weekday typed on its own day
 
@@ -367,7 +368,7 @@ Q3 — A weekday typed on its own day
 - D) Leave it as it is.
 - E) Other (describe).
 
-[Answer]:
+[Answer]: A — Joshua, 2026-11-16: "Approve, all A".
 
 Q4 — A time written apart from its day
 
@@ -379,7 +380,7 @@ Q4 — A time written apart from its day
 - C) Leave it as it is.
 - D) Other (describe).
 
-[Answer]:
+[Answer]: A — Joshua, 2026-11-16: "Approve, all A".
 
 Q5 — When to build
 
@@ -391,7 +392,7 @@ is open and waits for its merge.
 - B) Build now on a local branch cut from #180's branch, and take `master` in when it merges.
 - C) Other (describe).
 
-[Answer]:
+[Answer]: A — Joshua, 2026-11-16: "Approve, all A".
 
 ## 5. What is added, file by file
 
