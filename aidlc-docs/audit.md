@@ -1555,3 +1555,10 @@ Availability for @GM
 **Context**: Construction, single unit — pull request #179 green on its final head (`e32f18c`); awaiting Joshua's go-ahead for the merge (the plan's step 6.4).
 
 ---
+## Release summary — go-ahead to merge pull request #179
+**Timestamp**: 2026-11-16T16:51:39Z
+**User Input**: "Merge now"
+**AI Response**: Joshua's answer to "Merge pull request #179 now?", asked at 2026-11-16T16:15:38Z; the other answer was "Not yet". The first clock read after it was 2026-11-16T16:51:12Z. He had also started the two tasks put forward with the question, each as a session of its own: a workflow linter in CI, and narrower permissions for the two older release jobs. Checked first, read-only: #179 open and not merged, its head `e32f18c`, every check on that head passed, `master` still `56b61ab`, no other pull request open. Next: the squash merge through the REST call, held to that head, with the pull request's own text as its message.
+**Context**: Construction, single unit — the plan's step 6.4, the merge.
+
+---
