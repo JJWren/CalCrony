@@ -14,9 +14,9 @@ NFR and infrastructure stages are skipped: release tooling, with nothing in it a
 **Baseline**: `master` 4af1305 (pull request #179 merged; latest release v0.37.0). **Branch**:
 `ci/narrow-release-job-permissions` → PR `ci: give the two older release jobs only the access each
 needs` (`ci:` cuts no release; the change takes effect with the run its own merge starts).
-**Status**: generated on the local branch on 2026-11-16, read by two review agents the same day
-(section 8), and not pushed. The push with the pull request, the run by hand and the merge each
-wait for Joshua's go-ahead.
+**Status**: generated on the local branch on 2026-11-16 and read by two review agents the same day
+(section 8). On Joshua's go-ahead of that day the branch was pushed, the workflow run once by hand
+from it (section 4) and pull request #181 opened. The merge waits for his go-ahead.
 
 ## 1. What exists today (verified 2026-11-16)
 
@@ -191,6 +191,17 @@ released it writes nothing, and the other four jobs are skipped. Checked before 
 that no merged release PR still carries `autorelease: pending`, that the latest release is the
 newest version in the changelog, and what has reached `master` since.
 
+**Run on GitHub (2026-11-16)**: run 43973160250, started by hand from the branch at `b766a2f` at
+22:46:00Z, after those three checks: no merged pull request carried `autorelease: pending`; v0.37.0
+was both the latest release and the newest version in the changelog; `master` had gained only a
+`docs:` and a `ci:` commit since. It succeeded in seventeen seconds. GitHub parsed the file. The
+log of `release-please` gives its token as `Contents: write`, `Metadata: read`,
+`PullRequests: write`, and the action as commit `5c625bf`, running release-please 17.3.0. It worked
+on `master`, considered the two commits since v0.37.0, found no user-facing commit and skipped.
+Nothing was written: no release PR, no branch, no tag, no release. The other four jobs were
+skipped. What the run does not show: a write under the new token, since there was nothing to
+write, and anything of `publish-images`.
+
 **Cannot be run before a release**: `publish-images` as a whole, and what `release-please` writes
 at release time. Both happen only when a release is created. **So the first full run of this change
 is the next release.** What that release does for the first time:
@@ -276,9 +287,11 @@ writes with its own.
   Release build from scratch and the whole suite. (Section 4.)
 - [x] 3.1 Two review agents read the local commit, one on security and what the public text says,
   one on correctness and the facts in these records; their findings answered. (Section 8.)
-- [ ] 4.1 Completion gate. On Joshua's go-ahead: the branch pushed and the pull request opened.
-- [ ] 4.2 On his go-ahead: the workflow started once by hand from the branch, after the checks of
-  section 4; its result goes into the pull request's description.
+- [x] 4.1 Completion gate. On Joshua's go-ahead: the branch pushed and the pull request opened.
+  (2026-11-16: his go-ahead at 22:44Z; pushed at 22:45Z; pull request #181 opened at 22:47:57Z.)
+- [x] 4.2 On his go-ahead: the workflow started once by hand from the branch, after the checks of
+  section 4; its result goes into the pull request's description. (2026-11-16: run 43973160250,
+  green; section 4.)
 - [ ] 4.3 On his go-ahead: the squash merge.
 - [ ] 5.1 At the next release: its run read for the two jobs' tokens and for a release that went out
   whole. Until then section 4's "cannot be run" stands.
