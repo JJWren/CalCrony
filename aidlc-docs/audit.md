@@ -1576,3 +1576,13 @@ Availability for @GM
 **Context**: Construction — code generation complete and reviewed; awaiting Joshua at the completion gate (A: request changes; B: continue to the push and the pull request).
 
 ---
+## Construction — completion gate answered: continue to the push, the pull request and the run by hand
+**Timestamp**: 2026-11-16T22:44:58Z
+**User Input**: "1B
+2A
+3A
+4A"
+**AI Response**: Joshua's answers, typed as four lines, to the four questions put to him with the completion gate; the first clock read after them was 2026-11-16T22:44:17Z. 1B: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", where B is the push of the branch and the pull request, with the merge asked separately — continue. 2A: the release workflow is started once by hand from the branch after the push, and its result goes into the pull request (the other answer was "Not yet"). 3A: `issues: write` for `release-please` is left out, as built (the other answer was to add it, as the action's README lists). 4A: the comment in `announce-release` that still speaks of "the workflow's write token" is left as it is, since the task said not to touch that job (the other answer was to reword it in this pull request). So the workflow file stays as reviewed, and the plan's steps 4.1 and 4.2 go ahead; the plan's section 6 now has his two answers. Checked first, read-only: the branch is as it was, `7a2d67e`, clean, with no copy on GitHub; `origin/master` is still `4af1305`, so there is nothing to take in. Corrected with this entry: the line in `aidlc-state.md` said the change was pinned by four tests, the count before the second round of the review; it is six. Next, in this order: this entry is committed and the branch pushed with the keyring login; it is checked once more that nothing is waiting to be released; the workflow is started by hand from the branch and its run read; and the pull request is opened with the run's result in its description. The merge stays a question of its own, and with it the order against pull request #180.
+**Context**: Construction — code generation approved at the completion gate; the plan's step 4.1 next (push, pull request), with 4.2 (the run by hand).
+
+---

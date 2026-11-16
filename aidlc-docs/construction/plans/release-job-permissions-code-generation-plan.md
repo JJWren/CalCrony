@@ -248,9 +248,10 @@ writes with its own.
   asks for the least each job needs, the workflow has never had it, and this repository's first
   release made both labels without it (section 2). What it would buy is cover for one case that
   has not been seen here: a label deleted, and GitHub refusing to let the job make it again.
-  A) leave it out, as built; B) add it.
+  A) leave it out, as built; B) add it. **Joshua, 2026-11-16: A.**
 - **The comment in `announce-release`** that speaks of "the workflow's write token" (section 3):
   A) leave it; B) reword it in this pull request. No test pins its wording.
+  **Joshua, 2026-11-16: A.**
 - **The order of merging with #180** (section 4): this change first shows `release-please` writing
   under its own token before any release.
 - **Seen in the review and not taken**, each a change of its own:
