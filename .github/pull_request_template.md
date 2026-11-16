@@ -25,3 +25,4 @@ Closes #
 - [ ] New/changed behavior is covered by tests
 - [ ] EF model changes include a migration (`dotnet ef migrations add ...`)
 - [ ] Docs updated where behavior changed (README, CONTRIBUTING, aidlc-docs)
+- [ ] A change users will notice is in the release summary (`docs/release-notes/<version>.md` — see CONTRIBUTING, "Release summary")
