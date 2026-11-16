@@ -7,7 +7,7 @@ application design (`inception/application-design/availability-free-slots-design
 **Baseline**: `master` 4911a1f (v0.36.3; the audit trail records 810 tests green at that release —
 re-run as step 0.1). **Branch**: `feature/availability-free-slots` → PR
 `feat: free slots for a member or role (/availability slots)`.
-**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivered: merged as `a079441` on 2026-11-12 and released in 0.37.0 on 2026-11-13 (section 8). Amended 2026-11-12 for D11, Joshua's decision on who can be named in `who:` — sections 1, 2, 4.6 and 4.8 are changed in place, and section 9 records it.
+**Status**: approved by Joshua 2026-11-11, as written; code generated and approved at the completion gate the same day (section 9 records what differs from the plan); delivered: merged as `a079441` on 2026-11-12 and released in 0.37.0 on 2026-11-13 (section 8). Amended 2026-11-12 for D11, Joshua's decision on who can be named in `who:` — sections 1, 2, 4.6 and 4.8 are changed in place, and section 9 records it. Amended 2026-11-16 in section 4.1, where `sat` and `sun` were recorded as known and left: a later fix reads them (`short-weekend-days-code-generation-plan.md`).
 
 As the workflow plan set out, this file is the unit's functional design (sections 1–5) followed by
 its code-generation plan (sections 6–8), approved together. Unit 2 (`available-hours`) gets its own
@@ -106,7 +106,7 @@ Run against the real recognizer (a scratch build of the repository's parser file
 | `nov 12 CST`, `today UTC` | the date; the abbreviation is ignored | the caller's Nov 12; the caller's today |
 | `yesterday`, `last friday`, `last week`, `nov 5 2026` | past days only | refused: already passed |
 | `nov 5` | Nov 5 of this year and of next | Nov 5, 2027 (R2) |
-| `sat`, `banana hammock` | nothing | refused: not understood |
+| `sat`, `banana hammock` | nothing | refused: not understood — for `sat`, until the fix noted below this table |
 | `friday at night`, `friday (6pm)`, `tomorrow, after 6pm` | a day, and separately a time with no date | the named day — the time alone would be today |
 | `friday, this week`, `nov 20 this year` | a day, and separately a range under way | the named day |
 | `yesterday (6pm)` | a passed day, and separately a time | refused: already passed |
@@ -117,6 +117,13 @@ so `sat` is refused with the hint and `sat 6pm` reads as today (the time alone) 
 `when:` in the bot; `tuesday, next week` gives Monday, the earlier of the two days named, as
 `TryResolve` does; `past 3 days`, which has the shape of a spelled-out range ending today, reads as
 today.
+
+Added on 2026-11-16, with the paragraph above left as approved: a fix for the first of those three
+was written that day (`short-weekend-days-code-generation-plan.md`), and it applies from the
+release that carries it. With it the parser spells `sat` and `sun` out as `saturday` and `sunday`
+before the recognizer is given the text, so each reads as its full name does in every date typed
+in words: `sat` is the coming Saturday, or today on a Saturday, and `sat 6pm` is that Saturday at
+6 PM. The other two stand.
 
 ### 4.2 The route
 

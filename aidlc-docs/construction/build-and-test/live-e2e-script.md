@@ -92,6 +92,9 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] `/create title:Kickoff when:"tomorrow 6pm"` → embed with 🗓️ local time, RSVP buttons;
       ephemeral confirmation.
 - [ ] `/create` with `when:"in 5 hours"`, `when:"friday at 8"` → correct times in `/settings` zone.
+- [ ] `/create` with `when:"sat 6pm"` → the coming Saturday at 6 PM, as `when:"saturday 6pm"`
+      gives. Run it between Sunday and Thursday, or on a Friday before 6 PM: a build without
+      the fix then gives today at 6 PM, or tomorrow once that has passed, which is not Saturday.
 - [ ] Timezone abbreviation: `when:"10:00 AM CST"` on a server whose zone is NOT Central →
       parses as Central wall time, not server zone.
 - [ ] Validation: `/create` with a 129+ char title → friendly error (not an Internal Server Error);
@@ -242,6 +245,9 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
       no earlier than now.
 - [ ] `when:saturday days:2 duration:180` → two days listed, no slot shorter than three hours;
       `when:friday at night` starts on Friday, not today.
+- [ ] `when:sat` → the list starts on the coming Saturday (today, when run on a Saturday), as
+      `when:saturday` does, and `when:sun` on the coming Sunday. A build without the fix refuses
+      both.
 - [ ] `who:<a role>` holding a linked and an unlinked member, neither with saved hours → slots
       are the linked member's; the unlinked one is named under **Not counted**; a bot holding the
       role is not listed.
