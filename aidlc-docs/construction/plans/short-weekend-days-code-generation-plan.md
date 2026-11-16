@@ -407,7 +407,9 @@ came the release summary's convention, so the pull request also carries
 `docs/release-notes/0.37.1.md`: one bullet on what is new and two steps of how-to, passed by the
 repository's check. On the merged tree the Release build has no error and 22 warnings, and
 1,723 tests are green — 813 API, 418 bot, 153 web and 339 for the release-notes tool that came
-with `master`, with 17 more of the tool's skipped on Windows, which CI runs.
+with `master`, with 17 more of the tool's skipped on Windows, which CI runs. `master` moved once
+more that night, with pull request #181, and was taken in again: 1,729 tests then, the tool's
+own having grown to 345.
 
 **Noticed while probing, not part of this fix.** Each is true of every weekday, short or full,
 and is listed for Joshua to take up or leave:

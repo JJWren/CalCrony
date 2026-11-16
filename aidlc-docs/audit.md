@@ -1663,3 +1663,10 @@ Availability for @GM
 **Context**: Construction — pull request #181 open; the run by hand green; the merge waits for Joshua's go-ahead.
 
 ---
+## Build and test — short weekend days: `master` taken in a second time
+**Timestamp**: 2026-11-16T23:21:31Z
+**User Input**: (none — a conflict reported on the pull request; no input from Joshua since "Continue to next stage")
+**AI Response**: Pull request #181 was merged at 23:15:32Z as `ab32e96`, and #180 was in conflict with `master` again, in this file alone: both add entries at its end. `master` was merged into the branch a second time, with the entries in the order of their stamps: this branch's four of 16:19:04Z to 16:58:10Z, then #181's six. The state file merged without help. Nothing else overlapped, and against `master` the branch changes its own eight files alone. Run on the merged tree: the Release build with no error and 22 warnings; 1,729 tests green — 813 API, 418 bot, 153 web and 345 for the release-notes tool — with 17 of the tool's skipped on Windows, as before; and the check of the release summaries passes both files. No release pull request is open and 0.37.0 is still the last release, so the summary file keeps its name. Pushed to the pull request with this entry. The question put at 16:58:10Z, whether to merge #180 once its checks are green, is still open: the checks were green on the head before this merge, and they run again on this one.
+**Context**: Build and test — waits for the pull request's checks on the new head and Joshua's go-ahead to merge.
+
+---
