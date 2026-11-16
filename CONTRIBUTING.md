@@ -45,15 +45,59 @@ Versions follow [SemVer](https://semver.org/) and are **computed from commit mes
 
 **Release flow:**
 
-1. Merged PRs accumulate on `master`; release-please maintains a rolling **release PR** (e.g. `chore(master): release 0.2.0`) containing the computed version and CHANGELOG entries.
-2. **Merging the release PR *is* the release.** It creates the `vX.Y.Z` tag, the GitHub Release with notes, and triggers image publishing.
+1. Merged PRs accumulate on `master`; release-please maintains a rolling **release PR** (e.g. `chore(master): release 0.2.0`) containing the computed version and CHANGELOG entries. The release workflow keeps one comment on it that shows the [release summary](#release-summary) the release will go out with, or says that none has been written yet.
+2. **Merging the release PR *is* the release.** It creates the `vX.Y.Z` tag, the GitHub Release with notes, and triggers image publishing. The `release-summary` job then puts the version's summary, when it has one, on top of those notes.
 3. The `publish-images` job re-runs tests on the tagged commit, then pushes Docker images to GHCR:
    - `ghcr.io/jjwren/calcrony-api:{version}` and `:latest`
    - `ghcr.io/jjwren/calcrony-bot:{version}` and `:latest`
    - `ghcr.io/jjwren/calcrony-web:{version}` and `:latest` (nginx-served Blazor app; `API_BASE_URL` is injected at container start)
-4. Deploying a release = `docker login ghcr.io` then point compose at the versioned images and `docker compose pull && docker compose up -d`. The running API reports its version at `GET /health`.
+4. Once the images are published, the `announce-release` job posts the release in the community Discord: a ping for the Release Ping role and a link to the release notes, with the summary underneath.
+5. Deploying a release = `docker login ghcr.io` then point compose at the versioned images and `docker compose pull && docker compose up -d`. The running API reports its version at `GET /health`.
 
 Don't hand-create `v*` tags; let release-please own them. To force a specific version (rarely), put `Release-As: X.Y.Z` in a commit body on `master`.
+
+### Release summary
+
+The changelog lines release-please writes come from PR titles and are written for developers. A **release summary** is the part written for the people who use CalCrony: a few bullets on what changed and a short how-to for anything new or changed. The release workflow puts it on top of the GitHub release notes and into the Discord announcement, exactly as written.
+
+**Where.** One file per release, named for its version: `docs/release-notes/0.38.0.md`. The version is the one in the open release PR's title. If no release PR is open, your change is the first since the last release, and the version follows from it: after 0.37.4 a `feat:` makes 0.38.0 and a `fix:` makes 0.37.5. If a later `feat:` moves the number, rename the file in that PR; the comment on the release PR names a file left behind.
+
+**Who and when.** Whoever opens a PR that changes something users will notice writes the file, or adds to it, in that same PR, next to the README and Docs page edits. Before merging the release PR, read its "Release summary" comment, which shows the file as code so that nothing in it can notify anyone; anything missing or wrong goes in through a small `docs:` PR first. A summary on its own is `docs:`, so it rides with the next release rather than causing one.
+
+**What.** Major changes; minor ones when they matter to users or are all the release has. Plain words, commands in backticks:
+
+```markdown
+### What's new
+
+- **Free slots.** `/availability slots` lists the times a member, or everyone in a role, is free over the next 1 to 14 days.
+
+### How to use it
+
+1. **GM:** save your hours, for example `/settings available-hours set days:weekdays from:6pm to:11pm`.
+2. **Players:** run `/availability slots who:@GM` to see when the GM is free.
+```
+
+**The rules.** The file is posted as written to two places that render Markdown differently, and one of them, GitHub, notifies anyone a text mentions. The `build-test` check holds every file in the folder to these rules:
+
+- The first line is `### What's new`, with at least one bullet under it. `### How to use it` may follow, once, on a line of its own. No other headings, inside a list or a quote either.
+- No tables, images, HTML, footnotes, alert boxes (`> [!NOTE]`), horizontal rules or lines of only dashes or equals signs.
+- Code is written in backticks on one line. Put a space before code that follows a web address or a `$`: GitHub takes a backtick glued to an address as part of the address, and reads code with a `$` glued to each end as a formula. No code blocks, and no backtick without its partner on the same line.
+- `@name` only inside backticks: outside them GitHub notifies the user of that name. A web address with an `@` in it goes in backticks too, or whole in angle brackets where it should stay a link: `<https://example.com/@someone>`, or `[the channel](<https://example.com/@someone>)`.
+- Anything in `<angle brackets>` goes in backticks too, because one side or the other shows it as raw text. A link written as `<https://…>` is fine. No HTML entities such as `&amp;`.
+- No invisible characters: control characters, zero-width spaces, marks that reorder text.
+- At most 1,800 characters. Discord takes 2,000 in a message, and the announcement's first line needs room as well.
+
+The check knows the usual ways a summary goes wrong, and the ways its reviews found to slip a mention past it. It is not a Markdown parser, and GitHub reads more into some text than the check follows. So at release time GitHub itself is asked: it renders the summary, without posting it, and a summary in which it reads a mention of a person or a team is left out.
+
+**Preview.** `dotnet run --project tools/ReleaseNotes -- preview --version 0.38.0` prints the Discord message and the release notes that version would get, and sends nothing; `-- check` runs the rules by hand.
+
+**At release time** a summary can add to a release and cannot hold one back:
+
+- With no file for the version, the notes and the announcement are what they were before summaries existed: the changelog lines, and a ping with a link.
+- A file the check refuses is left out, with the same result. One that is only too long still goes out, cut short for Discord with a pointer to the release notes. (`build-test` is red on a pull request that adds either, so this takes a merge past a red check, or two pull requests that each fit and together do not.)
+- A file in which GitHub reads a mention of a person or a team is left out as well, and so is one GitHub could not be asked about. The check should have refused such a file already; this is the backstop for what it misses.
+- The file is read at the release's tag, so one added after the release PR is merged is too late for that release. Add it to the GitHub release by hand.
+- A step of the `release-summary` job that fails does not end the job red, and the release's images are published without running the summary tests. If the run shows a "Release summary" warning, the summary is not in the announcement and may be missing from the release notes: check them, and add it by hand if it is missing, without the mention if the warning names one. **Do not re-run that job** — a re-run takes the `announce-release` job with it and pings a second time.
 
 ## Issues — how they open and close
 

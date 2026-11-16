@@ -43,8 +43,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # The release-notes tests guard pull requests, not the images. They are left out here, so
+      # that nothing about a release summary can keep a release's images from being published.
       - name: Test release commit
-        run: dotnet test CalCrony.slnx -c Release
+        run: dotnet test CalCrony.slnx -c Release --filter "FullyQualifiedName!~CalCrony.ReleaseNotes.Tests"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -67,23 +69,152 @@ jobs:
           build_and_push src/CalCrony.Bot/Dockerfile calcrony-bot
           build_and_push src/CalCrony.Web/Dockerfile calcrony-web
 
+  # Puts the hand-written summary of this version (docs/release-notes/<version>.md — see
+  # "Release summary" in CONTRIBUTING.md) on top of the GitHub release notes, and hands its
+  # text to announce-release. Without a file for the version it changes nothing. It runs
+  # beside publish-images, so the notes are complete before the announcement links to them.
+  #
+  # Every step that does the work carries on after a failure, so a failed step does not end
+  # this job red. A red job invites "Re-run failed jobs", and re-running this one re-runs
+  # announce-release too, which pings a second time. What went wrong is said by the last step
+  # instead, which only prints.
+  release-summary:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    # A backstop only: the steps have limits of their own, 19 minutes in all, and
+    # announce-release waits for this job.
+    timeout-minutes: 25
+    # contents: write is what editing a release takes; the job edits the release and nothing else.
+    permissions:
+      contents: write
+    outputs:
+      # The announcement carries the summary only when the release notes got it.
+      discord_summary: ${{ steps.edit.outcome == 'success' && steps.render.outputs.discord_summary || '' }}
+    env:
+      RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+      RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        id: checkout
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v4
+        id: sdk
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          dotnet-version: 10.0.x
+
+      # The notes reach notes.md only when the read succeeded, so a file of that name is the
+      # notes and nothing less.
+      - name: Read the notes release-please wrote
+        id: notes
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$RELEASE_TAG" --json body --jq .body > "$RUNNER_TEMP/notes.partial"
+          mv "$RUNNER_TEMP/notes.partial" "$RUNNER_TEMP/notes.md"
+
+      # No token here: this step builds and runs code from the repository. It runs only on
+      # notes that were read: put on top of nothing, the summary would replace the notes.
+      - name: Build the release texts
+        id: render
+        if: steps.notes.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          dotnet run --project tools/ReleaseNotes -c Release -- render \
+            --version "$RELEASE_VERSION" \
+            --notes "$RUNNER_TEMP/notes.md" \
+            --out "$RUNNER_TEMP/release-notes.md" \
+            --summary-out "$RUNNER_TEMP/summary.md" \
+            --github-output "$GITHUB_OUTPUT"
+
+      # The tool's check reads Markdown by rules of its own, and GitHub is the one that decides
+      # whom a release notifies. So GitHub renders the summary here, without posting it, and a
+      # summary in which it reads a mention of a person or a team is left out. So is one GitHub
+      # could not be asked about.
+      - name: Ask GitHub whether the summary mentions anyone
+        id: mentions
+        if: steps.render.outputs.has_summary == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          to_html() {
+            gh api markdown -f mode=gfm -f context="$GITHUB_REPOSITORY" -F text=@"$1"
+          }
+          # A mention is a link with this class; the same words typed into a summary are not one.
+          mention='<a [^>]*class="[^"]*(user|team)-mention'
+          # First a text that is a mention for certain. If GitHub's answer to that one does not
+          # look like a mention, its answer about the summary would mean nothing.
+          printf '@%s\n' "$GITHUB_REPOSITORY_OWNER" > "$RUNNER_TEMP/control.md"
+          to_html "$RUNNER_TEMP/control.md" > "$RUNNER_TEMP/control.html"
+          if ! grep -Eq "$mention" "$RUNNER_TEMP/control.html"; then
+            echo "GitHub did not read @$GITHUB_REPOSITORY_OWNER as a mention, so it cannot be asked about the summary."
+            exit 1
+          fi
+          to_html "$RUNNER_TEMP/summary.md" > "$RUNNER_TEMP/summary.html"
+          # grep answers 0 for a mention and 1 for none; any other answer is no answer, and the
+          # step fails on it as it does on a mention.
+          found=0
+          grep -Eq "$mention" "$RUNNER_TEMP/summary.html" || found=$?
+          if [ "$found" -eq 0 ]; then
+            echo "::warning title=Release summary::GitHub reads a mention of a person or a team in the summary of this release, so the summary was left out. Take the mention out before adding the text to the release notes by hand."
+          fi
+          [ "$found" -eq 1 ]
+
+      - name: Put the summary on top of the release notes
+        id: edit
+        if: steps.render.outputs.has_summary == 'true' && steps.mentions.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+
+      # Only when a summary may be missing: the texts were not built, GitHub read a mention or
+      # could not be asked, or the release was not edited. A step before them that failed
+      # without stopping them — the SDK setup, on a runner that has an SDK — is not news.
+      - name: Say so when the summary could not be added
+        if: ${{ steps.render.outcome != 'success' || steps.mentions.outcome == 'failure' || steps.edit.outcome == 'failure' }}
+        run: echo "::warning title=Release summary::release-summary stopped early. If a summary was written for this release, it is not in the announcement and may be missing from the release notes. Check the release notes, and add the summary by hand if it is missing. Do not re-run this job, because that posts the announcement a second time."
+
   # Posts the release into the community server's #announcements with a real @Release Ping
   # mention — the GitHub-side Discord integration can't mention roles (issue #106). Lives in
   # this workflow for the same GITHUB_TOKEN reason as publish-images, and runs after it so
   # the ping lands once the images are actually pullable. Skips cleanly when the webhook
   # secret is unset.
+  #
+  # release-summary is waited for, not required: when it has nothing to add, or could not add
+  # it, the announcement is the one line it has always been.
   announce-release:
-    needs: [release-please, publish-images]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-please, publish-images, release-summary]
+    if: ${{ !cancelled() && needs.release-please.outputs.release_created == 'true' && needs.publish-images.result == 'success' }}
     runs-on: ubuntu-latest
     # The Discord POST needs no repository access — don't hand it the workflow's write token.
     permissions: {}
     steps:
       - name: Post release to Discord
+        # Named, so that the step runs with pipefail: if jq fails the step fails, whatever the
+        # webhook answers to the empty request curl then sends.
+        shell: bash
         env:
           WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
           RELEASE_URL: ${{ needs.release-please.outputs.html_url }}
+          # This version's hand-written summary when it has one, empty otherwise.
+          SUMMARY: ${{ needs.release-summary.outputs.discord_summary }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
             echo "DISCORD_RELEASE_WEBHOOK secret not set; skipping announcement."
@@ -92,8 +223,86 @@ jobs:
           # Role id of @Release Ping in the community server; ids are public, the webhook URL
           # is the secret. allowed_mentions pins the ping to exactly this role.
           role_id="1543943300132769802"
+          # The summary goes under the usual line when there is one and the whole message stays
+          # inside Discord's 2,000 characters; otherwise the line stands alone.
           jq -n \
             --arg content "<@&${role_id}> **CalCrony ${RELEASE_TAG}** just shipped — release notes: ${RELEASE_URL}" \
+            --arg summary "$SUMMARY" \
             --arg role "$role_id" \
-            '{content: $content, allowed_mentions: {roles: [$role]}}' \
+            '($content + "\n\n" + $summary) as $full
+             | {content: (if $summary != "" and ($full | length) <= 2000 then $full else $content end),
+                allowed_mentions: {roles: [$role]}}' \
           | curl -sf -X POST -H "Content-Type: application/json" -d @- "$WEBHOOK_URL"
+
+  # On a push to master that cuts no release: tells the open release PR what its release will
+  # announce — the summary written for that version, or that none has been written yet. One
+  # comment, found again by its first line and rewritten in place. It blocks nothing.
+  release-summary-preview:
+    needs: release-please
+    # From master only: the comment says what master holds, so a run started from another
+    # branch has nothing to say.
+    if: github.ref == 'refs/heads/master' && needs.release-please.outputs.release_created != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A newer push makes an older preview pointless.
+    concurrency:
+      group: release-summary-preview
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Find the open release PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # release-please's own PR and no other: asked for by its exact branch in this
+          # repository, and taken only when the Actions bot opened it from this repository.
+          gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:release-please--branches--master" \
+            --jq 'map(select(.user.login == "github-actions[bot]" and .head.repo.full_name == .base.repo.full_name)) | first // empty | "number=\(.number)", "title=\(.title)"' \
+            >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.pr.outputs.number != ''
+        with:
+          # The head of master as it is now, whichever commit this run was started for.
+          ref: master
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.pr.outputs.number != ''
+        with:
+          dotnet-version: 10.0.x
+
+      # No token here: this step builds and runs code from the repository.
+      - name: Write the comment
+        if: steps.pr.outputs.number != ''
+        env:
+          PR_TITLE: ${{ steps.pr.outputs.title }}
+        run: |
+          dotnet run --project tools/ReleaseNotes -c Release -- comment \
+            --title "$PR_TITLE" \
+            --out "$RUNNER_TEMP/comment.md"
+
+      - name: Post or update the comment
+        if: steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          if [ ! -s "$RUNNER_TEMP/comment.md" ]; then
+            echo "The tool wrote no comment for this pull request; nothing to post."
+            exit 0
+          fi
+          comments="repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments"
+          ids=$(gh api "$comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- release-summary-preview -->"))) | .id')
+          existing="${ids%%$'\n'*}"
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" \
+              -F body=@"$RUNNER_TEMP/comment.md" --silent
+          else
+            gh api --method POST "$comments" -F body=@"$RUNNER_TEMP/comment.md" --silent
+          fi
