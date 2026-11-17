@@ -394,6 +394,23 @@ is open and waits for its merge.
 
 [Answer]: A — Joshua, 2026-11-16: "Approve, all A".
 
+Q6 — "End of day" beside a day *(asked on 2026-11-17, after the plan was approved; it comes from
+what preparing the change turned up, the second point of section 8)*
+
+`by end of day friday` is Friday at 9 AM today, and with Q1 answered A it would become today at
+11:59 PM, because the recognizer takes "end of day" as the end of today.
+
+- A) Beside a day, "end of day" is that day's last second: `by end of day friday` and
+  `by eod friday` are Friday at 11:59 PM. `eod friday`, `friday eod` and `friday end of day`,
+  which are today at 11:59 PM now, become Friday at 11:59 PM too. Alone, `eod` stays today's.
+  **(Recommended, and how the change is prepared. It is the day that was typed, by the rule of
+  2.4, and it leaves no text reading on a worse day than it does today.)**
+- B) Leave `eod friday` reading as today at 11:59 PM, and keep `by end of day friday` at Friday
+  9 AM by not reading an end-of-day deadline where a day stands beside it.
+- C) Other (describe).
+
+[Answer]:
+
 ## 5. What is added, file by file
 
 For the recommended answers. A different answer drops its rows.

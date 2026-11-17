@@ -1576,3 +1576,10 @@ Availability for @GM
 **Context**: Construction — code generation: the plan is approved; generation in the repository still waits for pull request #180 to be on `master` (Q5).
 
 ---
+## Construction — date text gaps: one question from the preparation put to Joshua (Q6)
+**Timestamp**: 2026-11-17T00:04:24Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Of what preparing the change turned up, one point is a decision and is put to Joshua as Q6 in the plan: what "end of day" means beside a day. A) that day's last second, so `by end of day friday` is Friday at 11:59 PM, and `eod friday`, today at 11:59 PM now, becomes Friday at 11:59 PM as well — recommended, and how the change is prepared; B) leave `eod friday` as it is and keep `by end of day friday` at Friday 9 AM by not reading an end-of-day deadline where a day stands beside it; C) other. Asked: "Read end of day beside a day as that day's last second, as prepared (Q6: A)?" Said with it: the other point, a time beside a range that is under way, needs no decision, because it keeps what is read today; and the change is built in the repository as soon as pull request #180 is on `master`, which at 00:03Z it was not. Nothing is generated in the repository, and nothing is pushed.
+**Context**: Construction — code generation: waits for pull request #180 to be on `master` (Q5), and for Joshua's answer to Q6.
+
+---
