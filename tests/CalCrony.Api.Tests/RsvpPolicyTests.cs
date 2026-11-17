@@ -17,6 +17,9 @@ public class RsvpPolicyTests
     [InlineData("45 minutes before start", 45)]
     [InlineData("1 day before", 1440)]
     [InlineData("30 MIN", 30)]
+    [InlineData("40320m", 40320)] // the longest cutoff there is: four weeks
+    [InlineData("00090 min", 90)]
+    [InlineData("7 D BEFORE START", 10080)]
     public void Relative_text_becomes_minutes_before_start(string text, int expectedMinutes)
     {
         Assert.True(RsvpPolicy.TryParseClose(
@@ -56,6 +59,58 @@ public class RsvpPolicyTests
             "50000 minutes before", DateTimeZone.Utc, Parser, out _, out _, out var error));
 
         Assert.Contains("4 weeks", error);
+    }
+
+    [Theory]
+    [InlineData("\u0663h before")]
+    [InlineData("1\u0663 min")]
+    [InlineData("\uFF15 days before start")]
+    public void Cutoff_text_whose_amount_cannot_be_read_is_refused(string text)
+    {
+        Assert.False(RsvpPolicy.TryParseClose(
+            text, DateTimeZone.Utc, Parser, out var minutes, out var closesAt, out var error));
+
+        Assert.Null(minutes);
+        Assert.Null(closesAt);
+        Assert.Equal($"Couldn't read the RSVP cutoff: Could not understand \"{text}\" as a date/time.", error);
+    }
+
+    [Fact]
+    public void Relative_text_whose_amount_cannot_be_read_is_not_read_as_a_date()
+    {
+        const string text = "\uFF12\uFF11\uFF10\uFF10 m";
+
+        Assert.False(RsvpPolicy.TryParseClose(
+            text, DateTimeZone.Utc, Parser, out var minutes, out var closesAt, out var error));
+
+        Assert.Null(minutes);
+        Assert.Null(closesAt);
+        Assert.Equal($"Couldn't read the RSVP cutoff: Could not understand \"{text}\" as a date/time.", error);
+    }
+
+    [Fact]
+    public void Cutoff_text_with_a_zone_abbreviation_that_has_no_zone_is_refused()
+    {
+        const string text = "friday 5pm A\u212AST";
+
+        Assert.False(RsvpPolicy.TryParseClose(
+            text, DateTimeZone.Utc, Parser, out var minutes, out var closesAt, out var error));
+
+        Assert.Null(minutes);
+        Assert.Null(closesAt);
+        Assert.Equal($"Couldn't read the RSVP cutoff: Could not understand \"{text}\" as a date/time.", error);
+    }
+
+    [Fact]
+    public void An_amount_of_more_than_five_digits_is_not_the_relative_form()
+    {
+        Assert.False(RsvpPolicy.TryParseClose(
+            "100000m", DateTimeZone.Utc, Parser, out var minutes, out var closesAt, out var error));
+
+        Assert.Null(minutes);
+        Assert.Null(closesAt);
+        // Read as a date and time, which it is not: the date parser's refusal, not the range's.
+        Assert.Equal("Couldn't read the RSVP cutoff: Could not understand \"100000m\" as a date/time.", error);
     }
 
     // The filler changes the length and nothing else.

@@ -89,6 +89,30 @@ public class NaturalDateTimeParserTests
         Assert.Contains("past", error);
     }
 
+    [Fact]
+    public void Refuses_missing_text()
+    {
+        var ok = CreateParser().TryResolve(null, Chicago, out var result, out var error);
+
+        Assert.False(ok);
+        Assert.Equal(default, result);
+        Assert.Equal("The date/time text is required.", error);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Empty_or_blank_text_is_still_refused_as_not_understood(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve(text, Chicago, out _, out var error));
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error);
+
+        Assert.False(parser.TryResolveDay(text, Chicago, out _, out error));
+        Assert.StartsWith($"Could not understand \"{text}\" as a day.", error);
+    }
+
     // Both length tests fill the same phrase out with dots, so the texts differ in length alone:
     // one character decides between "read" and "refused". The second phrase carries a zone
     // abbreviation, which is stripped before the recognizer runs — the limit counts the text as
@@ -139,6 +163,20 @@ public class NaturalDateTimeParserTests
     [InlineData("6pm ET", 22)]   // America/New_York, EDT = UTC-4
     [InlineData("6pm PDT", 25)]  // America/Los_Angeles, UTC-7 → next day 01:00
     [InlineData("6pm UTC", 18)]
+    [InlineData("6pm GMT", 18)]
+    [InlineData("6pm EST", 22)]
+    [InlineData("6pm EDT", 22)]
+    [InlineData("6pm CST", 23)]  // America/Chicago, CDT = UTC-5
+    [InlineData("6pm CDT", 23)]
+    [InlineData("6pm CT", 23)]
+    [InlineData("6pm MST", 24)]  // America/Denver, MDT = UTC-6 → next day 00:00
+    [InlineData("6pm MDT", 24)]
+    [InlineData("6pm MT", 24)]
+    [InlineData("6pm PST", 25)]
+    [InlineData("6pm PT", 25)]
+    [InlineData("6pm AKST", 26)] // America/Anchorage, AKDT = UTC-8 → next day 02:00
+    [InlineData("6pm akdt", 26)]
+    [InlineData("6pm Hst", 28)]  // Pacific/Honolulu, UTC-10 → next day 04:00
     public void Zone_abbreviations_cover_common_us_zones(string text, int expectedUtcHour)
     {
         var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
@@ -157,6 +195,52 @@ public class NaturalDateTimeParserTests
 
         Assert.True(ok, error);
         Assert.Equal(Instant.FromUtc(2026, 7, 16, 18, 0), result);
+    }
+
+    [Theory]
+    [InlineData("10am A\u212AST")]
+    [InlineData("a\u212Adt 6pm")]
+    [InlineData("A\u212AST")]
+    [InlineData("10am A\u212AST CST")]
+    [InlineData("sat 6pm A\u212AST")]
+    public void Refuses_a_zone_abbreviation_it_has_no_zone_for(string text)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.False(ok);
+        Assert.Equal(default, result);
+        // The sentence for text that is not understood, with the text as typed.
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error);
+    }
+
+    [Fact]
+    public void A_listed_abbreviation_that_comes_first_selects_the_zone_whatever_follows()
+    {
+        var ok = CreateParser().TryResolve("6pm CST A\u212AST", DateTimeZone.Utc, out var result, out var error);
+
+        Assert.True(ok, error);
+        // 18:00 in America/Chicago (CDT, UTC-5) == 23:00 UTC.
+        Assert.Equal(Instant.FromUtc(2026, 7, 15, 23, 0), result);
+    }
+
+    [Fact]
+    public void A_word_the_zone_pattern_does_not_take_is_left_to_the_recognizer()
+    {
+        var ok = CreateParser().TryResolve("6pm AEST", Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        // Read in the caller's zone: 18:00 CDT == 23:00 UTC.
+        Assert.Equal(Instant.FromUtc(2026, 7, 15, 23, 0), result);
+    }
+
+    [Fact]
+    public void Day_resolution_looks_no_zone_up()
+    {
+        // A day is the caller's whatever zone the text names, so the day reader has no zone to refuse.
+        var ok = CreateParser().TryResolveDay("tomorrow A\u212AST", Chicago, out var day, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(new LocalDate(2026, 7, 16), day);
     }
 
     // ----- Day-level resolution (/availability slots): whole days, today valid until it ends -----
@@ -334,6 +418,16 @@ public class NaturalDateTimeParserTests
         Assert.False(ok);
         Assert.Contains("Could not understand", error);
         Assert.Contains(text, error);
+    }
+
+    [Fact]
+    public void Day_resolution_refuses_missing_text()
+    {
+        var ok = CreateParser().TryResolveDay(null, Chicago, out var day, out var error);
+
+        Assert.False(ok);
+        Assert.Equal(default, day);
+        Assert.Equal("The date/time text is required.", error);
     }
 
     // The day-level reader has the same length limit as TryResolve. As in its tests, both texts

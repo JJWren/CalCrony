@@ -25,6 +25,14 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     private static readonly LocalDateTimePattern LocalPattern =
         LocalDateTimePattern.CreateWithInvariantCulture("uuuu-MM-dd HH:mm:ss");
 
+    /// <summary>The refusal for date/time text that is missing altogether.</summary>
+    private const string MissingError = "The date/time text is required.";
+
+    /// <summary>The refusal for text that is not understood as a date and time.</summary>
+    /// <param name="text">The text, as the refusal quotes it.</param>
+    /// <returns>The user-facing error text.</returns>
+    internal static string NotUnderstoodError(string text) => $"Could not understand \"{text}\" as a date/time.";
+
     // Recognizers silently ignores zone abbreviations, which would otherwise resolve the text in
     // the caller's zone — for unconfigured servers that's UTC, turning "10:00 AM CST" into 10:00
     // UTC (often "in the past"). Abbreviations map to the IANA zone, so a "CST" typed in July
@@ -123,7 +131,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// tomorrow's once today's has passed; and a day the text names outranks a today that is only
     /// implied, so a time written apart from its day ("fri (6pm)") is read on that day. The
     /// earliest reading that is still ahead is the answer.</para></summary>
-    /// <param name="text">The text to parse.</param>
+    /// <param name="text">The text to parse. Text that is missing (null) is refused.</param>
     /// <param name="zone">The IANA zone to resolve in.</param>
     /// <param name="result">The resolved future instant, when successful.</param>
     /// <param name="error">The user-facing error text.</param>
@@ -133,12 +141,17 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// "in 2 hours" and "in 120 minutes" resolve a minute apart. Null = read the clock.</param>
     /// <returns>True when text resolved to a future instant.</returns>
     public bool TryResolve(
-        string text, DateTimeZone zone, out Instant result, out string? error, Instant? referenceInstant = null)
+        string? text, DateTimeZone zone, out Instant result, out string? error, Instant? referenceInstant = null)
     {
-        ArgumentNullException.ThrowIfNull(text);
-
         result = default;
         error = null;
+
+        // No text at all is refused in a sentence of its own.
+        if (text is null)
+        {
+            error = MissingError;
+            return false;
+        }
 
         // Before anything reads the text: a date and a time take a few words, so longer text is
         // refused unread. The length is the text's as typed, a zone abbreviation included.
@@ -150,13 +163,24 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
 
         var zoneRegex = ZoneAbbreviationRegex();
         var zoneMatch = zoneRegex.Match(text);
-        if (zoneMatch.Success
-            && DateTimeZoneProviders.Tzdb.GetZoneOrNull(ZoneAbbreviations[zoneMatch.Value]) is { } explicitZone)
+        if (zoneMatch.Success)
         {
-            zone = explicitZone;
-            // Strip only the token that selected the zone — any further abbreviations in the text
-            // ("6pm ET / 3pm PT") stay put for Recognizers rather than being silently removed.
-            text = zoneRegex.Replace(text, " ", 1).Trim();
+            // The pattern finds the abbreviation and the table says which zone it means. Text
+            // whose abbreviation the table has no zone for is refused as not understood.
+            if (!ZoneAbbreviations.TryGetValue(zoneMatch.Value, out var zoneId))
+            {
+                error = NotUnderstoodError(text);
+                return false;
+            }
+
+            if (DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId) is { } explicitZone)
+            {
+                zone = explicitZone;
+                // Strip only the token that selected the zone — any further abbreviations in the
+                // text ("6pm ET / 3pm PT") stay put for Recognizers rather than being silently
+                // removed.
+                text = zoneRegex.Replace(text, " ", 1).Trim();
+            }
         }
 
         var now = referenceInstant ?? clock.GetCurrentInstant();
@@ -449,19 +473,24 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// user-facing error when the text is over-long, when it repeats, when nothing is recognized,
     /// or when the only days named have passed. A deadline ("by friday") is not read here: it
     /// names a last day, and the caller asks for a first one.</summary>
-    /// <param name="text">The text to parse.</param>
+    /// <param name="text">The text to parse. Text that is missing (null) is refused.</param>
     /// <param name="zone">The IANA zone whose calendar days are meant.</param>
     /// <param name="day">The resolved day — today or later — when successful.</param>
     /// <param name="error">The user-facing error text.</param>
     /// <param name="referenceInstant">The "now" that decides which day is today. Null = read the clock.</param>
     /// <returns>True when text resolved to today or a later day.</returns>
     public bool TryResolveDay(
-        string text, DateTimeZone zone, out LocalDate day, out string? error, Instant? referenceInstant = null)
+        string? text, DateTimeZone zone, out LocalDate day, out string? error, Instant? referenceInstant = null)
     {
-        ArgumentNullException.ThrowIfNull(text);
-
         day = default;
         error = null;
+
+        // As in TryResolve: no text at all is refused in a sentence of its own.
+        if (text is null)
+        {
+            error = MissingError;
+            return false;
+        }
 
         // The same limit as TryResolve, and as there checked before anything reads the text.
         if (text.Length > DateTextLimits.MaxLength)
