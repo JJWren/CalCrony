@@ -14,8 +14,10 @@ NFR and infrastructure stages are skipped: repository settings and release tooli
 it a member sees.
 **Baseline**: `master` 47c8a15 when the branch was cut (pull requests #180 and #183 merged; latest
 release v0.37.0; release pull request #185 open for 0.37.1). `master` then gained #182 and #186, and
-`916ecd1` was taken in as `34c64aa`; then #184, and `723696d` was taken in as `c29f180`. **Branch**: `ci/code-owners-and-pinned-release-action` → PR
-`ci: add a code owners file and name the release action by its commit` (`ci:` cuts no release).
+`916ecd1` was taken in as `34c64aa`; then #184, and `723696d` was taken in as `c29f180`; then #185
+(the release of 0.37.1) and #188, and `e792e1a` was taken in as `bc4faa2`. **Branch**:
+`ci/code-owners-and-pinned-release-action` → pull request #187, `ci: add a code owners file and name
+the release action by its commit` (`ci:` cuts no release).
 **Status**: generated on the local branch on 2026-11-17 and read by two review agents the same day,
 in two rounds (section 7); the findings of both rounds are answered. Joshua answered the completion
 gate B the same day ("B, continue"), so `master` was taken in again and the branch pushed and opened
@@ -27,7 +29,8 @@ Read from GitHub with the owner's login, read-only, unless another source is nam
 
 **The ruleset.** `protect-master` (active, on `refs/heads/master`) has these rules: no deletion, no
 force push, squash as the only merge method, signed commits, Copilot code review on every push, the
-checks `build-test` and `pr-title`, and for pull requests one approving review, stale reviews
+checks `build-test` and `pr-title` (and `lint-workflows`, added to them at 23:13Z the same day, as
+#188's records say), and for pull requests one approving review, stale reviews
 dismissed on a push, approval of the last push, every review thread resolved, one approval more for
 a pull request that Copilot opens and that is credited to no person — and a review by a code owner
 (`require_code_owner_review`). Repository admins bypass the ruleset, always; it is the ruleset as a
@@ -220,13 +223,14 @@ On the tree with `master` (`916ecd1`) taken in and both rounds of the review ans
   runner could not fetch the commit, the job would fail in "Set up job", before the action runs and
   before anything is written; the release pull request would then not be kept up to date, and no
   release made, until the line is put right.
-- **That a code owner's review is asked for.** After the merge, on the pull requests that are open:
-  on the release pull request, GitHub lists a review by a code owner among what is required. On a
-  pull request the owner opened, what GitHub lists is read as well, since its documentation does
-  not say; #184 was merged before this change, so that is read on the next one he opens.
-- **A release under the pinned action.** The first release after this change is merged — 0.37.1, if
-  #185 is merged after it — is the first. It is also the first full run of #181's change, whose
-  plan has that read as its step 5.1.
+- **That a code owner's review is asked for.** After the merge, on the pull requests that are open
+  then: on a release pull request, GitHub lists a review by a code owner among what is required. On
+  a pull request the owner opened, what GitHub lists is read as well, since its documentation does
+  not say. #184 and #185 were both merged before this change, so each is read on the next one.
+- **A release under the pinned action.** The first release after this change is merged. #185 was
+  merged first, at 23:27:30Z on 2026-11-17, so 0.37.1 was released with the action still named by
+  its `v4` tag; its run (44199537457) fetched the same commit, `5c625bf…`, for it. That release was
+  the first full run of #181's change, whose plan has that read as its step 5.1.
 
 ## 5. Not taken
 
