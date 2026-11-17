@@ -1,7 +1,8 @@
 namespace CalCrony.ReleaseNotes.Tests;
 
 /// <summary>The checkout these tests run from, for the tests that read the repository's own
-/// files: its release summaries, its release workflow, and the files kept beside the tests.</summary>
+/// files: its release summaries, its release workflow, its code owners file, and the files kept
+/// beside the tests.</summary>
 internal static class Repository
 {
     private const string SolutionFileName = "CalCrony.slnx";
