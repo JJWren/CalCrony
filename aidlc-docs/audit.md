@@ -1862,3 +1862,10 @@ Availability for @GM
 **Context**: Build and test — #182 is merged; its checks were this fix's build and test. Next, each on its own go-ahead: the release and the prod rollout.
 
 ---
+## Build and test — public calendar day sets: the release waits for #184; the follow-up goes to a session of its own
+**Timestamp**: 2026-11-17T17:08:25Z
+**User Input**: "Not yet, wait for 184"
+**AI Response**: His answer to "Build and test complete. Ready to proceed to Operations stage?", put at 17:06Z after the merge with two choices: A) release 0.37.1 now from this session; B) not yet, wait for pull request #184, so that one release carries all three fixes. B was the recommendation, and B is his answer, so nothing is released from this session now. Read at 17:08Z: `master` is `4fdfa60`; the release pull request #185 (0.37.1) is open and lists #180 and #182; #184 is open and has to take `master` in first; the latest release is v0.37.0. He also started the follow-up proposed with that report as a session of its own: the fix for a posted occurrence moved later, which he decided in Q2 should be a change of its own. Nothing of that work is done here. This fix now waits for the release that carries it and for the rollout, each on his go-ahead, in whichever session he gives it; these records go out as a docs pull request after that.
+**Context**: Build and test — complete. Operations waits for #184 and for Joshua's go-ahead to release.
+
+---
