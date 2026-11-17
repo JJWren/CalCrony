@@ -14,11 +14,12 @@ NFR and infrastructure stages are skipped: repository settings and release tooli
 it a member sees.
 **Baseline**: `master` 47c8a15 when the branch was cut (pull requests #180 and #183 merged; latest
 release v0.37.0; release pull request #185 open for 0.37.1). `master` then gained #182 and #186, and
-`916ecd1` was taken in as `34c64aa`. **Branch**: `ci/code-owners-and-pinned-release-action` → PR
+`916ecd1` was taken in as `34c64aa`; then #184, and `723696d` was taken in as `c29f180`. **Branch**: `ci/code-owners-and-pinned-release-action` → PR
 `ci: add a code owners file and name the release action by its commit` (`ci:` cuts no release).
 **Status**: generated on the local branch on 2026-11-17 and read by two review agents the same day,
-in two rounds (section 7); the findings of both rounds are answered. Nothing is pushed. The push and
-the pull request, a run by hand and the merge each wait for Joshua's go-ahead.
+in two rounds (section 7); the findings of both rounds are answered. Joshua answered the completion
+gate B the same day ("B, continue"), so `master` was taken in again and the branch pushed and opened
+as a pull request (step 4.1). A run by hand and the merge each wait for his go-ahead.
 
 ## 1. What exists today (verified 2026-11-17)
 
@@ -192,6 +193,10 @@ On the tree with `master` (`916ecd1`) taken in and both rounds of the review ans
 - A Release build of the whole solution from scratch: no errors and the baseline's 22 warnings.
 - The whole suite, 18:24Z to 18:25Z: 1,763 tests, 1,746 green and the 17 skipped (827 API, 418
   bot, 153 web, 365 release notes).
+- Again on the merged tree `c29f180`, after `master` (`723696d`, #184) was taken in, 23:09Z to
+  23:14Z: a Release build with no errors and the baseline's 22 warnings, then the whole suite,
+  1,801 tests, 1,784 green and the same 17 skipped (865 API, 418 bot, 153 web, 365 release notes);
+  #184 accounts for the 38 more in the API project.
 
 ## 4. What only GitHub can show, and when
 
@@ -217,8 +222,8 @@ On the tree with `master` (`916ecd1`) taken in and both rounds of the review ans
   release made, until the line is put right.
 - **That a code owner's review is asked for.** After the merge, on the pull requests that are open:
   on the release pull request, GitHub lists a review by a code owner among what is required. On a
-  pull request the owner opened, such as #184, what GitHub lists is read as well, since its
-  documentation does not say.
+  pull request the owner opened, what GitHub lists is read as well, since its documentation does
+  not say; #184 was merged before this change, so that is read on the next one he opens.
 - **A release under the pinned action.** The first release after this change is merged — 0.37.1, if
   #185 is merged after it — is the first. It is also the first full run of #181's change, whose
   plan has that read as its step 5.1.
@@ -264,8 +269,11 @@ Each is a change or a decision of its own.
       more (section 7, second round).
 - [x] 3.4 The second round answered, and the checks of 2.5 run again. These answers were checked by
       running the agents' own cases again, and were not read again by an agent.
-- [ ] 4.1 Completion gate. On Joshua's go-ahead: `master` taken in if it has moved, the branch
+- [x] 4.1 Completion gate. On Joshua's go-ahead: `master` taken in if it has moved, the branch
       pushed, the pull request opened, and GitHub asked whether it reads the code owners file.
+      Answered B on 2026-11-17 ("B, continue"): `master` `723696d` (#184) taken in as `c29f180`,
+      and the whole suite run again on it (section 3). GitHub's answer on the code owners file is
+      in the pull request's description.
 - [ ] 4.2 On his go-ahead: the workflow started once by hand from the branch, its result in the
       pull request's description.
 - [ ] 4.3 On his go-ahead: the squash merge.
