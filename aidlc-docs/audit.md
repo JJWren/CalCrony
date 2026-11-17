@@ -1691,3 +1691,10 @@ Availability for @GM
 **Context**: Build and test — plan step 7.2 complete. Next: the two live items on the test stack (`/create` with `when:"sat 6pm"`; `when:sat` and `when:sun` on `/availability slots`), recorded from the stack's logs once Joshua has run them; then the release of 0.37.1 and the prod rollout, each on its own go-ahead.
 
 ---
+## Build and test — short weekend days: the two live items put to Joshua
+**Timestamp**: 2026-11-17T16:47:28Z
+**User Input**: (none — a question put to Joshua; no answer yet)
+**AI Response**: Asked, with the report of the merge and of the test stack: "Have you run the two live items on the test server?", with the answers "Done, read logs" and "Skip live items", the first recommended. The two items, from the live script, typed that day, a Tuesday: `/create` with `when:"sat 6pm"`, which should give Saturday the 21st at 6 PM; and `/availability slots` with `when:sat` and again with `when:sun`, whose lists should start on Saturday the 21st and on Sunday the 22nd. A pass is recorded only from what the stack's log or its database shows afterwards. The release of 0.37.1 was not asked in the same message: it is its own question, after this one. Read at the same time: the release pull request #185 open and unchanged, and `master` at `b582c2b`.
+**Context**: Build and test — waiting for Joshua. Nothing is released or rolled out.
+
+---
