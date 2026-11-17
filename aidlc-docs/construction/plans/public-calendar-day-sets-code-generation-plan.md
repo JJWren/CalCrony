@@ -10,9 +10,9 @@ on one weekday only; this session was to confirm or refute that with a failing t
 Joshua the same day as written, with Q1 and Q2 both answered A (section 5). Generated the same
 day and reviewed by two agents, whose findings are answered (section 8). Approved at the
 completion gate on 2026-11-17 ("B) Continue"), pushed as one commit, and opened as pull request
-#182, which was merged the same day as `4fdfa60` on Joshua's "Merge when green". Released the
-same day in v0.37.1, beside #180 and #184, and rolled out to prod, each on Joshua's go-ahead
-(the end of section 8).
+#182, which was merged as `4fdfa60` the same day, on Joshua's "Merge when green". The fix was
+released that evening in v0.37.1, beside #180 and #184, and rolled out to prod, each step on
+its own go-ahead from Joshua (the end of section 8).
 
 A small fix, so the workflow runs at minimal depth: the task is the requirement; no user stories,
 application design, units, NFR or infrastructure stages; one unit, and this file is both its
@@ -369,21 +369,23 @@ On that tree the Release build has no error and the same 22 warnings, and 1,743 
 none fails (827 API, of which #180 brought 92; 418 bot; 153 web; 345 for the release-notes tool).
 
 Before that merge was pushed, #183 was merged too, so `master` (`47c8a15`) was taken in a third
-time, on the same terms; on this branch it changed only the audit log and the state file, and
-the suite gave the same totals. Both agents read the merge of #180 and the records up to it
-before the push; the merge of #183 holds no new text of this fix and was checked by git. The
-branch was pushed at `46ce2cb`, its checks passed — `build-test`, `pr-title`, the new
-`lint-workflows`, both CodeQL analyses and the secret scan — and pull request #182 was
-squash-merged on 2026-11-17 at 17:02:32Z as `4fdfa60`, whose tree is the tree of `46ce2cb`.
+time, on the same terms; of the files this branch changes, #183 touched only the audit log and
+the state file, the two that conflicted, and the suite gave the same totals. Both agents read
+the merge of #180 and the records up to it before the push; the merge of #183 holds no new text
+of this fix and was checked by git. The branch was pushed at `46ce2cb`, its checks passed —
+`build-test`, `pr-title`, the new `lint-workflows`, both CodeQL analyses and the secret scan —
+and pull request #182 was squash-merged on 2026-11-17 at 17:02:32Z as `4fdfa60`, whose tree is
+the tree of `46ce2cb`.
 
 **Release and rollout**
 
-Joshua had the release wait for #184, so that one release carried all three fixes. It was
+Joshua had the release wait for #184, so that one release carried all three fixes. The fix was
 released on 2026-11-17 in v0.37.1: the release pull request #185 was merged at 23:27:30Z as
 `eb6afb8`, and the release notes open with the summary from `docs/release-notes/0.37.1.md`,
 this fix's line among it. Prod was moved to 0.37.1 the same evening, after a backup of its
 database, with the database container left as it was, and its `/health` has reported 0.37.1
-since 23:36Z. Both steps were run from the session working on #184, on Joshua's go-ahead given
-there, and read again here. No public calendar was looked at live, on the test stack or on
-prod: the test data held no weekly event on several days, and a check that would have made one
-there was offered and not run.
+since 23:36Z. Both steps were run from the session working on #184, each on its own go-ahead
+from Joshua there, and read again here. No public calendar was looked at live. The test data
+held no weekly event on several days, and a check that would have made one there was offered
+and not run; on prod, the calendars belong to the servers that use the instance, and none was
+opened.
