@@ -1670,3 +1670,17 @@ Availability for @GM
 **Context**: Build and test — waits for the pull request's checks on the new head and Joshua's go-ahead to merge.
 
 ---
+## Build and test — short weekend days: go-ahead to merge
+**Timestamp**: 2026-11-17T16:31:59Z
+**User Input**: "Merge now"
+**AI Response**: Joshua's answer to "Merge pull request #180 now?". That is the question of 16:58:10Z the day before ("Merge pull request #180 once its checks are green?"), put again in those words from 01:10Z on 2026-11-17, when the checks had gone green on the head `9facd68`. The repeat was not logged when it was put: an entry would have been a new commit on the pull request and would have started its checks again. The clock was read at 16:31:59Z, the first thing after his answer. Read then: the pull request open on head `9facd68` and mergeable; six checks green and one skipped by design (`publish-main`, which runs on `master` only); no review started, none requested, no comment; auto-merge off; `master` still at `ab32e96`, which the branch holds. Next: the squash merge through the REST call, naming that head.
+**Context**: Build and test — the merge approved (plan step 7.2). The release and the prod rollout stay separate go-aheads.
+
+---
+## Build and test — short weekend days: pull request #180 merged
+**Timestamp**: 2026-11-17T16:36:36Z
+**User Input**: (none — continuation of "Merge now")
+**AI Response**: Pull request #180 was squash-merged at 16:36:36Z (GitHub's `mergedAt`) as `b582c2b`, through the REST merge call with the keyring login, naming the head `9facd68` so that no other head could be merged; the pull request and `master` were read once more at 16:36:31Z and were as before. Title: `fix: read sat and sun as Saturday and Sunday in date text (#180)`. Checked after: `master`'s tree is the tree of `9facd68`, its parent is `ab32e96`, the message on `master` is the message sent, and it carries no attribution line. GitHub removed the branch `fix/short-weekend-days`. The message is the pull request's description with three differences, and the description itself is left as it was. The test count is the one from the second merge of `master`: 1,729, where the description has the 1,723 of the first. The sentence about `master` having moved names both merges. And the two examples that carry an `@` name are not in it: one is written `who:<a role>`, as the live script writes it, and the quoted copy of the release summary file is left out, the file being in the commit. A commit message is plain text, where such a name can reach a real account. The merge started three runs on `master`: CI `44127732914`, which builds and publishes the `:main` images, CodeQL `44127733178` and release-please `44127732988`. This entry and the one above are on a local branch cut from the new `master`, `docs/log-short-weekend-days-merge`, because the merged branch can take no more commits. It is not pushed.
+**Context**: Build and test — merged (plan step 7.2, its first half). Next: the test stack takes `:main` once the images are published, then the two live items. The release of 0.37.1 and the prod rollout each wait for their own go-ahead.
+
+---
