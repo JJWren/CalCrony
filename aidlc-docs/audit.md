@@ -1988,3 +1988,10 @@ Availability for @GM
 **Context**: Build and test — the records pull request: push and open, on Joshua's go-ahead.
 
 ---
+## Workflow linter — records pull request #188 opened; its merge asked
+**Timestamp**: 2026-11-17T23:24:25Z
+**User Input**: (none — continuation of "Push and open")
+**AI Response**: The branch `docs/log-workflow-lint-merge` was pushed with the keyring login at 23:23:53Z — four commits, one of them the merge of `master`, none with an attribution line — after a script had read everything it adds, and the description, for a local path, an address, anything shaped like a token, a mention outside backticks and a hidden character, and found nothing. Pull request #188, `docs: log the workflow linter through its merge`, was opened against `master` at 23:24:00Z. Its checks started at once, `lint-workflows` among them, now a required check. "Auto-fix pull requests" is on for this session for this pull request as well; auto-merge is off. This entry goes out as its second push, records only. Asked of Joshua, in the next-step box: "Squash-merge pull request #188 once its checks are green?", its answers "Merge now" and "Not yet". On "Merge now" the go-ahead is logged on the branch first, and the merge is the REST call with the head named, once the checks on that head are green.
+**Context**: Build and test — records pull request #188 open; its merge waits for Joshua's go-ahead.
+
+---
