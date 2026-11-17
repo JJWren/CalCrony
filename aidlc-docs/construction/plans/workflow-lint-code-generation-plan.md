@@ -31,8 +31,8 @@ and D1–D9 stand.
   script. A mistake there shows after the merge — in the release roll, in the `:main` images, or at
   the next release in its images and its announcement.
 - **What reads the files before a merge today**: the tests in `tests/CalCrony.ReleaseNotes.Tests`
-  read `release-please.yml` as text and pin three of its jobs (since pull request #181, the image
-  job as well: section 10). No test reads `ci.yml` or `codeql.yml`. Nothing checks a shell script unless a test runs it, which three steps' scripts are.
+  read `release-please.yml` as text and pin three of its jobs (since pull request #181, the two
+  older jobs as well, so all five: section 10). No test reads `ci.yml` or `codeql.yml`. Nothing checks a shell script unless a test runs it, which three steps' scripts are.
 - **The ruleset** `protect-master` requires two checks by name, `build-test` and `pr-title`.
   Repository admins bypass it, which is how pull requests are merged here.
 - **How actions are named**: the workflows name their actions by major tag
@@ -120,7 +120,8 @@ moved. Section 10 has the table as it is on `master` now.
 - **Its lists are as old as its release.** actionlint 1.7.12 does not know the label
   `ubuntu-26.04`: a copy of `codeql.yml` naming it is refused as an unknown label, and passes once
   the label is declared in `.github/actionlint.yaml`. The workflows name `ubuntu-latest`, so
-  nothing is refused today.
+  nothing is refused today. (Not so in the job as it stands, which takes nothing from that file:
+  section 11 has what does let such a label through.)
 - It is not a security review of the workflows: it does not ask for pinned actions or narrower
   permissions.
 
@@ -174,8 +175,8 @@ request after all, but once the ruleset does.)
 | D3 | `actions/checkout` is pinned to a commit, `3d3c42e5aac5ba805825da76410c181273ba90b1`, the tag `v7.0.1` (the current release; it declares Node.js 24), with `persist-credentials: false`. The other jobs stay on `@v4`. | The task asks for a commit where an action is used. v7.0.1 rather than the commit behind `@v4` (v4.4.0, `11d5960a…`): a new job has no reason to start on a release line that already runs with a deprecation notice. Raising the other jobs is a change of its own (section 8). |
 | D4 | shellcheck is given to actionlint by its path, and each tool prints its version before the lint. (Tightened after review, section 10: one variable holds the folder for all three lines.) | Section 2: actionlint is silent when it cannot run shellcheck. A missing or broken binary fails the step at the version line, and every run's log says what did the checking. |
 | D5 | `permissions: contents: read`, nothing else; `timeout-minutes: 5`. | As asked. The job needs the files and nothing more; it holds no secret and posts nothing. |
-| D6 | No ignore and no configuration file. Every finding fails the check, shellcheck's at every level, down to an unquoted variable (row 8). (After review, section 10: the job is now told to read no configuration file, where this only said there was none; "every finding" means every one the two tools report, and actionlint itself leaves seven of shellcheck's rules out; and the comment goes on the line above the command.) | The files pass as they are, so there is nothing to except. If a finding ever has to be excepted, it is with a `# shellcheck disable=SC…` comment on that line of the script, the reason beside it, and never a rule switched off for the whole run. |
-| D7 | `CONTRIBUTING.md` gets a short part under "Pull request cycle": what the check is, how to run it locally (install the two tools, run `actionlint` in the repository root), which versions CI pins, and that actionlint is silent without shellcheck. Step 3 of the cycle names the check. | As asked. One place, and no per-system install commands to keep true: it links to the two projects' own install pages. |
+| D6 | No ignore and no configuration file. Every finding fails the check, shellcheck's at every level, down to an unquoted variable (row 8). (After review, section 10: the job is now told to take nothing from a configuration file, where this only said there was none; "every finding" means every one the two tools report, and actionlint itself leaves seven of shellcheck's rules out; and the comment goes on the line above the command.) | The files pass as they are, so there is nothing to except. If a finding ever has to be excepted, it is with a `# shellcheck disable=SC…` comment on that line of the script, the reason beside it, and never a rule switched off for the whole run. |
+| D7 | `CONTRIBUTING.md` gets a short part under "Pull request cycle": what the check is, how to run it locally (install the two tools, run `actionlint` in the repository root), which versions CI pins, and that actionlint is silent without shellcheck. Step 3 of the cycle names the check. (After review, section 10: it names no version, and points at `ci.yml` for them, so that raising a pin leaves nothing behind here.) | As asked. One place, and no per-system install commands to keep true: it links to the two projects' own install pages. |
 | D8 | Two review agents, one on security and one on correctness, read the local commit before the completion gate, as on the last changes. Copilot's review, if it starts on the pull request, is answered as well. | The practice here since Copilot's review stopped starting by itself. The diff is small, so one round is expected. Say so at this gate if a change this small should go without. |
 | D9 | Outward steps one at a time, each on Joshua's own go-ahead: the push and the pull request at the completion gate; the merge asked separately, through the REST call. | The repository's process. Auto-merge stays off. |
 
@@ -260,6 +261,10 @@ reads the workflow files (below)." And after the five steps:
 > finding is reported at the step's `run:` line; the message carries the line and column inside
 > the script.
 
+(The text above is the part as approved. Sections 10 and 11 changed it: it names no version, says
+what the linter does not see and how one finding is excepted, and does not call the check required
+yet.)
+
 With Q1 A, that part says the check is required, and the paragraph on the `protect-master` ruleset
 names it beside `build-test` and `pr-title`. With B or C, it says the check blocks nothing.
 
@@ -290,7 +295,7 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 - [ ] 4.2 At the completion gate, on his go-ahead: `master` taken in first if it has moved, the branch pushed, the pull request opened with the evidence of section 2 in its description. (`master` was taken in once already, on 2026-11-17 as `43076bf`, because the review's evidence had to be restated on it: section 10. It is taken in again here if it has moved since. The description carries the table of section 10.)
 - [ ] 4.3 On the pull request: `lint-workflows` green — its first run on GitHub's runner — with `build-test` and `pr-title`; Copilot's review answered if it starts.
 - [ ] 4.4 On his separate go-ahead: the squash merge through the REST call. It cuts no release.
-- [ ] 4.5 After the merge: the job's run on the push to `master` read. With Q1 A, Joshua then adds the check to the ruleset, and that is recorded.
+- [ ] 4.5 After the merge: the job's run on the push to `master` read. With Q1 A, Joshua then adds the check to the ruleset, and that is recorded. (Since the review: once the ruleset names the check, the two sentences of `CONTRIBUTING.md` that call it required go in with those records — the paragraph on the ruleset, and "It is a required check" in the new part.)
 
 ## 7. Risks and limits
 
@@ -298,10 +303,10 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 |---|---|
 | The job fails on GitHub's runner for a reason this machine could not show (another Ubuntu, another `tar` or `xz`). | The pull request's own run is the test, before any merge. If `xz` were missing there, shellcheck also ships a `.tar.gz`; the pin would move to it. (Review: those `.tar.gz` files were added to the release five months after it, so that move would be weighed first. And the tool that differs most on the runner is `sha256sum`: section 10.) |
 | A release archive is replaced upstream, or GitHub cannot serve it. | The checksum refuses a replaced file, and a failed download fails the step: red, never a silent pass. A re-run clears a failed download; a mismatch is looked into, not re-pinned blindly. |
-| The pinned linter grows old: new runner labels, new inputs of an action, new syntax. | It shows as a finding on a pull request that uses the new thing (section 2: `ubuntu-26.04`). The answer then is a newer actionlint, pinned the same way, or the one label declared in `.github/actionlint.yaml`. Nothing raises the pins by itself; the comment in the job says how. (After review: the job reads no configuration file, so a label could only be declared in a file the job is told to read, through its own flag. Section 10.) |
+| The pinned linter grows old: new runner labels, new inputs of an action, new syntax. | It shows as a finding on a pull request that uses the new thing (section 2: `ubuntu-26.04`). The answer then is a newer actionlint, pinned the same way, or the one label declared in `.github/actionlint.yaml`. Nothing raises the pins by itself; the comment in the job says how. (After review: the job takes nothing from a configuration file, and there is no newer actionlint yet. What lets one such label through is an `-ignore` for that one message on the job's last line. Sections 10 and 11.) |
 | A finding nobody agrees with blocks a pull request. | D6: a narrow exception on the line, with its reason. |
-| A pull request changes the job itself to check less. | It lints the pull request's own copy of the workflows, the job included, so such a change is in the diff under review like any other. (Review named two more ways to check less: a configuration file in the repository, which the job no longer reads, and `SHELLCHECK_OPTS` set in the workflow, which is in the diff like the job. Section 10.) |
-| A contributor's local run passes and CI's does not. | `CONTRIBUTING.md` names the versions and the case that causes it most often, shellcheck missing locally. |
+| A pull request changes the job itself to check less. | It lints the pull request's own copy of the workflows, the job included, so such a change is in the diff under review like any other. (Review named two more ways to check less: a configuration file in the repository, from which the job now takes nothing, and `SHELLCHECK_OPTS` set in the workflow, which the job now unsets. Sections 10 and 11.) |
+| A contributor's local run passes and CI's does not. | `CONTRIBUTING.md` names the versions and the case that causes it most often, shellcheck missing locally. (After review it points at `ci.yml` for the versions.) |
 
 ## 8. Not in this change
 
@@ -342,6 +347,11 @@ required check", and the paragraph on the ruleset names `lint-workflows` beside 
   | the first form, placed above an earlier command instead | fails, SC2086 |
 
   So an exception covers the one command it stands above, which is what the paragraph says.
+  (Round 1 of the review: a "command" can be a whole function, `if` or block, and the paragraph
+  now says so. Section 10.)
+
+(The next paragraph no longer holds: after review `CONTRIBUTING.md` does not call the check
+required until the ruleset names it. Section 10.)
 
 **Until the ruleset is changed, `CONTRIBUTING.md` is ahead of it.** The text says the check is
 required from the moment this is merged. It becomes so when Joshua adds it to `protect-master`
@@ -397,8 +407,9 @@ unless every entry of each side is there once and whole and each side's own orde
 What that changes in sections 1, 2 and 9, which describe `master` at `4af1305` and are left as
 written but for their marks:
 
-- The release-notes tests now pin `publish-images` as well. Row 6, the missing brace in that job's
-  script, was "the one the tests pass". It fails one test now
+- The release-notes tests now pin the two older jobs as well, `release-please` and
+  `publish-images`, so all five. Row 6, the missing brace in the image job's script, was "the one
+  the tests pass". It fails one test now
   (`The_images_job_may_read_the_repository_and_push_packages_and_names_its_token_for_the_login_alone`),
   so all seven copies made from `release-please.yml` fail a test.
 - On the unchanged file 344 tests pass and 17 are skipped, on Windows (it was 338 and 17).
@@ -436,8 +447,8 @@ silence when shellcheck cannot be run.
 | # | Finding | Answer |
 |---|---|---|
 | Q1, major; S6, note | `master` had moved, and the evidence described a `master` that no longer exists. | Above: `master` taken in, the evidence run again on it, the statements marked. |
-| S1, minor | A configuration file in the pull request switches any finding off, without a word. actionlint reads `.github/actionlint.yaml` from the tree it lints, which is the pull request's. Tried here: a file that ignores every finding, beside the missing brace of row 6, ends 0. | The job passes `-config-file /dev/null`, so it reads no configuration file. The same copy ends 1. A finding can then be excepted only in the workflow files themselves: one command by a shellcheck comment in its script, a whole run or a runner label actionlint does not know only in the job. (The job's comment first said "no file in the repository can switch a finding off", which the shellcheck comment contradicts; reworded before the reviewers' confirmation.) |
-| Q5, minor | The version lines guarded the two binaries, not the path handed to `-shellcheck`: with only the flag's path misspelt, the step printed both versions and ended 0 on a broken copy. And a green log said nothing about what had been read. | One variable holds the folder for the three lines, so the path cannot be right in one and wrong in another. `-verbose` puts in the log the files that were read, the count of findings, and any rule that was left out. It names pyflakes there when the runner has none, which the security reviewer found to be so on both images: that rule checks steps written in Python, and there are none. |
+| S1, minor | A configuration file in the pull request switches any finding off, without a word. actionlint reads `.github/actionlint.yaml` from the tree it lints, which is the pull request's. Tried here: a file that ignores every finding, beside the missing brace of row 6, ends 0. | The job passes `-config-file /dev/null`, so it takes nothing from a configuration file (round 2: it still parses one that is there; section 11). The same copy ends 1. A finding can then be excepted only in the workflow files themselves: one command by a shellcheck comment in its script, a whole run or a runner label actionlint does not know only in the job. (The job's comment first said "no file in the repository can switch a finding off", which the shellcheck comment contradicts; reworded before the reviewers' confirmation.) |
+| Q5, minor | The version lines guarded the two binaries, not the path handed to `-shellcheck`: with only the flag's path misspelt, the step printed both versions and ended 0 on a broken copy. And a green log said nothing about what had been read. | One variable holds the folder for the three lines, so the path cannot be right in one and wrong in another. `-verbose` puts in the log the files that were read, the count of findings, and any rule that was left out. It names pyflakes there when the runner has none, which the security reviewer found to be so on both images: that rule checks steps written in Python, and there are none. (Round 2: the path could still be wrong at the flag alone, and `-verbose` names shellcheck and pyflakes only, not the seven rules. Section 11.) |
 | S4, minor; Q9 | The checksum check rests on the runner's `sha256sum`. The reviewers read, from this repository's recent job logs and from the runner-images repository, that the Ubuntu 26.04 image ships the Rust coreutils (uutils 0.10.0), while every wrong-pin run here used GNU coreutils 9.4; and a pull request's green run only ever shows the accepting path. Both read uutils' source at that version and found no fault; neither ran it, and nor did I. | A control before the real check: a checksum of 64 zeros has to be refused, or the step stops. Tried here with a stand-in `sha256sum` that accepts anything: the step ends 1 with nothing unpacked, where the step as first built would have gone on to unpack. So every run, on whatever image, shows the refusing path as well. |
 | S8, note | curl could follow a redirect to an address that is not HTTPS. The checksums never rested on that. | `--proto '=https' --tlsv1.2` on both downloads. Tried: both archives download as before. |
 | Q2, minor | The reason given in the job's comment and in `CONTRIBUTING.md` was not true of the release workflow: a slip in it does fail `build-test`, through the tests that pin its text. And the comment did not name `publish-main`, which is the job nothing reads. | Both reworded: no check on a pull request executes `release-please.yml` or `publish-main`; the tests that pin the release workflow's text cannot say whether a changed line is valid, and no test reads `ci.yml`. |
@@ -447,7 +458,7 @@ silence when shellcheck cannot be run.
 | S2, Q6, minor | The paragraph on excepting a finding said an exception covers one command. A command can be a whole function, `if` or block. Tried here: `disable=SC2086` above `build_and_push() {`, or above an `if`, passes an unquoted variable inside; `disable=all`, or the four SC1… codes, above the function with its brace missing ends 0, so a script that does not parse passes. And actionlint's own findings take no such comment. | The paragraph says: one simple command; not above a function, an `if`, a loop or a block; never `disable=all` or an SC1… code; and for actionlint's own findings a newer actionlint, pinned the same way. |
 | Q7, nit | The versions stood in `CONTRIBUTING.md` too, twice, where raising a pin would leave them behind. | `CONTRIBUTING.md` names no version: "CI pins one version of each — `ci.yml` has the versions, and the checksums of the Linux archives". The install link points at actionlint's current page, not at one release. |
 | Q8, nit | "Pinned to a commit, like everything this job fetches": the two archives are held to a version and a checksum, not to a commit. | "Pinned like everything this job fetches: here to a commit, the one the v7.0.1 tag names." |
-| S7, note | When a pin is raised there is a stronger check for actionlint than the checksum file, which sits in the same release as the archive: its build attestation. Tried here: `gh attestation verify` passes for the pinned archive. shellcheck has none. | Recorded here for whoever raises the pins; not put into the job, which would then need a token and a call to GitHub for one of its two tools. |
+| S7, note | When a pin is raised there is a stronger check for actionlint than the checksum file, which sits in the same release as the archive: its build attestation. Tried here: `gh attestation verify` passes for the pinned archive. shellcheck has none. | Recorded here for whoever raises the pins; not put into the job, which would then need a token and a call to GitHub for one of its two tools. (Round 2: the job's comment on raising a pin names it after all. Section 11.) |
 | S9, note | For the owner: the two required checks in the ruleset name no source, so any app could report them; when `lint-workflows` is added, GitHub Actions can be chosen as its source. And section 1 listed three settings of the repository that the files do not show. | The first is passed on to Joshua with step 4.5. The second is reworded in place; the earlier wording stays in this branch's first commit, and says nothing the workflow files do not let a reader infer but that the default token is read-only. |
 | Q9, nits | In these records: the table's header said "first finding" where rows 5 and 6 quote the second; section 9 counted two differences where there are three; "five files" fetched left out two parts of release pages; section 1 had `pr-title` running on a push; the list of the WSL tools left out `sha256sum`; and Q1's "cannot turn red by itself" leaves out the runner image, which is not pinned. | Each corrected in place and marked. |
 | Q3, addendum | Q1's "it never leaves a pull request waiting" does not hold for a pull request that is already open when the check becomes required: it has no such check until its next push. #180 is one. | Marked under Q1, and passed on to Joshua with step 4.5. |
@@ -493,8 +504,9 @@ an `if:` that is always true, and shellcheck's findings of every level.
       # Both linters come from their projects' releases on GitHub, each held to one version and
       # to the SHA-256 of its linux x86_64 archive. To move to a newer release, change a version
       # and its checksum together. actionlint lists its checksums in the release's
-      # actionlint_<version>_checksums.txt; shellcheck publishes none, so take the digest GitHub
-      # lists for the archive on the release page.
+      # actionlint_<version>_checksums.txt, and `gh attestation verify <archive> -R
+      # rhysd/actionlint` checks an archive against the build that made it. shellcheck publishes
+      # neither, so take the digest GitHub lists for the archive on the release page.
       - name: Download actionlint and shellcheck
         env:
           ACTIONLINT_VERSION: "1.7.12"
@@ -513,36 +525,46 @@ an `if:` that is always true, and shellcheck's findings of every level.
             echo "sha256sum accepted a checksum of 64 zeros, so it cannot be asked about the real ones."
             exit 1
           fi
-          # Checked before anything is unpacked: a file that is not the pinned one stops the job.
-          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz \
-            | sha256sum --check --strict -
+          # Then the real ones, each asked the same way, before anything is unpacked: a file
+          # that is not the pinned one stops the job.
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz | sha256sum --check --strict -
+          printf '%s  %s\n' "$SHELLCHECK_SHA256" shellcheck.tar.xz | sha256sum --check --strict -
           mkdir lint-tools
           tar -xzf actionlint.tar.gz -C lint-tools actionlint
           tar -xJf shellcheck.tar.xz -C lint-tools --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
       # actionlint leaves the shell checks out, and says nothing, when it cannot run shellcheck.
-      # So each tool prints its version first, from the one folder the lint then takes both
-      # from: a tool that does not run fails the step there. -verbose puts in the log which
-      # files were read and any rule that was left out. It names pyflakes there when the runner
-      # has none: that rule checks steps written in Python, and there are none. -config-file
-      # /dev/null: actionlint reads no configuration file, so a finding can be excepted only in
-      # the workflow files themselves, by a shellcheck comment in the script it is about or in
-      # this job.
+      # So each tool's path is written once, and the tool prints its version from it first: a
+      # tool that does not run fails the step there, and with set -u so does a misspelt name.
+      # -verbose puts in the log which files were read and whether shellcheck or pyflakes was
+      # left out (pyflakes is, when the runner has none: it checks steps written in Python, and
+      # there are none). SHELLCHECK_OPTS is unset and -config-file /dev/null is given so that
+      # neither a variable set elsewhere in a workflow nor a configuration file in the
+      # repository can switch findings off.
       - name: Lint the workflow files
         run: |
-          tools="$RUNNER_TEMP/lint-tools"
-          "$tools/actionlint" -version
-          "$tools/shellcheck" --version
-          "$tools/actionlint" -color -verbose -config-file /dev/null -shellcheck "$tools/shellcheck"
+          set -u
+          unset SHELLCHECK_OPTS
+          actionlint="$RUNNER_TEMP/lint-tools/actionlint"
+          shellcheck="$RUNNER_TEMP/lint-tools/shellcheck"
+          "$actionlint" -version
+          "$shellcheck" --version
+          "$actionlint" -color -verbose -config-file /dev/null -shellcheck "$shellcheck"
 ```
+
+(This block is the job after the second round, section 11, which changed four things in it: the
+two checksums are asked one at a time, each tool's whole path is written once under `set -u`,
+`SHELLCHECK_OPTS` is unset, and the comment on raising a pin names the attestation.)
 
 ### `CONTRIBUTING.md` as it stands
 
 The paragraph on the ruleset is as on `master`. Step 3 of "Pull request cycle" names the check and
-links to the new part. The new part, "Workflow files are linted", has four paragraphs: what the
-check is and why, and that it becomes a required check once the ruleset names it; how to run it
-locally, with no version named; what it does not see; and how one finding is excepted when it has
-to be.
+links to the new part. The new part, "Workflow files are linted", has five paragraphs and the
+command in a code block: what the check is and why, and that it becomes a required check once the
+ruleset names it; how to run it locally; what a local run prints, with no version named; what the
+linter does not see; and how one finding is excepted when it has to be. (Counted as four
+paragraphs until the second round, which also changed three sentences in the last two: section
+11.)
 
 ### What was run after these changes, all on the merged tree
 
@@ -571,3 +593,56 @@ GNU tar 1.35, xz 5.8, and `sha256sum` from the Rust coreutils — and that `ubun
 moving to it until 2026-11-19, so a run may land on 24.04, which this machine's WSL matches. None
 of that was read again here. The pull request's own run is the first on either image, and with the
 control it tries the refusing path of that image's `sha256sum` as well.
+
+## 11. Review round 2 (2026-11-17): the answers confirmed, and what the second read found
+
+The same two agents read the four commits after `631a26e`: the merge `43076bf`, the answers
+`37e5906`, their records `098483c`, and `33b0f0a`. Both report every finding of round 1 closed,
+but for the note on the attestation, and the merge clean: nothing in it but the merge and the
+resolution of the one conflict; `aidlc-state.md` exactly what git's own merge gives; and
+`audit.md` the base followed by ten entries, each byte for byte from one side — six from `master`,
+four from this branch — none missing or doubled, in the order of their timestamps. Both ran the
+job's two scripts again and found the control, the flags and the guards doing what section 10
+says. Nothing critical or major. What the second read found, each tried here again before it was
+answered:
+
+| # | Finding | Answer |
+|---|---|---|
+| S2-1, minor; also the correctness reviewer | A slip at the `-shellcheck` flag alone still left shellcheck out with the step green. One variable held the folder, but the variable's name and the file's name were each still written twice; `"$tool/shellcheck"` at the flag ends 0 on a broken copy. And the job cannot catch that slip in itself: the rule for an unassigned variable is one of the seven actionlint leaves out. | Each tool's whole path is written once, and the script begins with `set -u`. A misspelt variable name at the flag then ends the step ("unbound variable"), and a misspelt file name fails at the version line. |
+| S2-2, minor; Q2-3, nit | `SHELLCHECK_OPTS` set outside the job, in an `env:` at the top of `ci.yml`, switched shell findings off for the whole run, which the job's comment and `CONTRIBUTING.md` said could be done in the job only. Tried here: with that variable excluding the four codes of a missing brace, the step as it was ends 0 on the broken copy, "Found 0 errors in 3 files". | The step unsets `SHELLCHECK_OPTS`. The same run ends 1 with the four findings. |
+| Q2-1, minor | The paragraph on excepting a finding gave one answer for a runner label the pinned actionlint does not know, a newer actionlint, and there is none: 1.7.12 is still the latest release and its source does not know `ubuntu-26.04`. The other answer, the label declared in `.github/actionlint.yaml`, no longer works in this job. Tried here: with the label declared, the job's call ends 1 and a plain call 0. | The sentence adds what does work: "or, while no release knows it, an `-ignore` for that one message on the job's last line, with the reason beside it." Tried here: `-ignore 'label "ubuntu-26\.04" is unknown'` ends 0 on that copy, and 1 on a copy with another label that does not exist. |
+| S2-3, note; Q2-3, nit | "Reads no configuration file" is not what happens. actionlint still opens and parses `.github/actionlint.yaml` when there is one; with the flag it takes nothing from it. Tried here: a file that does not parse ends the job's call with 3, "could not parse config file". | "Takes nothing from a configuration file" in the job's comment and in `CONTRIBUTING.md`; marked in sections 4, 7 and 10. The audit entry of 2026-11-17T00:22:09Z has the old words; the next entry says so. |
+| S2-4, note | The control asks `sha256sum` about a list of one line; the real check gave it two. A `sha256sum` that checked the first line soundly and never read a second would pass the control and let a replaced shellcheck archive through. No real one is known to do that. | The two checksums are asked one at a time, each in the control's own form. |
+| S2-5, note | "`-verbose` puts in the log … any rule that was left out" said more than the log does: it names shellcheck or pyflakes when actionlint cannot run them, not the seven rules it leaves out itself, nor a step passed over for its shell. | "…and whether shellcheck or pyflakes was left out." |
+| S2-7, note | The attestation belongs where a pin is raised: whoever does that reads the job's comment, not this plan. | One clause in that comment: `gh attestation verify <archive> -R rhysd/actionlint` checks an archive against the build that made it. Still not run by the job. |
+| Q2-2, nit | `CONTRIBUTING.md`'s example of a shell that gets no shell check, `/usr/bin/bash`, is one the linter refuses outright as an invalid shell name. The silent case is a path with arguments. And "under that plain name" was narrower than the tool, which still checks `shell: bash -e {0}`. Tried here, each with the missing brace: `/usr/bin/bash` ends 1 with that message; `/usr/bin/bash -e {0}` and `pwsh` end 0; `bash -e {0}` and `sh` end 1 with shellcheck's findings. | "…steps whose shell is `bash` or `sh` by that name — the default on these runners: a step with `shell: pwsh`, or with the shell written as a path such as `/usr/bin/bash -e {0}`, gets no shell check." |
+| Q2-4, nits | In these records: the tests pin both older jobs since #181, not the image job alone; step 4.5 did not carry the two sentences that wait for the ruleset; five statements overtaken by round 1 had no mark; the new part of `CONTRIBUTING.md` has five paragraphs and a code block, not four; the header of the superseded helper script still said six. | Each corrected in place or marked. |
+| S2-6, note | The audit entry of 2026-11-17T00:22:09Z was one commit behind: it says 62 lines where `33b0f0a` made it 63, and names two commits where a third followed. And the first round had left seventeen small files in WSL's `/tmp` that the security reviewer could not remove. | The next audit entry carries the corrections. The seventeen files — 6.7 KB, each a copy of a `run:` script, the only such files there owned by the user — were looked at and removed, each named in full. |
+
+Accepted by the reviewers as answered without a change to the job: no text guards for shellcheck
+comments or for a step's shell (they are easy to get past, and such a line is in the diff);
+`ubuntu-latest` kept, because the control holds on any image; and the first commit of the branch
+left as it is.
+
+**The job** is the block in section 10, which is updated to it. Against `master`'s `ci.yml` that is
+68 lines added, none changed.
+
+**What was run after these changes.**
+
+- The job's two scripts, taken out of the YAML as it now is and run on Linux as the runner runs a
+  step: both archives downloaded, the control passed, each checksum matched, both tools printed
+  their versions, and the lint read three files and ended 0. Then the download step with the six
+  wrong inputs of section 10: each ended non-zero with nothing unpacked.
+- The lint step on the copy with the missing brace in `publish-main`, with `SHELLCHECK_OPTS`
+  excluding that mistake's four codes: 0 as the step was, 1 as it is.
+- The copies for the runner label and for the five ways of writing a step's shell, as in the table.
+- On the files as written: the linter finds nothing in the three workflow files, with the Windows
+  binaries on the checkout and the pinned Linux binaries as the job calls them; and the thirteen
+  broken copies all fail and the unchanged one passes, at the same positions as in section 10's
+  table.
+- The release-notes tests were not run again: they read neither `ci.yml` nor `CONTRIBUTING.md`,
+  and `release-please.yml` and the tests are `master`'s.
+
+**Which commits were read.** Round 1: the three up to `631a26e`, by both agents. Round 2: the four
+up to `33b0f0a`, by both. The commit that answers round 2 is read by both once more, for that
+change alone, before the completion gate; what they say is in the audit.
