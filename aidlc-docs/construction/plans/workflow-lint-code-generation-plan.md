@@ -699,6 +699,16 @@ Copilot was requested: the pull request's list of events was empty two minutes a
 and no reviewer was asked. "Auto-fix pull requests" is on for this session in the app; auto-merge
 is off and stays off.
 
+**`master` taken in a second time.** Pull request #180 was merged at 16:36:36Z as `b582c2b`, half a
+minute after the second push (`089f1f0`, the records of this section), and the pull request had
+conflicts. `master` was merged in as `a018c99`. The two record files conflicted. In `audit.md`
+each side had put entries in among the base's — eleven from `master`, nine from this branch — and
+they are kept whole, between the same neighbours, in the order of their timestamps, 237 in all;
+in `aidlc-state.md` `master`'s new section stands first and this branch's after it. #180 touches
+no workflow file and not `CONTRIBUTING.md`. On the merged tree the linter finds nothing in the
+three workflow files and the release-notes tests pass, 345 with 17 skipped on Windows. The checks
+run again on the new head.
+
 **What is left**, each on Joshua's own word: the squash merge (step 4.4), through the REST call
 with the head named; then, on his side, `lint-workflows` added to the required checks of
 `protect-master`; and after that the records, with the two sentences of `CONTRIBUTING.md` that
