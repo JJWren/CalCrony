@@ -1876,3 +1876,10 @@ Availability for @GM
 **Context**: Build and test — complete, and the merged build runs on the test stack. Operations waits for #184 and for Joshua's go-ahead to release.
 
 ---
+## Operations — public calendar day sets: released in 0.37.1
+**Timestamp**: 2026-11-17T23:33:22Z
+**User Input**: (none in this session — once #184 was merged, at 23:05:51Z, the release was asked of Joshua in the session working on #184, and that session ran it on his go-ahead there)
+**AI Response**: Read here at 23:32Z: the release pull request #185 was squash-merged at 23:27:30Z as `eb6afb8`, its changelog listing #180, #182 and #184. `v0.37.1` was published at 23:27:43Z on `eb6afb8` and is the latest release. Its release run passed: `release-please`, then `release-summary` at 23:28:09Z, `publish-images` at 23:30:40Z and `announce-release` at 23:30:47Z, with the summary preview skipped, as it is on a release. The release notes open with the summary from `docs/release-notes/0.37.1.md`, this fix's "Public calendar" line among it, followed by the changelog. Prod still runs 0.37.0: the rollout is a go-ahead of its own, asked of Joshua in that same session. `master` is now `e792e1a`.
+**Context**: Operations — 0.37.1 is released with this fix. The prod rollout waits for Joshua's go-ahead.
+
+---
