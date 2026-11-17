@@ -6,7 +6,7 @@ This document is the standard for how changes, releases, and issues flow through
 
 `master` is the trunk and is **always releasable**. No direct pushes; every change lands through a pull request.
 
-> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` + `lint-workflows` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
+> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
 
 | Branch prefix | Use for | Example |
 |---|---|---|
@@ -32,17 +32,19 @@ Rules of thumb:
 
 ### Workflow files are linted
 
-The `lint-workflows` check runs [actionlint](https://github.com/rhysd/actionlint) on every file in `.github/workflows/`, and actionlint hands the bash in their `run:` steps to [shellcheck](https://github.com/koalaman/shellcheck). No check on a pull request executes the release workflow or the `publish-main` job — both run on a push to `master` — so this is what reads a change to them before the merge. It is a required check, and every finding fails it, down to an unquoted variable.
+The `lint-workflows` check runs [actionlint](https://github.com/rhysd/actionlint) on every file in `.github/workflows/`, and actionlint hands the bash in their `run:` steps to [shellcheck](https://github.com/koalaman/shellcheck). No check on a pull request executes the release workflow or the `publish-main` job — both run on a push to `master` — and the tests that pin the release workflow's text cannot say whether a changed line is valid. So this is what tells, before the merge, whether a change to them is well formed. Every finding fails the check, down to an unquoted variable. It becomes a required check once it has run green on `master` and the `protect-master` ruleset names it.
 
-To run it locally, install both tools ([actionlint](https://github.com/rhysd/actionlint/blob/v1.7.12/docs/install.md), [shellcheck](https://github.com/koalaman/shellcheck#installing)) and run this in the repository root:
+To run it locally, install both tools ([actionlint](https://github.com/rhysd/actionlint/blob/main/docs/install.md), [shellcheck](https://github.com/koalaman/shellcheck#installing)) and run this in the repository root:
 
 ```bash
 actionlint
 ```
 
-It prints nothing when it finds nothing. CI pins actionlint 1.7.12 and shellcheck 0.11.0 — `ci.yml` has the versions and their checksums — so use those if your result and CI's differ. Without shellcheck on the `PATH`, actionlint leaves the shell checks out and does not say so: `actionlint -verbose` shows whether the `shellcheck` rule was disabled. A shellcheck finding is reported at the step's `run:` line; the message carries the line and column inside the script.
+It prints nothing when it finds nothing. CI pins one version of each — `ci.yml` has the versions, and the checksums of the Linux archives — so use those versions if your result and CI's differ. Without shellcheck on the `PATH`, actionlint leaves the shell checks out and does not say so: `actionlint -verbose` shows whether the `shellcheck` rule was disabled. A shellcheck finding is reported at the step's `run:` line; the message carries the line and column inside the script.
 
-A finding is fixed, not switched off. Where one really has to be excepted, except that one command: a `# shellcheck disable=SC2086` comment on the line above it in the script, with the reason after a second `#` or in a comment above. No rule is switched off for the whole run.
+What it does not see. It reads the files and runs nothing, so a misspelt command or flag passes. It asks shellcheck only about steps that run in `bash` or `sh` — the default on these runners — under that plain name: a step with `shell: pwsh`, or with the shell written as a path such as `/usr/bin/bash`, gets no shell check. And actionlint leaves some of shellcheck's rules out itself, among them the one for a variable that is never assigned, so a misspelt variable name can pass.
+
+A finding is fixed, not switched off. CI reads no configuration file, so a finding can be switched off for the whole run only in the job itself, where a review sees it. Where a shellcheck finding really has to be excepted, except one simple command: a `# shellcheck disable=SC2086` comment on the line above it in the script, with the reason after a second `#` or in a comment above. Not above a function, an `if`, a loop or a block, where it covers everything inside, and never `disable=all` or an `SC1…` code, which hide a script that does not parse. actionlint's own findings take no such comment: where it refuses something GitHub accepts, such as a runner label newer than the pinned release, the answer is a newer actionlint, pinned the same way.
 
 ## Versioning & releases — conventional commits + release-please
 

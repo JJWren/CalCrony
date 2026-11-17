@@ -92,8 +92,10 @@ jobs:
             build
 
   # Reads every file in .github/workflows/ with actionlint, which hands the bash of their run:
-  # steps to shellcheck. No check on a pull request executes release-please.yml (it runs on a
-  # push to master and by hand), so without this a slip in it would first show after the merge.
+  # steps to shellcheck. No check on a pull request executes release-please.yml or the
+  # publish-main job above: both run on a push to master. The tests that pin the release
+  # workflow's text cannot say whether a changed line is valid, and no test reads this file,
+  # so without this an invalid change to either would first show after the merge.
   # CONTRIBUTING.md ("Pull request cycle") says how to run the same two tools locally.
   lint-workflows:
     name: lint-workflows
@@ -102,7 +104,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Pinned to a commit, like everything this job fetches: the commit of the v7.0.1 tag.
+      # Pinned like everything this job fetches: here to a commit, the one the v7.0.1 tag names.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -120,10 +122,16 @@ jobs:
           SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
         run: |
           cd "$RUNNER_TEMP"
-          curl -fsSL --retry 3 -o actionlint.tar.gz \
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL --retry 3 -o shellcheck.tar.xz \
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o shellcheck.tar.xz \
             "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          # First a checksum that is wrong for certain. If sha256sum lets that one pass, its
+          # answer about the real ones would mean nothing.
+          if printf '%064d  %s\n' 0 actionlint.tar.gz | sha256sum --check --strict - > /dev/null 2>&1; then
+            echo "sha256sum accepted a checksum of 64 zeros, so it cannot be asked about the real ones."
+            exit 1
+          fi
           # Checked before anything is unpacked: a file that is not the pinned one stops the job.
           printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz \
             | sha256sum --check --strict -
@@ -132,10 +140,15 @@ jobs:
           tar -xJf shellcheck.tar.xz -C lint-tools --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
       # actionlint leaves the shell checks out, and says nothing, when it cannot run shellcheck.
-      # So it is given shellcheck's path, and each tool prints its version first: a tool that
-      # does not run fails the step there.
+      # So each tool prints its version first, from the one folder the lint then takes both
+      # from: a tool that does not run fails the step there. -verbose puts in the log which
+      # files were read and any rule that was left out. It names pyflakes there when the runner
+      # has none: that rule checks steps written in Python, and there are none. -config-file
+      # /dev/null: no file in the repository can switch a finding off, so an exception has to
+      # be made in this job.
       - name: Lint the workflow files
         run: |
-          "$RUNNER_TEMP/lint-tools/actionlint" -version
-          "$RUNNER_TEMP/lint-tools/shellcheck" --version
-          "$RUNNER_TEMP/lint-tools/actionlint" -color -shellcheck "$RUNNER_TEMP/lint-tools/shellcheck"
+          tools="$RUNNER_TEMP/lint-tools"
+          "$tools/actionlint" -version
+          "$tools/shellcheck" --version
+          "$tools/actionlint" -color -verbose -config-file /dev/null -shellcheck "$tools/shellcheck"
