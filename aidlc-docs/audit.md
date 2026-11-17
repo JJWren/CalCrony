@@ -1981,3 +1981,10 @@ Availability for @GM
 **Context**: Build and test — the ruleset names `lint-workflows` as required; the records, with `CONTRIBUTING.md`, are committed locally and wait for Joshua's go-ahead to push.
 
 ---
+## Workflow linter — go-ahead to push the records branch and open its pull request
+**Timestamp**: 2026-11-17T23:23:32Z
+**User Input**: "Push and open"
+**AI Response**: Joshua's answer to the question asked at 2026-11-17T23:15:28Z, "Push the records branch and open its pull request?"; the other answer was "Not yet". The first clock read after it was 2026-11-17T23:23:32Z. Checked first, read-only: `master` is still `723696d`, so nothing is taken in; the branch is as it was, `33ccc45`, clean, with no copy on GitHub. The branch is pushed with the keyring login, with this entry, and the pull request `docs: log the workflow linter through its merge` is opened against `master` with the description as drafted. It changes `CONTRIBUTING.md` (two sentences) and the records, and cuts no release. Its merge is asked separately.
+**Context**: Build and test — the records pull request: push and open, on Joshua's go-ahead.
+
+---
