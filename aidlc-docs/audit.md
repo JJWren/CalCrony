@@ -2002,3 +2002,10 @@ Availability for @GM
 **Context**: Construction — step 4.1 done: pull request #187 is open and its checks are running. Steps 4.2 (a run by hand) and 4.3 (the squash merge) each wait for Joshua's go-ahead.
 
 ---
+## Construction — code owners and the pinned release action: go-ahead for the run by hand, then the merge
+**Timestamp**: 2026-11-17T23:26:00Z
+**User Input**: "Hand run, then merge"
+**AI Response**: His answer in the next-step box to "Merge #187 once build-test is green?", whose two buttons were "Hand run, then merge" and "Merge, no hand run". So Q2 is answered A, and the squash merge is approved, after the run and only once the checks are green. Q3 (the other actions pinned next) is not answered by it, and nothing is done on it. Read first, at 23:25:04Z: `master` still `723696d`; #187's head `e93a9fe`, with every check green (`build-test` at 23:18:34Z, `pr-title`, `lint-workflows`, both CodeQL analyses, CodeQL and the secret scan; `publish-main` skipped, as on every pull request); no review, review comment or comment on it; #185 open and not merged, last written at 23:06:16Z. The release workflow is now started once by hand from the branch, before 00:00Z, so it should leave #185 as it is.
+**Context**: Construction — step 4.2 (the run by hand) and, after it, step 4.3 (the squash merge), both approved.
+
+---
