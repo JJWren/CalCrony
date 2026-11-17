@@ -188,9 +188,13 @@ A box is ticked in the turn its step completes.
 Approving this plan covers the changes above and committing them locally. Everything that leaves
 this machine waits for its own go-ahead.
 
-- [ ] 6.1 *Go-ahead (the completion gate):* take `master` in if it has moved — the audit entries
+- [x] 6.1 *Go-ahead (the completion gate):* take `master` in if it has moved — the audit entries
       by timestamp, every section of the state file kept, the suite again and the reviewers' read
-      of the result — then push the branch and open the pull request.
+      of the result — then push the branch and open the pull request. *(2026-11-17, on the
+      go-ahead at the completion gate: `master` had not moved since the rebuild on `ab32e96`, so
+      nothing was taken in; pushed at 16:36:05Z, and pull request #184 opened at 16:36:24Z. Pull
+      request #180 merged twelve seconds later, and `master` was taken in straight after:
+      section 7.)*
 - [ ] 6.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then
       takes `:main`.
 - [ ] 6.3 *Go-ahead:* the release — the patch release that release-please opens — once it is
@@ -320,3 +324,16 @@ What was taken is answered in commits rebuilt on `master` at `ab32e96`. Both age
 finding on them answered. What they asked for then was in the wording of these records and of two
 comments. Both agents read the commits that carry it and had no objection to them going to the
 completion gate. The records of the gate itself were added after that read.
+
+### `master` taken in after the push (2026-11-17)
+
+Pull request #180 merged twelve seconds after this change's pull request was opened, so `master`,
+at `b582c2b`, was taken in by a merge. The parser and its tests merged by themselves, because this
+change's lines and that pull request's are apart; the two records files were merged by hand, the
+audit entries in the order of their stamps. One row was added to
+`Refuses_a_zone_abbreviation_it_has_no_zone_for` for the two changes together: text with a short
+weekend day and a zone abbreviation that has no zone is refused, and the refusal quotes the text
+as typed. That makes 38 cases added by this change. On the merged tree the build has 0 errors and
+the baseline's 22 warnings, and 1,767 tests pass — 851 API, 418 bot, 153 web, 345 release notes,
+with the same 17 skipped. A clean copy of `master` at `b582c2b` has 1,729 (813 API, 418 bot, 153
+web, 345 release notes).
