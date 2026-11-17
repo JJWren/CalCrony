@@ -1726,3 +1726,10 @@ Availability for @GM
 **Context**: Build and test — still waiting for the two live items on the test stack. Nothing is released or rolled out.
 
 ---
+## Build and test — short weekend days: "Continue"
+**Timestamp**: 2026-11-17T17:53:05Z
+**User Input**: "Continue"
+**AI Response**: Joshua's message after the report that the two live items had still not reached the test stack. No question was open in this session when he sent it. The clock was read at 17:53:05Z, the first thing after it. Read then: still no call from the test bot for either item and no event in the test database; the test stack on `0.0.0-main.b582c2b`; the release pull request #185 open with two fixes, #180 and #182; #184 open; prod on 0.37.0. Read as this workflow's "continue to the next stage". The build-and-test stage is closed without the two live items. They stay unticked in the live script, open to be run on any build from `b582c2b` on, and nothing is recorded as passed. What stands for them: the 1,729 tests on the tree that was merged; the build-and-test job green in CI, on Linux, for `b582c2b` itself; and the test stack running the image built from that commit, with the new helper in it. Not read as a go-ahead for the release, which is asked on its own. It is one step shared with #182, the public-calendar session has put it to Joshua, and it is not asked a second time here. The watch on the test bot's log goes on until about 23:41Z, and a live item that arrives before then is still recorded.
+**Context**: Build and test — complete, with the two live items not run. Next: the release of 0.37.1 and the prod rollout, each on its own go-ahead.
+
+---

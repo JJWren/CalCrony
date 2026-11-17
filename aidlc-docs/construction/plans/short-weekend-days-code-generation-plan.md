@@ -233,12 +233,15 @@ this machine waits for its own go-ahead.
       `:main`. *(2026-11-17: the checks were green on the last head, `9facd68`, and no review had
       started. Merged on the go-ahead "Merge now" at 16:36:36Z as `b582c2b`. The test stack took
       `:main` at 16:43Z, the three app containers only, and answers `0.0.0-main.b582c2b`. The two
-      live items in the live script wait for Joshua to run them there.)*
+      live items in the live script were not run; on Joshua's "Continue" at 17:53Z the stage was
+      closed without them, and they stay open there.)*
 - [ ] 7.3 *Go-ahead:* release 0.37.1 — the release PR that release-please opens — with a short
       summary and a two-line how-to for the notes, shown to Joshua first. *(Since pull request
       #179 the summary is a file in the pull request that makes the change:
       `docs/release-notes/0.37.1.md` was added to #180 with the merge of `master`, and its text
-      is put to Joshua before the merge.)*
+      is put to Joshua before the merge. On 2026-11-17 release-please opened #185 straight after
+      the merge; since #182 merged the same day, it carries both fixes, and the release is one
+      step for both.)*
 - [ ] 7.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
       No migration.
 
