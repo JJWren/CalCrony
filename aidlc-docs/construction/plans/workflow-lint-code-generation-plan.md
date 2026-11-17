@@ -23,7 +23,7 @@ and D1–D9 stand.
 
 | File | Jobs | Runs |
 |---|---|---|
-| `ci.yml` | `build-test`, `pr-title`, `publish-main` | on a pull request into `master` and on a push to `master`; `publish-main` on the push only |
+| `ci.yml` | `build-test`, `pr-title`, `publish-main` | `build-test` on a pull request into `master` and on a push to `master`; `pr-title` on the pull request only; `publish-main` on the push only (corrected in review: this row had `pr-title` on the push as well) |
 | `codeql.yml` | `analyze`, once per language | on a pull request, on a push to `master`, weekly |
 | `release-please.yml` | `release-please`, `publish-images`, `release-summary`, `announce-release`, `release-summary-preview` | on a push to `master` and by hand |
 
@@ -31,13 +31,14 @@ and D1–D9 stand.
   script. A mistake there shows after the merge — in the release roll, in the `:main` images, or at
   the next release in its images and its announcement.
 - **What reads the files before a merge today**: the tests in `tests/CalCrony.ReleaseNotes.Tests`
-  read `release-please.yml` as text and pin three of its jobs. No test reads `ci.yml` or
-  `codeql.yml`. Nothing checks a shell script unless a test runs it, which three steps' scripts are.
+  read `release-please.yml` as text and pin three of its jobs (since pull request #181, the image
+  job as well: section 10). No test reads `ci.yml` or `codeql.yml`. Nothing checks a shell script unless a test runs it, which three steps' scripts are.
 - **The ruleset** `protect-master` requires two checks by name, `build-test` and `pr-title`.
   Repository admins bypass it, which is how pull requests are merged here.
-- **Actions settings**: the default token is read-only, any action is allowed, and pinning to a
-  commit is not required. The workflows name their actions by major tag (`actions/checkout@v4`).
-  There is no Dependabot configuration and no actionlint configuration.
+- **How actions are named**: the workflows name their actions by major tag
+  (`actions/checkout@v4`), none by commit. There is no Dependabot configuration and no actionlint
+  configuration. (Reworded in review: this point also listed three settings of the repository
+  that the files do not show.)
 - **Line ends**: `.gitattributes` has `* text=auto`, so a Windows checkout holds the workflow files
   with CRLF and the repository holds them with LF.
 
@@ -62,8 +63,10 @@ job added, the linter finds nothing, in the job's two scripts either. The two sc
 taken out of the YAML as GitHub would hand them to bash and run on Linux the way the runner runs a
 step (`bash -e`, from the repository root): both archives downloaded, both checksums matched, the
 two binaries unpacked, both printed their versions, and the lint of the scratch copy ended 0. The
-Linux was this machine's WSL Ubuntu (bash 5.2.21, curl 8.5.0, GNU tar 1.35, xz 5.4.5), not GitHub's
-runner, which is on Ubuntu 26.04: the pull request's own run is the first there.
+Linux was this machine's WSL Ubuntu (24.04: bash 5.2.21, curl 8.5.0, `sha256sum` of GNU coreutils
+9.4, GNU tar 1.35, xz 5.4.5), not GitHub's runner, which is on Ubuntu 26.04: the pull request's own
+run is the first there. (`sha256sum` added to this list in review; section 10 says why it is the
+one that matters.)
 
 **A wrong pin stops the job before anything is unpacked.** Five runs of the download step, each
 with one thing changed: a checksum with one digit changed, an empty checksum, the two checksums
@@ -76,7 +79,7 @@ the Linux binaries the job pins. Every one fails, and the unchanged copy passes.
 is the release-notes tests run here on the same copy (338 pass and 17 are skipped on the unchanged
 file, on Windows); they read `release-please.yml` and no other workflow file.
 
-| # | The mistake | In | What the linter says (first finding, shortened) | Linter ends | Today's tests |
+| # | The mistake | In | What the linter says (one finding, shortened; for rows 5 and 6 the second, the first being a note that points at the function) | Linter ends | Today's tests |
 |---|---|---|---|---|---|
 | 1 | `=` where `==` is meant, in `announce-release`'s `if:` | `release-please.yml` | `203:116: got unexpected character ' ' while lexing == operator, expecting '=' [expression]` | 1 | 1 fails |
 | 2 | a step id misspelt in an `if:` (`steps.mention` for `steps.mentions`) | `release-please.yml` | `178:59: property "mention" is not defined in object type {checkout: …; mentions: …} [expression]` | 1 | 1 fails |
@@ -103,6 +106,10 @@ which the author of an intended change brings up to date; whether the new text i
 the linter says. The same fourteen copies give the same findings and the same endings with the
 Windows binaries, with LF and with CRLF line ends.
 
+**This table is `master` at `4af1305`.** Pull request #181 has since changed `release-please.yml`
+and the tests that read it: row 6 no longer passes them, and the positions in that file have
+moved. Section 10 has the table as it is on `master` now.
+
 **What the linter does not catch, and one thing to know about it.**
 
 - It reads; it runs nothing. What a script does, what an expression is worth at run time, and what
@@ -120,9 +127,10 @@ Windows binaries, with LF and with CRLF line ends.
 **The branch `ci/codeql-action-v4`**, which another session holds, changes `codeql.yml` to
 `github/codeql-action` v4. Its file, read from the branch without touching it, passes the linter.
 
-**Fetched for this**: five files from the two projects' release pages on GitHub (the two Linux
-archives above, the two Windows ones, and actionlint's checksum file), into this session's scratch
-folder. Nothing was installed on the machine, and the temporary folders used inside WSL were
+**Fetched for this**: seven files from the two projects' release pages on GitHub, into this
+session's scratch folder: the two Linux archives above, the two Windows ones, actionlint's checksum
+file, and the part of each release page that lists its files, to see that it shows the digests.
+(Corrected in review: this said five, and left the two page parts out.) Nothing was installed on the machine, and the temporary folders used inside WSL were
 removed. Every request to GitHub was a read.
 
 ## 3. The question
@@ -151,6 +159,12 @@ Answer with the letter; the recommendation is marked.
 
 The ruleset is not changed by this work under any answer.
 
+(After review, section 10: two things option A says are not so. "It never leaves a pull request
+waiting" holds for pull requests opened or pushed after the merge, not for one already open, which
+has no such check until its next push. "It cannot turn red by itself" leaves out the runner image,
+which is not pinned. And `CONTRIBUTING.md` does not name the check as required in this pull
+request after all, but once the ruleset does.)
+
 ## 4. Decisions this plan takes (accepted unless Joshua says otherwise)
 
 | # | Decision | Why |
@@ -158,9 +172,9 @@ The ruleset is not changed by this work under any answer.
 | D1 | The job is a fourth job in `ci.yml`, `lint-workflows`, not a workflow of its own. It runs on every pull request and every push to `master`, with no path filter, and no other job waits for it. | `ci.yml` already has exactly the triggers asked for. A job that always runs can be made required (Q1). `publish-main` goes on needing `build-test` alone: a finding should not hold the `:main` images back. |
 | D2 | Both tools are downloaded as release binaries from their projects on GitHub, each held to a version and to the SHA-256 of its archive, checked before anything is unpacked. actionlint 1.7.12 and shellcheck 0.11.0. | What runs is named in the workflow file and can be checked against the release page by anyone. Not taken: actionlint's Docker image by digest (one opaque digest, shellcheck's version only implied, Docker Hub added to a check that may be required), and a wrapper action (it would download the linter itself at run time, unchecked). Not taken either: the runner's own shellcheck, whose version moves with the runner image. |
 | D3 | `actions/checkout` is pinned to a commit, `3d3c42e5aac5ba805825da76410c181273ba90b1`, the tag `v7.0.1` (the current release; it declares Node.js 24), with `persist-credentials: false`. The other jobs stay on `@v4`. | The task asks for a commit where an action is used. v7.0.1 rather than the commit behind `@v4` (v4.4.0, `11d5960a…`): a new job has no reason to start on a release line that already runs with a deprecation notice. Raising the other jobs is a change of its own (section 8). |
-| D4 | shellcheck is given to actionlint by its path, and each tool prints its version before the lint. | Section 2: actionlint is silent when it cannot run shellcheck. A missing or broken binary fails the step at the version line, and every run's log says what did the checking. |
+| D4 | shellcheck is given to actionlint by its path, and each tool prints its version before the lint. (Tightened after review, section 10: one variable holds the folder for all three lines.) | Section 2: actionlint is silent when it cannot run shellcheck. A missing or broken binary fails the step at the version line, and every run's log says what did the checking. |
 | D5 | `permissions: contents: read`, nothing else; `timeout-minutes: 5`. | As asked. The job needs the files and nothing more; it holds no secret and posts nothing. |
-| D6 | No ignore and no configuration file. Every finding fails the check, shellcheck's at every level, down to an unquoted variable (row 8). | The files pass as they are, so there is nothing to except. If a finding ever has to be excepted, it is with a `# shellcheck disable=SC…` comment on that line of the script, the reason beside it, and never a rule switched off for the whole run. |
+| D6 | No ignore and no configuration file. Every finding fails the check, shellcheck's at every level, down to an unquoted variable (row 8). (After review, section 10: the job is now told to read no configuration file, where this only said there was none; "every finding" means every one the two tools report, and actionlint itself leaves seven of shellcheck's rules out; and the comment goes on the line above the command.) | The files pass as they are, so there is nothing to except. If a finding ever has to be excepted, it is with a `# shellcheck disable=SC…` comment on that line of the script, the reason beside it, and never a rule switched off for the whole run. |
 | D7 | `CONTRIBUTING.md` gets a short part under "Pull request cycle": what the check is, how to run it locally (install the two tools, run `actionlint` in the repository root), which versions CI pins, and that actionlint is silent without shellcheck. Step 3 of the cycle names the check. | As asked. One place, and no per-system install commands to keep true: it links to the two projects' own install pages. |
 | D8 | Two review agents, one on security and one on correctness, read the local commit before the completion gate, as on the last changes. Copilot's review, if it starts on the pull request, is answered as well. | The practice here since Copilot's review stopped starting by itself. The diff is small, so one round is expected. Say so at this gate if a change this small should go without. |
 | D9 | Outward steps one at a time, each on Joshua's own go-ahead: the push and the pull request at the completion gate; the merge asked separately, through the REST call. | The repository's process. Auto-merge stays off. |
@@ -221,7 +235,8 @@ The ruleset is not changed by this work under any answer.
 ```
 
 This is the text the runs of section 2 used. Nothing else in `ci.yml` changes, and `codeql.yml` and
-`release-please.yml` are not touched.
+`release-please.yml` are not touched. (This is the job as approved. Section 10 has it as it stands
+after review.)
 
 **`CONTRIBUTING.md`**, under "Pull request cycle". Step 3 becomes: "**CI must be green** —
 `build-test` runs the full suite, including Testcontainers integration tests, and `lint-workflows`
@@ -268,11 +283,11 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 **3. Verification**
 - [x] 3.1 The broken copies made again from the file as written and linted with the pinned Linux binaries; the outputs kept for the pull request's description. (2026-11-16: thirteen fail, the unchanged copy passes; the output is byte for byte that of section 2.)
 - [x] 3.2 The release-notes tests (`tests/CalCrony.ReleaseNotes.Tests`), the one project that reads repository files, run here. The whole suite is left to `build-test` on the pull request: this change touches no code and no file a test reads. (2026-11-16, Windows: 338 pass, 17 skipped, none fail.)
-- [ ] 3.3 Two review agents read the local commit (D8); findings answered.
+- [x] 3.3 Two review agents read the local commit (D8); findings answered. (2026-11-17: both read the three local commits up to `631a26e`. Nothing critical; one major finding, that `master` had moved; the rest minor. Section 10.)
 
 **4. Records and delivery — each outward step on Joshua's own go-ahead**
 - [ ] 4.1 `audit.md` entries throughout; the section in `aidlc-state.md` kept up to date.
-- [ ] 4.2 At the completion gate, on his go-ahead: `master` taken in first if it has moved, the branch pushed, the pull request opened with the evidence of section 2 in its description.
+- [ ] 4.2 At the completion gate, on his go-ahead: `master` taken in first if it has moved, the branch pushed, the pull request opened with the evidence of section 2 in its description. (`master` was taken in once already, on 2026-11-17 as `43076bf`, because the review's evidence had to be restated on it: section 10. It is taken in again here if it has moved since. The description carries the table of section 10.)
 - [ ] 4.3 On the pull request: `lint-workflows` green — its first run on GitHub's runner — with `build-test` and `pr-title`; Copilot's review answered if it starts.
 - [ ] 4.4 On his separate go-ahead: the squash merge through the REST call. It cuts no release.
 - [ ] 4.5 After the merge: the job's run on the push to `master` read. With Q1 A, Joshua then adds the check to the ruleset, and that is recorded.
@@ -281,11 +296,11 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 
 | Risk or limit | Answer |
 |---|---|
-| The job fails on GitHub's runner for a reason this machine could not show (another Ubuntu, another `tar` or `xz`). | The pull request's own run is the test, before any merge. If `xz` were missing there, shellcheck also ships a `.tar.gz`; the pin would move to it. |
+| The job fails on GitHub's runner for a reason this machine could not show (another Ubuntu, another `tar` or `xz`). | The pull request's own run is the test, before any merge. If `xz` were missing there, shellcheck also ships a `.tar.gz`; the pin would move to it. (Review: those `.tar.gz` files were added to the release five months after it, so that move would be weighed first. And the tool that differs most on the runner is `sha256sum`: section 10.) |
 | A release archive is replaced upstream, or GitHub cannot serve it. | The checksum refuses a replaced file, and a failed download fails the step: red, never a silent pass. A re-run clears a failed download; a mismatch is looked into, not re-pinned blindly. |
-| The pinned linter grows old: new runner labels, new inputs of an action, new syntax. | It shows as a finding on a pull request that uses the new thing (section 2: `ubuntu-26.04`). The answer then is a newer actionlint, pinned the same way, or the one label declared in `.github/actionlint.yaml`. Nothing raises the pins by itself; the comment in the job says how. |
+| The pinned linter grows old: new runner labels, new inputs of an action, new syntax. | It shows as a finding on a pull request that uses the new thing (section 2: `ubuntu-26.04`). The answer then is a newer actionlint, pinned the same way, or the one label declared in `.github/actionlint.yaml`. Nothing raises the pins by itself; the comment in the job says how. (After review: the job reads no configuration file, so a label could only be declared in a file the job is told to read, through its own flag. Section 10.) |
 | A finding nobody agrees with blocks a pull request. | D6: a narrow exception on the line, with its reason. |
-| A pull request changes the job itself to check less. | It lints the pull request's own copy of the workflows, the job included, so such a change is in the diff under review like any other. |
+| A pull request changes the job itself to check less. | It lints the pull request's own copy of the workflows, the job included, so such a change is in the diff under review like any other. (Review named two more ways to check less: a configuration file in the repository, which the job no longer reads, and `SHELLCHECK_OPTS` set in the workflow, which is in the diff like the job. Section 10.) |
 | A contributor's local run passes and CI's does not. | `CONTRIBUTING.md` names the versions and the case that causes it most often, shellcheck missing locally. |
 
 ## 8. Not in this change
@@ -294,8 +309,10 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 - `codeql.yml` and `release-please.yml`, and every job of `ci.yml` but the new one. Raising the
   other jobs' actions from the releases that declare Node.js 20, or pinning them to commits, is a
   change of its own; the session on `ci/codeql-action-v4` listed them.
-- A security linter for the workflows (pinned actions, narrower permissions, what untrusted text
-  reaches a script), and a Dependabot configuration that would raise pinned actions.
+- A security linter for the workflows (pinned actions, narrower permissions), and a Dependabot
+  configuration that would raise pinned actions. (Corrected in review: this also listed "what
+  untrusted text reaches a script", and actionlint does check that — a pull request's title put
+  into a script is refused as untrusted.)
 - Findings shown as annotations on a pull request's diff. The job's log has the file, line and
   column of each.
 
@@ -307,9 +324,10 @@ byte for byte the scratch copy the runs of section 2 used.
 
 **`CONTRIBUTING.md`** is the text of section 5, worded for Q1 A — the new part says "It is a
 required check", and the paragraph on the ruleset names `lint-workflows` beside `build-test` and
-`pr-title` — with two differences:
+`pr-title` — with three differences (the third was left out of this list until review):
 
 - The command stands in a code block of its own, like the commands of "Local dev quickstart".
+- Step 3's "(below)" is a link to the new part.
 - One paragraph more, on excepting a finding. It is D6 written for a contributor, and it corrects
   D6's wording in two places: the comment goes on the line above the command, not on the command's
   line, and the reason cannot follow it as plain text. Tried on scratch copies with the pinned
@@ -343,10 +361,212 @@ required from the moment this is merged. It becomes so when Joshua adds it to `p
 - The thirteen broken copies, made again from the file as written: all fail, the unchanged copy
   passes, and the output is byte for byte that of section 2.
 - The release-notes tests, on Windows: 338 pass, 17 skipped, none fail.
-- The workflow files of the open pull request #181 (`ci/narrow-release-job-permissions`, head
-  `1a7f16b`), read from its branch without touching it: nothing found, alone and with this job
-  added to its `ci.yml`.
+- The workflow files of pull request #181 (`ci/narrow-release-job-permissions`, head `1a7f16b`),
+  read from its branch without touching it: nothing found, alone and with this job added to its
+  `ci.yml`. (Corrected in review: this called #181 open. It had been merged a few minutes before
+  this was written, at 2026-11-16T23:15:32Z; section 10.)
 
 **Not run.** The job on GitHub's runner: the pull request's own run is the first. The whole test
 suite: this change touches no code and no file a test reads, and `build-test` runs it on the pull
 request.
+
+## 10. Review round 1 (2026-11-17): `master` taken in, the findings and their answers, and the change as it stands
+
+Two agents read the three local commits (`8960946`, `74707c2`, `631a26e`): one on security, one on
+whether the job works and whether every statement written about it is true. Nothing critical. One
+major finding, from the correctness reviewer, which the security reviewer made as a note: `master`
+had moved. The rest are minor findings and notes. Each finding below was tried again here, on
+scratch copies with the pinned Linux binaries, before it was answered; what was not tried here
+says so.
+
+### `master` had moved (Q1, S6)
+
+Pull request #181 ("give the two older release jobs only the access each needs") was squash-merged
+at 2026-11-16T23:15:32Z as `ab32e96`: two minutes after this branch last looked at `master`
+(23:13:23Z), and before its two later commits. It changes `release-please.yml` and the tests that
+read it, and adds to the records. So the branch was one commit behind; its `audit.md` would have
+conflicted, and GitHub starts no pull-request run while a pull request has conflicts; and part of
+section 2 no longer described `master`.
+
+`master` was merged into the branch on 2026-11-17 as `43076bf`. One file conflicted,
+`aidlc-docs/audit.md`, where both sides had only appended: six entries from `master`, four from
+this branch. They are kept whole, in the order of their timestamps, by a script that writes nothing
+unless every entry of each side is there once and whole and each side's own order is kept.
+`aidlc-state.md` merged by itself. #181 touches neither `ci.yml` nor `CONTRIBUTING.md`.
+
+What that changes in sections 1, 2 and 9, which describe `master` at `4af1305` and are left as
+written but for their marks:
+
+- The release-notes tests now pin `publish-images` as well. Row 6, the missing brace in that job's
+  script, was "the one the tests pass". It fails one test now
+  (`The_images_job_may_read_the_repository_and_push_packages_and_names_its_token_for_the_login_alone`),
+  so all seven copies made from `release-please.yml` fail a test.
+- On the unchanged file 344 tests pass and 17 are skipped, on Windows (it was 338 and 17).
+- Every position in `release-please.yml` is 15 lines further down.
+- So what no test sees is `ci.yml` and `codeql.yml`: rows 3, 5 and 10 to 13. Row 5 is the plainest
+  case left: `publish-main`'s script is run by no check on a pull request and read by no test. For
+  the release workflow the linter adds what the tests cannot give: they say that a line changed,
+  not whether the new line is valid.
+
+The table on the merged tree, with the job as revised below and called as the job calls it:
+
+| # | The mistake | In | What the linter says (one finding, shortened) | Linter ends | Today's tests |
+|---|---|---|---|---|---|
+| 1 | `=` where `==` is meant, in `announce-release`'s `if:` | `release-please.yml` | `218:116: got unexpected character ' ' while lexing == operator, expecting '=' [expression]` | 1 | 1 fails |
+| 2 | a step id misspelt in an `if:` (`steps.mention` for `steps.mentions`) | `release-please.yml` | `193:59: property "mention" is not defined in object type {checkout: …; mentions: …} [expression]` | 1 | 1 fails |
+| 3 | the three inputs under a `with:` moved out two spaces — still valid YAML | `ci.yml` | `50:14: "with" section should not be empty`, then `51:9: unexpected key "registry" for step to execute action` and two more `[syntax-check]` | 1 | file not read |
+| 4 | a script line moved out of its `run:` block — no longer valid YAML | `release-please.yml` | `139:8: could not parse as YAML: could not find expected ':' [syntax-check]` | 1 | 2 fail |
+| 5 | the closing brace of `build_and_push()` removed, in `publish-main` | `ci.yml` | `56:9: shellcheck reported issue in this script: SC1056:error:13:1: Expected a '}'` (the second of four; the first, SC1009, is a note that points at the function) `[shellcheck]` | 1 | file not read |
+| 6 | the same brace removed in `publish-images`, the job that builds a release's images | `release-please.yml` | `74:9: shellcheck reported issue in this script: SC1056:error:12:1: Expected a '}'` (the second of four) `[shellcheck]` | 1 | 1 fails |
+| 7 | an `if` without its `fi`, in the step that asks GitHub about mentions | `release-please.yml` | `167:9: shellcheck reported issue in this script: SC1046:error:10:1: Couldn't find 'fi' for this 'if'` and three more `[shellcheck]` | 1 | 1 fails |
+| 8 | `"$WEBHOOK_URL"` left unquoted in the announce step | `release-please.yml` | `233:9: shellcheck reported issue in this script: SC2086:info:1:9: Double quote to prevent globbing and word splitting [shellcheck]` | 1 | 2 fail |
+| 9 | `needs:` naming a job that does not exist | `release-please.yml` | `255:3: job "release-summary-preview" needs job "release-pleese" which does not exist in this workflow [job-needs]` and one more | 1 | 1 fails |
+| 10 | an input the action does not have (`dotnet-verison`) | `ci.yml` | `18:11: input "dotnet-verison" is not defined in action "actions/setup-dotnet@v4" [action]` | 1 | file not read |
+| 11 | a permission scope that does not exist (`package: write`) | `ci.yml` | `44:7: unknown permission scope "package" [permissions]` | 1 | file not read |
+| 12 | a runner label that does not exist (`ubuntu-lastest`) | `codeql.yml` | `20:14: label "ubuntu-lastest" is unknown [runner-label]` | 1 | file not read |
+| 13 | a schedule on a day of the week that does not exist (`8`) | `codeql.yml` | `12:13: invalid CRON format "17 6 * * 8" in schedule event [events]` | 1 | file not read |
+| — | nothing changed | | no finding | 0 | all pass |
+
+The same fourteen copies give the same findings and the same endings with the Windows binaries,
+called plainly as a contributor would, with LF and with CRLF line ends. Rows 5 to 8 still pass in
+silence when shellcheck cannot be run.
+
+### Findings and answers
+
+| # | Finding | Answer |
+|---|---|---|
+| Q1, major; S6, note | `master` had moved, and the evidence described a `master` that no longer exists. | Above: `master` taken in, the evidence run again on it, the statements marked. |
+| S1, minor | A configuration file in the pull request switches any finding off, without a word. actionlint reads `.github/actionlint.yaml` from the tree it lints, which is the pull request's. Tried here: a file that ignores every finding, beside the missing brace of row 6, ends 0. | The job passes `-config-file /dev/null`, so it reads no configuration file. The same copy ends 1. An exception, or a runner label actionlint does not know, can then be given only in the job itself. |
+| Q5, minor | The version lines guarded the two binaries, not the path handed to `-shellcheck`: with only the flag's path misspelt, the step printed both versions and ended 0 on a broken copy. And a green log said nothing about what had been read. | One variable holds the folder for the three lines, so the path cannot be right in one and wrong in another. `-verbose` puts in the log the files that were read, the count of findings, and any rule that was left out. It names pyflakes there when the runner has none, which the security reviewer found to be so on both images: that rule checks steps written in Python, and there are none. |
+| S4, minor; Q9 | The checksum check rests on the runner's `sha256sum`. The reviewers read, from this repository's recent job logs and from the runner-images repository, that the Ubuntu 26.04 image ships the Rust coreutils (uutils 0.10.0), while every wrong-pin run here used GNU coreutils 9.4; and a pull request's green run only ever shows the accepting path. Both read uutils' source at that version and found no fault; neither ran it, and nor did I. | A control before the real check: a checksum of 64 zeros has to be refused, or the step stops. Tried here with a stand-in `sha256sum` that accepts anything: the step ends 1 with nothing unpacked, where the step as first built would have gone on to unpack. So every run, on whatever image, shows the refusing path as well. |
+| S8, note | curl could follow a redirect to an address that is not HTTPS. The checksums never rested on that. | `--proto '=https' --tlsv1.2` on both downloads. Tried: both archives download as before. |
+| Q2, minor | The reason given in the job's comment and in `CONTRIBUTING.md` was not true of the release workflow: a slip in it does fail `build-test`, through the tests that pin its text. And the comment did not name `publish-main`, which is the job nothing reads. | Both reworded: no check on a pull request executes `release-please.yml` or `publish-main`; the tests that pin the release workflow's text cannot say whether a changed line is valid, and no test reads `ci.yml`. |
+| Q3, S5, minor | `CONTRIBUTING.md` called the check required in two places, one of them the paragraph headed "Enforced by the `protect-master` ruleset", while the ruleset names `build-test` and `pr-title` alone. Section 9 said so, but only here, and nothing bounds the time until the ruleset is changed. | Taken, and it departs from the wording of Q1 A, so it is put to Joshua at the completion gate. The paragraph on the ruleset is as on `master`. The new part says "It becomes a required check once it has run green on `master` and the `protect-master` ruleset names it." The two sentences that call it required go in with the records after the merge, once the ruleset names it. Q1's answer itself stands: the check is to be required. |
+| Q4, S5, minor | "No rule is switched off for the whole run" was not so. actionlint itself calls shellcheck without seven rules (SC1091, SC2043, SC2050, SC2153, SC2154, SC2157, SC2194), and no flag changes that list. One of them is the rule for a variable that is never assigned, so a misspelt variable name passes. Tried here: `"${imgae}:main"` in `publish-main` ends 0. | The sentence is gone. A new paragraph, "What it does not see", says this and the two points below. |
+| S3, minor | A step whose shell is not `bash` or `sh` by that plain name gets no shell check, without a word. Tried here, each with the missing brace: `shell: bash -e {0}` ends 1; `shell: /usr/bin/bash -e {0}` and `shell: pwsh` end 0. The reviewer showed the same through `defaults.run.shell`, three lines at the top of a file. | In "What it does not see". No guard in the job: the reviewer's two text matches are easy to get past, by their own account, and such a line is in the diff. |
+| S2, Q6, minor | The paragraph on excepting a finding said an exception covers one command. A command can be a whole function, `if` or block. Tried here: `disable=SC2086` above `build_and_push() {`, or above an `if`, passes an unquoted variable inside; `disable=all`, or the four SC1… codes, above the function with its brace missing ends 0, so a script that does not parse passes. And actionlint's own findings take no such comment. | The paragraph says: one simple command; not above a function, an `if`, a loop or a block; never `disable=all` or an SC1… code; and for actionlint's own findings a newer actionlint, pinned the same way. |
+| Q7, nit | The versions stood in `CONTRIBUTING.md` too, twice, where raising a pin would leave them behind. | `CONTRIBUTING.md` names no version: "CI pins one version of each — `ci.yml` has the versions, and the checksums of the Linux archives". The install link points at actionlint's current page, not at one release. |
+| Q8, nit | "Pinned to a commit, like everything this job fetches": the two archives are held to a version and a checksum, not to a commit. | "Pinned like everything this job fetches: here to a commit, the one the v7.0.1 tag names." |
+| S7, note | When a pin is raised there is a stronger check for actionlint than the checksum file, which sits in the same release as the archive: its build attestation. Tried here: `gh attestation verify` passes for the pinned archive. shellcheck has none. | Recorded here for whoever raises the pins; not put into the job, which would then need a token and a call to GitHub for one of its two tools. |
+| S9, note | For the owner: the two required checks in the ruleset name no source, so any app could report them; when `lint-workflows` is added, GitHub Actions can be chosen as its source. And section 1 listed three settings of the repository that the files do not show. | The first is passed on to Joshua with step 4.5. The second is reworded in place; the earlier wording stays in this branch's first commit, and says nothing the workflow files do not let a reader infer but that the default token is read-only. |
+| Q9, nits | In these records: the table's header said "first finding" where rows 5 and 6 quote the second; section 9 counted two differences where there are three; "five files" fetched left out two parts of release pages; section 1 had `pr-title` running on a push; the list of the WSL tools left out `sha256sum`; and Q1's "cannot turn red by itself" leaves out the runner image, which is not pinned. | Each corrected in place and marked. |
+| Q3, addendum | Q1's "it never leaves a pull request waiting" does not hold for a pull request that is already open when the check becomes required: it has no such check until its next push. #180 is one. | Marked under Q1, and passed on to Joshua with step 4.5. |
+| Q10, nits | In the helper scripts, which are not in the repository: one printed the wrong exit status under a pipe, so one saved file shows `exit=0` under a finding; the guard on a temporary folder's name let `/../` through; a header said six where seven are run. | The guard and the header are fixed. No exit status from that saved file is quoted anywhere in these records. |
+
+### What the linter does not catch — added to the list in section 2
+
+Tried here, each on a scratch copy, each ending 0 with no output:
+
+- a misspelt command (`dockr push`), a misspelt flag, and a misspelt variable name;
+- a broken script in a step whose shell is `pwsh`, or `bash` written as a path;
+- a broken script under `# shellcheck disable=all`, or under the SC1… codes, placed above the
+  function it is in.
+
+From the reviewers' own copies, not tried again here: a misspelt secret name; an action's name or
+version that does not exist (`actions/setup-dotnet@v99`); a wrong word inside a quoted string in an
+`if:`; a workflow file whose name ends in `.YML`; a script in a composite action under
+`.github/actions/`; and a script reached through `bash -c`, a here-document or a file. They also
+found caught, which section 2 does not list: `.yaml` files, an empty file, a duplicate key, a tab,
+an `if:` that is always true, and shellcheck's findings of every level.
+
+### The job as it stands
+
+```yaml
+  # Reads every file in .github/workflows/ with actionlint, which hands the bash of their run:
+  # steps to shellcheck. No check on a pull request executes release-please.yml or the
+  # publish-main job above: both run on a push to master. The tests that pin the release
+  # workflow's text cannot say whether a changed line is valid, and no test reads this file,
+  # so without this an invalid change to either would first show after the merge.
+  # CONTRIBUTING.md ("Pull request cycle") says how to run the same two tools locally.
+  lint-workflows:
+    name: lint-workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # Pinned like everything this job fetches: here to a commit, the one the v7.0.1 tag names.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Both linters come from their projects' releases on GitHub, each held to one version and
+      # to the SHA-256 of its linux x86_64 archive. To move to a newer release, change a version
+      # and its checksum together. actionlint lists its checksums in the release's
+      # actionlint_<version>_checksums.txt; shellcheck publishes none, so take the digest GitHub
+      # lists for the archive on the release page.
+      - name: Download actionlint and shellcheck
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+          SHELLCHECK_VERSION: "0.11.0"
+          SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+        run: |
+          cd "$RUNNER_TEMP"
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          # First a checksum that is wrong for certain. If sha256sum lets that one pass, its
+          # answer about the real ones would mean nothing.
+          if printf '%064d  %s\n' 0 actionlint.tar.gz | sha256sum --check --strict - > /dev/null 2>&1; then
+            echo "sha256sum accepted a checksum of 64 zeros, so it cannot be asked about the real ones."
+            exit 1
+          fi
+          # Checked before anything is unpacked: a file that is not the pinned one stops the job.
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz \
+            | sha256sum --check --strict -
+          mkdir lint-tools
+          tar -xzf actionlint.tar.gz -C lint-tools actionlint
+          tar -xJf shellcheck.tar.xz -C lint-tools --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+
+      # actionlint leaves the shell checks out, and says nothing, when it cannot run shellcheck.
+      # So each tool prints its version first, from the one folder the lint then takes both
+      # from: a tool that does not run fails the step there. -verbose puts in the log which
+      # files were read and any rule that was left out. It names pyflakes there when the runner
+      # has none: that rule checks steps written in Python, and there are none. -config-file
+      # /dev/null: no file in the repository can switch a finding off, so an exception has to
+      # be made in this job.
+      - name: Lint the workflow files
+        run: |
+          tools="$RUNNER_TEMP/lint-tools"
+          "$tools/actionlint" -version
+          "$tools/shellcheck" --version
+          "$tools/actionlint" -color -verbose -config-file /dev/null -shellcheck "$tools/shellcheck"
+```
+
+### `CONTRIBUTING.md` as it stands
+
+The paragraph on the ruleset is as on `master`. Step 3 of "Pull request cycle" names the check and
+links to the new part. The new part, "Workflow files are linted", has four paragraphs: what the
+check is and why, and that it becomes a required check once the ruleset names it; how to run it
+locally, with no version named; what it does not see; and how one finding is excepted when it has
+to be.
+
+### What was run after these changes, all on the merged tree
+
+- The linter on the three workflow files: nothing found — the Windows binaries on the checkout,
+  the pinned Linux binaries, called as the job calls them, on the files as the repository holds
+  them.
+- `ci.yml` against `master`'s: 62 lines added, none changed. Read as YAML, the three earlier jobs
+  and the workflow's other keys are the same, and `lint-workflows` is the one new job. As the
+  repository holds it, the file is byte for byte the scratch copy whose scripts were run.
+- The job's two scripts, taken out of the YAML and run on Linux as the runner runs a step: both
+  archives downloaded, the control passed, both checksums matched, both tools printed their
+  versions, and the lint read three files and ended 0. Then the download step six times with one
+  thing wrong: the five wrong pins of section 2, and a `sha256sum` that accepts anything. Each
+  ended non-zero with nothing unpacked.
+- The thirteen broken copies and the unchanged one, as in the table; the same on Windows with LF
+  and with CRLF; and the four shell rows without shellcheck.
+- The release-notes tests on the merged tree, on Windows: 344 pass, 17 skipped; and on each of the
+  seven copies made from `release-please.yml`, where one or two fail every time.
+- Fourteen more copies, one for each claim of the reviewers that was tried here.
+
+### Still not run
+
+The job on GitHub's runner. The reviewers read these versions for its Ubuntu 26.04 image from
+recent job logs of this repository and from the runner-images repository — bash 5.3, curl 8.18,
+GNU tar 1.35, xz 5.8, and `sha256sum` from the Rust coreutils — and that `ubuntu-latest` is still
+moving to it until 2026-11-19, so a run may land on 24.04, which this machine's WSL matches. None
+of that was read again here. The pull request's own run is the first on either image, and with the
+control it tries the refusing path of that image's `sha256sum` as well.
