@@ -29,8 +29,8 @@ jobs:
       html_url: ${{ steps.release.outputs.html_url }}
     steps:
       # Named by a commit, the one the v4.4.1 tag names, and not by the v4 tag, which is moved
-      # from one 4.x release to the next. A newer version goes in the same way: its commit, with
-      # the version after it.
+      # from one 4.x release to the next. A newer version goes in the same way: the commit its
+      # tag names in the action's own repository, not in a fork, with the version after it.
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         id: release
         with:

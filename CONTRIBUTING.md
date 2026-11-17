@@ -8,7 +8,7 @@ This document is the standard for how changes, releases, and issues flow through
 
 > **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
 
-> **Code owners.** The ruleset also asks for a code owner's review, and [`.github/CODEOWNERS`](.github/CODEOWNERS) names the repository owner as the code owner of every file. So the approval that lets a pull request merge without the admin bypass is the owner's: another reviewer's approval is welcome, and does not stand in for it unless that file names them too.
+> **Code owners.** The ruleset also asks for a code owner's review, and [`.github/CODEOWNERS`](.github/CODEOWNERS) names the repository owner as the code owner of every file. So a pull request that someone else opens, the release PR included, needs the owner's approval to merge without the admin bypass. Another reviewer's approval is welcome, and does not stand in for it unless that file names them too and they have write access to the repository.
 
 | Branch prefix | Use for | Example |
 |---|---|---|
@@ -29,7 +29,7 @@ Rules of thumb:
 1. **Open a PR into `master`.** Fill in the template; link issues with `Closes #n` so merges close them automatically.
 2. **Title must be a conventional commit** (`type(scope)!: summary`). CI enforces this (`pr-title` check) because the squash commit takes its message from the PR title, and versions are computed from those messages.
 3. **CI must be green** — `build-test` runs the full suite, including Testcontainers integration tests, and `lint-workflows` reads the workflow files ([below](#workflow-files-are-linted)).
-4. **Review** — solo-maintainer flow: self-review the diff in the PR UI, and/or run `/code-review` (Claude) on the branch; fix findings before merge. If a second human is ever involved, request their review instead.
+4. **Review** — solo-maintainer flow: self-review the diff in the PR UI, and/or run `/code-review` (Claude) on the branch; fix findings before merge. If a second human is ever involved, request their review instead; for their approval to count as a code owner's, `.github/CODEOWNERS` has to name them too.
 5. **Squash merge only.** The branch is deleted automatically after merge.
 
 ### Workflow files are linted

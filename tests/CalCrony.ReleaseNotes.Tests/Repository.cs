@@ -22,7 +22,10 @@ internal static class Repository
     /// <returns>The file's normalized text.</returns>
     public static string ReadFixture(string name) => Read($"{FixturesPath}/{name}");
 
-    /// <summary>Walks up from the test assembly to the folder that holds the solution file.</summary>
+    /// <summary>Walks up from the test assembly to the folder that holds the solution file. In a
+    /// GitHub Actions run that folder has to be the workspace the repository was checked out to:
+    /// any other folder with a solution file in it, lower in the tree, would have the tests read
+    /// its files in place of the repository's.</summary>
     /// <returns>The repository root.</returns>
     private static string FindRoot()
     {
@@ -33,7 +36,26 @@ internal static class Repository
             directory = directory.Parent;
         }
 
-        return directory?.FullName
+        string root = directory?.FullName
             ?? throw new InvalidOperationException($"{SolutionFileName} was not found above {AppContext.BaseDirectory}.");
+        string? workspace = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE");
+
+        if (!string.IsNullOrEmpty(workspace) && !IsSameFolder(root, workspace))
+        {
+            throw new InvalidOperationException($"{SolutionFileName} was found in {root}, not in the workspace {workspace}.");
+        }
+
+        return root;
     }
+
+    /// <summary>Tells whether two paths name the same folder, written with or without a final
+    /// separator; letter case counts only where the file system's does.</summary>
+    /// <param name="first">One folder's path.</param>
+    /// <param name="second">The other folder's path.</param>
+    /// <returns>Whether the two paths name the same folder.</returns>
+    private static bool IsSameFolder(string first, string second) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(first)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(second)),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 }
