@@ -490,7 +490,51 @@ this machine waits for its own go-ahead.
 
 ## 8. Notes from generation
 
-*Empty until the plan is approved and the change is built.*
+*The change is not built in the repository yet: by Q5 that waits for pull request #180 to be on
+`master`. On 2026-11-16, after the plan was approved, the change and its tests were prepared in a
+scratch copy of that pull request's tree, outside the repository. What that turned up is set down
+here now, before anything is built. Each point is checked again when the change is built on
+`master`, and is put to Joshua at the completion gate.*
+
+**Found while preparing: two kinds of text that the rules as section 2 words them would have read
+worse than they are read today.** Each is read on the right day now. In the change as prepared
+each keeps that, and the rules are otherwise as approved.
+
+1. **A time beside a range that is under way.** `this week 6pm`, `this month 6pm` and
+   `mon to sat 6pm`, typed on the Wednesday, are today at 6 PM; so is `this weekend 6pm` typed on
+   the Sunday; and `tonight (9pm)` typed at 8:30 PM, when the night has begun, is today at 9 PM.
+   By 2.4 the time would have been read on the day the range began, which has passed, and the
+   text refused as past. The day reader already has the answer: a range that has begun and not
+   ended means the rest of it, and names no day. So a time beside such a range stays a time
+   alone, today's or tomorrow's, as before. A range that has not begun names its first day —
+   `this weekend 6pm` on a Wednesday is Saturday at 6 PM, where it was today — and one that is
+   over is refused as past: `last week (6pm)`, which was today at 6 PM.
+2. **"End of day" beside a day.** `by end of day friday` and `by eod friday` are Friday at 9 AM
+   today: the recognizer takes "end of day" as today's last second, the deadline is not read,
+   and Friday is. With 2.1 the deadline is read, and the text would have become today at
+   11:59 PM. "End of day" is a time with no day of its own, which is what 2.4 is about, so beside
+   a day it is that day's last second: `by end of day friday` is Friday at 11:59 PM. **That also
+   changes text that is read today**: `eod friday`, `friday eod` and `friday end of day` are today
+   at 11:59 PM now and become Friday at 11:59 PM. It is the point this section's list has under
+   `eod friday`, taken up for the date-and-time reader because 2.1 could not be built without
+   touching it. Alone, `eod` and `by end of day` are today's, as before. The day reader is not
+   changed and still gives today for `eod friday`.
+
+**Also found.**
+
+- `by late friday` and `by early friday` stay not understood, with the whole periods of 2.1: the
+  recognizer gives their end as the midnight after the day, or before it. `by the end of friday`
+  is read, as Friday at 11:59 PM.
+- A span of days that begins today is left as it is, as 2.3 says of `mon to sat`: `fri-sun` typed
+  on that Friday at 10:00 is refused as past, and is today from the day reader.
+- A part of the day is the day's own time: `friday night (9pm)`, typed before the Friday, is
+  Friday at 8 PM, where the night begins, and the further time is not read (2.4, case 2). It was
+  today at 9 PM.
+- One check in the rule of 2.3 is reached by no text that was found. Next week's is added only
+  where the recognizer's two values are a week apart. `fri 17`, Friday the 17th, is written by
+  the recognizer as `fri` is and has values months apart, but it never has two that have both
+  passed, so adding a week to it would change no answer. The check stays, as the rule's own
+  premise, and no test can fail without it.
 
 **Noticed while probing, not part of this.** Each is listed for Joshua to take up or leave:
 
@@ -503,7 +547,8 @@ this machine waits for its own go-ahead.
   `cyber mon` next Monday. Only `sat` and `sun` are spelled out, so `easter sat` and `palm sun`
   are right.
 - `eod friday` and `friday end of day` read as today at 11:59 PM, from both readers: the
-  recognizer takes "end of day" as the end of today.
+  recognizer takes "end of day" as the end of today. *(Taken up for the date-and-time reader
+  while the change was prepared: see the second point at the top of this section.)*
 - `friday 1700` is Friday at 9 AM, the number being read as the year 1700; `friday 5` is Friday
   the 5th of whichever month next has one.
 - `9:00` and `09:00` typed after 9 AM are 9 PM today, alone and beside today's weekday: the
