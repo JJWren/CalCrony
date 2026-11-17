@@ -5,11 +5,12 @@
 from another session, which had read the code and suspected that the calendar shows such a series
 on one weekday only; this session was to confirm or refute that with a failing test first.
 **Baseline**: `master` 56b61ab — the code of v0.37.0, which the hosted instance runs.
-**Branch**: `fix/public-calendar-day-sets` → PR `fix: show every weekday of a weekly day set on the public calendar`.
+**Branch**: `fix/public-calendar-day-sets` → PR #182, `fix: show every weekday of a weekly day set on the public calendar`.
 **Status**: written 2026-11-16 with the suspicion confirmed by a run (section 1); approved by
 Joshua the same day as written, with Q1 and Q2 both answered A (section 5). Generated the same
-day and reviewed by two agents, whose findings are answered (section 8). Committed locally, not
-pushed. The completion gate is asked.
+day and reviewed by two agents, whose findings are answered (section 8). Approved at the
+completion gate on 2026-11-17 ("B) Continue"), pushed as one commit, and opened as pull request
+#182. Its checks and the merge are next.
 
 A small fix, so the workflow runs at minimal depth: the task is the requirement; no user stories,
 application design, units, NFR or infrastructure stages; one unit, and this file is both its

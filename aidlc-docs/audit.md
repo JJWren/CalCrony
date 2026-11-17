@@ -1649,3 +1649,17 @@ Availability for @GM
 **Context**: Construction — code generation: complete; waits for Joshua at the completion gate. Nothing is pushed.
 
 ---
+## Construction — public calendar day sets: completion gate answered: continue to the push and the pull request
+**Timestamp**: 2026-11-17T16:29:58Z
+**User Input**: "B) Continue"
+**AI Response**: His answer to "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage" — B as it was put: the push of this branch and the pull request against `master`. Read first (16:30Z): `master` on GitHub is still at `ab32e96`, so there is nothing to take in; pull request #180 is still open, so `docs/release-notes/0.37.1.md` is a new file against `master` as this branch has it; the branch is not on GitHub yet; and the local branch is the one commit `f3ef0be`. Next: that commit is pushed under the branch's name, and the pull request is opened. This entry and the ones after it stay in a local commit on top until the merge is asked, so that the pushed head is the commit whose text the agents read plus the gate's entry.
+**Context**: Construction — code generation approved at the gate; build and test is the pull request's checks.
+
+---
+## Build and test — public calendar day sets: the branch pushed; pull request #182 opened
+**Timestamp**: 2026-11-17T16:31:52Z
+**User Input**: (none — the push and the pull request he approved at the gate)
+**AI Response**: The commit `f3ef0be` was pushed under the branch's name by 16:31:08Z, and nothing else left this machine: the local refs that keep the earlier commits are not on GitHub. Pull request #182 was opened against `master` at 16:31:23Z: "fix: show every weekday of a weekly day set on the public calendar". Its text says what a visitor saw and sees now, what changed, what is deliberately not in the change, how it was verified and reviewed, and what the second of #182 and #180 to be merged has to do with `docs/release-notes/0.37.1.md`. It was scanned for invisible characters and for anything that must not be public before it was posted. No issue is linked: the fault was found while reading the code. The app's Auto-fix is on for this session, so the app watches the pull request's checks, its merge state and its comments; auto-merge is off. Read at 16:31:52Z: open, mergeable, its head `f3ef0be`; `pr-title` and the secret scan have passed, and `build-test` and both CodeQL analyses are running. This entry and the one above are in a local commit on top of the pushed one. Asked next, each as its own go-ahead: the merge, once the checks are green; then the release and the rollout.
+**Context**: Build and test — pull request #182 is open and its checks, which are this fix's build and test, are running. The merge waits for them and for Joshua's go-ahead.
+
+---
