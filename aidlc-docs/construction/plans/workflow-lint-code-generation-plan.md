@@ -173,7 +173,7 @@ request after all, but once the ruleset does.)
 | D1 | The job is a fourth job in `ci.yml`, `lint-workflows`, not a workflow of its own. It runs on every pull request and every push to `master`, with no path filter, and no other job waits for it. | `ci.yml` already has exactly the triggers asked for. A job that always runs can be made required (Q1). `publish-main` goes on needing `build-test` alone: a finding should not hold the `:main` images back. |
 | D2 | Both tools are downloaded as release binaries from their projects on GitHub, each held to a version and to the SHA-256 of its archive, checked before anything is unpacked. actionlint 1.7.12 and shellcheck 0.11.0. | What runs is named in the workflow file and can be checked against the release page by anyone. Not taken: actionlint's Docker image by digest (one opaque digest, shellcheck's version only implied, Docker Hub added to a check that may be required), and a wrapper action (it would download the linter itself at run time, unchecked). Not taken either: the runner's own shellcheck, whose version moves with the runner image. |
 | D3 | `actions/checkout` is pinned to a commit, `3d3c42e5aac5ba805825da76410c181273ba90b1`, the tag `v7.0.1` (the current release; it declares Node.js 24), with `persist-credentials: false`. The other jobs stay on `@v4`. | The task asks for a commit where an action is used. v7.0.1 rather than the commit behind `@v4` (v4.4.0, `11d5960a…`): a new job has no reason to start on a release line that already runs with a deprecation notice. Raising the other jobs is a change of its own (section 8). |
-| D4 | shellcheck is given to actionlint by its path, and each tool prints its version before the lint. (Tightened after review, section 10: one variable holds the folder for all three lines.) | Section 2: actionlint is silent when it cannot run shellcheck. A missing or broken binary fails the step at the version line, and every run's log says what did the checking. |
+| D4 | shellcheck is given to actionlint by its path, and each tool prints its version before the lint. (Tightened after review, section 10: one variable holds the folder for all three lines. Again in round 2, section 11: each tool's whole path is written once, under `set -u`.) | Section 2: actionlint is silent when it cannot run shellcheck. A missing or broken binary fails the step at the version line, and every run's log says what did the checking. |
 | D5 | `permissions: contents: read`, nothing else; `timeout-minutes: 5`. | As asked. The job needs the files and nothing more; it holds no secret and posts nothing. |
 | D6 | No ignore and no configuration file. Every finding fails the check, shellcheck's at every level, down to an unquoted variable (row 8). (After review, section 10: the job is now told to take nothing from a configuration file, where this only said there was none; "every finding" means every one the two tools report, and actionlint itself leaves seven of shellcheck's rules out; and the comment goes on the line above the command.) | The files pass as they are, so there is nothing to except. If a finding ever has to be excepted, it is with a `# shellcheck disable=SC…` comment on that line of the script, the reason beside it, and never a rule switched off for the whole run. |
 | D7 | `CONTRIBUTING.md` gets a short part under "Pull request cycle": what the check is, how to run it locally (install the two tools, run `actionlint` in the repository root), which versions CI pins, and that actionlint is silent without shellcheck. Step 3 of the cycle names the check. (After review, section 10: it names no version, and points at `ci.yml` for them, so that raising a pin leaves nothing behind here.) | As asked. One place, and no per-system install commands to keep true: it links to the two projects' own install pages. |
@@ -288,7 +288,7 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 **3. Verification**
 - [x] 3.1 The broken copies made again from the file as written and linted with the pinned Linux binaries; the outputs kept for the pull request's description. (2026-11-16: thirteen fail, the unchanged copy passes; the output is byte for byte that of section 2.)
 - [x] 3.2 The release-notes tests (`tests/CalCrony.ReleaseNotes.Tests`), the one project that reads repository files, run here. The whole suite is left to `build-test` on the pull request: this change touches no code and no file a test reads. (2026-11-16, Windows: 338 pass, 17 skipped, none fail.)
-- [x] 3.3 Two review agents read the local commit (D8); findings answered. (2026-11-17: both read the three local commits up to `631a26e`. Nothing critical; one major finding, that `master` had moved; the rest minor. Section 10.)
+- [x] 3.3 Two review agents read the local commit (D8); findings answered. (2026-11-17: both read the three local commits up to `631a26e`. Nothing critical; one major finding, that `master` had moved; the rest minor. Section 10. A second round on the four commits up to `33b0f0a`, and a last read of the answers to it: section 11.)
 
 **4. Records and delivery — each outward step on Joshua's own go-ahead**
 - [ ] 4.1 `audit.md` entries throughout; the section in `aidlc-state.md` kept up to date.
@@ -539,7 +539,7 @@ an `if:` that is always true, and shellcheck's findings of every level.
       # -verbose puts in the log which files were read and whether shellcheck or pyflakes was
       # left out (pyflakes is, when the runner has none: it checks steps written in Python, and
       # there are none). SHELLCHECK_OPTS is unset and -config-file /dev/null is given so that
-      # neither a variable set elsewhere in a workflow nor a configuration file in the
+      # neither that variable, set elsewhere in a workflow, nor a configuration file in the
       # repository can switch findings off.
       - name: Lint the workflow files
         run: |
@@ -567,6 +567,9 @@ paragraphs until the second round, which also changed three sentences in the las
 11.)
 
 ### What was run after these changes, all on the merged tree
+
+(This list is the job as round 1 left it: 63 lines, both checksums asked in one call. Section 11
+has what was run on the job as it stands, 68 lines.)
 
 - The linter on the three workflow files: nothing found — the Windows binaries on the checkout,
   the pinned Linux binaries, called as the job calls them, on the files as the repository holds
@@ -643,6 +646,25 @@ left as it is.
 - The release-notes tests were not run again: they read neither `ci.yml` nor `CONTRIBUTING.md`,
   and `release-please.yml` and the tests are `master`'s.
 
+**The last read.** Both agents then read the answers to round 2 alone, `af6bbce` and its records
+`784bb61`. Both report every finding of round 2 closed and nothing wrong in the changed lines of
+the two scripts: `unset SHELLCHECK_OPTS` under `set -u` ends 0 when the variable was never set; a
+wrong or an empty checksum for either archive stops the step with nothing unpacked; a name
+misspelt at the flag ends the step, and a missing shellcheck fails at its version line. What was
+left is wording, answered in the commit after:
+
+- "A finding can be switched off for the whole run only in the job itself" was still one notch too
+  wide, the security reviewer found. Keys at the top of `ci.yml` reach the job's steps from outside
+  its text: an `env:` that names a file for bash to read first — it tried that, and the lint step
+  ends 0 on a broken tree — or a `defaults.run.shell`. Those replace what runs the steps, they
+  silence `build-test` as well, and there is no end of them; the job is not hardened against them.
+  `CONTRIBUTING.md` now says "only in `ci.yml`", and the job's comment says "neither that variable,
+  set elsewhere in a workflow, nor a configuration file". Neither was tried again here: the new
+  wording claims less.
+- Three marks in this plan that round 2 had made stale: on D4, on step 3.3, and over section 10's
+  list of what was run.
+
 **Which commits were read.** Round 1: the three up to `631a26e`, by both agents. Round 2: the four
-up to `33b0f0a`, by both. The commit that answers round 2 is read by both once more, for that
-change alone, before the completion gate; what they say is in the audit.
+up to `33b0f0a`, by both. The last read: `af6bbce` and `784bb61`, by both. The commit after that
+changes one comment line of the job, one phrase of `CONTRIBUTING.md` and these records, in the
+reviewers' own words. It was checked here and not read again by an agent.
