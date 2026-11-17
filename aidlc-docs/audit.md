@@ -1876,3 +1876,10 @@ Availability for @GM
 **Context**: Operations for the release summary — the records pull request is open and green; awaiting Joshua's go-ahead for its merge.
 
 ---
+## Release summary — go-ahead to merge the records pull request #186; `master` taken in once more
+**Timestamp**: 2026-11-17T17:05:33Z
+**User Input**: "Merge now"
+**AI Response**: Logged the go-ahead. Two things happened between the question and this answer. First, the desktop app's Auto-fix reported merge conflicts with `master`, but for the head `385be0c`, which the merge `51353b7` had already replaced: `master` (`47c8a15`) was contained in the branch, GitHub reported the head `51f1196` mergeable and every check on it had passed, so nothing was changed or pushed for that report. Second, `master` moved again at 2026-11-17T17:02:31Z, by pull request #182 (the public calendar's day sets, `4fdfa60`), and its eleven new entries in `aidlc-docs/audit.md` conflicted with this branch's. `master` was taken in as `4e0a64b` in the same way as before: its entries stand as they are, this branch's five are put in by timestamp, and a script checked the result both ways. `aidlc-docs/aidlc-state.md` merged by itself. Against `master` the pull request is still the same three files under `aidlc-docs/`. Next: the merge and this entry are pushed, the pull request's description is corrected to count six entries of this branch where it says four, the checks run once more on the new head, and the pull request is then squash-merged through the REST call, held to that head, titled `docs: log the release summary through its merge (#186)`. It cuts no release. The merge itself is on GitHub's record alone.
+**Context**: Operations for the release summary — Joshua approved the merge of the records pull request; `master` taken in once more before it.
+
+---
