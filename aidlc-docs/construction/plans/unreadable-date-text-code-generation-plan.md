@@ -337,3 +337,10 @@ as typed. That makes 38 cases added by this change. On the merged tree the build
 the baseline's 22 warnings, and 1,767 tests pass — 851 API, 418 bot, 153 web, 345 release notes,
 with the same 17 skipped. A clean copy of `master` at `b582c2b` has 1,729 (813 API, 418 bot, 153
 web, 345 release notes).
+
+Pull requests #183 and #182 then merged, at 16:49:14Z and 17:02:31Z, before that merge was
+pushed, and `master`, at `4fdfa60`, was taken in by a second merge on top of the first. Neither
+touches this change's code or tests, so only the two records files needed a hand again. On that
+tree the build has 0 errors and the baseline's 22 warnings, and 1,781 tests pass — 865 API, 418
+bot, 153 web, 345 release notes, with the same 17 skipped. A clean copy of `master` at `4fdfa60`
+has 1,743 (827 API).
