@@ -294,8 +294,8 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 - [ ] 4.1 `audit.md` entries throughout; the section in `aidlc-state.md` kept up to date.
 - [x] 4.2 At the completion gate, on his go-ahead: `master` taken in first if it has moved, the branch pushed, the pull request opened with the evidence of section 2 in its description. (2026-11-17, on Joshua's "Continue to next stage": `master` had not moved since the merge of it; twelve commits pushed; pull request #183 opened at 16:32:29Z. Section 12.) (`master` was taken in once already, on 2026-11-17 as `43076bf`, because the review's evidence had to be restated on it: section 10. It is taken in again here if it has moved since. The description carries the table of section 10.)
 - [x] 4.3 On the pull request: `lint-workflows` green — its first run on GitHub's runner — with `build-test` and `pr-title`; Copilot's review answered if it starts. (2026-11-17, on the first head `7ebecd9`: all three green, and the job's first run there took 13 seconds; Copilot's review did not start. Section 12.)
-- [ ] 4.4 On his separate go-ahead: the squash merge through the REST call. It cuts no release.
-- [ ] 4.5 After the merge: the job's run on the push to `master` read. With Q1 A, Joshua then adds the check to the ruleset, and that is recorded. (Since the review: once the ruleset names the check, the two sentences of `CONTRIBUTING.md` that call it required go in with those records — the paragraph on the ruleset, and "It is a required check" in the new part.)
+- [x] 4.4 On his separate go-ahead: the squash merge through the REST call. It cuts no release. (2026-11-17, on Joshua's "Merge now": merged at 16:49:15Z as `47c8a15`. Section 13.)
+- [x] 4.5 After the merge: the job's run on the push to `master` read. With Q1 A, Joshua then adds the check to the ruleset, and that is recorded. (Since the review: once the ruleset names the check, the two sentences of `CONTRIBUTING.md` that call it required go in with those records — the paragraph on the ruleset, and "It is a required check" in the new part. 2026-11-17: the run on `master` is read and green, in 12 seconds; the ruleset, as GitHub returns it, does not name the check yet, so this step stays open. Section 13. Later the same day the ruleset names it, and the two sentences are written: section 13.)
 
 ## 7. Risks and limits
 
@@ -713,3 +713,33 @@ run again on the new head.
 with the head named; then, on his side, `lint-workflows` added to the required checks of
 `protect-master`; and after that the records, with the two sentences of `CONTRIBUTING.md` that
 call the check required (step 4.5).
+
+## 13. The merge, and the first run on `master` (2026-11-17)
+
+On Joshua's "Merge now". Checked before the call: the pull request open at head `65f73dc`, every
+check on that head green, `master` unmoved, auto-merge off, the description still the one posted.
+Pull request #183 was squash-merged through the REST call with that head named, at
+2026-11-17T16:49:15Z, as `47c8a15`, a commit GitHub signed. `master`'s tree is the branch's tree.
+It cut no release.
+
+**On `master`** the three runs the push started are green. `lint-workflows` passed in 12 seconds
+(run 44130102022, 16:49:21Z to 16:49:33Z), its first run there: the image `ubuntu-26.04`
+(20261111.196.1), both checksums `OK`, 3 files collected, 0 errors. `build-test` and
+`publish-main` passed after it. The release workflow succeeded and cut nothing. CodeQL passed.
+From here on every pull request gets a `lint-workflows` check with its next push.
+
+**The ruleset is not changed yet, as GitHub returns it.** Asked whether he had added the check to
+the required ones, Joshua answered "Yes, it's added". Read three ways, at 16:53:52Z and again at
+16:54:51Z — the ruleset itself, the rules in force for `master`, and the list of rulesets — the
+required checks of `protect-master` are `build-test` and `pr-title`, last changed on 2026-07-17;
+there is no other ruleset, and no branch protection of the older kind on `master`. So step 4.5
+stays open, and the two sentences of `CONTRIBUTING.md` that call the check required are not
+written until a read shows the check named. He is told what was read.
+
+**The ruleset names the check.** On Joshua's "It's saved now", read the same three ways at
+23:13:42Z: the ruleset was changed at 2026-11-17T23:13:05Z, and its required checks are
+`build-test`, `pr-title` and `lint-workflows`, the last with GitHub Actions named as its source.
+So step 4.5 is done: `CONTRIBUTING.md`'s paragraph on the ruleset names `lint-workflows` beside
+the other two, and "Workflow files are linted" says "It is a required check." `master`, which had
+moved three times (#182, #186, #184), was taken into the records branch first; none of the three
+touches `CONTRIBUTING.md` or a workflow file.
