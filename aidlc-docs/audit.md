@@ -2086,3 +2086,17 @@ Availability for @GM
 **Context**: Operations — #181 is complete: its last step, the read of the first release after it, is done.
 
 ---
+## Construction — code owners and the pinned release action: pull request #187 merged; the run its merge started
+**Timestamp**: 2026-11-17T23:41:25Z
+**User Input**: (none — continuation of "Hand run, then merge")
+**AI Response**: Every check on the head `09d6cd1` was green by 23:37:43Z (`build-test` at 23:37:26Z; `pr-title`, `lint-workflows`, both CodeQL analyses, CodeQL and the secret scan; `publish-main` skipped), with no review, review comment or comment, and `master` still `e792e1a`. The squash merge was made at 23:38:06Z by the REST call with the keyring login, the head `09d6cd1` named and the title `ci: add a code owners file and name the release action by its commit (#187)`. Its message is the pull request's text with five exact, counted replacements, so that no at sign is left in it: the quoted workflow line becomes a sentence, the owner's handle loses the sign, and the tag is written as "the `v4` tag". GitHub merged it at 23:38:12Z as `162fd42`, whose tree is the head's, and deleted the branch. Step 5.1, read after it: the run the merge started (44201104260, 23:38:14Z to 23:38:36Z) was green; on `master` its release job fetched `googleapis/release-please-action` by the commit `5c625bf…`, held `Contents: write`, `Metadata: read` and `PullRequests: write`, found no user-facing commit since `eb6afb8` and wrote nothing, and `release-summary-preview` found no open release pull request and skipped the rest. GitHub's `codeowners/errors` for `master` answered `{"errors":[]}`. No pull request was open after the merge, so what GitHub lists as required on one waits for the next release pull request and for the next one the owner opens. Plan step 4.3 is ticked, step 5.1 says what was read and what waits, and the state line is ticked. These records and #181's are on the local branch `docs/log-release-permissions-and-code-owners-merges`, cut from `162fd42` and not pushed; its push and a records pull request wait for Joshua's go-ahead.
+**Context**: Construction — the unit is merged. Left: the merge boxes of the next pull requests (step 5.1), and the records pull request.
+
+---
+## Operations — the records branch of #181 and #187: its push and pull request asked; the other actions asked again
+**Timestamp**: 2026-11-17T23:42:07Z
+**User Input**: (none — questions put to Joshua)
+**AI Response**: Asked of Joshua, each with a recommendation. First: push the local branch `docs/log-release-permissions-and-code-owners-merges` (three commits on `162fd42`: the records of #181's merge, kept since 2026-11-16 and now put in by their stamps; #181's step 5.1, read on 0.37.1's run; and the records of #187's merge) and open its pull request, `docs: log the release workflow's least access and the code owners file through their merges` — A) push, open it, and squash-merge it once its checks are green (recommended); B) push and open it only, the merge asked separately; or not now. Second, asked again because #187, which it waited for, is now merged: pin the other actions named by tags to their commits the same way, `docker/login-action` first, with Dependabot version updates for actions, as the next pull request from this session — A) yes (recommended), B) not now.
+**Context**: Operations — the change is merged; its records and the next change each wait for Joshua's go-ahead.
+
+---
