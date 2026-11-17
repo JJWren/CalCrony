@@ -1698,3 +1698,17 @@ Availability for @GM
 **Context**: Build and test — waiting for Joshua. Nothing is released or rolled out.
 
 ---
+## Build and test — short weekend days: "Done, read logs", and what the logs show
+**Timestamp**: 2026-11-17T16:52:36Z
+**User Input**: "Done, read logs"
+**AI Response**: Joshua's answer to "Have you run the two live items on the test server?". The clock was read at 16:52:36Z, the first thing after it. The test stack was read then and still ran the merged build: `/health` answers `0.0.0-main.b582c2b`, with the API started at 16:43:32Z and the bot at 16:43:49Z, as recorded above. Its logs and its database were read between 16:52Z and 16:58Z. Since its start the test bot has called the API only for its routine work: pending deliveries every fifteen seconds or so, and the presence sync, the watched roles, the live lists and the referenced channels at start. It made no call for `/create` (`POST /guilds/<id>/events`) and none for `/availability slots` (`POST /calendar/free-slots`). The API wrote nothing in that time beyond the clean-up it does at start. The test database holds one server, no event and no poll. So neither live item reached the test stack after it took the merged build, and no pass is recorded: the two items in the live script stay unticked. Why is not known. Two readings were put to Joshua: the commands were typed where another bot answered them, or the answer was the recommended button, taken before anything was typed. Whether the commands reached the production bot could not be told: at the level it logs, its log carries no such lines, and the production database was not read. Also read: `master` had moved to `47c8a15` at 16:49:14Z, with pull request #183 (`ci:`), which changes nothing in what a release would carry.
+**Context**: Build and test — the two live items are not run. Next: Joshua's choice between running them with the test bot and leaving them out. The release of 0.37.1 stays its own question after that.
+
+---
+## Build and test — short weekend days: the live items put to Joshua again
+**Timestamp**: 2026-11-17T16:58:57Z
+**User Input**: (none — a question put to Joshua; no answer yet)
+**AI Response**: Asked, with the finding above: "Run the two live items with the test bot, or skip them?", with the answers "I'll run them" and "Skip live items", the first recommended. Neither answer says that anything was run. A watch on the test bot's log was started at 16:58Z and ends 40 minutes later at the latest: it reports the calls for `/create` and for `/availability slots` when they arrive, and a pass is recorded only from them and from the event in the test database.
+**Context**: Build and test — waiting for Joshua. Nothing is released or rolled out.
+
+---
