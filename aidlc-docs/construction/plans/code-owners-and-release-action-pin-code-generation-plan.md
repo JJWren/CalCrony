@@ -274,8 +274,10 @@ Each is a change or a decision of its own.
       Answered B on 2026-11-17 ("B, continue"): `master` `723696d` (#184) taken in as `c29f180`,
       and the whole suite run again on it (section 3). GitHub's answer on the code owners file is
       in the pull request's description.
-- [ ] 4.2 On his go-ahead: the workflow started once by hand from the branch, its result in the
-      pull request's description.
+- [x] 4.2 On his go-ahead: the workflow started once by hand from the branch, its result in the
+      pull request's description. Approved 2026-11-17 ("Hand run, then merge"): run 44199345170,
+      green; the action fetched by its commit, the job's token as #181 set it, #185 "remained the
+      same", no release made.
 - [ ] 4.3 On his go-ahead: the squash merge.
 - [ ] 5.1 After the merge: the run the merge starts read for the action's commit; the code owners
       question asked again about `master`; what GitHub lists as required on the release pull request

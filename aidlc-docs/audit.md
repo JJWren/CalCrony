@@ -2009,3 +2009,10 @@ Availability for @GM
 **Context**: Construction — step 4.2 (the run by hand) and, after it, step 4.3 (the squash merge), both approved.
 
 ---
+## Construction — code owners and the pinned release action: the run by hand from the branch
+**Timestamp**: 2026-11-17T23:28:00Z
+**User Input**: (none — continuation of "Hand run, then merge")
+**AI Response**: #185 was read again at 23:26:07Z, open and not merged, and the release workflow was then started by hand from `ci/code-owners-and-pinned-release-action` with the keyring login: run 44199345170, on `e93a9fe`, 23:26:13Z to 23:26:37Z, green. From its log: the image is `ubuntu-26.04` (20261111.196.1); the job's token held `Contents: write`, `Metadata: read` and `PullRequests: write`, and nothing else; "Set up job" downloaded `googleapis/release-please-action` by the commit `5c625bfb5d1ff62eadeeb3772007f7f66fdcf071`; and the step ran release-please 17.3.0, which counted 8 commits since v0.37.0, found release pull request #185 open and reported that it "remained the same". No release was made, and `release-summary`, `publish-images`, `announce-release` and `release-summary-preview` were skipped. #185 read after it: head `16f6bef`, last written at 23:06:16Z, as before. The run's one warning is GitHub's notice that the action targets Node 20 and is run on Node 24, as on the earlier runs. The pull request's description now says this in place of "Not shown yet": edited at 23:27:30Z with the keyring login, and read back the same character for character. Plan step 4.2 is ticked.
+**Context**: Construction — step 4.2 done. Step 4.3, the squash merge, approved, follows once the checks are read green again.
+
+---
