@@ -110,8 +110,9 @@ public static class PublicCalendarBuilder
 
     /// <summary>Future occurrences of a series inside the window, stepping the schedule from the
     /// series' slot cursor (the last materialized occurrence, so the live one is never repeated),
-    /// honoring the until-date and the remaining count. Slots before the window still consume
-    /// count — they are spawns that will happen first.</summary>
+    /// honoring the weekly day set, the until-date and the remaining count. Without the day set
+    /// a Mon + Wed + Fri series would step on its first occurrence's weekday alone. Slots before
+    /// the window still consume count — they are spawns that will happen first.</summary>
     /// <param name="series">The running series.</param>
     /// <param name="windowStart">Inclusive window start.</param>
     /// <param name="windowEnd">Exclusive window end.</param>
@@ -127,7 +128,7 @@ public static class PublicCalendarBuilder
         {
             var next = RecurrenceCalculator.NextOccurrence(
                 series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate, series.StartTime,
-                zone, cursor, series.UntilDate, now);
+                zone, cursor, series.UntilDate, now, series.DaysOfWeek);
             if (next is null || next.Value.Instant >= windowEnd)
             {
                 yield break;
