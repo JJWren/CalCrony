@@ -8,8 +8,9 @@ namespace CalCrony.Api.Services;
 
 /// <summary>Spawns the next occurrence of a series into the current DbContext (caller saves).
 /// Used by the scheduler sweep (when a live slot frees) and the skip endpoint. The partial unique
-/// index IX_Events_SeriesId_Live backstops concurrent spawns — the losing SaveChanges rolls back
-/// whole and converges on the next sweep tick.</summary>
+/// index IX_Events_SeriesId_Live backstops concurrent spawns: a skip that loses answers 409, and
+/// a sweep that loses lets go of the occurrence it made and saves the rest
+/// (<see cref="SweepSave"/>).</summary>
 /// <param name="db">The database context.</param>
 public sealed class SeriesMaterializer(CalCronyDbContext db)
 {

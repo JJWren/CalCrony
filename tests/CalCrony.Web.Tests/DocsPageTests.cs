@@ -103,6 +103,20 @@ public class DocsPageTests : TestContext
     }
 
     [Fact]
+    public void Docs_page_says_where_a_scheduled_ping_goes_and_whom_it_mentions()
+    {
+        var cut = Render<Docs>();
+
+        var entry = Flat(Entry(cut, "Scheduled pings and reminders").TextContent);
+        Assert.Contains("(the event's creator or a server manager, on both sides)", entry);
+        Assert.Contains("A ping's mention and its channel are set in Discord", entry);
+        Assert.Contains("a ping added here goes to the event's channel without a mention", entry);
+        Assert.Contains(
+            "Only that one mention notifies anyone — a mention typed into a title, a message or a reminder is shown as text.",
+            entry);
+    }
+
+    [Fact]
     public void Docs_page_explains_available_hours_in_an_entry_of_its_own()
     {
         var cut = Render<Docs>();

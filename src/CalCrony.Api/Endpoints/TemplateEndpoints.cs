@@ -30,8 +30,9 @@ public static class TemplateEndpoints
 
     /// <summary>Applies a partial update (creator or manager; non-members get 404 so ids can't be
     /// probed). Null fields stay unchanged; a non-null Notifications list replaces the whole spec
-    /// set. Editing never touches events already created from the template — denormalization
-    /// runs in both directions.</summary>
+    /// set — from the web, with no channel or mentions beyond those the template's reminders
+    /// already have. Editing never touches events already created from the template —
+    /// denormalization runs in both directions.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="id">The template id.</param>
@@ -135,18 +136,27 @@ public static class TemplateEndpoints
                 }
             }
 
+            // A channel and mentions are set from Discord. A web caller can keep or drop the pair
+            // a reminder of this template already has, and can set no other: each stored pair
+            // carries over to one reminder of the new list, and a reminder with any other pair
+            // is stored without a channel and without mentions.
+            var carried = context.User.IsBot()
+                ? null
+                : template.Notifications.Select(n => (n.ChannelId, n.Mentions)).ToList();
+
             db.EventTemplateNotifications.RemoveRange(template.Notifications);
             template.Notifications = [];
             foreach (var spec in specs.OrderByDescending(n => n.MinutesBefore))
             {
+                var keeps = carried is null || carried.Remove((spec.ChannelId, spec.Mentions));
                 var row = new EventTemplateNotification
                 {
                     Id = Guid.NewGuid(),
                     TemplateId = template.Id,
                     MinutesBefore = spec.MinutesBefore,
                     Message = spec.Message,
-                    Mentions = spec.Mentions,
-                    ChannelId = spec.ChannelId,
+                    Mentions = keeps ? spec.Mentions : null,
+                    ChannelId = keeps ? spec.ChannelId : null,
                 };
                 // Explicit Add: with a client-set Guid key, graph fixup alone would mark the
                 // row as existing and issue an UPDATE instead of INSERT. Fixup then places the
