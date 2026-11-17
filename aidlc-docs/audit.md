@@ -2128,3 +2128,10 @@ Availability for @GM
 **Context**: Construction — step 4.3, the squash merge, approved. `master` is taken in once more so that the pull request can be merged; the merge follows once the checks on the new head are green.
 
 ---
+## Delivery — short weekend days: 0.37.1 released and on prod; the records pull request asked
+**Timestamp**: 2026-11-17T23:42:33Z
+**User Input**: (none in this session — Joshua gave the go-aheads for the release and the prod rollout in the session behind pull request #184, whose records hold his words)
+**AI Response**: That session's note said both were done; each fact was checked here before it was recorded. The release pull request #185 merged at 23:27:30Z as `eb6afb8`, and `v0.37.1` was published at 23:27:43Z on that commit, with three fixes: #180 (this one), #182 and #184. `b582c2b` is in it. The release run on `eb6afb8` passed: `release-please`, `release-summary`, `publish-images` and `announce-release`, with `release-summary-preview` skipped. On prod, `CALCRONY_IMAGE_TAG` is 0.37.1; a backup of the database was taken first, at 23:35:47Z; the API started at 23:36:20Z and the bot and web at 23:36:37Z, all three on the 0.37.1 images; the database container was not touched (running since 2026-11-15). `/health` answers `{"status":"ok","version":"0.37.1"}`, and the API on prod holds the new helper. The watch on the test bot's log ended at 23:41:13Z, its six-hour limit, with no call for either live item; they stay open in the live script. The test stack now runs `0.0.0-main.723696d`, which includes this fix. `master` (`162fd42`) was taken into this branch, with the audit entries in the order of their stamps. Asked next: "Push the records branch and open its docs pull request?", recommending yes. The pull request would be titled `docs: log the sat and sun fix through its release`, and its merge is asked on its own.
+**Context**: Delivery — plan steps 7.3 and 7.4 complete; the state file's release line ticked. Next: the records pull request, on its own go-ahead.
+
+---
