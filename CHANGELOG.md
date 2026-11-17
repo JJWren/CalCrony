@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.37.1](https://github.com/JJWren/CalCrony/compare/v0.37.0...v0.37.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* read sat and sun as Saturday and Sunday in date text ([#180](https://github.com/JJWren/CalCrony/issues/180)) ([b582c2b](https://github.com/JJWren/CalCrony/commit/b582c2b1756587524010d406e9bae7c32586a625))
+* refuse date text that is missing or cannot be read ([#184](https://github.com/JJWren/CalCrony/issues/184)) ([723696d](https://github.com/JJWren/CalCrony/commit/723696d275d856ee7256a44dab683e276724108c))
+* show every weekday of a weekly day set on the public calendar ([#182](https://github.com/JJWren/CalCrony/issues/182)) ([4fdfa60](https://github.com/JJWren/CalCrony/commit/4fdfa60292b9ab7fdb560a7e80c2617b828768c6))
+
 ## [0.37.0](https://github.com/JJWren/CalCrony/compare/v0.36.4...v0.37.0) (2026-11-13)
 
 
