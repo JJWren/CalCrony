@@ -14,6 +14,7 @@ namespace CalCrony.Api.Services;
 /// zone abbreviation ("10am CST") overrides the caller zone. Always resolves to the nearest
 /// future occurrence; past-only results are rejected. Text longer than
 /// <see cref="DateTextLimits.MaxLength"/> characters is refused before anything reads it.
+/// "sat" and "sun" standing as words of their own read as "saturday" and "sunday" do.
 /// </summary>
 /// <param name="clock">The time source.</param>
 public sealed partial class NaturalDateTimeParser(IClock clock)
@@ -51,6 +52,12 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         RegexOptions.IgnoreCase)]
     private static partial Regex ZoneAbbreviationRegex();
 
+    /// <summary>Matches <c>sat</c> or <c>sun</c> standing as a word of its own, in any letter case —
+    /// never inside a longer word ("saturday", "sunrise", "sats"). A word ends where the regex
+    /// engine's <c>\b</c> ends it, which is where the recognizer's own weekday patterns end one.</summary>
+    [GeneratedRegex(@"\b(?:(?<sat>sat)|sun)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex ShortWeekendDayRegex();
+
     /// <summary>The refusal for text over <see cref="DateTextLimits.MaxLength"/> characters. Unlike
     /// the other errors it does not quote the text.</summary>
     private static readonly string TooLongError =
@@ -58,6 +65,26 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
 
     private readonly DateTimeModel model =
         new DateTimeRecognizer(Culture.English).GetDateTimeModel();
+
+    /// <summary>The text the recognizer is given: <paramref name="text"/> with <c>sat</c> and
+    /// <c>sun</c>, where they stand as words of their own, spelled out as <c>saturday</c> and
+    /// <c>sunday</c>. The recognizer reads the other short weekdays wherever they stand, but these
+    /// two only in some forms ("next sat", "on sun"); elsewhere it drops them and reads the rest,
+    /// so "sat 6pm" would be today at 6 PM. Spelled out, each reads exactly as its full name does.
+    /// Where the full name is refused ("by saturday 6pm"), so is the short form. Text that spelling
+    /// out would take past <see cref="DateTextLimits.MaxLength"/> comes back as typed, with no
+    /// short form spelled out, so the recognizer is never given more than the limit; text with
+    /// neither short form comes back unchanged. Refusals go on quoting the text they quoted
+    /// before, never the spelled-out text.</summary>
+    /// <param name="text">The text to read, already within the limit: as typed, or in
+    /// <see cref="TryResolve"/> with the zone abbreviation that chose the zone taken out.</param>
+    /// <returns>The text to hand to the recognizer.</returns>
+    private static string SpellOutWeekendDays(string text)
+    {
+        var spelledOut = ShortWeekendDayRegex().Replace(
+            text, static match => match.Groups["sat"].Success ? "saturday" : "sunday");
+        return spelledOut.Length <= DateTextLimits.MaxLength ? spelledOut : text;
+    }
 
     // Named TryResolve (not TryParse) deliberately: ASP.NET minimal APIs treat any type
     // with a TryParse method as a bindable route/query primitive, which breaks DI injection.
@@ -106,7 +133,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         var reference = localNow.ToDateTimeUnspecified();
 
         var candidates = new List<Instant>();
-        foreach (var recognized in model.Parse(text, reference))
+        foreach (var recognized in model.Parse(SpellOutWeekendDays(text), reference))
         {
             if (recognized.Resolution is null ||
                 !recognized.Resolution.TryGetValue("values", out var rawValues) ||
@@ -226,7 +253,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         var rangeUnderWay = false;
         var onlyPastDays = false;
         var timeAlone = false;
-        foreach (var recognized in model.Parse(text, localNow.ToDateTimeUnspecified()))
+        foreach (var recognized in model.Parse(SpellOutWeekendDays(text), localNow.ToDateTimeUnspecified()))
         {
             if (recognized.Resolution is null ||
                 !recognized.Resolution.TryGetValue("values", out var rawValues) ||
