@@ -344,3 +344,7 @@ touches this change's code or tests, so only the two records files needed a hand
 tree the build has 0 errors and the baseline's 22 warnings, and 1,781 tests pass — 865 API, 418
 bot, 153 web, 345 release notes, with the same 17 skipped. A clean copy of `master` at `4fdfa60`
 has 1,743 (827 API).
+
+Pull request #186, which changes records only, merged at 17:08:55Z, nineteen seconds after those
+two merges were pushed. `master`, at `916ecd1`, was taken in a third time: the two records files
+by hand again, and nothing else. The code and the tests are those of the second merge.

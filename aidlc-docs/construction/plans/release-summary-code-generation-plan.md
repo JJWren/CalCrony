@@ -231,7 +231,7 @@ The tool, `tools/ReleaseNotes` (no package references):
 - [x] 6.1 `audit.md` entries throughout; `aidlc-state.md` carries a section for this work. (Up to the completion gate; the entries go on from there.)
 - [x] 6.2 `master` merged into the branch (it will have gained the 0.37.0 records by then), `audit.md` kept in the order of its timestamps; then the push and the pull request. (2026-11-16, on Joshua's "B) Continue": merge `55062f6`, pull request #179. Section 15.)
 - [x] 6.3 The workflow run once by hand from the branch (the `workflow_dispatch` trigger it already has), so that GitHub parses the changed file and release-please runs and finds nothing to do. (As built after review: the preview job runs from `master` only, so on a run from the branch it is skipped.) Checks green; Copilot's review if it starts, the two agents if it does not. (2026-11-16: run 43890372277 succeeded and released nothing; `build-test` and `pr-title` green on #179, all 351 new tests passing on the runner with none skipped; Copilot's review did not start. Section 15.)
-- [ ] 6.4 The squash merge through the REST call. It cuts no release.
+- [x] 6.4 The squash merge through the REST call. It cuts no release. (2026-11-16, on Joshua's "Merge now": `4af1305`. Section 17.)
 
 What cannot be run before a real release: the two jobs that only exist when one is created. They are
 covered by the tool's tests and by the announce step run for real in CI (2.7), and they fail safe
@@ -717,7 +717,7 @@ two requests to GitHub's renderer, without a login and with made-up text.
 release is created. The preview job first runs on the push to `master` that the merge makes; with
 no release pull request open it finds none and posts nothing.
 
-## 16. The fresh reader's second report (2026-11-16), and the change as it stands
+## 16. The fresh reader's second report (2026-11-16), and the change as it was merged
 
 The fresh agent confirmed commit `edfcc58`: its findings A, B and C and the nit are closed, all
 twelve of its earlier probes fail a test, and bash's own parser says that taking out any of the
@@ -759,3 +759,53 @@ agent.** Each of the rows above is a change made on a copy that now fails a test
   copy. No test fails, which is what leaving a comment's wording unpinned was for.
 - On GitHub, the pull request's second head (`edfcc58`) passed its checks: six passing, none
   failing.
+
+## 17. Merged (2026-11-16)
+
+On Joshua's "Merge now", pull request #179 was squash-merged through the REST call, held to its
+head `e32f18c`, at 2026-11-16T16:51:53Z. `master` is `4af1305`, with the pull request's text as
+the commit's message. It cut no release.
+
+**What the merge set off.** The release workflow ran on `master` (run 43912177390) and succeeded
+in under half a minute. `release-please` found nothing to release. `release-summary-preview` ran
+for the first time where it is meant to run: it looked for an open release pull request, found
+none, skipped its four later steps and posted nothing. `release-summary`, `publish-images` and
+`announce-release` were skipped. The latest release is still v0.37.0, nothing was posted to
+Discord, and GitHub deleted the branch.
+
+**What has still not run.** Three things run for the first time at the next release, or when its
+release pull request opens: the preview job's comment on that pull request; `release-summary`,
+with its question to GitHub about mentions and its edit of the release notes; and the
+announcement with a summary under its usual line. Each fails safe: without them a release goes
+out as it did before. Pull request #180, a `fix:`, was open at the time of the merge, so that
+release is likely to be 0.37.1, and its summary would be `docs/release-notes/0.37.1.md`.
+
+**Left for Joshua, as before.** Whether the 0.37.0 summary goes onto the published v0.37.0
+release. Two of the three things section 11 left open he has started as tasks of their own: a
+workflow linter in CI, and narrower permissions for the two older release jobs. The third, a
+second Discord post when the first is refused, stays not taken.
+
+## 18. After the merge (2026-11-17)
+
+**The comment's first real run.** Pull request #180 (`sat` and `sun` in date text) was merged on
+2026-11-17 with a summary for its release, `docs/release-notes/0.37.1.md`. release-please opened
+the release pull request #185 for 0.37.1, and on the same push the release workflow's run on
+`master` (44127732988) was green: `release-summary-preview` found #185 and posted its comment
+there at 16:37:38Z, "Release summary for 0.37.1", with the file's 405 of 1,800 characters shown as
+code. Read back, the text in the comment equals the file on `master`. This is the first of the
+three things section 17 listed as not yet run.
+
+**Still not run.** `release-summary`, with its question to GitHub about mentions and its edit of
+the release notes, and the announcement with a summary. Both run when #185 is merged. What to look
+for in that run: the step "Ask GitHub whether the summary mentions anyone" green; the notes of
+v0.37.1 opening with the summary; the Discord announcement carrying it under its usual line. A
+"Release summary" warning on the run means the summary was left out or may be missing. The job is
+then not to be run again, since that pings a second time; the text can be added to the release by
+hand.
+
+**Since the merge, by other sessions.** Pull request #181 gave the two older release jobs only
+the access each needs, as put forward with the merge question; the three jobs of this change kept
+their own permissions, and the preview job's run above came after it. The 0.37.0 summary was put
+onto the published v0.37.0 release on 2026-11-16, on Joshua's answer in the session that released
+0.37.0; read back on 2026-11-17, that release's notes equal the text kept beside the tests. A
+workflow linter in CI is open as pull request #183.
