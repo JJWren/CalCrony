@@ -147,7 +147,7 @@ jobs:
       # -verbose puts in the log which files were read and whether shellcheck or pyflakes was
       # left out (pyflakes is, when the runner has none: it checks steps written in Python, and
       # there are none). SHELLCHECK_OPTS is unset and -config-file /dev/null is given so that
-      # neither a variable set elsewhere in a workflow nor a configuration file in the
+      # neither that variable, set elsewhere in a workflow, nor a configuration file in the
       # repository can switch findings off.
       - name: Lint the workflow files
         run: |
