@@ -10,7 +10,8 @@ on one weekday only; this session was to confirm or refute that with a failing t
 Joshua the same day as written, with Q1 and Q2 both answered A (section 5). Generated the same
 day and reviewed by two agents, whose findings are answered (section 8). Approved at the
 completion gate on 2026-11-17 ("B) Continue"), pushed as one commit, and opened as pull request
-#182. Its checks and the merge are next.
+#182, which was merged the same day as `4fdfa60` on Joshua's "Merge when green". The release and
+the rollout are next, each on its own go-ahead.
 
 A small fix, so the workflow runs at minimal depth: the task is the requirement; no user stories,
 application design, units, NFR or infrastructure stages; one unit, and this file is both its
@@ -365,3 +366,11 @@ state file with both sections, and `docs/release-notes/0.37.1.md` with both bull
 `### What's new` heading, above #180's how-to — 659 of the 1,800 characters, passed by the check.
 On that tree the Release build has no error and the same 22 warnings, and 1,743 tests pass and
 none fails (827 API, of which #180 brought 92; 418 bot; 153 web; 345 for the release-notes tool).
+
+Before that merge was pushed, #183 was merged too, so `master` (`47c8a15`) was taken in a third
+time, on the same terms; on this branch it changed only the audit log and the state file, and
+the suite gave the same totals. Both agents read the merge of #180 and the records up to it
+before the push; the merge of #183 holds no new text of this fix and was checked by git. The
+branch was pushed at `46ce2cb`, its checks passed — `build-test`, `pr-title`, the new
+`lint-workflows`, both CodeQL analyses and the secret scan — and pull request #182 was
+squash-merged on 2026-11-17 at 17:02:32Z as `4fdfa60`, whose tree is the tree of `46ce2cb`.
