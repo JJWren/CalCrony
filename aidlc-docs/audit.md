@@ -1883,3 +1883,10 @@ Availability for @GM
 **Context**: Operations — 0.37.1 is released with this fix. The prod rollout waits for Joshua's go-ahead.
 
 ---
+## Operations — public calendar day sets: rolled out to prod
+**Timestamp**: 2026-11-17T23:38:33Z
+**User Input**: (none in this session — the rollout was asked of Joshua in the session working on #184, and that session ran it on his go-ahead there)
+**AI Response**: Read here at 23:38Z: prod's `/health` and `/health/ready` report `{"status":"ok","version":"0.37.1"}`, inside the API container and at the public address. The stack is pinned to `0.37.1`, and its API, bot and web containers run the `0.37.1` images, started at 23:36:20Z (API) and 23:36:37Z (bot and web). The database container was left as it was, running since 2026-11-15. A backup of the prod database was taken first, `calcrony-prod-pre-0.37.1-20261117T233547Z.sql` (2,289,695 bytes). 0.37.1 brings no migration. Since the restart the bot has connected and reached Ready, and no line in the API's log reports a failure. No public calendar on prod was looked at.
+**Context**: Operations — complete: the fix is released in 0.37.1 and runs on prod. These records go out as a docs pull request on Joshua's go-ahead.
+
+---
