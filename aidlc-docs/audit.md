@@ -2009,3 +2009,10 @@ Availability for @GM
 **Context**: Construction — delivery: `master` taken in a third time. Step 6.2, the squash merge, waits for the checks and for Joshua's go-ahead.
 
 ---
+## Construction — date text gaps: `master` taken in twice more, and the two reviews started again
+**Timestamp**: 2026-11-17T23:11:19Z
+**User Input**: "switched models you can now continue"
+**AI Response**: Read as leave to go on with the work under way. Since the entry of 17:06:40Z the two reviews had stopped before either reported, and `master` had moved twice. First pull requests #183, #182 and #186 were merged, and `master` was taken in at 916ecd1: on that tree the Release build had no error and the same 22 warnings, and 1,959 tests were green, the 14 more being those of #182. In the release summary of 0.37.1 the bullets about dates were kept together, with #182's bullet after them. Then pull request #184 was merged, and `master` was taken in again at 723696d. It changes the same file as this branch, in other lines; the two changes met only in the comments that sum up the two methods, and both are kept. Each time, this branch's audit entries went in by their timestamps and its section of the state file after the others. The build, the whole suite, the rule removals and the comparison are being run again on this tree, and both reviews are started again from the beginning, on the branch as it now stands. Their findings and the completion gate follow. Nothing is pushed.
+**Context**: Construction — code generation: generated on the local branch, with `master` taken in; the checks run again; the two reviews are under way; the completion gate follows them.
+
+---
