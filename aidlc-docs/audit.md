@@ -1792,3 +1792,10 @@ Availability for @GM
 **Context**: Operations for the release summary — the records of the merge; their pull request is opened on this go-ahead.
 
 ---
+## Release summary — records pull request #186 opened; `master` taken in again; its merge asked
+**Timestamp**: 2026-11-17T16:55:52Z
+**User Input**: (none — continuation of "Open it")
+**AI Response**: The records branch was pushed with the keyring login and pull request #186 opened against `master` at about 2026-11-17T16:47:35Z: three files under `aidlc-docs/`, no code. Its checks passed on that head. Minutes later `master` moved again, by pull request #183 (the workflow linter, the other task put forward with the merge question), and #186 no longer merged cleanly. `master` was taken into the branch as `51353b7`. In `aidlc-docs/audit.md` `master`'s entries stand as they are and this branch's four are put in by timestamp, checked both ways by a script: this branch's entries taken out give `master`'s file back, and `master`'s new ones taken out give this branch's. `aidlc-docs/aidlc-state.md` merged by itself. Pushed at 2026-11-17T16:52:16Z without asking again, as the fix of a merge conflict on a pull request that has Auto-fix on. On that head every check passed, the new `lint-workflows` among them; no review by Copilot was requested. Asked Joshua: "Merge the records pull request #186 now?" That is the squash merge through the REST call, held to the head, titled `docs: log the release summary through its merge (#186)`. It cuts no release. His answer is to be logged on this branch before the merge, so that the log is whole when it reaches `master`; the merge itself is then on GitHub's record alone.
+**Context**: Operations for the release summary — the records pull request is open and green; awaiting Joshua's go-ahead for its merge.
+
+---
