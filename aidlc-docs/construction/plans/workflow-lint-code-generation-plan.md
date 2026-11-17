@@ -292,8 +292,8 @@ names it beside `build-test` and `pr-title`. With B or C, it says the check bloc
 
 **4. Records and delivery — each outward step on Joshua's own go-ahead**
 - [ ] 4.1 `audit.md` entries throughout; the section in `aidlc-state.md` kept up to date.
-- [ ] 4.2 At the completion gate, on his go-ahead: `master` taken in first if it has moved, the branch pushed, the pull request opened with the evidence of section 2 in its description. (`master` was taken in once already, on 2026-11-17 as `43076bf`, because the review's evidence had to be restated on it: section 10. It is taken in again here if it has moved since. The description carries the table of section 10.)
-- [ ] 4.3 On the pull request: `lint-workflows` green — its first run on GitHub's runner — with `build-test` and `pr-title`; Copilot's review answered if it starts.
+- [x] 4.2 At the completion gate, on his go-ahead: `master` taken in first if it has moved, the branch pushed, the pull request opened with the evidence of section 2 in its description. (2026-11-17, on Joshua's "Continue to next stage": `master` had not moved since the merge of it; twelve commits pushed; pull request #183 opened at 16:32:29Z. Section 12.) (`master` was taken in once already, on 2026-11-17 as `43076bf`, because the review's evidence had to be restated on it: section 10. It is taken in again here if it has moved since. The description carries the table of section 10.)
+- [x] 4.3 On the pull request: `lint-workflows` green — its first run on GitHub's runner — with `build-test` and `pr-title`; Copilot's review answered if it starts. (2026-11-17, on the first head `7ebecd9`: all three green, and the job's first run there took 13 seconds; Copilot's review did not start. Section 12.)
 - [ ] 4.4 On his separate go-ahead: the squash merge through the REST call. It cuts no release.
 - [ ] 4.5 After the merge: the job's run on the push to `master` read. With Q1 A, Joshua then adds the check to the ruleset, and that is recorded. (Since the review: once the ruleset names the check, the two sentences of `CONTRIBUTING.md` that call it required go in with those records — the paragraph on the ruleset, and "It is a required check" in the new part.)
 
@@ -668,3 +668,38 @@ left is wording, answered in the commit after:
 up to `33b0f0a`, by both. The last read: `af6bbce` and `784bb61`, by both. The commit after that
 changes one comment line of the job, one phrase of `CONTRIBUTING.md` and these records, in the
 reviewers' own words. It was checked here and not read again by an agent.
+
+## 12. The pull request (2026-11-17)
+
+On Joshua's "Continue to next stage" at the completion gate. `master` had not moved (`ab32e96`), so
+there was nothing to take in. Everything the branch adds, and the description, were read once more
+by a script for a local path, an address, anything shaped like a token, a mention outside
+backticks and a hidden character: nothing. The branch was pushed with the keyring login — twelve
+commits, none with an attribution line — and pull request #183 was opened against `master` at
+2026-11-17T16:32:29Z. Its description on GitHub is the draft, character for character.
+
+**The job's first run on GitHub's runner** (run 44126950195, on the first head `7ebecd9`): green,
+in 13 seconds, 16:32:38Z to 16:32:51Z. From its log:
+
+- the image is `ubuntu-26.04`, version 20261111.82.6;
+- `actions/checkout` was fetched at the pinned commit;
+- both archives downloaded, and the control let the step go on, so that image's `sha256sum`
+  refused the checksum of 64 zeros; it then answered `OK` for each archive;
+- the two tools printed 1.7.12 and 0.11.0;
+- the lint collected 3 files and found 0 errors in them, and `-verbose` named pyflakes as left
+  out, the runner having none, as the job's comment says.
+
+This is the run sections 9 to 11 list as still not run. What a green run cannot show is the real
+check refusing a wrong archive on that image; the control is the nearest thing to it.
+
+**The other checks on that head**: `pr-title` passed; `build-test` passed, on the same image, all
+1,653 tests with none skipped (721 API, 418 bot, 153 web, 361 release notes); both CodeQL analyses
+and the secret scan passed; `publish-main` was skipped, as on every pull request. No review by
+Copilot was requested: the pull request's list of events was empty two minutes after it opened,
+and no reviewer was asked. "Auto-fix pull requests" is on for this session in the app; auto-merge
+is off and stays off.
+
+**What is left**, each on Joshua's own word: the squash merge (step 4.4), through the REST call
+with the head named; then, on his side, `lint-workflows` added to the required checks of
+`protect-master`; and after that the records, with the two sentences of `CONTRIBUTING.md` that
+call the check required (step 4.5).
