@@ -1995,3 +1995,10 @@ Availability for @GM
 **Context**: Build and test — records pull request #188 open; its merge waits for Joshua's go-ahead.
 
 ---
+## Workflow linter — go-ahead to merge records pull request #188
+**Timestamp**: 2026-11-17T23:26:09Z
+**User Input**: "Merge now"
+**AI Response**: Joshua's answer to the question asked at 2026-11-17T23:24:25Z, "Squash-merge pull request #188 once its checks are green?"; the other answer was "Not yet". The first clock read after it was 2026-11-17T23:26:09Z. Checked first, read-only: the pull request open at `f1c554d`, mergeable; `master` still `723696d`; auto-merge off; on that head `lint-workflows`, `pr-title`, the JavaScript analysis and the secret scan had passed and `build-test` and the C# analysis were still running. This entry goes out as the pull request's third push, records only, so that the go-ahead stands in the records the merge brings to `master`. The merge is the REST call with `sha` set to the head that carries this entry, made once every check on that head is green: squash, the title `docs: log the workflow linter through its merge (#188)`, the description as the message. It cuts no release. With it the work on the workflow linter is done: the check runs on every pull request and every push to `master`, and the ruleset requires it.
+**Context**: Build and test — the records pull request's merge, on Joshua's go-ahead, once its checks are green.
+
+---
