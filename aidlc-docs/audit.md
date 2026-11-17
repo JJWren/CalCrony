@@ -1712,3 +1712,10 @@ Availability for @GM
 **Context**: Build and test — waiting for Joshua. Nothing is released or rolled out.
 
 ---
+## Build and test — short weekend days: Joshua will run the live items
+**Timestamp**: 2026-11-17T17:00:52Z
+**User Input**: "I'll run them"
+**AI Response**: Joshua's answer to "Run the two live items with the test bot, or skip them?". The clock was read at 17:00:52Z, the first thing after it. Nothing is recorded as run on this answer. Read then: the test stack still on the merged build (`0.0.0-main.b582c2b`), the test bot with no call for either item yet, and the watch on its log still running. It goes on until the calls arrive, or until about 17:39Z, and the result is recorded then from the log and from the test database.
+**Context**: Build and test — waiting for the two live items to reach the test stack.
+
+---
