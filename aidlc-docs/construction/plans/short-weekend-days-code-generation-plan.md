@@ -229,8 +229,11 @@ this machine waits for its own go-ahead.
       the two, when pull request #179 merged at 16:51:53Z, so it was taken in straight after:
       the audit entries in the order of their stamps, and both new sections of the state file
       kept.)*
-- [ ] 7.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
-      `:main`.
+- [x] 7.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
+      `:main`. *(2026-11-17: the checks were green on the last head, `9facd68`, and no review had
+      started. Merged on the go-ahead "Merge now" at 16:36:36Z as `b582c2b`. The test stack took
+      `:main` at 16:43Z, the three app containers only, and answers `0.0.0-main.b582c2b`. The two
+      live items in the live script wait for Joshua to run them there.)*
 - [ ] 7.3 *Go-ahead:* release 0.37.1 — the release PR that release-please opens — with a short
       summary and a two-line how-to for the notes, shown to Joshua first. *(Since pull request
       #179 the summary is a file in the pull request that makes the change:
