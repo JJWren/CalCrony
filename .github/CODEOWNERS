@@ -1,0 +1,3 @@
+# The protect-master ruleset asks for a code owner's review on a pull request into master that
+# changes a file with a code owner. This file gives every file one: the repository's owner.
+* @JJWren
