@@ -95,6 +95,18 @@ production id (correct for the prod stack, which needs no new variables).
 - [ ] `/create` with `when:"sat 6pm"` → the coming Saturday at 6 PM, as `when:"saturday 6pm"`
       gives. Run it between Sunday and Thursday, or on a Friday before 6 PM: a build without
       the fix then gives today at 6 PM, or tomorrow once that has passed, which is not Saturday.
+- [ ] `/create` with `when:"fri (6pm)"` → Friday at 6 PM, as `when:"fri 6pm"` gives: a time
+      written apart from its day is read on that day. Run it on any day but a Friday: a build
+      without the fix then gives today at 6 PM, or tomorrow once that has passed.
+- [ ] `/create` with `when:` today's weekday and an hour that has passed (`when:"wed 9am"` on a
+      Wednesday after 9 AM) → next week's. A build without the fix refuses it as a time in the
+      past.
+- [ ] `/create` with `when:"every saturday 8pm"` → refused, and the reply says the text repeats
+      and points to the repeat option. A build without the fix says it could not understand the
+      text. Then `when:"saturday 8pm" repeat:weekly` → the weekly series.
+- [ ] `/create` with `when:"sat 6pm" rsvp-close:"by friday 6pm"`, run between Sunday and
+      Thursday → RSVPs close on the Friday at 6 PM, as `rsvp-close:"friday 6pm"` gives. A build
+      without the fix refuses the cutoff as not understood.
 - [ ] Timezone abbreviation: `when:"10:00 AM CST"` on a server whose zone is NOT Central →
       parses as Central wall time, not server zone.
 - [ ] Validation: `/create` with a 129+ char title → friendly error (not an Internal Server Error);
@@ -248,6 +260,8 @@ Free slots (`/availability slots`, v0.37.0) — same prerequisites:
 - [ ] `when:sat` → the list starts on the coming Saturday (today, when run on a Saturday), as
       `when:saturday` does, and `when:sun` on the coming Sunday. A build without the fix refuses
       both.
+- [ ] `when:"every saturday"` → refused, and the reply says the text repeats and asks for one
+      day. A build without the fix says it could not understand the text as a day.
 - [ ] `who:<a role>` holding a linked and an unlinked member, neither with saved hours → slots
       are the linked member's; the unlinked one is named under **Not counted**; a bot holding the
       role is not listed.

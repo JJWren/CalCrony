@@ -427,3 +427,19 @@ and is listed for Joshua to take up or leave:
   `tuesday, next week`.
 - `easter sat` reads as Easter Sunday today — "easter" is read and the rest dropped. Under this
   change it reads as the Saturday before.
+
+**What became of these four (added 2026-11-17).** They were taken up as a change of their own,
+measured again on the parser and put to Joshua, who decided each
+(`date-text-gaps-code-generation-plan.md`). From the release that carries that change:
+
+- `by friday`, `until saturday` and `before saturday 6pm` are read by the date-and-time reader as
+  the date and time they name. The day reader keeps its refusal, because a deadline does not
+  name a first day. `every saturday 8pm` is still refused by both readers, now in words that say
+  the text repeats, and the date-and-time reader's point to the repeat option.
+- A weekday typed on its own day is next week's once its time is behind: `wed` on a Wednesday at
+  10:00 is the Wednesday after, from the date-and-time reader. The day reader gave today and
+  still does.
+- A day and a time written apart read as the same two written together: `fri (6pm)`, `fri. 6pm`
+  and `friday from 6pm` are Friday at 6 PM. `tuesday, next week` still gives the earlier of the
+  two days named.
+- `easter sat` is right as it reads, the Saturday before Easter Sunday, and is left.
