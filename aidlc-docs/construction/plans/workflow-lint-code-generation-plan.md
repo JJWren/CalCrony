@@ -436,7 +436,7 @@ silence when shellcheck cannot be run.
 | # | Finding | Answer |
 |---|---|---|
 | Q1, major; S6, note | `master` had moved, and the evidence described a `master` that no longer exists. | Above: `master` taken in, the evidence run again on it, the statements marked. |
-| S1, minor | A configuration file in the pull request switches any finding off, without a word. actionlint reads `.github/actionlint.yaml` from the tree it lints, which is the pull request's. Tried here: a file that ignores every finding, beside the missing brace of row 6, ends 0. | The job passes `-config-file /dev/null`, so it reads no configuration file. The same copy ends 1. An exception, or a runner label actionlint does not know, can then be given only in the job itself. |
+| S1, minor | A configuration file in the pull request switches any finding off, without a word. actionlint reads `.github/actionlint.yaml` from the tree it lints, which is the pull request's. Tried here: a file that ignores every finding, beside the missing brace of row 6, ends 0. | The job passes `-config-file /dev/null`, so it reads no configuration file. The same copy ends 1. A finding can then be excepted only in the workflow files themselves: one command by a shellcheck comment in its script, a whole run or a runner label actionlint does not know only in the job. (The job's comment first said "no file in the repository can switch a finding off", which the shellcheck comment contradicts; reworded before the reviewers' confirmation.) |
 | Q5, minor | The version lines guarded the two binaries, not the path handed to `-shellcheck`: with only the flag's path misspelt, the step printed both versions and ended 0 on a broken copy. And a green log said nothing about what had been read. | One variable holds the folder for the three lines, so the path cannot be right in one and wrong in another. `-verbose` puts in the log the files that were read, the count of findings, and any rule that was left out. It names pyflakes there when the runner has none, which the security reviewer found to be so on both images: that rule checks steps written in Python, and there are none. |
 | S4, minor; Q9 | The checksum check rests on the runner's `sha256sum`. The reviewers read, from this repository's recent job logs and from the runner-images repository, that the Ubuntu 26.04 image ships the Rust coreutils (uutils 0.10.0), while every wrong-pin run here used GNU coreutils 9.4; and a pull request's green run only ever shows the accepting path. Both read uutils' source at that version and found no fault; neither ran it, and nor did I. | A control before the real check: a checksum of 64 zeros has to be refused, or the step stops. Tried here with a stand-in `sha256sum` that accepts anything: the step ends 1 with nothing unpacked, where the step as first built would have gone on to unpack. So every run, on whatever image, shows the refusing path as well. |
 | S8, note | curl could follow a redirect to an address that is not HTTPS. The checksums never rested on that. | `--proto '=https' --tlsv1.2` on both downloads. Tried: both archives download as before. |
@@ -525,8 +525,9 @@ an `if:` that is always true, and shellcheck's findings of every level.
       # from: a tool that does not run fails the step there. -verbose puts in the log which
       # files were read and any rule that was left out. It names pyflakes there when the runner
       # has none: that rule checks steps written in Python, and there are none. -config-file
-      # /dev/null: no file in the repository can switch a finding off, so an exception has to
-      # be made in this job.
+      # /dev/null: actionlint reads no configuration file, so a finding can be excepted only in
+      # the workflow files themselves, by a shellcheck comment in the script it is about or in
+      # this job.
       - name: Lint the workflow files
         run: |
           tools="$RUNNER_TEMP/lint-tools"
@@ -548,7 +549,7 @@ to be.
 - The linter on the three workflow files: nothing found — the Windows binaries on the checkout,
   the pinned Linux binaries, called as the job calls them, on the files as the repository holds
   them.
-- `ci.yml` against `master`'s: 62 lines added, none changed. Read as YAML, the three earlier jobs
+- `ci.yml` against `master`'s: 63 lines added, none changed. Read as YAML, the three earlier jobs
   and the workflow's other keys are the same, and `lint-workflows` is the one new job. As the
   repository holds it, the file is byte for byte the scratch copy whose scripts were run.
 - The job's two scripts, taken out of the YAML and run on Linux as the runner runs a step: both

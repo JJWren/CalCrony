@@ -144,8 +144,9 @@ jobs:
       # from: a tool that does not run fails the step there. -verbose puts in the log which
       # files were read and any rule that was left out. It names pyflakes there when the runner
       # has none: that rule checks steps written in Python, and there are none. -config-file
-      # /dev/null: no file in the repository can switch a finding off, so an exception has to
-      # be made in this job.
+      # /dev/null: actionlint reads no configuration file, so a finding can be excepted only in
+      # the workflow files themselves, by a shellcheck comment in the script it is about or in
+      # this job.
       - name: Lint the workflow files
         run: |
           tools="$RUNNER_TEMP/lint-tools"
