@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using CalCrony.Contracts;
@@ -11,6 +12,12 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
 {
     private const long ChannelId = 12101;
     private const long CreatorId = 12102;
+
+    private const RecurrenceDays MonWedFri =
+        RecurrenceDays.Monday | RecurrenceDays.Wednesday | RecurrenceDays.Friday;
+
+    /// <summary>How many weeks past a series' first occurrence the day-set tests look.</summary>
+    private const int SweepWeeks = 10;
 
     private HttpClient Client => fixture.Client;
 
@@ -184,6 +191,58 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
     }
 
     [Fact]
+    public async Task A_day_set_with_a_count_shows_what_the_feed_lists_and_the_series_goes_on_to_post()
+    {
+        const long guildId = 12200;
+        const string title = "Mon Wed Fri class";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, DaysOfWeek: MonWedFri), RepeatCount: 7));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
+        var posted = await PostedBySkippingAsync(live.Id);
+
+        // Seven day-instances: the posted Monday, then Wed, Fri, Mon, Wed, Fri, Mon — and nothing
+        // in the weeks after the count runs out.
+        DateTimeOffset[] expected = [.. new[] { 0, 2, 4, 7, 9, 11, 14 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+        Assert.False(shown[0].Projected);
+        Assert.All(shown.Skip(1), e => Assert.True(e.Projected));
+    }
+
+    [Fact]
+    public async Task A_day_set_with_an_until_date_shows_what_the_feed_lists_and_the_series_goes_on_to_post()
+    {
+        const long guildId = 12210;
+        const string title = "Mon Wed Fri until";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, DaysOfWeek: MonWedFri),
+            RepeatUntilText: monday.AddDays(16).ToString("M/d/yyyy", CultureInfo.InvariantCulture)));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
+        var posted = await PostedBySkippingAsync(live.Id);
+
+        // Every Monday, Wednesday and Friday up to and including the until date, a Wednesday.
+        DateTimeOffset[] expected = [.. new[] { 0, 2, 4, 7, 9, 11, 14, 16 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+    }
+
+    [Fact]
     public async Task Months_far_from_today_are_rejected()
     {
         const long guildId = 12160;
@@ -202,6 +261,73 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
 
     private static string MonthUrl(string slug, DateTimeOffset at) =>
         $"/public/calendars/{slug}?year={at.Year}&month={at.Month}";
+
+    /// <summary>18:00 UTC on a Monday one to two weeks ahead, so a test's dates fall on the same
+    /// weekdays whatever day it runs on.</summary>
+    private static DateTimeOffset AMondayEvening()
+    {
+        var today = DateTimeOffset.UtcNow.Date;
+        var monday = today.AddDays(((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7 + 7);
+        return new DateTimeOffset(monday.AddHours(18), TimeSpan.Zero);
+    }
+
+    private static string WhenText(DateTimeOffset at) =>
+        at.ToString("M/d/yyyy h:mm tt", CultureInfo.InvariantCulture);
+
+    /// <summary>Every entry with the title in the month views from <paramref name="from"/> to
+    /// <see cref="SweepWeeks"/> weeks on, in start order — a repeated entry stays repeated.</summary>
+    private static async Task<List<PublicCalendarEventDto>> ShownAsync(
+        HttpClient anonymous, string slug, string title, DateTimeOffset from)
+    {
+        var shown = new List<PublicCalendarEventDto>();
+        var months = Enumerable.Range(0, SweepWeeks + 1)
+            .Select(week => from.AddDays(7 * week))
+            .DistinctBy(day => (day.Year, day.Month));
+        foreach (var month in months)
+        {
+            var view = await ReadAsync<PublicCalendarDto>(await anonymous.GetAsync(MonthUrl(slug, month)));
+            shown.AddRange(view.Events.Where(e => e.Title == title));
+        }
+
+        return [.. shown.OrderBy(e => e.StartsAtUtc)];
+    }
+
+    /// <summary>The starts a calendar client reads from the server's ICS feed for the title, from
+    /// <paramref name="from"/> to <see cref="SweepWeeks"/> weeks on: the posted occurrence plus
+    /// the repeat rule, expanded by Ical.Net.</summary>
+    private async Task<List<DateTimeOffset>> FeedStartsAsync(
+        HttpClient anonymous, long guildId, string title, DateTimeOffset from)
+    {
+        var token = await ReadAsync<FeedTokenDto>(await Client.PostAsync($"/guilds/{guildId}/feed-token", null));
+        var feed = Ical.Net.Calendar.Load(await anonymous.GetStringAsync(token.Path))!;
+        var end = from.AddDays(7 * SweepWeeks).UtcDateTime;
+        return [.. feed.Events
+            .Where(e => e.Summary == title)
+            .SelectMany(e => e.GetOccurrences(new Ical.Net.DataTypes.CalDateTime(from.UtcDateTime))
+                .TakeWhile(o => o.Period.StartTime.AsUtc < end))
+            .Select(o => new DateTimeOffset(o.Period.StartTime.AsUtc, TimeSpan.Zero))
+            .Order()];
+    }
+
+    /// <summary>What the series really posts after its live occurrence: skips the live occurrence
+    /// and collects the replacement's start, until the series ends.</summary>
+    private async Task<List<DateTimeOffset>> PostedBySkippingAsync(Guid liveId)
+    {
+        var posted = new List<DateTimeOffset>();
+        Guid? id = liveId;
+        for (var guard = 0; id is not null && guard < 30; guard++)
+        {
+            var skip = await ReadAsync<SkipOccurrenceResponse>(await Client.PostAsync($"/events/{id}/skip", null));
+            id = skip.NextEvent?.Id;
+            if (skip.NextEvent is { } next)
+            {
+                posted.Add(next.StartsAtUtc);
+            }
+        }
+
+        Assert.Null(id); // the series ended inside the guard
+        return posted;
+    }
 
     private async Task<PublicCalendarSettingsDto> PutAsync(long guildId, PublicCalendarRequest request) =>
         await ReadAsync<PublicCalendarSettingsDto>(

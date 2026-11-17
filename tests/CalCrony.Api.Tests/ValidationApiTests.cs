@@ -165,6 +165,63 @@ public class ValidationApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Contains($"must be at most {DateTextLimits.MaxLength} characters", error.Error);
     }
 
+    // One route check for each of the date readers' other refusals.
+    [Fact]
+    public async Task Parse_datetime_refuses_a_zone_abbreviation_it_has_no_zone_for()
+    {
+        const string text = "10am A\u212AST";
+
+        var response = await Client.PostAsJsonAsync("/tools/parse-datetime",
+            new ParseDateTimeRequest(text, TimeZone: "UTC"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error!.Error);
+    }
+
+    [Fact]
+    public async Task Create_and_update_event_refuse_an_rsvp_cutoff_whose_amount_cannot_be_read()
+    {
+        const string cutoff = "\u0663h before";
+        var expected = $"Couldn't read the RSVP cutoff: Could not understand \"{cutoff}\" as a date/time.";
+
+        var create = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events", new CreateEventRequest(
+            CreatorId, "Cutoff amount", "in 2 days", ChannelId, RsvpCloseText: cutoff));
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+        Assert.Equal(expected, (await create.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        var ev = await CreateEventAsync("Cutoff amount on edit");
+        var update = await Client.PatchAsJsonAsync($"/events/{ev.Id}",
+            new UpdateEventRequest(CreatorId, RsvpCloseText: cutoff));
+        Assert.Equal(HttpStatusCode.BadRequest, update.StatusCode);
+        Assert.Equal(expected, (await update.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+    }
+
+    [Fact]
+    public async Task Routes_that_need_date_text_refuse_a_request_without_it()
+    {
+        const string expected = "The date/time text is required.";
+
+        var parse = await Client.PostAsJsonAsync("/tools/parse-datetime", new { timeZone = "UTC" });
+        Assert.Equal(HttpStatusCode.BadRequest, parse.StatusCode);
+        Assert.Equal(expected, (await parse.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        var parseNull = await Client.PostAsJsonAsync("/tools/parse-datetime",
+            new { text = (string?)null, timeZone = "UTC" });
+        Assert.Equal(HttpStatusCode.BadRequest, parseNull.StatusCode);
+        Assert.Equal(expected, (await parseNull.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        var reminder = await Client.PostAsJsonAsync("/reminders",
+            new { guildId = GuildId, userId = CreatorId, channelId = ChannelId, text = "Stand-up" });
+        Assert.Equal(HttpStatusCode.BadRequest, reminder.StatusCode);
+        Assert.Equal(expected, (await reminder.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        var ev = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events",
+            new { creatorId = CreatorId, title = "No date", channelId = ChannelId });
+        Assert.Equal(HttpStatusCode.BadRequest, ev.StatusCode);
+        Assert.Equal(expected, (await ev.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+    }
+
     private async Task<EventDto> CreateEventAsync(string title)
     {
         var response = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events",

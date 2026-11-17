@@ -6,7 +6,9 @@ This document is the standard for how changes, releases, and issues flow through
 
 `master` is the trunk and is **always releasable**. No direct pushes; every change lands through a pull request.
 
-> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
+> **Enforced by the `protect-master` ruleset** (the repo went public 2026-07-17, mirroring FairShare's `Protect main` ruleset, adapted to this repo's squash-only process): `master` blocks force-pushes and deletion, requires a PR with 1 approving review (stale reviews dismissed on push, last-push approval, all review threads resolved), squash as the only allowed merge method, signed commits, Copilot code review on every push, and passing `build-test` + `pr-title` + `lint-workflows` checks. Repository admins have an always-bypass — which is how solo-maintainer PRs get merged, since you can't approve your own PR: address the Copilot review, wait for green checks, then merge with the bypass (`gh pr merge --squash` as admin, or the UI's bypass confirmation), exactly like FairShare's "self-authored PRs need admin merge" flow.
+
+> **Code owners.** The ruleset also asks for a code owner's review, and [`.github/CODEOWNERS`](.github/CODEOWNERS) names the repository owner as the code owner of every file. So a pull request that someone else opens, the release PR included, needs the owner's approval to merge without the admin bypass. Another reviewer's approval is welcome, and does not stand in for it unless that file names them too and they have write access to the repository.
 
 | Branch prefix | Use for | Example |
 |---|---|---|
@@ -26,9 +28,25 @@ Rules of thumb:
 
 1. **Open a PR into `master`.** Fill in the template; link issues with `Closes #n` so merges close them automatically.
 2. **Title must be a conventional commit** (`type(scope)!: summary`). CI enforces this (`pr-title` check) because the squash commit takes its message from the PR title, and versions are computed from those messages.
-3. **CI must be green** — `build-test` runs the full suite, including Testcontainers integration tests.
-4. **Review** — solo-maintainer flow: self-review the diff in the PR UI, and/or run `/code-review` (Claude) on the branch; fix findings before merge. If a second human is ever involved, request their review instead.
+3. **CI must be green** — `build-test` runs the full suite, including Testcontainers integration tests, and `lint-workflows` reads the workflow files ([below](#workflow-files-are-linted)).
+4. **Review** — solo-maintainer flow: self-review the diff in the PR UI, and/or run `/code-review` (Claude) on the branch; fix findings before merge. If a second human is ever involved, request their review instead; for their approval to count as a code owner's, `.github/CODEOWNERS` has to name them too.
 5. **Squash merge only.** The branch is deleted automatically after merge.
+
+### Workflow files are linted
+
+The `lint-workflows` check runs [actionlint](https://github.com/rhysd/actionlint) on every file in `.github/workflows/`, and actionlint hands the bash in their `run:` steps to [shellcheck](https://github.com/koalaman/shellcheck). No check on a pull request executes the release workflow or the `publish-main` job — both run on a push to `master` — and the tests that pin the release workflow's text cannot say whether a changed line is valid. So this is what tells, before the merge, whether a change to them is well formed. Every finding fails the check, down to an unquoted variable. It is a required check.
+
+To run it locally, install both tools ([actionlint](https://github.com/rhysd/actionlint/blob/main/docs/install.md), [shellcheck](https://github.com/koalaman/shellcheck#installing)) and run this in the repository root:
+
+```bash
+actionlint
+```
+
+It prints nothing when it finds nothing. CI pins one version of each — `ci.yml` has the versions, and the checksums of the Linux archives — so use those versions if your result and CI's differ. Without shellcheck on the `PATH`, actionlint leaves the shell checks out and does not say so: `actionlint -verbose` shows whether the `shellcheck` rule was disabled. A shellcheck finding is reported at the step's `run:` line; the message carries the line and column inside the script.
+
+What it does not see. It reads the files and runs nothing, so a misspelt command or flag passes. It asks shellcheck only about steps whose shell is `bash` or `sh` by that name — the default on these runners: a step with `shell: pwsh`, or with the shell written as a path such as `/usr/bin/bash -e {0}`, gets no shell check. And actionlint leaves some of shellcheck's rules out itself, among them the one for a variable that is never assigned, so a misspelt variable name can pass.
+
+A finding is fixed, not switched off. CI takes nothing from a configuration file in the repository or from `SHELLCHECK_OPTS`, so a finding can be switched off for the whole run only in `ci.yml`, where a review sees it. Where a shellcheck finding really has to be excepted, except one simple command: a `# shellcheck disable=SC2086` comment on the line above it in the script, with the reason after a second `#` or in a comment above. Not above a function, an `if`, a loop or a block, where it covers everything inside, and never `disable=all` or an `SC1…` code, which hide a script that does not parse. actionlint's own findings take no such comment: where it refuses something GitHub accepts, such as a runner label newer than the pinned release, the answer is a newer actionlint, pinned the same way, or, while no release knows it, an `-ignore` for that one message on the job's last line, with the reason beside it.
 
 ## Versioning & releases — conventional commits + release-please
 
