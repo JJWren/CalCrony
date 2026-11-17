@@ -1869,3 +1869,10 @@ Availability for @GM
 **Context**: Build and test — complete. Operations waits for #184 and for Joshua's go-ahead to release.
 
 ---
+## Build and test — public calendar day sets: the test stack runs the merged fix
+**Timestamp**: 2026-11-17T17:57:15Z
+**User Input**: "Continue"
+**AI Response**: Read first (17:53Z): pull request #184 is open and mergeable but not merged, so the release still waits for it, as he decided at 17:08Z; `master` is `916ecd1` (#186, records only); the release pull request #185 is unchanged; the latest release is v0.37.0. What was ready was the test stack, held back at the merge because it was then in use for another change's live items, which no longer needed it. The CI run for `916ecd1` had published `:main` (`publish-main` passed), so the test stack's API, bot and web were pulled and restarted on it at 17:55:59Z to 17:56:04Z, the database container left as it was. `/health` and `/health/ready` there report `0.0.0-main.916ecd1`, which contains `4fdfa60`; no migration was pending; the bot reached Ready; and no line in the three containers' logs since the restart reports a failure or an exception. The test data holds nothing this fix applies to — one server, its public calendar off, no events and no repeating series — so a look at the calendar there needs a weekly event on several days created in the test server first; that is offered to Joshua and not run. Prod is unchanged on 0.37.0.
+**Context**: Build and test — complete, and the merged build runs on the test stack. Operations waits for #184 and for Joshua's go-ahead to release.
+
+---
