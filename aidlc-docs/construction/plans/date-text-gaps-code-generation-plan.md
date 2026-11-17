@@ -10,7 +10,8 @@ was run as it stands on pull request #180, open and not merged, because the five
 that code and `sat` and `sun` must go on reading exactly as their full names do.
 **Branch**: `fix/date-text-gaps` → one pull request, a `fix:`, titled once the scope is decided.
 **Status**: written 2026-11-16 and approved by Joshua the same day, as written, with Q1–Q5 each
-answered A (section 4). By Q5, generation waits for pull request #180 to be on `master`.
+answered A (section 4). Q6, which preparing the change turned up, was asked on 2026-11-17 and
+answered A the same day. By Q5, generation waits for pull request #180 to be on `master`.
 
 A change inside one class, so the workflow runs at minimal depth, as on the fix for `sat` and
 `sun`: the task is the requirement; no user stories, application design, units, NFR or
@@ -409,7 +410,7 @@ what preparing the change turned up, the second point of section 8)*
   9 AM by not reading an end-of-day deadline where a day stands beside it.
 - C) Other (describe).
 
-[Answer]:
+[Answer]: A — Joshua, 2026-11-17: "Yes, A".
 
 ## 5. What is added, file by file
 
@@ -511,7 +512,8 @@ this machine waits for its own go-ahead.
 `master`. On 2026-11-16, after the plan was approved, the change and its tests were prepared in a
 scratch copy of that pull request's tree, outside the repository. What that turned up is set down
 here now, before anything is built. Each point is checked again when the change is built on
-`master`, and is put to Joshua at the completion gate.*
+`master`, and is put to Joshua at the completion gate. The one decision among them, the second
+point below, was put to him as Q6 and answered A on 2026-11-17 (section 4).*
 
 **Found while preparing: two kinds of text that the rules as section 2 words them would have read
 worse than they are read today.** Each is read on the right day now. In the change as prepared

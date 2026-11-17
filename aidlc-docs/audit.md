@@ -1583,3 +1583,10 @@ Availability for @GM
 **Context**: Construction — code generation: waits for pull request #180 to be on `master` (Q5), and for Joshua's answer to Q6.
 
 ---
+## Construction — date text gaps: Joshua's answer to Q6
+**Timestamp**: 2026-11-17T16:29:45Z
+**User Input**: "Yes, A"
+**AI Response**: Read as his answer to the question asked at 00:04:24Z, "Read end of day beside a day as that day's last second, as prepared (Q6: A)?": Q6 is answered A. Beside a day, "end of day" is that day's last second in the date-and-time reader: `by end of day friday` and `by eod friday` are Friday at 11:59 PM, and `eod friday`, `friday eod` and `friday end of day` move from today at 11:59 PM to Friday at 11:59 PM. Alone, `eod` stays today's, and the day reader is not changed. That is how the change is prepared, so nothing in it changes. The answer is written into the plan's Q6, and the plan's status line and the state file say so. Pull request #180 was read after the answer: at 16:30Z it is still open, mergeable, with its checks green, and `master` is still at ab32e96. By Q5 the change is therefore still not built in the repository. Nothing is pushed.
+**Context**: Construction — code generation: every question of the plan is answered (Q1 to Q6, each A); generation in the repository waits for pull request #180 to be on `master` (Q5).
+
+---
