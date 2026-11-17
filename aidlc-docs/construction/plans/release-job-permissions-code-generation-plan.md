@@ -17,7 +17,8 @@ needs` (`ci:` cuts no release; the change takes effect with the run its own merg
 **Status**: generated on the local branch on 2026-11-16 and read by two review agents the same day
 (section 8). On Joshua's go-ahead of that day the branch was pushed, the workflow run once by hand
 from it (section 4) and pull request #181 opened; on his go-ahead for the merge it was squash-merged
-the same day as `ab32e96`. Step 5.1, the read of the next release's run, stays open.
+the same day as `ab32e96`. Step 5.1, the read of the next release's run, was done on 2026-11-17 on
+the run of 0.37.1, the first release after the merge: every job held what this plan gives it.
 
 ## 1. What exists today (verified 2026-11-16)
 
@@ -308,8 +309,13 @@ or `fix:` to reach `master`, #180 if it is merged next, opens the release PR und
 - [x] 4.3 On his go-ahead: the squash merge. (2026-11-16: his go-ahead at 23:14Z; merged at
   23:15:32Z as `ab32e96`, through the REST call, at the head `1a7f16b` and no other. Section 4 has
   the run the merge started.)
-- [ ] 5.1 At the next release: its run read for the two jobs' tokens and for a release that went out
-  whole. Until then section 4's "cannot be run" stands.
+- [x] 5.1 At the next release: its run read for the two jobs' tokens and for a release that went out
+  whole. Until then section 4's "cannot be run" stands. Read on 2026-11-17: 0.37.1, released when
+  #185 was merged at 23:27:30Z, ran as 44199537457 (23:27:33Z to 23:30:48Z), green. `release-please`
+  held `Contents: write`, `Metadata: read` and `PullRequests: write`, and made the release;
+  `publish-images` held `Contents: read`, `Metadata: read` and `Packages: write`, and pushed all
+  three images as `0.37.1` and `latest`; `announce-release`, with `Metadata: read`, ran and
+  succeeded. (`release-summary`, added by #179, held `Contents: write` and `Metadata: read`.)
 
 ## 8. Review (2026-11-16)
 

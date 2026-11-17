@@ -2079,3 +2079,10 @@ Availability for @GM
 **Context**: Construction — step 4.3, the squash merge, approved. `master` is taken in once more so that the pull request can be merged; the merge follows once the checks on the new head are green.
 
 ---
+## Operations — the release workflow's least access: its first full run, the release of 0.37.1
+**Timestamp**: 2026-11-17T23:40:55Z
+**User Input**: (none — the read that step 5.1 of #181's plan waited for)
+**AI Response**: #185 was merged at 23:27:30Z, by another session, so 0.37.1 was the first release since #181 was merged, and its run, 44199537457 (23:27:33Z to 23:30:48Z), was the change's first full run. It was green. From its log: `release-please` held `Contents: write`, `Metadata: read` and `PullRequests: write`, fetched the action for the `v4` tag at the commit `5c625bf…`, created the v0.37.1 release (published at 23:27:43Z, on `eb6afb8`) and labelled #185 `autorelease: tagged`; `publish-images` held `Contents: read`, `Metadata: read` and `Packages: write`, and pushed `calcrony-api`, `calcrony-bot` and `calcrony-web` as `0.37.1` and as `latest`; `announce-release`, with `Metadata: read`, ran and succeeded; `release-summary`, added by #179, held `Contents: write` and `Metadata: read`. Nothing failed for want of a permission. #181's plan step 5.1 is ticked, and its status and its line in the state file say so. The records of its merge, two entries of 2026-11-16 kept until now in a local commit, are put in here by their stamps.
+**Context**: Operations — #181 is complete: its last step, the read of the first release after it, is done.
+
+---
