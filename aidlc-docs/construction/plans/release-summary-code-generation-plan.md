@@ -784,3 +784,28 @@ release is likely to be 0.37.1, and its summary would be `docs/release-notes/0.3
 release. Two of the three things section 11 left open he has started as tasks of their own: a
 workflow linter in CI, and narrower permissions for the two older release jobs. The third, a
 second Discord post when the first is refused, stays not taken.
+
+## 18. After the merge (2026-11-17)
+
+**The comment's first real run.** Pull request #180 (`sat` and `sun` in date text) was merged on
+2026-11-17 with a summary for its release, `docs/release-notes/0.37.1.md`. release-please opened
+the release pull request #185 for 0.37.1, and on the same push the release workflow's run on
+`master` (44127732988) was green: `release-summary-preview` found #185 and posted its comment
+there at 16:37:38Z, "Release summary for 0.37.1", with the file's 405 of 1,800 characters shown as
+code. Read back, the text in the comment equals the file on `master`. This is the first of the
+three things section 17 listed as not yet run.
+
+**Still not run.** `release-summary`, with its question to GitHub about mentions and its edit of
+the release notes, and the announcement with a summary. Both run when #185 is merged. What to look
+for in that run: the step "Ask GitHub whether the summary mentions anyone" green; the notes of
+v0.37.1 opening with the summary; the Discord announcement carrying it under its usual line. A
+"Release summary" warning on the run means the summary was left out or may be missing. The job is
+then not to be run again, since that pings a second time; the text can be added to the release by
+hand.
+
+**Since the merge, by other sessions.** Pull request #181 gave the two older release jobs only
+the access each needs, as put forward with the merge question; the three jobs of this change kept
+their own permissions, and the preview job's run above came after it. The 0.37.0 summary was put
+onto the published v0.37.0 release on 2026-11-16, on Joshua's answer in the session that released
+0.37.0; read back on 2026-11-17, that release's notes equal the text kept beside the tests. A
+workflow linter in CI is open as pull request #183.
