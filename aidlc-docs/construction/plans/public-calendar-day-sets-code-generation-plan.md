@@ -355,3 +355,13 @@ are corrected here. Both agents read the answers in the rebuilt commit, `504a86d
 completion gate, and what they said is in the audit entry that follows it. The commit that is
 pushed adds to the one they read only what that second read asked for — words in these records
 and in one test comment — and the entries written after it.
+
+**After the push**
+
+Pull request #180 was merged five minutes after #182 was opened, so `master` (`b582c2b`) was
+taken in again on 2026-11-17, as point 2 above says the second of the two has to: the audit
+file with master's text unchanged and this branch's entries in order of their timestamps, the
+state file with both sections, and `docs/release-notes/0.37.1.md` with both bullets under the one
+`### What's new` heading, above #180's how-to — 659 of the 1,800 characters, passed by the check.
+On that tree the Release build has no error and the same 22 warnings, and 1,743 tests pass and
+none fails (827 API, of which #180 brought 92; 418 bot; 153 web; 345 for the release-notes tool).

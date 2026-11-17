@@ -1740,3 +1740,10 @@ Availability for @GM
 **Context**: Build and test — pull request #182 is open and its checks, which are this fix's build and test, are running. The merge waits for them and for Joshua's go-ahead.
 
 ---
+## Build and test — public calendar day sets: #180 merged first; `master` taken in again
+**Timestamp**: 2026-11-17T16:45:29Z
+**User Input**: (none typed — at 16:40Z the app's Auto-fix, which is on for this session, reported that pull request #182 had come into conflict with `master`)
+**AI Response**: Pull request #180 was merged at 16:36:36Z (`b582c2b`), five minutes after #182 was opened. Both add `docs/release-notes/0.37.1.md` and both add to the audit log and the state file, so GitHub marked #182 as in conflict. `master` was fetched and `b582c2b` merged into the branch; nothing was rebased or rewritten. Resolved as the plan's section 8 says the second of the two has to: the audit file keeps master's text as it is, with this branch's ten entries placed in order of their timestamps; the state file keeps master's sections and this one, last; and the release summary has one `### What's new` heading with #180's bullet and this fix's bullet under it, then #180's `### How to use it` — 659 of the 1,800 characters, and the repository's check passes it. Nothing else conflicted. Run on the merged tree: the Release build has no error and the same 22 warnings; 1,743 tests pass and none fails (827 API, of which #180 brought 92; 418 bot; 153 web; 345 for the release-notes tool, with the seventeen that run in CI only). Release-please opened the release pull request #185 (0.37.1) when #180 was merged; it lists #180 alone until #182 is merged. Next: both review agents read what the push adds to the commit they read — the records since the gate, the merge and this entry — and then it is pushed under the branch's name, which Auto-fix covers.
+**Context**: Build and test — `master` at `b582c2b` is merged into the branch locally; the agents' read and the push follow. The merge of #182 still waits for its checks and for Joshua's go-ahead.
+
+---
