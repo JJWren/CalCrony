@@ -516,7 +516,14 @@ public class NaturalDateTimeParserTests
     [InlineData("the {day}")]
     [InlineData("by {day}")]
     [InlineData("by {day} 6pm")]
+    [InlineData("until {day} 6pm")]
+    [InlineData("{day} by 6pm")]
+    [InlineData("2 hours before {day} 6pm")]
     [InlineData("every {day} 8pm")]
+    [InlineData("{day} 8pm every week")]
+    [InlineData("{day}. 6pm")]
+    [InlineData("{day} from 6pm")]
+    [InlineData("{day} 6pm, ends 9pm")]
     [InlineData("mon to {day}")]
     public void A_short_weekend_day_reads_exactly_as_its_full_name(string phrase)
     {
@@ -561,12 +568,11 @@ public class NaturalDateTimeParserTests
 
     // Reading as the full name does also means being refused where the full name is. Before, the
     // short form was dropped and the rest of the text was read: each of these was today at the
-    // time it names.
+    // time it names. (A deadline, "by sat 6pm", and a repeat, "every sat 8pm", stood here until
+    // they got answers of their own: see the deadlines and the repeats further down.)
     [Theory]
-    [InlineData("by sat 6pm")]              // as "by saturday 6pm" and "by fri 6pm": an end with no start
-    [InlineData("until sun 18:00")]
-    [InlineData("before sat at noon")]
-    [InlineData("every sat 8pm")]           // as "every saturday 8pm": a repeat, not a date
+    [InlineData("2 hours before sat 6pm")]      // as "2 hours before saturday 6pm": a length of time before a deadline
+    [InlineData("30 minutes before sun noon")]
     public void Where_the_full_name_is_not_understood_neither_is_the_short_form(string text)
     {
         var parser = CreateParser();
@@ -643,14 +649,18 @@ public class NaturalDateTimeParserTests
         Assert.Equal(JulyInChicago(18, 18), result);
 
         // As a date and time a bare day is 09:00, which has passed, and for a weekday named on its
-        // own day the recognizer offers last week's and today's, not next week's: refused, as
-        // "saturday" is, in the words that were typed.
-        Assert.False(parser.TryResolve("sat", Chicago, out _, out error, SaturdayMorning));
-        Assert.Equal("\"sat\" resolves to a time in the past.", error);
+        // own day the recognizer offers last week's and today's. The reader adds next week's, so
+        // "sat" is the Saturday after, as "saturday" is.
+        Assert.True(parser.TryResolve("sat", Chicago, out result, out error, SaturdayMorning), error);
+        Assert.Equal(JulyInChicago(25, 9), result);
 
         // The same for a time already behind. With the day dropped, this was tomorrow at 9 AM.
-        Assert.False(parser.TryResolve("sat 9am", Chicago, out _, out error, SaturdayMorning));
-        Assert.Equal("\"sat 9am\" resolves to a time in the past.", error);
+        Assert.True(parser.TryResolve("sat 9am", Chicago, out result, out error, SaturdayMorning), error);
+        Assert.Equal(JulyInChicago(25, 9), result);
+
+        // Late that evening 6 PM is behind too.
+        Assert.True(parser.TryResolve("sat 6pm", Chicago, out result, out error, SaturdayLateEvening), error);
+        Assert.Equal(JulyInChicago(25, 18), result);
     }
 
     // Spelling out lengthens the text: "sat" by five characters, "sun" by three. The recognizer is
@@ -724,5 +734,632 @@ public class NaturalDateTimeParserTests
         Assert.Equal(tooLong, error);
         Assert.False(parser.TryResolveDay(overLimit, Chicago, out _, out error));
         Assert.Equal(tooLong, error);
+    }
+
+    // ----- Deadlines, repeats, a weekday on its own day, a time apart from its day -----
+    //
+    // The reader works on what the recognizer returns: one or more phrases, each with one or more
+    // values. Four things it returned went unread or were read on the wrong day. Each has a rule
+    // of its own in the parser and a group of tests here.
+
+    // Friday the 17th at 10:00 in Chicago.
+    private static readonly Instant FridayMorning = Instant.FromUtc(2026, 7, 17, 15, 0);
+
+    // The fixture's Wednesday, the 15th, at another time of day in Chicago.
+    private static Instant WednesdayAt(int hour, int minute) =>
+        new LocalDateTime(2026, 7, 15, hour, minute).InZoneStrictly(Chicago).ToInstant();
+
+    // --- 1. A deadline: "by", "until" or "before" in front of a date ---
+    //
+    // The recognizer returns a range with an end and no start. The reader takes the end, as it has
+    // always taken the start of "after friday 6pm": the text reads as the date and time it names.
+
+    [Theory]
+    [InlineData("by saturday 6pm", 18, 18)]
+    [InlineData("by sat 6pm", 18, 18)]
+    [InlineData("until sun 18:00", 19, 18)]
+    [InlineData("before sat at noon", 18, 12)]
+    [InlineData("by friday", 17, 9)]                // a bare day is 09:00, as "friday" is
+    [InlineData("until friday", 17, 9)]
+    [InlineData("till friday", 17, 9)]
+    [InlineData("no later than friday", 17, 9)]
+    [InlineData("by 6pm", 15, 18)]                  // a time alone is today's…
+    [InlineData("by 9am", 16, 9)]                   // …or tomorrow's once today's has passed, as "9am" is
+    [InlineData("before noon", 15, 12)]
+    [InlineData("by tomorrow 6pm", 16, 18)]
+    [InlineData("by 2026-07-20 18:00", 20, 18)]
+    [InlineData("by 6pm friday", 17, 18)]
+    [InlineData("friday before 6pm", 17, 18)]
+    [InlineData("friday by 6pm", 17, 18)]
+    [InlineData("friday until 6pm", 17, 18)]
+    [InlineData("by friday night", 17, 20)]         // as "friday night": a night begins at 8 PM
+    [InlineData("rsvp by friday 6pm", 17, 18)]
+    [InlineData("friday, by 6pm", 17, 18)]          // was Friday at 09:00: the time was dropped
+    [InlineData("by friday (6pm)", 17, 18)]         // was today at 6 PM
+    public void A_deadline_reads_as_the_date_and_time_it_names(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    [Fact]
+    public void A_deadline_at_the_end_of_a_day_is_that_days_last_second()
+    {
+        var parser = CreateParser();
+
+        // With no day beside it, "end of day" is today's.
+        Assert.True(parser.TryResolve("by end of day", Chicago, out var result, out var error), error);
+        Assert.Equal(new LocalDateTime(2026, 7, 15, 23, 59, 59).InZoneStrictly(Chicago).ToInstant(), result);
+
+        Assert.True(parser.TryResolve("by the end of friday", Chicago, out result, out error), error);
+        Assert.Equal(new LocalDateTime(2026, 7, 17, 23, 59, 59).InZoneStrictly(Chicago).ToInstant(), result);
+    }
+
+    // The rule itself: the word in front changes nothing. Each date is read with the word and
+    // without it, and the two answers must be the same — the same instant, or the same refusal —
+    // on the Wednesday early, mid-morning and late, and on the Saturday in the morning and late.
+    [Theory]
+    [InlineData("friday")]
+    [InlineData("friday 6pm")]
+    [InlineData("friday night")]
+    [InlineData("saturday")]
+    [InlineData("sat 6pm")]
+    [InlineData("wednesday")]
+    [InlineData("wed 9am")]
+    [InlineData("next friday")]
+    [InlineData("6pm")]
+    [InlineData("noon")]
+    [InlineData("today")]
+    [InlineData("today 6pm")]
+    [InlineData("tomorrow")]
+    [InlineData("tomorrow 6pm")]
+    [InlineData("yesterday")]
+    [InlineData("nov 12")]
+    [InlineData("nov 12 6pm")]
+    [InlineData("2026-07-20 18:00")]
+    public void The_word_in_front_of_a_deadline_changes_nothing(string date)
+    {
+        var parser = CreateParser();
+
+        foreach (var word in new[] { "by", "until", "before" })
+        {
+            var deadline = $"{word} {date}";
+
+            foreach (var moment in new[] { WednesdayAt(0, 30), Now, WednesdayAt(23, 30), SaturdayMorning, SaturdayLateEvening })
+            {
+                // The text and the moment ride along in both tuples, so a failure names its case.
+                var read = parser.TryResolve(deadline, Chicago, out var result, out var error, moment);
+                var plainRead = parser.TryResolve(date, Chicago, out var plainResult, out var plainError, moment);
+                Assert.Equal(
+                    (deadline, moment, plainRead, plainResult, QuotingTheTextAsTyped(plainError, date, deadline)),
+                    (deadline, moment, read, result, error));
+            }
+        }
+    }
+
+    // At the edge of a whole period the recognizer's end is the period's first day, or the day
+    // after its last. Read as a bare date that would be 09:00 on a day the text does not mean.
+    // "late" and "early" make an edge of a single day, which the recognizer marks differently
+    // from a plain "by".
+    [Theory]
+    [InlineData("by the weekend")]
+    [InlineData("before next month")]
+    [InlineData("by end of month")]
+    [InlineData("until next week")]
+    [InlineData("until 2027")]
+    [InlineData("by late friday")]
+    [InlineData("by early friday")]
+    public void A_deadline_at_the_edge_of_a_period_is_still_not_understood(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve(text, Chicago, out _, out var error));
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error);
+        Assert.False(parser.TryResolveDay(text, Chicago, out _, out error));
+        Assert.StartsWith($"Could not understand \"{text}\" as a day.", error);
+    }
+
+    // Read by its end, each of these would be the time it ends on, with the length lost.
+    [Theory]
+    [InlineData("2 hours before friday 6pm")]
+    [InlineData("30 minutes before 6pm")]
+    [InlineData("an hour before noon")]
+    public void A_deadline_beside_a_length_of_time_is_still_not_understood(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve(text, Chicago, out _, out var error));
+        Assert.Equal($"Could not understand \"{text}\" as a date/time.", error);
+        Assert.False(parser.TryResolveDay(text, Chicago, out _, out error));
+        Assert.StartsWith($"Could not understand \"{text}\" as a day.", error);
+    }
+
+    [Fact]
+    public void A_length_of_time_beside_a_date_that_is_not_a_deadline_changes_nothing()
+    {
+        var ok = CreateParser().TryResolve("friday 6pm for 2 hours", Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(17, 18), result);
+    }
+
+    [Theory]
+    [InlineData("by today")]            // as "today" at 10:00: its 09:00 is behind
+    [InlineData("by yesterday")]
+    [InlineData("until last friday")]
+    public void A_deadline_that_has_passed_is_refused_as_past(string text)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out _, out var error);
+
+        Assert.False(ok);
+        Assert.Equal($"\"{text}\" resolves to a time in the past.", error);
+    }
+
+    // The day reader's caller asks for a first day, and a deadline names a last one.
+    [Theory]
+    [InlineData("by friday")]
+    [InlineData("until saturday")]
+    [InlineData("by sat 6pm")]
+    [InlineData("until sun 18:00")]
+    [InlineData("before sat at noon")]
+    [InlineData("friday before 6pm")]
+    public void The_day_reader_does_not_take_a_deadline_for_a_first_day(string text)
+    {
+        var ok = CreateParser().TryResolveDay(text, Chicago, out _, out var error);
+
+        Assert.False(ok);
+        Assert.StartsWith($"Could not understand \"{text}\" as a day.", error);
+    }
+
+    // --- 2. A repeat ---
+    //
+    // The recognizer marks a repeat as a kind of its own, with no date in it. It is refused in
+    // words that say so, by both readers, wherever it stands: beside a date that could be read
+    // as well, where reading the rest would drop the repeat and say nothing.
+
+    [Theory]
+    [InlineData("every saturday 8pm")]
+    [InlineData("every sat 8pm")]
+    [InlineData("every friday")]
+    [InlineData("each friday")]
+    [InlineData("fridays at 8pm")]
+    [InlineData("every day at 6pm")]
+    [InlineData("every other friday")]
+    [InlineData("every weekday")]
+    [InlineData("every 2 weeks")]
+    [InlineData("daily")]
+    [InlineData("weekly")]
+    [InlineData("monthly")]
+    [InlineData("friday 8pm every week")]           // was Friday at 8 PM, once
+    [InlineData("friday 8pm weekly")]
+    [InlineData("weekly on friday")]                // was Friday at 09:00, once
+    [InlineData("every friday starting july 24")]   // was July 24 at 09:00, once
+    public void Text_that_repeats_is_refused_in_words_that_say_so(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve(text, Chicago, out var result, out var error));
+        Assert.Equal(default, result);
+        Assert.Equal(
+            $"\"{text}\" repeats. Type one date and time here, for example \"saturday 8pm\"; to make an event repeat, use its repeat option.",
+            error);
+        Assert.False(parser.TryResolveDay(text, Chicago, out var day, out error));
+        Assert.Equal(default, day);
+        Assert.Equal($"\"{text}\" repeats. Type one day here, for example \"today\", \"saturday\" or \"nov 12\".", error);
+    }
+
+    [Fact]
+    public void The_refusal_for_a_repeat_quotes_what_the_other_refusals_quote()
+    {
+        // TryResolve quotes the text without the zone abbreviation that chose the zone, as it does
+        // in its other refusals; TryResolveDay quotes the text as typed.
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve("every friday 8pm CST", DateTimeZone.Utc, out _, out var error));
+        Assert.StartsWith("\"every friday 8pm\" repeats.", error);
+        Assert.False(parser.TryResolveDay("every friday 8pm CST", DateTimeZone.Utc, out _, out error));
+        Assert.StartsWith("\"every friday 8pm CST\" repeats.", error);
+    }
+
+    // --- 3. A weekday typed on its own day ---
+    //
+    // For a weekday with no week named the recognizer offers last week's and this week's. On the
+    // day itself this week's is today, so once its time is behind — 09:00 when none is typed —
+    // both have passed. The reader adds next week's: the text means the next time that weekday and
+    // time come round, as a time alone ("9am" at 10:00) already means tomorrow's.
+
+    [Theory]
+    [InlineData("wed", 0, 30, 15, 9)]
+    [InlineData("wed", 8, 59, 15, 9)]
+    [InlineData("wed", 10, 0, 22, 9)]               // was refused as past, from 09:00 until midnight
+    [InlineData("wed", 23, 30, 22, 9)]
+    [InlineData("wednesday", 10, 0, 22, 9)]
+    [InlineData("on wednesday", 10, 0, 22, 9)]
+    [InlineData("wed 9am", 8, 59, 15, 9)]
+    [InlineData("wed 9am", 10, 0, 22, 9)]
+    [InlineData("wed 6pm", 10, 0, 15, 18)]          // still ahead: today, as before
+    [InlineData("wed 6pm", 23, 30, 22, 18)]
+    [InlineData("wednesday at 6pm", 23, 30, 22, 18)]
+    [InlineData("wednesday night", 10, 0, 15, 20)]
+    [InlineData("wednesday night", 23, 30, 22, 20)]
+    [InlineData("wednesday morning", 10, 0, 22, 8)] // the morning began at 8
+    [InlineData("wed 6pm-8pm", 23, 30, 22, 18)]     // a span of times on the day
+    [InlineData("by wed 9am", 10, 0, 22, 9)]        // a deadline on the day follows the same rule
+    [InlineData("next wednesday", 10, 0, 22, 9)]    // as before
+    [InlineData("thu", 10, 0, 16, 9)]               // the day after: tomorrow, as before
+    [InlineData("tue", 10, 0, 21, 9)]               // the day before: next week's, as before
+    public void A_weekday_typed_on_its_own_day_is_next_weeks_once_its_time_is_behind(
+        string text, int atHour, int atMinute, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error, WednesdayAt(atHour, atMinute));
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    [Theory]
+    [InlineData("this wednesday")]      // names this week's
+    [InlineData("today")]
+    [InlineData("today 9am")]
+    [InlineData("jul 15 9am")]          // a date, not a weekday
+    [InlineData("mon to sat")]          // a span of days that has begun
+    public void What_names_today_or_a_span_of_days_is_still_refused_as_past(string text)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out _, out var error);
+
+        Assert.False(ok);
+        Assert.Equal($"\"{text}\" resolves to a time in the past.", error);
+    }
+
+    [Fact]
+    public void A_weekday_with_a_day_of_the_month_is_not_moved_a_week()
+    {
+        // "fri 17" is Friday the 17th, not any Friday. On that Friday at 10:00 its 09:00 is
+        // behind, and it is not read as Friday the 24th; the day after, it is the next Friday the
+        // 17th, in September of 2027.
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve("fri 17", Chicago, out _, out var error, FridayMorning));
+        Assert.Equal("\"fri 17\" resolves to a time in the past.", error);
+        Assert.True(parser.TryResolve("fri 17", Chicago, out var result, out error, SaturdayMorning), error);
+        Assert.Equal(new LocalDateTime(2027, 9, 17, 9, 0).InZoneStrictly(Chicago).ToInstant(), result);
+    }
+
+    [Fact]
+    public void A_span_of_days_that_begins_today_is_not_moved_a_week()
+    {
+        // "fri-sun" typed on that Friday at 10:00: its start, Friday at 09:00, has passed. A span
+        // of days is left as it was: refused as past here, and today from the day reader.
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve("fri-sun", Chicago, out _, out var error, FridayMorning));
+        Assert.Equal("\"fri-sun\" resolves to a time in the past.", error);
+        Assert.True(parser.TryResolveDay("fri-sun", Chicago, out var day, out error, FridayMorning), error);
+        Assert.Equal(new LocalDate(2026, 7, 17), day);
+    }
+
+    [Theory]
+    [InlineData(0, 30)]
+    [InlineData(8, 59)]
+    [InlineData(10, 0)]
+    [InlineData(23, 30)]
+    public void For_the_day_reader_a_weekday_typed_on_its_own_day_is_today_at_any_hour(int atHour, int atMinute)
+    {
+        var parser = CreateParser();
+        var moment = WednesdayAt(atHour, atMinute);
+
+        Assert.True(parser.TryResolveDay("wed", Chicago, out var day, out var error, moment), error);
+        Assert.Equal(new LocalDate(2026, 7, 15), day);
+        Assert.True(parser.TryResolveDay("wed 6pm", Chicago, out day, out error, moment), error);
+        Assert.Equal(new LocalDate(2026, 7, 15), day);
+    }
+
+    [Fact]
+    public void A_weekday_named_beside_a_later_date_is_the_earlier_of_the_two_on_its_own_day_too()
+    {
+        // On any other day "wednesday or aug 20" is the coming Wednesday. On the Wednesday itself,
+        // after 09:00, it was August 20, for want of a Wednesday that was still ahead.
+        var ok = CreateParser().TryResolve("wednesday or aug 20", Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(22, 9), result);
+    }
+
+    // --- 4. A time written apart from its day ---
+    //
+    // The recognizer joins a day and a time across a space, a comma, "at", " - ", "@" and
+    // "around". Across anything else it returns two phrases, a day and a time. Read one by one
+    // they were the day at 09:00 and the time today, and the earliest ahead was nearly always the
+    // time, today. The day reader's rule holds here now: a day the text names outranks a today
+    // that is only implied.
+
+    [Theory]
+    [InlineData("fri (6pm)", 17, 18)]
+    [InlineData("fri. 6pm", 17, 18)]
+    [InlineData("friday from 6pm", 17, 18)]
+    [InlineData("friday: 6pm", 17, 18)]
+    [InlineData("friday; 6pm", 17, 18)]
+    [InlineData("friday / 6pm", 17, 18)]
+    [InlineData("friday about 6pm", 17, 18)]
+    [InlineData("friday starting at 6pm", 17, 18)]
+    [InlineData("6pm (friday)", 17, 18)]
+    [InlineData("6pm. friday", 17, 18)]
+    [InlineData("fri (9am)", 17, 9)]                    // was tomorrow at 9 AM
+    [InlineData("tomorrow (6pm)", 16, 18)]
+    [InlineData("7/20 (6pm)", 20, 18)]
+    [InlineData("sat july 18 (6pm)", 18, 18)]
+    [InlineData("next week (6pm)", 20, 18)]             // a range is its first day
+    [InlineData("friday (evening)", 17, 16)]
+    [InlineData("friday at night", 17, 20)]
+    [InlineData("friday (6pm-8pm)", 17, 18)]
+    [InlineData("friday or saturday (6pm)", 17, 18)]    // the earlier of the days named
+    [InlineData("friday (6pm or 8pm)", 17, 18)]         // the earlier of the times
+    [InlineData("mon down at 6pm", 20, 18)]             // the words between do not matter
+    public void A_time_written_apart_from_its_day_is_read_on_that_day(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    [Fact]
+    public void A_time_apart_is_read_on_a_date_in_another_month_and_on_a_holiday()
+    {
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolve("nov 12 (6pm)", Chicago, out var result, out var error), error);
+        Assert.Equal(new LocalDateTime(2026, 11, 12, 18, 0).InZoneStrictly(Chicago).ToInstant(), result);
+
+        // The recognizer never joins a holiday and a time. Easter Sunday of 2027 is March 28.
+        Assert.True(parser.TryResolve("easter 6pm", Chicago, out result, out error), error);
+        Assert.Equal(new LocalDateTime(2027, 3, 28, 18, 0).InZoneStrictly(Chicago).ToInstant(), result);
+    }
+
+    // "end of day" names no day either: the recognizer assumes today and writes today's last
+    // second. Beside a day it is that day's last second. Each of these was today at 23:59:59,
+    // except the two with "by", which were Friday at 09:00, and the last two, which are as before.
+    [Theory]
+    [InlineData("eod friday", 17)]
+    [InlineData("friday eod", 17)]
+    [InlineData("friday end of day", 17)]
+    [InlineData("by eod friday", 17)]
+    [InlineData("by end of day friday", 17)]
+    [InlineData("tomorrow eod", 16)]
+    [InlineData("eod", 15)]
+    [InlineData("end of day", 15)]
+    public void The_end_of_day_is_read_on_the_day_the_text_names(string text, int julyDay)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(new LocalDateTime(2026, 7, julyDay, 23, 59, 59).InZoneStrictly(Chicago).ToInstant(), result);
+    }
+
+    // Where the day already has its time, a further time is not read. As a time alone it would be
+    // today's, and each of these was today at the further time.
+    [Theory]
+    [InlineData("friday 6pm, ends 9pm", 17, 18)]        // was today at 9 PM
+    [InlineData("friday 6pm (doors 5:30)", 17, 18)]     // was today at 5:30 PM
+    [InlineData("friday 6pm or 8pm", 17, 18)]           // was today at 8 PM
+    [InlineData("friday 8pm or 6pm", 17, 20)]
+    [InlineData("tomorrow 6pm or 8pm", 16, 18)]
+    [InlineData("6pm or friday 8pm", 17, 20)]           // was today at 6 PM
+    [InlineData("friday night (9pm)", 17, 20)]          // a part of the day is the day's time: a night begins at 8
+    [InlineData("tonight (9pm)", 15, 20)]               // as before
+    [InlineData("game night friday 7pm", 17, 20)]       // "night friday" is read as Friday night, "7pm" apart from it
+    public void A_further_time_beside_a_day_that_has_its_own_is_not_read(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    [Fact]
+    public void A_further_time_in_another_zone_is_not_read_either()
+    {
+        // "est" chooses the zone and is taken out; "4pm pst" is a further time. Friday at 7 PM
+        // Eastern is 23:00 UTC. It was today at 4 PM Eastern.
+        var ok = CreateParser().TryResolve("friday 7pm est / 4pm pst", Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(Instant.FromUtc(2026, 7, 17, 23, 0), result);
+    }
+
+    [Fact]
+    public void Two_times_and_a_day_apart_from_both_are_the_earlier_time_on_that_day()
+    {
+        // Which of the two was meant cannot be told; the day can.
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolve("friday. doors 6pm, start 7pm", Chicago, out var result, out var error), error);
+        Assert.Equal(JulyInChicago(17, 18), result);
+
+        // "ET" chooses the zone. 3 PM Eastern on the Friday is 19:00 UTC.
+        Assert.True(parser.TryResolve("6pm ET / 3pm PT friday", Chicago, out result, out error), error);
+        Assert.Equal(Instant.FromUtc(2026, 7, 17, 19, 0), result);
+    }
+
+    [Fact]
+    public void Two_times_offered_as_a_choice_on_the_day_itself_are_the_first_of_them()
+    {
+        // On the Friday at 10:00, "friday 9am or 6pm" was today at 6 PM: the day's 9 AM had passed
+        // and "6pm" alone was today's. The further time is not read now, so the text is
+        // "friday 9am", and that is next week's. The same text with "today" is refused as past.
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolve("friday 9am or 6pm", Chicago, out var result, out var error, FridayMorning), error);
+        Assert.Equal(JulyInChicago(24, 9), result);
+        Assert.False(parser.TryResolve("today 9am or 6pm", Chicago, out _, out error));
+        Assert.Equal("\"today 9am or 6pm\" resolves to a time in the past.", error);
+    }
+
+    // A range that has begun and not ended means the rest of it and names no day, as the day
+    // reader has it: "this week" on a Wednesday, "tonight" once the night has begun. A time
+    // beside it stays a time alone, today's or tomorrow's, as it was before.
+    [Theory]
+    [InlineData("this week 6pm", 10, 0, 15, 18)]
+    [InlineData("this week (6pm)", 10, 0, 15, 18)]
+    [InlineData("this week 6pm", 23, 30, 16, 18)]           // today's has passed: tomorrow's
+    [InlineData("this month 6pm", 10, 0, 15, 18)]
+    [InlineData("mon to sat 6pm", 10, 0, 15, 18)]
+    [InlineData("tonight (9pm)", 20, 30, 15, 21)]           // the night began at 8
+    [InlineData("this afternoon (3pm)", 13, 0, 15, 15)]     // the afternoon began at noon
+    [InlineData("this morning (11am)", 10, 0, 15, 11)]
+    public void A_time_beside_a_range_that_is_under_way_is_a_time_alone_as_before(
+        string text, int atHour, int atMinute, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error, WednesdayAt(atHour, atMinute));
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    [Fact]
+    public void A_range_names_its_first_day_until_it_has_begun_and_no_day_once_it_has()
+    {
+        var parser = CreateParser();
+
+        // On the Wednesday the weekend is ahead: Saturday. It was today at 6 PM.
+        Assert.True(parser.TryResolve("this weekend 6pm", Chicago, out var result, out var error), error);
+        Assert.Equal(JulyInChicago(18, 18), result);
+
+        // On the Sunday it is under way: today, as before.
+        Assert.True(parser.TryResolve("this weekend 6pm", Chicago, out result, out error, SundayMorning), error);
+        Assert.Equal(JulyInChicago(19, 18), result);
+
+        // A range that is over is not rescued by a time beside it. It was today at 6 PM.
+        Assert.False(parser.TryResolve("last week (6pm)", Chicago, out _, out error));
+        Assert.Equal("\"last week (6pm)\" resolves to a time in the past.", error);
+    }
+
+    // The rule itself: a day and a time written apart read as the same two written together — the
+    // same instant, or the same refusal — on the Wednesday at four times of day and on the
+    // Saturday in the morning and late. "jul 15" is the Wednesday's own date: with a time read on
+    // it, it is that day, although "jul 15" alone also offers next year's.
+    [Theory]
+    [InlineData("fri (6pm)", "fri 6pm")]
+    [InlineData("fri. 9am", "fri 9am")]
+    [InlineData("friday from 6pm", "friday 6pm")]
+    [InlineData("6pm (friday)", "6pm friday")]
+    [InlineData("wed (6pm)", "wed 6pm")]
+    [InlineData("wed (9am)", "wed 9am")]
+    [InlineData("sat (6pm)", "sat 6pm")]
+    [InlineData("saturday: 9am", "saturday 9am")]
+    [InlineData("tomorrow. noon", "tomorrow noon")]
+    [InlineData("today (6pm)", "today 6pm")]
+    [InlineData("today (9am)", "today 9am")]
+    [InlineData("yesterday (6pm)", "yesterday 6pm")]
+    [InlineData("jul 15 (9am)", "jul 15 9am")]
+    [InlineData("jul 15 (6pm)", "jul 15 6pm")]
+    [InlineData("jul 18 (6pm)", "jul 18 6pm")]
+    [InlineData("nov 12 (6pm)", "nov 12 6pm")]
+    [InlineData("next friday (6pm)", "next friday 6pm")]
+    public void A_day_and_a_time_written_apart_read_as_the_same_two_written_together(string apart, string together)
+    {
+        var parser = CreateParser();
+        var moments = new[]
+        {
+            WednesdayAt(0, 30), WednesdayAt(8, 59), Now, WednesdayAt(23, 30), SaturdayMorning, SaturdayLateEvening,
+        };
+
+        foreach (var moment in moments)
+        {
+            // The text and the moment ride along in both tuples, so a failure names its case.
+            var read = parser.TryResolve(apart, Chicago, out var result, out var error, moment);
+            var togetherRead = parser.TryResolve(together, Chicago, out var togetherResult, out var togetherError, moment);
+            Assert.Equal(
+                (apart, moment, togetherRead, togetherResult, QuotingTheTextAsTyped(togetherError, together, apart)),
+                (apart, moment, read, result, error));
+        }
+    }
+
+    [Theory]
+    [InlineData("fri (6pm)")]
+    [InlineData("friday from 6pm")]
+    [InlineData("friday at night")]
+    [InlineData("tomorrow, after 6pm")]
+    [InlineData("friday or saturday (6pm)")]
+    [InlineData("friday 6pm, ends 9pm")]
+    [InlineData("friday 6pm or 8pm")]
+    [InlineData("nov 12 (6pm)")]
+    [InlineData("next week (6pm)")]
+    [InlineData("this week (6pm)")]             // a range under way: today, from both
+    [InlineData("friday, this week (6pm)")]     // …which a day that is named outranks, in both
+    public void The_two_readers_give_the_same_day_for_a_day_and_a_time_apart(string text)
+    {
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolve(text, Chicago, out var result, out var error), error);
+        Assert.True(parser.TryResolveDay(text, Chicago, out var day, out error), error);
+        Assert.Equal(day, result.InZone(Chicago).Date);
+    }
+
+    // --- What none of the four rules touches ---
+
+    // Each of these is one phrase to the recognizer, or several with no time apart from its day,
+    // and was read before.
+    [Theory]
+    [InlineData("friday", 17, 9)]
+    [InlineData("friday 6pm", 17, 18)]
+    [InlineData("6pm friday", 17, 18)]
+    [InlineData("friday at 6pm", 17, 18)]
+    [InlineData("friday, 6pm", 17, 18)]
+    [InlineData("friday - 6pm", 17, 18)]
+    [InlineData("friday @ 6pm", 17, 18)]
+    [InlineData("friday around 6pm", 17, 18)]
+    [InlineData("friday 6pm-8pm", 17, 18)]
+    [InlineData("after friday 6pm", 17, 18)]
+    [InlineData("tomorrow", 16, 9)]
+    [InlineData("tomorrow 6pm", 16, 18)]
+    [InlineData("6pm", 15, 18)]
+    [InlineData("noon", 15, 12)]
+    [InlineData("9am", 16, 9)]
+    [InlineData("next friday", 24, 9)]
+    [InlineData("7/20 6pm", 20, 18)]
+    [InlineData("in 3 days", 18, 9)]
+    [InlineData("friday or saturday", 17, 9)]           // two days and no time: the earlier, at 09:00
+    [InlineData("friday 6pm or saturday 2pm", 17, 18)]  // two days, each with its time: the earlier
+    public void Dates_that_were_read_before_are_read_as_before(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    // The limit comes before any of it: text over it is refused in the limit's words, whatever it
+    // holds, and at the limit a deadline is read. As in the length tests above, the texts are one
+    // phrase filled out with dots.
+    [Theory]
+    [InlineData("by friday 6pm")]
+    [InlineData("every friday 8pm")]
+    [InlineData("fri (6pm)")]
+    public void Text_over_the_length_limit_is_refused_before_any_of_it_is_read(string phrase)
+    {
+        var parser = CreateParser();
+        var overLimit = phrase.PadRight(DateTextLimits.MaxLength + 1, '.');
+        var tooLong = $"The date/time text must be at most {DateTextLimits.MaxLength} characters.";
+
+        Assert.False(parser.TryResolve(overLimit, Chicago, out _, out var error));
+        Assert.Equal(tooLong, error);
+        Assert.False(parser.TryResolveDay(overLimit, Chicago, out _, out error));
+        Assert.Equal(tooLong, error);
+    }
+
+    [Fact]
+    public void A_deadline_and_a_repeat_at_the_length_limit_are_read_and_refused_as_shorter_ones_are()
+    {
+        var parser = CreateParser();
+        var deadline = "by friday 6pm".PadRight(DateTextLimits.MaxLength, '.');
+        var repeat = "every friday 8pm".PadRight(DateTextLimits.MaxLength, '.');
+
+        Assert.True(parser.TryResolve(deadline, Chicago, out var result, out var error), error);
+        Assert.Equal(JulyInChicago(17, 18), result);
+        Assert.False(parser.TryResolve(repeat, Chicago, out _, out error));
+        Assert.StartsWith($"\"{repeat}\" repeats.", error);
     }
 }

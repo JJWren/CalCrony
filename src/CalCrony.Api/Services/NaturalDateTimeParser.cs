@@ -15,6 +15,9 @@ namespace CalCrony.Api.Services;
 /// future occurrence; past-only results are rejected. Text longer than
 /// <see cref="DateTextLimits.MaxLength"/> characters is refused before anything reads it.
 /// "sat" and "sun" standing as words of their own read as "saturday" and "sunday" do.
+/// A deadline ("by friday 6pm") reads as the date and time it names; a weekday typed on its own
+/// day is next week's once its time is behind; a time written apart from its day ("fri (6pm)")
+/// is read on that day; and text that repeats ("every friday") is refused in words that say so.
 /// </summary>
 /// <param name="clock">The time source.</param>
 public sealed partial class NaturalDateTimeParser(IClock clock)
@@ -63,6 +66,28 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     private static readonly string TooLongError =
         $"The date/time text must be at most {DateTextLimits.MaxLength} characters.";
 
+    /// <summary>The recognizer's type for a phrase that repeats ("every friday", "weekly").</summary>
+    private const string RepeatTypeName = "datetimeV2.set";
+
+    /// <summary>The recognizer's type for a length of time ("2 hours", "30 min").</summary>
+    private const string LengthTypeName = "datetimeV2.duration";
+
+    /// <summary>The time of day a date takes when the text gives it none.</summary>
+    private static readonly LocalTime BareDateTime = new(9, 0);
+
+    /// <summary>The refusal from <see cref="TryResolve"/> for text that repeats. The example in it
+    /// is fixed, not taken from the text.</summary>
+    /// <param name="text">The text as it was read.</param>
+    /// <returns>The user-facing error text.</returns>
+    private static string RepeatError(string text) =>
+        $"\"{text}\" repeats. Type one date and time here, for example \"saturday 8pm\"; to make an event repeat, use its repeat option.";
+
+    /// <summary>The refusal from <see cref="TryResolveDay"/> for text that repeats.</summary>
+    /// <param name="text">The text as it was typed.</param>
+    /// <returns>The user-facing error text.</returns>
+    private static string RepeatDayError(string text) =>
+        $"\"{text}\" repeats. Type one day here, for example \"today\", \"saturday\" or \"nov 12\".";
+
     private readonly DateTimeModel model =
         new DateTimeRecognizer(Culture.English).GetDateTimeModel();
 
@@ -71,7 +96,7 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// <c>sunday</c>. The recognizer reads the other short weekdays wherever they stand, but these
     /// two only in some forms ("next sat", "on sun"); elsewhere it drops them and reads the rest,
     /// so "sat 6pm" would be today at 6 PM. Spelled out, each reads exactly as its full name does.
-    /// Where the full name is refused ("by saturday 6pm"), so is the short form. Text that spelling
+    /// Where the full name is refused ("last saturday"), so is the short form. Text that spelling
     /// out would take past <see cref="DateTextLimits.MaxLength"/> comes back as typed, with no
     /// short form spelled out, so the recognizer is never given more than the limit; text with
     /// neither short form comes back unchanged. Refusals go on quoting the text they quoted
@@ -89,9 +114,15 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     // Named TryResolve (not TryParse) deliberately: ASP.NET minimal APIs treat any type
     // with a TryParse method as a bindable route/query primitive, which breaks DI injection.
     /// <summary>Resolves text to the nearest future instant in the given zone (or the zone a
-    /// contained abbreviation selects). False with a user-facing error on over-long, unparseable
-    /// or past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse types
-    /// as bindable primitives, which breaks DI injection.</summary>
+    /// contained abbreviation selects). False with a user-facing error on over-long, unparseable,
+    /// repeating or past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse
+    /// types as bindable primitives, which breaks DI injection.
+    /// <para>The recognizer returns one or more phrases, each with one or more values. A value is
+    /// read as a day and a time, a day with no time of its own, or a time with no day of its own,
+    /// and the readings are put together: a day alone is 9:00; a time alone is today's, or
+    /// tomorrow's once today's has passed; and a day the text names outranks a today that is only
+    /// implied, so a time written apart from its day ("fri (6pm)") is read on that day. The
+    /// earliest reading that is still ahead is the answer.</para></summary>
     /// <param name="text">The text to parse.</param>
     /// <param name="zone">The IANA zone to resolve in.</param>
     /// <param name="result">The resolved future instant, when successful.</param>
@@ -130,24 +161,95 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
 
         var now = referenceInstant ?? clock.GetCurrentInstant();
         var localNow = now.InZone(zone).LocalDateTime;
-        var reference = localNow.ToDateTimeUnspecified();
+        var today = localNow.Date;
 
-        var candidates = new List<Instant>();
-        foreach (var recognized in model.Parse(SpellOutWeekendDays(text), reference))
+        var phrases = model.Parse(SpellOutWeekendDays(text), localNow.ToDateTimeUnspecified());
+
+        // A repeat is not one date and time. It is refused wherever it stands, beside a date that
+        // could be read too: reading the rest would drop the repeat and say nothing.
+        if (phrases.Exists(IsRepeat))
         {
-            if (recognized.Resolution is null ||
-                !recognized.Resolution.TryGetValue("values", out var rawValues) ||
+            error = RepeatError(text);
+            return false;
+        }
+
+        // A deadline's end is read (ReadValue) unless the text holds a length of time: read by
+        // its end, "2 hours before friday 6pm" would be Friday at 6 PM with the two hours lost.
+        var readEnds = !phrases.Exists(phrase => phrase.TypeName == LengthTypeName);
+
+        // What the text names, by what each reading carries: a day and a time together, a day
+        // with no time of its own, or a time with no day of its own. The days are kept phrase by
+        // phrase, because what a phrase can mean decides which of its days a time is read on.
+        var dayTimes = new List<LocalDateTime>();
+        var dayPhrases = new List<List<(LocalDate Day, bool NextWeek)>>();
+        var times = new List<LocalTime>();
+        var namesADayWithItsTime = false;
+        foreach (var phrase in phrases)
+        {
+            if (phrase.Resolution is null ||
+                !phrase.Resolution.TryGetValue("values", out var rawValues) ||
                 rawValues is not List<Dictionary<string, string>> values)
             {
                 continue;
             }
 
-            foreach (var value in values)
+            // A range that has begun and not ended ("this week" on a Wednesday, "tonight" at
+            // 9 PM) means the rest of it: now, without naming a day. It is read as it always was,
+            // by its start, and a time beside it stays a time alone.
+            var underWay = values.Exists(value => IsUnderWay(value, localNow));
+            var days = new List<(LocalDate Day, bool NextWeek)>();
+            foreach (var reading in ReadPhrase(values, readEnds, today))
             {
-                candidates.AddRange(ResolveValue(value, zone, localNow.Date));
+                switch (reading)
+                {
+                    case { Day: { } day, Time: { } time }:
+                        dayTimes.Add(day + time);
+                        namesADayWithItsTime |= !underWay;
+                        break;
+                    case { Day: { } day } when underWay:
+                        dayTimes.Add(day + BareDateTime);
+                        break;
+                    case { Day: { } day }:
+                        days.Add((day, reading.NextWeek));
+                        break;
+                    case { Time: { } time }:
+                        times.Add(time);
+                        break;
+                }
+            }
+
+            if (days.Count > 0)
+            {
+                dayPhrases.Add(days);
             }
         }
 
+        var locals = new List<LocalDateTime>(dayTimes);
+        if (times.Count > 0 && dayPhrases.Count > 0)
+        {
+            // A day the text names outranks a today that is only implied: a time written apart
+            // from the day ("fri (6pm)", "friday from 6pm") is read on that day, as the same two
+            // written together are, and the day then has no need of 9:00.
+            locals.AddRange(dayPhrases
+                .SelectMany(days => DaysForATime(days, today))
+                .SelectMany(day => times.Select(time => day + time)));
+        }
+        else
+        {
+            // Here the text has days or times alone, never both. Each day is 9:00.
+            locals.AddRange(dayPhrases.SelectMany(days => days).Select(named => named.Day + BareDateTime));
+
+            // A time with no day named anywhere means today, or tomorrow once today's has passed.
+            // Both are offered, and the future-preference filter below picks. Where a day has its
+            // own time ("friday 6pm, ends 9pm") a further time is not read: alone it would be
+            // today's, and the day that was named outranks that.
+            if (!namesADayWithItsTime)
+            {
+                locals.AddRange(times.SelectMany(time => new[] { today + time, today.PlusDays(1) + time }));
+            }
+        }
+
+        var candidates = locals.Select(local => local.InZoneLeniently(zone).ToInstant()).ToList();
         if (candidates.Count == 0)
         {
             error = $"Could not understand \"{text}\" as a date/time.";
@@ -168,48 +270,173 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         return true;
     }
 
-    /// <summary>Turns one recognizer resolution into candidate instants (range starts, 9:00 for bare dates, today+tomorrow for bare times).</summary>
+    /// <summary>One recognizer value as <see cref="TryResolve"/> reads it: a day, a time of day,
+    /// or both.</summary>
+    /// <param name="Day">The day, when the value carries one.</param>
+    /// <param name="Time">The time of day, when the value carries one.</param>
+    /// <param name="NextWeek">True for the reading <see cref="ReadPhrase"/> adds for a weekday
+    /// whose week is left open.</param>
+    private readonly record struct MomentReading(LocalDate? Day, LocalTime? Time, bool NextWeek = false);
+
+    /// <summary>Whether a recognizer value is a range that has begun and not ended: a range of
+    /// days as <see cref="ReadDay"/> judges it ("this week" on a Wednesday, "mon to sat" on a
+    /// Thursday), or a range of times that holds the present moment ("tonight" at 9 PM, "this
+    /// afternoon" at 1 PM). Such a phrase means the rest of the range and names no day.</summary>
     /// <param name="value">One recognizer resolution value.</param>
-    /// <param name="zone">The IANA zone to resolve in.</param>
+    /// <param name="localNow">The present moment in the target zone.</param>
+    /// <returns>True for a range under way.</returns>
+    private static bool IsUnderWay(Dictionary<string, string> value, LocalDateTime localNow)
+    {
+        if (ReadDay(value, localNow.Date) is { Reading: DayReading.RangeUnderWay })
+        {
+            return true;
+        }
+
+        return value.TryGetValue("start", out var rawStart) && LocalPattern.Parse(rawStart) is { Success: true } start
+            && value.TryGetValue("end", out var rawEnd) && LocalPattern.Parse(rawEnd) is { Success: true } end
+            && start.Value <= localNow && localNow < end.Value;
+    }
+
+    /// <summary>Whether a recognized phrase is a repeat ("every friday", "fridays at 8pm",
+    /// "weekly"), which carries no date of its own.</summary>
+    /// <param name="phrase">One recognized phrase.</param>
+    /// <returns>True for a repeat.</returns>
+    private static bool IsRepeat(ModelResult phrase) => phrase.TypeName == RepeatTypeName;
+
+    /// <summary>Reads the values of one recognized phrase for <see cref="TryResolve"/>. For a
+    /// weekday whose week is left open ("wed", "wed 6pm", "friday night") the recognizer offers
+    /// last week's and this week's, so on the day itself, once its time is behind, both have
+    /// passed. Next week's is added: the text then means the next time that weekday and time
+    /// come round, as a time alone already does.</summary>
+    /// <param name="values">The phrase's resolution values.</param>
+    /// <param name="readEnds">Whether a range with an end and no start is read as its end.</param>
     /// <param name="today">Today's local date in the target zone.</param>
-    /// <returns>Candidate instants for the resolution.</returns>
-    private static IEnumerable<Instant> ResolveValue(
-        Dictionary<string, string> value, DateTimeZone zone, LocalDate today)
+    /// <returns>The readings, next week's among them where the phrase is such a weekday.</returns>
+    private static IEnumerable<MomentReading> ReadPhrase(
+        List<Dictionary<string, string>> values, bool readEnds, LocalDate today)
+    {
+        // The values of one way to read the phrase share a timex: "friday at 5" has two, the
+        // morning's and the afternoon's, each with last week's value and this week's.
+        foreach (var sameTimex in values.GroupBy(value => value.GetValueOrDefault("timex")))
+        {
+            var readings = sameTimex.Select(value => ReadValue(value, readEnds, today)).OfType<MomentReading>().ToList();
+            foreach (var reading in readings)
+            {
+                yield return reading;
+            }
+
+            if (!IsWeekdayWithOpenWeek(sameTimex.Key))
+            {
+                continue;
+            }
+
+            // Two values a week apart are last week's and this week's. "fri 17", Friday the 17th,
+            // has the same timex, but its values are months apart, and it is left as it is.
+            var dated = readings.Where(reading => reading.Day is not null).OrderBy(reading => reading.Day).ToList();
+            if (dated is [{ Day: { } lastWeeks }, { Day: { } thisWeeks } latest]
+                && Period.DaysBetween(lastWeeks, thisWeeks) == 7)
+            {
+                yield return latest with { Day = thisWeeks.PlusWeeks(1), NextWeek = true };
+            }
+        }
+    }
+
+    /// <summary>Whether a timex names a weekday with the week left open — alone ("wed"), with a
+    /// time ("wed 6pm"), with a part of the day ("friday night") or with a span of times on that
+    /// day ("friday 6pm-8pm") — and not a span of days ("mon to sat"), which the recognizer
+    /// writes in parentheses with its length counted in days.</summary>
+    /// <param name="timex">The timex of a recognizer value, if it has one.</param>
+    /// <returns>True for a weekday with the week left open.</returns>
+    private static bool IsWeekdayWithOpenWeek(string? timex) =>
+        timex is not null
+        && (timex.StartsWith("XXXX-WXX-", StringComparison.Ordinal)
+            || (timex.StartsWith("(XXXX-WXX-", StringComparison.Ordinal) && !timex.EndsWith("D)", StringComparison.Ordinal)));
+
+    /// <summary>Reads one recognizer resolution value: a full date and time, a bare date, or a
+    /// bare time. A range ("tomorrow evening", "after friday 6pm") is read as its start. A range
+    /// with an end and no start ("by friday 6pm", "until saturday", "before noon") is read as its
+    /// end, so that the text reads as the date and time it names.</summary>
+    /// <param name="value">One recognizer resolution value.</param>
+    /// <param name="readEnds">Whether a range with an end and no start is read as its end.</param>
+    /// <param name="today">Today's local date in the target zone.</param>
+    /// <returns>The reading; null when the value carries nothing usable.</returns>
+    private static MomentReading? ReadValue(Dictionary<string, string> value, bool readEnds, LocalDate today)
     {
         if (!value.TryGetValue("type", out var type))
         {
-            yield break;
+            return null;
         }
 
-        // For ranges ("tomorrow evening") use the range start.
-        var key = type.EndsWith("range", StringComparison.Ordinal) ? "start" : "value";
-        if (!value.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw))
+        string? raw;
+        if (!type.EndsWith("range", StringComparison.Ordinal))
         {
-            yield break;
+            value.TryGetValue("value", out raw);
+        }
+        else if (!value.TryGetValue("start", out raw) && readEnds && IsEndOfADateOrTime(value))
+        {
+            value.TryGetValue("end", out raw);
+        }
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
         }
 
         var full = LocalPattern.Parse(raw);
         if (full.Success)
         {
-            yield return full.Value.InZoneLeniently(zone).ToInstant();
-            yield break;
+            // "end of day" ("eod", "by end of day") names no day: the recognizer assumes today and
+            // writes today's last second. It is read as that time with no day of its own, so that
+            // beside a day ("eod friday", "by end of day friday") it is that day's.
+            return value.GetValueOrDefault("timex") == EndOfDayTimex(today)
+                ? new MomentReading(null, full.Value.TimeOfDay)
+                : new MomentReading(full.Value.Date, full.Value.TimeOfDay);
         }
 
         if (DateTime.TryParseExact(raw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateOnly))
         {
-            // Bare dates ("next friday") default to 9:00 local rather than midnight.
-            yield return LocalDateTime.FromDateTime(dateOnly).PlusHours(9).InZoneLeniently(zone).ToInstant();
-            yield break;
+            return new MomentReading(LocalDate.FromDateTime(dateOnly), null);
         }
 
         if (DateTime.TryParseExact(raw, "HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var timeOnly))
         {
-            // Bare times ("6pm") anchor to today; also offer tomorrow so the
-            // future-preference filter picks the next occurrence when today's has passed.
-            var time = LocalTime.FromTicksSinceMidnight(timeOnly.TimeOfDay.Ticks);
-            yield return (today + time).InZoneLeniently(zone).ToInstant();
-            yield return (today.PlusDays(1) + time).InZoneLeniently(zone).ToInstant();
+            return new MomentReading(null, LocalTime.FromTicksSinceMidnight(timeOnly.TimeOfDay.Ticks));
         }
+
+        return null;
+    }
+
+    /// <summary>The timex the recognizer writes for "end of day": today's date and the day's last
+    /// second.</summary>
+    /// <param name="today">Today's local date in the target zone.</param>
+    /// <returns>The timex text.</returns>
+    private static string EndOfDayTimex(LocalDate today) => LocalDatePattern.Iso.Format(today) + "T23:59:59";
+
+    /// <summary>Whether a range value with no start ends at a date or a time the text names
+    /// ("by friday 6pm", "until saturday", "friday before 6pm") rather than at the edge of a whole
+    /// period ("by the weekend", "before next month", "by end of month"). At an edge the
+    /// recognizer's end is the first day of the period or the day after its last, and read as a
+    /// bare date that would be 9:00 on a day the text does not mean; such text stays unread.</summary>
+    /// <param name="value">One recognizer resolution value, a range with no start.</param>
+    /// <returns>True when the end is a date or a time that was named.</returns>
+    private static bool IsEndOfADateOrTime(Dictionary<string, string> value) =>
+        value.GetValueOrDefault("Mod") is "before" or "until"
+        && value.GetValueOrDefault("sourceEntity") != "datetimerange";
+
+    /// <summary>The days of one phrase on which a time written apart from it is read. A phrase
+    /// that can mean today means today once a time is read on it: "nov 12 (9am)" typed on
+    /// November 12 is that morning, as "nov 12 9am" is, although "nov 12" alone also offers next
+    /// year's. Next week's weekday stays, as it does for "wed 9am".</summary>
+    /// <param name="days">The days of one phrase that names a day and no time, each marked
+    /// when it is the next week's that <see cref="ReadPhrase"/> added.</param>
+    /// <param name="today">Today's local date in the target zone.</param>
+    /// <returns>The days to read the time on.</returns>
+    private static IEnumerable<LocalDate> DaysForATime(List<(LocalDate Day, bool NextWeek)> days, LocalDate today)
+    {
+        var namesToday = days.Exists(named => named.Day == today);
+        return days
+            .Where(named => !namesToday || named.NextWeek || named.Day <= today)
+            .Select(named => named.Day);
     }
 
     /// <summary>Resolves text to a calendar day in the given zone — the day-level sibling of
@@ -219,8 +446,9 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     /// a range that is already under way ("this week" on a Wednesday, meaning the rest of it) —
     /// but a day the text does name always outranks that: "friday at night" is Friday. A zone
     /// abbreviation in the text does not move the day — days are always the caller's. False with a
-    /// user-facing error when the text is over-long, when nothing is recognized, or when the only
-    /// days named have passed.</summary>
+    /// user-facing error when the text is over-long, when it repeats, when nothing is recognized,
+    /// or when the only days named have passed. A deadline ("by friday") is not read here: it
+    /// names a last day, and the caller asks for a first one.</summary>
     /// <param name="text">The text to parse.</param>
     /// <param name="zone">The IANA zone whose calendar days are meant.</param>
     /// <param name="day">The resolved day — today or later — when successful.</param>
@@ -253,7 +481,16 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         var rangeUnderWay = false;
         var onlyPastDays = false;
         var timeAlone = false;
-        foreach (var recognized in model.Parse(SpellOutWeekendDays(text), localNow.ToDateTimeUnspecified()))
+        var phrases = model.Parse(SpellOutWeekendDays(text), localNow.ToDateTimeUnspecified());
+
+        // As in TryResolve: a repeat is not one day, wherever it stands in the text.
+        if (phrases.Exists(IsRepeat))
+        {
+            error = RepeatDayError(text);
+            return false;
+        }
+
+        foreach (var recognized in phrases)
         {
             if (recognized.Resolution is null ||
                 !recognized.Resolution.TryGetValue("values", out var rawValues) ||
