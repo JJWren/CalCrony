@@ -1719,3 +1719,10 @@ Availability for @GM
 **Context**: Build and test — waiting for the two live items to reach the test stack.
 
 ---
+## Build and test — short weekend days: the watch ended with no live item run
+**Timestamp**: 2026-11-17T17:39:02Z
+**User Input**: (none — a background watch ended; no input from Joshua since "I'll run them")
+**AI Response**: The watch on the test bot's log ended at 17:39:02Z, at its limit of 40 minutes, with no call for `/create` and none for `/availability slots`. Read at 17:40:08Z: the test stack still on `0.0.0-main.b582c2b`, with the API and the bot not restarted since 16:43Z; the bot with no POST call to the API since its start, its only other lines the presence sync every eleven minutes and one reconnect that Discord asked for at 17:37:49Z, resumed within two seconds; the test database with one server, no event and no poll. So the two live items are still not run, and nothing is recorded as passed. A second watch was started at 17:41Z and ends at about 23:41Z at the latest. Meanwhile `master` moved on: pull request #182, the public calendar's fix, merged at 17:02:31Z as `4fdfa60`, and #186, a records pull request, at 17:08:55Z as `916ecd1`. The release pull request #185 now lists two fixes, #180 and #182, and `docs/release-notes/0.37.1.md` on `master` holds a bullet for each, with this fix's two steps under "How to use it" unchanged. The release is therefore one step shared with that fix. Its session has put the question to Joshua, and it is not asked a second time from here.
+**Context**: Build and test — still waiting for the two live items on the test stack. Nothing is released or rolled out.
+
+---
