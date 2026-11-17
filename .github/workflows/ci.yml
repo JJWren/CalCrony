@@ -112,8 +112,9 @@ jobs:
       # Both linters come from their projects' releases on GitHub, each held to one version and
       # to the SHA-256 of its linux x86_64 archive. To move to a newer release, change a version
       # and its checksum together. actionlint lists its checksums in the release's
-      # actionlint_<version>_checksums.txt; shellcheck publishes none, so take the digest GitHub
-      # lists for the archive on the release page.
+      # actionlint_<version>_checksums.txt, and `gh attestation verify <archive> -R
+      # rhysd/actionlint` checks an archive against the build that made it. shellcheck publishes
+      # neither, so take the digest GitHub lists for the archive on the release page.
       - name: Download actionlint and shellcheck
         env:
           ACTIONLINT_VERSION: "1.7.12"
@@ -132,24 +133,28 @@ jobs:
             echo "sha256sum accepted a checksum of 64 zeros, so it cannot be asked about the real ones."
             exit 1
           fi
-          # Checked before anything is unpacked: a file that is not the pinned one stops the job.
-          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz \
-            | sha256sum --check --strict -
+          # Then the real ones, each asked the same way, before anything is unpacked: a file
+          # that is not the pinned one stops the job.
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz | sha256sum --check --strict -
+          printf '%s  %s\n' "$SHELLCHECK_SHA256" shellcheck.tar.xz | sha256sum --check --strict -
           mkdir lint-tools
           tar -xzf actionlint.tar.gz -C lint-tools actionlint
           tar -xJf shellcheck.tar.xz -C lint-tools --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
       # actionlint leaves the shell checks out, and says nothing, when it cannot run shellcheck.
-      # So each tool prints its version first, from the one folder the lint then takes both
-      # from: a tool that does not run fails the step there. -verbose puts in the log which
-      # files were read and any rule that was left out. It names pyflakes there when the runner
-      # has none: that rule checks steps written in Python, and there are none. -config-file
-      # /dev/null: actionlint reads no configuration file, so a finding can be excepted only in
-      # the workflow files themselves, by a shellcheck comment in the script it is about or in
-      # this job.
+      # So each tool's path is written once, and the tool prints its version from it first: a
+      # tool that does not run fails the step there, and with set -u so does a misspelt name.
+      # -verbose puts in the log which files were read and whether shellcheck or pyflakes was
+      # left out (pyflakes is, when the runner has none: it checks steps written in Python, and
+      # there are none). SHELLCHECK_OPTS is unset and -config-file /dev/null is given so that
+      # neither a variable set elsewhere in a workflow nor a configuration file in the
+      # repository can switch findings off.
       - name: Lint the workflow files
         run: |
-          tools="$RUNNER_TEMP/lint-tools"
-          "$tools/actionlint" -version
-          "$tools/shellcheck" --version
-          "$tools/actionlint" -color -verbose -config-file /dev/null -shellcheck "$tools/shellcheck"
+          set -u
+          unset SHELLCHECK_OPTS
+          actionlint="$RUNNER_TEMP/lint-tools/actionlint"
+          shellcheck="$RUNNER_TEMP/lint-tools/shellcheck"
+          "$actionlint" -version
+          "$shellcheck" --version
+          "$actionlint" -color -verbose -config-file /dev/null -shellcheck "$shellcheck"
