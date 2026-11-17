@@ -133,7 +133,7 @@ public static class FeedEndpoints
                 Location = ev.Location,
                 Url = eventUrl is null ? null : new Uri(eventUrl),
                 DtStart = new CalDateTime(start),
-                DtEnd = new CalDateTime(start.AddMinutes(ev.DurationMinutes ?? 60)),
+                DtEnd = new CalDateTime(Services.EventTimes.End(ev.StartsAt, ev.DurationMinutes).ToDateTimeUtc()),
                 DtStamp = new CalDateTime(ev.CreatedAt.ToDateTimeUtc()),
             });
         }
@@ -159,7 +159,7 @@ public static class FeedEndpoints
             .GroupBy(e => e.SeriesId!.Value)
             .ToDictionary(
                 g => g.Key,
-                g => g.Max(e => e.StartsAt + NodaTime.Duration.FromMinutes(e.DurationMinutes ?? 60)));
+                g => g.Max(e => Services.EventTimes.End(e.StartsAt, e.DurationMinutes)));
 
         foreach (var series in runningSeries)
         {
@@ -214,14 +214,13 @@ public static class FeedEndpoints
         CalDateTime dtEnd;
         if (zone == DateTimeZone.Utc)
         {
-            var startUtc = startsAt.ToDateTimeUtc();
-            dtStart = new CalDateTime(startUtc);
-            dtEnd = new CalDateTime(startUtc.AddMinutes(durationMinutes ?? 60));
+            dtStart = new CalDateTime(startsAt.ToDateTimeUtc());
+            dtEnd = new CalDateTime(Services.EventTimes.End(startsAt, durationMinutes).ToDateTimeUtc());
         }
         else
         {
             var startLocal = startsAt.InZone(zone).LocalDateTime;
-            var endLocal = startLocal.PlusMinutes(durationMinutes ?? 60);
+            var endLocal = Services.EventTimes.End(startLocal, durationMinutes);
             dtStart = new CalDateTime(startLocal.ToDateTimeUnspecified(), series.TimeZone);
             dtEnd = new CalDateTime(endLocal.ToDateTimeUnspecified(), series.TimeZone);
             if (calendar.TimeZones.All(tz => tz.TzId != series.TimeZone))

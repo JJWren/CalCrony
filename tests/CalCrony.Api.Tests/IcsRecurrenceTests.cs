@@ -112,6 +112,25 @@ public class IcsRecurrenceTests
     }
 
     [Fact]
+    public void Until_on_the_calendars_last_day_is_the_last_instant_there_is()
+    {
+        // The calendar's last day is written as the last instant (to the second, as the feed
+        // writes it); the day before converts like any other date.
+        var series = Series(RecurrenceUnit.Week, 1);
+        series.TimeZone = "America/Chicago"; // CST in December, UTC-6
+
+        series.UntilDate = LocalDate.MaxIsoValue.PlusDays(-1);
+        Assert.Equal(
+            new DateTime(9999, 12, 31, 5, 59, 59, DateTimeKind.Utc),
+            IcsRecurrence.BuildPattern(series, anchorIsCounted: true).Until!.Value);
+
+        series.UntilDate = LocalDate.MaxIsoValue;
+        Assert.Equal(
+            new DateTime(9999, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+            IcsRecurrence.BuildPattern(series, anchorIsCounted: true).Until!.Value);
+    }
+
+    [Fact]
     public void Count_is_the_remaining_occurrences_for_both_anchor_modes()
     {
         var series = Series(RecurrenceUnit.Week, 1);
