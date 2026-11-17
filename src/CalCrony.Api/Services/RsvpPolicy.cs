@@ -376,7 +376,8 @@ public static partial class RsvpPolicy
     /// <summary>Parses RSVP-close text: relative ("2h before") becomes minutes-before-start (it
     /// then tracks time edits); anything else parses as a natural-language absolute instant.
     /// Exactly one of the two outputs is set on success. Text over
-    /// <see cref="DateTextLimits.MaxLength"/> characters is refused in either form.</summary>
+    /// <see cref="DateTextLimits.MaxLength"/> characters is refused in either form, and so is
+    /// relative text whose amount is not a number.</summary>
     /// <param name="text">The submitted cutoff text.</param>
     /// <param name="zone">The zone absolute text parses in.</param>
     /// <param name="parser">The natural-language datetime parser.</param>
@@ -397,7 +398,16 @@ public static partial class RsvpPolicy
         var relative = text.Length <= DateTextLimits.MaxLength ? RelativeClose().Match(text) : Match.Empty;
         if (relative.Success)
         {
-            var amount = int.Parse(relative.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+            // Relative text whose amount cannot be read as a number is refused here, as text that
+            // is not understood, and is not handed on to be read as a date.
+            if (!int.TryParse(
+                    relative.Groups[1].ValueSpan, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var amount))
+            {
+                error = $"Couldn't read the RSVP cutoff: {NaturalDateTimeParser.NotUnderstoodError(text)}";
+                return false;
+            }
+
             var minutes = char.ToLowerInvariant(relative.Groups[2].Value[0]) switch
             {
                 'h' => amount * 60,
