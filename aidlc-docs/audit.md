@@ -2632,3 +2632,17 @@ Availability for @GM
 **Context**: Construction — build and test, in the repository's collapsed form: `master` taken in (step 7.2).
 
 ---
+## Construction — date text gaps: Joshua's go-ahead for the merge
+**Timestamp**: 2026-11-18T19:25:06Z
+**User Input**: "Go ahead"
+**AI Response**: Read as the go-ahead for #199's squash merge (step 7.2). It came in answer to a message which said that pull request #189, which Joshua chose to merge first, had merged, that it had been taken in locally, and that the merge of #199 would be asked once both review agents had confirmed the taking-in and it was pushed. The merge goes through only after both agents confirm, the branch is pushed, and the checks on the pushed head are green, by the REST call pinned to that head. The release and the prod rollout are still asked on their own.
+**Context**: Construction — build and test: step 7.2.
+
+---
+## Construction — date text gaps: `master` taken in with the limit on how far ahead a date can be set
+**Timestamp**: 2026-11-18T19:27:39Z
+**User Input**: (none beyond Joshua's go-ahead, logged above at 19:25:06Z)
+**AI Response**: Pull request #189 was merged at 19:21:34Z, as Joshua chose at 18:31:57Z, and `master` was taken in at 3e35071. #189 limits how far ahead a date typed in words can be set, to ten years. Four files met. In `NaturalDateTimeParser.cs`, #189 checked each reading's day before the reading was turned into an instant, inside a loop that this change replaced; the check now stands where this change turns its readings into instants, which every reading that can be the answer reaches, so the limit holds for the new ways of writing a day and its time: apart, as a deadline, as the end of the day, or as a part of the day. `docs/release-notes/0.37.2.md`, which both add, has #189's line first, then this change's four lines and its two steps. In the state file both sections are kept, #189's first, and `audit.md` is `master`'s file line for line, with this branch's entries put in by their timestamps. 45 cases are added to #189's tests (`DateAheadLimitTests`): on the last day allowed, on the day after it, and on the calendar's last day in three zones, and a month past the limit. Taking the check out fails 53 of those 70 tests, refusing the last day itself fails 11, and letting the start of a part of the day or the first day of a month pass unchecked fails one each. On the merged tree the Release build has no error and the same 22 warnings, and 2,406 tests are green. The taking-in was prepared while #189 was open, on a local copy of this branch with #189's head merged in, and both review agents read it there; the merge with `master` gives the same parser, tests and release summary as that copy. Both read the merge before the push.
+**Context**: Construction — build and test: `master` taken in (step 7.2).
+
+---
