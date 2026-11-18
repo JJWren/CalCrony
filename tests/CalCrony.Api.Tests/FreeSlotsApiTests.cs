@@ -1077,6 +1077,47 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
     }
 
     [Fact]
+    public async Task A_series_whose_rule_cannot_be_stepped_is_left_out_and_everything_else_still_counts()
+    {
+        const long guildId = 9870, creator = 9872, other = 9873;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // An interval of zero, which creating or editing a series refuses, so the rule cannot be
+        // stepped. Its first date and its last created date are a week before the day, so it can
+        // reach the window and its rule is read.
+        var broken = new SeriesSchedule(
+            Unit: RecurrenceUnit.Week,
+            Interval: 0,
+            MonthlyMode: MonthlyMode.DayOfMonth,
+            DaysOfWeek: RecurrenceDays.None,
+            AnchorDate: day.PlusDays(-7),
+            StartTime: new LocalTime(9, 0),
+            TimeZone: "America/Chicago",
+            UntilDate: null,
+            MaxOccurrences: null,
+            CurrentOccurrenceDate: day.PlusDays(-7),
+            OccurrenceCount: 1,
+            DurationMinutes: 120);
+        await SeedSeriesAsync(guildId, creator, broken);
+
+        // The same member's event at noon, and another member's weekly series at 6 PM.
+        await SeedEventAsync(guildId, creator, At(Chicago, day, 12));
+        await SeedSeriesAsync(guildId, other, anchor: day.PlusDays(-7), cursor: day.PlusDays(-7), new LocalTime(18, 0));
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var (windowStart, windowEnd) = (At(Chicago, day, 0), At(Chicago, day.PlusDays(1), 0));
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var busy = await scope.ServiceProvider.GetRequiredService<EventBusyTimes>().GetAsync(
+            guildId, [creator, other], now, windowStart, windowEnd, CancellationToken.None);
+
+        // Stepped on its own, the rule throws; the lookup leaves that series out and nothing else.
+        Assert.ThrowsAny<Exception>(() => SeriesProjection.LaterOccurrences(broken, live: null, now, windowStart, windowEnd));
+        Assert.Equal([(At(Chicago, day, 12), At(Chicago, day, 14))], busy[creator]);
+        Assert.Equal([(At(Chicago, day, 18), At(Chicago, day, 20))], busy[other]);
+    }
+
+    [Fact]
     public async Task A_session_the_scheduler_creates_while_a_lookup_reads_is_busy_for_its_creator_wherever_it_lands()
     {
         var day = DayAhead(Chicago);

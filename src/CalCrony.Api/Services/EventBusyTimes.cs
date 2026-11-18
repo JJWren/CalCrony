@@ -17,7 +17,8 @@ namespace CalCrony.Api.Services;
 /// cancelled or deleted shows in the next lookup.
 /// </summary>
 /// <param name="db">The database context.</param>
-public sealed class EventBusyTimes(CalCronyDbContext db)
+/// <param name="logger">The host logger.</param>
+public sealed class EventBusyTimes(CalCronyDbContext db, ILogger<EventBusyTimes> logger)
 {
     /// <summary>How long before a window an event may start and still reach into it: the longest
     /// length an event can be given.</summary>
@@ -28,7 +29,8 @@ public sealed class EventBusyTimes(CalCronyDbContext db)
     /// reach into the window; these members' seats on them; the options of the events that have
     /// such a seat; the running series these members created; and those series' live occurrences.
     /// The reads share one snapshot of the database, in a transaction of their own, so this is
-    /// called outside a transaction; the series are stepped once it is closed.</summary>
+    /// called outside a transaction; the series are stepped once it is closed, each on its own: a
+    /// series whose rule cannot be stepped is logged and gives nothing.</summary>
     /// <param name="guildId">The server whose events count. No other server's are read.</param>
     /// <param name="memberIds">The members to answer for: the ones the lookup counts.</param>
     /// <param name="now">The current instant.</param>
@@ -66,8 +68,25 @@ public sealed class EventBusyTimes(CalCronyDbContext db)
             // afresh on each occurrence, so nobody is seated in one that does not exist yet.
             foreach (var series in running)
             {
-                busy[series.CreatorId].AddRange(
-                    SeriesProjection.LaterOccurrences(series.Schedule, series.Live, now, windowStart, windowEnd));
+                IReadOnlyList<(Instant Start, Instant End)> later;
+                try
+                {
+                    later = SeriesProjection.LaterOccurrences(series.Schedule, series.Live, now, windowStart, windowEnd);
+                }
+                catch (Exception ex)
+                {
+                    // Each series is stepped on its own, as the scheduler advances each on its
+                    // own: a rule that cannot be stepped is logged and its later occurrences are
+                    // left out, rather than failing every lookup that counts its creator.
+                    logger.LogError(
+                        ex,
+                        "Could not step series {SeriesId} in guild {GuildId} for a free-slots lookup; leaving its later occurrences out.",
+                        series.Id,
+                        guildId);
+                    continue;
+                }
+
+                busy[series.CreatorId].AddRange(later);
             }
         }
 
@@ -205,6 +224,7 @@ public sealed class EventBusyTimes(CalCronyDbContext db)
         return
         [
             .. series.Select(s => new RunningSeries(
+                s.Id,
                 s.CreatorId,
                 new SeriesSchedule(
                     Unit: s.Unit,
@@ -224,10 +244,11 @@ public sealed class EventBusyTimes(CalCronyDbContext db)
     }
 
     /// <summary>A running series as the projection needs it.</summary>
+    /// <param name="Id">Its id, for the log when its rule cannot be stepped.</param>
     /// <param name="CreatorId">The member who created it, the one its later occurrences count for.</param>
     /// <param name="Schedule">Its schedule.</param>
     /// <param name="Live">Its live occurrence; null when it has none.</param>
-    private sealed record RunningSeries(long CreatorId, SeriesSchedule Schedule, LiveOccurrence? Live);
+    private sealed record RunningSeries(Guid Id, long CreatorId, SeriesSchedule Schedule, LiveOccurrence? Live);
 
     /// <summary>The columns of an RSVP option that decide which one is the attending option.</summary>
     /// <param name="EventId">The event the option belongs to.</param>
