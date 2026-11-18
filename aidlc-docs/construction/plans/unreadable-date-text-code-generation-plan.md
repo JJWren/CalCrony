@@ -195,13 +195,23 @@ this machine waits for its own go-ahead.
       nothing was taken in; pushed at 16:36:05Z, and pull request #184 opened at 16:36:24Z. Pull
       request #180 merged twelve seconds later, and `master` was taken in straight after:
       section 7.)*
-- [ ] 6.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then
-      takes `:main`.
-- [ ] 6.3 *Go-ahead:* the release — the patch release that release-please opens — once it is
+- [x] 6.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then
+      takes `:main`. *(2026-11-17: every check green on the head `740b722`, and no review
+      started. On Joshua's go-ahead ("Merge now"), squash-merged through the REST call at
+      23:05:51Z as `723696d`, pinned to that head. The test stack took `:main` once it was
+      published: its API, bot and web were restarted at 23:11Z to 23:12Z, the database was left
+      as it was, and `/health` reports `0.0.0-main.723696d`.)*
+- [x] 6.3 *Go-ahead:* the release — the patch release that release-please opens — once it is
       settled with Joshua whether this change gets a line in the release summary
-      (`docs/release-notes/<version>.md`).
-- [ ] 6.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
-      No migration.
+      (`docs/release-notes/<version>.md`). *(2026-11-17: no line for this change, as recommended
+      to Joshua. On his go-ahead ("Release now"), release pull request #185 squash-merged at
+      23:27:30Z as `eb6afb8`; `v0.37.1` released at 23:27:43Z with #180 and #182, its images
+      published by 23:30:40Z, and the announcement posted at 23:30:47Z.)*
+- [x] 6.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
+      No migration. *(2026-11-17, on Joshua's go-ahead ("Roll out now"): backup
+      `calcrony-prod-pre-0.37.1-20261117T233547Z.sql` first; the tag set to 0.37.1; the API
+      restarted at 23:36:20Z and the bot and the web app at 23:36:37Z, the database container
+      left as it was; `/health` reports 0.37.1.)*
 
 ## 7. Notes from generation
 
@@ -346,5 +356,6 @@ bot, 153 web, 345 release notes, with the same 17 skipped. A clean copy of `mast
 has 1,743 (827 API).
 
 Pull request #186, which changes records only, merged at 17:08:55Z, nineteen seconds after those
-two merges were pushed. `master`, at `916ecd1`, was taken in a third time: the two records files
-by hand again, and nothing else. The code and the tests are those of the second merge.
+two merges were pushed. `master`, at `916ecd1`, was taken in a third time: the audit log by hand
+again, while the state file merged by itself and its last line was brought up to date; nothing
+else changed. The code and the tests are those of the second merge.
