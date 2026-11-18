@@ -130,7 +130,7 @@ the recognizer and from the class summary, and its parser tests are in a file of
 
 - [x] 0.1 Branch `fix/date-ahead-limit`, on `master` 56b61ab; since step 5.4 on `4af1305`,
       since step 5.5 on `ab32e96`, since step 5.6 on `916ecd1`, since step 5.7 on `723696d`,
-      and since step 5.8 on `162fd42`, with `04beae8` merged in at step 5.9.
+      and since step 5.8 on `162fd42`, with `04beae8` and `47209ab` merged in at step 5.9.
 - [x] 1.1 `DateTextLimits.MaxYearsAhead`, documented in the file's style.
 - [x] 1.2 `TryResolve` (3.1). `DateAheadLimitTests`: a time on the last day allowed is read and the
       same time a day later is refused, with the refusal's exact words; relative text that lands
@@ -214,8 +214,10 @@ the recognizer and from the class summary, and its parser tests are in a file of
       warnings; 1,849 tests green — 929 API, 418 bot, 153 web and 349 for the release-notes
       tool — and 17 of the tool's skipped.
 - [x] 5.9 `master` merged in at `04beae8` (pull request #191, records only) on 2026-11-18, after the
-      push, when GitHub reported that the pull request conflicts with it. The branch is on GitHub,
-      so `master` is merged in rather than put under the change again. Only `aidlc-docs/audit.md`
+      push, when GitHub reported that the pull request conflicts with it. As that merge was made,
+      `master` moved on to `47209ab` (pull request #194, records only), which is merged in on top,
+      in a second merge commit, before anything is pushed. The branch is on GitHub, so `master` is
+      merged in rather than put under the change again. Both times only `aidlc-docs/audit.md`
       conflicts: it is `master`'s entries with this change's put in by their timestamps. Nothing
       outside `aidlc-docs` differs from the tree of step 5.8, so its result stands for this one.
 
@@ -405,5 +407,6 @@ After the push, on 2026-11-18, `master` moved to `04beae8` by pull request #191 
 GitHub reported that #189 conflicts with it, in `aidlc-docs/audit.md`. With the branch on GitHub,
 `master` is merged in, in a merge commit, rather than put under the change again; the squash merge
 makes one commit of the pull request either way. The audit entries of both sides are in the order of
-their timestamps, and git merges the state file by itself. Nothing outside `aidlc-docs` differs.
-Step 5.9 has it.
+their timestamps, and git merges the state file by itself. As that merge was made, `master` moved on
+to `47209ab` by pull request #194 (records), which is merged in on top in the same way, before the
+push. Nothing outside `aidlc-docs` differs. Step 5.9 has it.
