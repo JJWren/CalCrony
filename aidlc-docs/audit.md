@@ -2135,3 +2135,10 @@ Availability for @GM
 **Context**: Operations — #187's step 5.1 is read for a pull request the owner opened; the release pull request's half waits for the next release.
 
 ---
+## Operations — the `protect-master` ruleset to gain "Restrict updates": Joshua's choice
+**Timestamp**: 2026-11-18T22:37:47Z
+**User Input**: "Restrict updates"
+**AI Response**: Read as his choice of the recommended follow-up: the `protect-master` ruleset gains the "Restrict updates" rule, so that only those who may bypass the ruleset, the repository's admins, can update `master`. A ruleset is a security setting, so he sets it himself. Read through the API at 22:37Z, the ruleset (last changed 2026-11-17T23:13:05Z) did not have the rule yet; he was given the steps, and the rule is to be checked through the API once he says it is saved, and then on the ruleset's record of the next merge.
+**Context**: Operations — the ruleset change waits for Joshua; its check follows.
+
+---
