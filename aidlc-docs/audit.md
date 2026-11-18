@@ -1925,6 +1925,13 @@ Availability for @GM
 **Context**: Construction — code generation: every question of the plan is answered (Q1 to Q6, each A); generation in the repository waits for pull request #180 to be on `master` (Q5).
 
 ---
+## Text that cannot be stored — the request and workspace detection
+**Timestamp**: 2026-11-17T16:29:48Z
+**User Input**: (none typed by Joshua — the task was handed over from another session: request text that cannot be stored is to be refused with a sentence, and an RSVP option list with an entry missing is to be refused with the sentence the options already have.)
+**AI Response**: Workspace detection: brownfield; the existing state file is resumed. `master` was at `ab32e96` when the task arrived; its application code is that of the tag `v0.37.0`. Reverse engineering is skipped, as on the earlier changes: the codebase was built under this workflow, and the state file, the ADRs and the Docs page are its architecture record. The work is in the API: where request text is read, and where the event routes and `RsvpPolicy.TryBuildOptions` read an RSVP option list. A small fix, so the stages run at minimal depth: the task is the requirement, there is one unit, and one document is both its functional note and its code-generation plan. The reading and the plan come first. Nothing is pushed, opened, merged, released or rolled out without Joshua's go-ahead, asked at each of those steps. The stamp is the first reading of the clock in this session.
+**Context**: Inception — workspace detection for the fix. Next: the plan, with its questions.
+
+---
 ## Construction — public calendar day sets: completion gate answered: continue to the push and the pull request
 **Timestamp**: 2026-11-17T16:29:58Z
 **User Input**: "B) Continue"
@@ -2072,11 +2079,25 @@ Availability for @GM
 **Context**: Build and test — complete. Operations waits for #184 and for Joshua's go-ahead to release.
 
 ---
+## Text that cannot be stored — plan written; three questions put to Joshua, and approval asked
+**Timestamp**: 2026-11-17T17:11:08Z
+**User Input**: (none — no input from Joshua in this session yet)
+**AI Response**: `master` moved twice while the code was read: to `b582c2b` at 16:36:36Z, when pull request #180 merged (the date parser and its tests), and to `47c8a15` at 16:49:14Z, when pull request #183 merged (CI and its records). The local branch `fix/unstorable-text` is cut from `47c8a15`. Read there: every route that takes text or a list in a request, the request contracts, `Validation`, `RsvpPolicy.TryBuildOptions` and the event routes around it, and how the API's JSON options are set up. The baseline, run before approval because it changes nothing, in a checkout of its own: `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings, the known baseline; `dotnet test CalCrony.slnx -c Release` with 1,729 tests passed and none failed (813 API, 418 bot, 153 web, 345 release notes) and 17 more of the release-notes project skipped by their own conditions on this machine. The plan is `construction/plans/unstorable-text-code-generation-plan.md`. Its rules: request text that carries a character the database cannot store is refused with a 400 and `The text contains a character that can't be saved.`; an `rsvpOptions` list with an entry missing altogether is refused with `Every RSVP option needs an emoji and a label.`, on a new event and on an edited one; text that can be stored, and every list that is accepted today, is read as before. Its tests are written first and run against the unchanged code. Three questions, each with a recommendation. Q1: refuse such text once, where request text enters the API — a converter on the JSON options and one check for the query string (recommended) — or field by field in `Validation`; the first refuses it in fields that are only read as well, such as date text, where it is passed over today. Q2: whether the query-string check and three refusals of the same kinds go into this change (recommended) — a template's notification list with an entry missing, a return address on the sign-in route longer than can be stored, and the cut of the title of an event made from a poll — or are left for a change of their own. Q3: whether a limit on the length of a time zone on the parse route, put forward with the task as optional, belongs here or in a change of its own (recommended). To check that the recommended answer to Q1 can give its sentence, a trial of it was written and run in the working tree; it is not committed, and is kept or discarded with Joshua's answer. Nothing else is built. Asked: "Approve the plan with Q1, Q2 and Q3 answered A?"
+**Context**: Construction — code generation, part 1 (the plan), with the requirements and the workflow plan folded in. Waiting for Joshua's answers and approval.
+
+---
 ## Unreadable date text — the merges pushed; `master` taken in a third time
 **Timestamp**: 2026-11-17T17:13:52Z
 **User Input**: (none — continuation of "B) Continue")
 **AI Response**: The two merges were pushed at 17:08:36Z, and the pull request's text was brought up to the counts of the merged tree (38 new cases; 1,781). Pull request #186 merged nineteen seconds later, at 17:08:55Z, as `916ecd1`: it changes records only. `master` is taken in a third time, by a merge on top of the second: the two records files by hand again, the audit entries in the order of their stamps and every section of the state file kept, and nothing else. The suite is not run again on this machine for it: no code and no test changes, the tree's `src` and `tests` are those of the second merge, and the pull request's checks run on the pushed head. Asked meanwhile, at 17:12Z: "Merge pull request #184 once its checks are green?" Next: the push of this merge, the checks, and Joshua's answer.
 **Context**: Construction — delivery: `master` taken in a third time. Step 6.2, the squash merge, waits for the checks and for Joshua's go-ahead.
+
+---
+## Unreadable date text — the checks green; the read after the pushes; the merge asked
+**Timestamp**: 2026-11-17T17:24:50Z
+**User Input**: (none — continuation of "B) Continue"; his answer to the question of 17:12Z is still open)
+**AI Response**: The third merge was pushed at 17:14:20Z, and every check on that head, `740b722`, is green; the pull request can be merged. The second and third merges, `33a153a` and `740b722`, were pushed before a review agent had read them, which plan step 6.1 has the other way round: the pull request was in conflict with `master` each time, `master` had moved four times within forty minutes, and Joshua has Auto-fix on for this pull request, his standing word to resolve conflicts with the base and push. One agent has read both since. It found the three merges sound, nothing of the other pull requests' records lost, and the counts and times as recorded: clean copies of `740b722` and of `33a153a` each give 1,781 tests passed, and `master` at `4fdfa60` 1,743. It named two places where these records are not exact, which are corrected here. The entry of 17:13:52Z and the plan's last paragraph say that the two records files were merged by hand in the third merge: only the audit log was in conflict there; the state file merged by itself, and its last line was then brought up to date. And the state file's "1,781 tests green on that tree" was measured on the tree of the second merge; the third was not run on this machine, as the entry of 17:13:52Z says. This entry is written beside the pull request and follows it after the merge, so that the head that is green stays as it is. Asked: "Merge pull request #184 now, as it is?", with the recommendation to merge.
+**Context**: Construction — delivery, step 6.2: the checks are green; the squash merge waits for Joshua's go-ahead.
 
 ---
 ## Build and test — public calendar day sets: the test stack runs the merged fix
@@ -2098,6 +2119,13 @@ Availability for @GM
 **User Input**: (none — review round; no input from Joshua)
 **AI Response**: Both agents read the merge `34c64aa` and the answers. Each found every finding of its first round answered and the merge sound: with this branch's two entries taken out, the audit log is `master`'s byte for byte, the state file is a clean three-way merge, and every other file matches its side. Each found a little more. Both: the tests could still be made to read something other than what GitHub reads without a byte of the code owners file changing — through an attribute for the file in a `.gitattributes` file, which each showed in a Linux container, and, as the security agent showed, through a second solution file lower in the tree, which the helper that finds the repository's root took for it; that one is older than this change and reaches the workflow's tests too. Security also: the answers' commit message and the test class's summary said the tests and GitHub could not read the file differently, which that finding contradicted; the plan called a reading of GitHub's that its documentation does not give a fact; and the plan's list of what is not taken still set `docker/login-action` next to what it logs in to. Correctness also: a rule for one folder before the rule for every file was counted among the changes that matter, though GitHub goes by the last rule that matches; step 0.1's new wording said every open pull request adds to the audit log, where #185 changes `CHANGELOG.md` only; and the plan left either line end off what the pins leave free. Answered: a third test asks `git check-attr` for the file's attributes and allows only `text=auto`, which every file has here; it runs in a git checkout, and a new attribute, `GitCheckoutFact`, skips it in a copy without one and never in CI. In a GitHub Actions run the helper's root has to be `GITHUB_WORKSPACE`; where the variable is not set, as on a machine that is not CI, the check is not made. The answers' commit is re-made, its message saying what the tests check; the class summary says the same, the plan says "likely", the `docker/login-action` clause is cut to the name, the rule before the rule for every file is counted among the harmless forms, and step 0.1 and section 2 are reworded. The plan's section 7 has the second round with its answers. Reworded in place in the entry of 18:03:56Z: thirty-two changes that matter and eight harmless ones refused, which are thirty-one and nine. These last answers were checked by running both agents' own cases again; they were not read again by an agent. Run on the final tree: the release-notes project, 365 tests, 348 green and 17 skipped; fifty-six changes to a copy of the tree that is a git repository of its own, with `GITHUB_WORKSPACE` set as on GitHub — thirty-eight that change or may change what GitHub does, each failing a test, the six attribute cases and the second solution file among them; ten harmless forms the pins refuse, each failing a test; seven harmless ones, each passing; and the second solution file without the variable, which passes, as said; the link case and the agents' three encoding cases, in a Linux container of the .NET SDK without network and with `CI` and `GITHUB_WORKSPACE` set: the link fails the plain-file test, each encoding case passes the two earlier tests and fails the new one, and the tree as it is passes all three; actionlint, nothing to report; a Release build from scratch, no errors and the baseline's 22 warnings; and the whole suite from 18:24Z to 18:25Z, 1,763 tests, 1,746 green and the 17 skipped (827 API, 418 bot, 153 web, 365 release notes). Nothing is pushed. Asked Joshua: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", where B is `master` taken in if it has moved, the branch pushed with the keyring login, the pull request `ci: add a code owners file and name the release action by its commit` opened, and GitHub asked whether it reads the code owners file; recommended: B. He was told that the change now also holds the tests' root to the workspace on CI and asks git for the file's attributes, beyond the two changes he approved, and that A is the way to have that split off. Asked with it: whether to start the release workflow once by hand from the branch after the push, its result going into the pull request — A) yes, recommended, or B) no, the run of the merge shows it instead. Asked as well, as a decision of its own: whether, once this is merged, the other actions named by tags are pinned the same way, `docker/login-action` first, with Dependabot version updates for actions, as the next pull request from this session — A) yes, recommended, or B) not now. The merge is asked separately.
 **Context**: Construction — code generation complete and reviewed in two rounds; awaiting Joshua at the completion gate (A: request changes; B: continue to the push and the pull request).
+
+---
+## Unreadable date text — merge go-ahead; pull request #184 squash-merged
+**Timestamp**: 2026-11-17T23:05:28Z
+**User Input**: "Merge now"
+**AI Response**: His answer to "Merge pull request #184 now, as it is?", with the recommendation put beside it to merge. Checked first: `master` on GitHub was still at `916ecd1`, and the pull request's head was still `740b722`, on which every check was green. Squash-merged through the REST call, pinned to that head, at 23:05:51Z as `723696d`, with the pull request's title and its text as the message; the branch was deleted on merge. The tree of `723696d` is the tree of `740b722`. Release pull request #185 now carries this change together with #180 and #182, and its summary has no line for this change. This entry, the one before it, and the corrections that entry names are on a local branch for the records, `docs/log-unreadable-date-text`, cut from `master` after the merge; that branch is pushed on its own go-ahead. Next: the release, and the prod rollout right after it, each on Joshua's go-ahead.
+**Context**: Construction — delivery, step 6.2 done: merged. Steps 6.3 (the release) and 6.4 (the prod rollout) are next, each on its own go-ahead.
 
 ---
 ## Construction — date text gaps: `master` taken in twice more, and the two reviews started again
@@ -2135,6 +2163,13 @@ Availability for @GM
 **Context**: Build and test — the records pull request: push and open, on Joshua's go-ahead.
 
 ---
+## Unreadable date text — release go-ahead; 0.37.1 released
+**Timestamp**: 2026-11-17T23:23:47Z
+**User Input**: "Release now"
+**AI Response**: His answer to "Release 0.37.1 now?", with the recommendation put beside it to release, and the prod rollout to follow at once on its own go-ahead. Another session had offered to run this release too; it was told before anything was done, and it does not act on it. Before his answer, `master`'s images for `723696d` were published at 23:09:08Z, and the test stack took them at 23:11Z to 23:12Z: its API, bot and web app were restarted, its database was left as it was, and `/health` reports `0.0.0-main.723696d`. Checked first: the latest release was still v0.37.0, and release pull request #185 was open at its head `16f6bef`, with a changelog that lists #180, #182 and #184. Its CI and CodeQL runs, which wait for approval on a pull request opened by the release workflow, were approved at 23:24:08Z and 23:24:10Z. Every check on that head was green at 23:27:06Z. Squash-merged through the REST call, pinned to that head, at 23:27:30Z as `eb6afb8`, with the release pull request's text as the message. The release workflow then ran in full: the tag `v0.37.1` and its GitHub release at 23:27:43Z; the release summary on top of the release notes, with no warning from that job; the three `0.37.1` images, published by 23:30:40Z; and the announcement in the community Discord at 23:30:47Z. The summary has no line for this change, as recommended to Joshua. Prod still runs 0.37.0. Asked: "Roll out 0.37.1 to prod now?", with the recommendation to do it at once: a backup first, then the new tag for the API, the bot and the web app only, with the database container left as it is, since 0.37.1 carries no migration.
+**Context**: Operations — delivery, step 6.3: the release. Step 6.4, the prod rollout, is next, on its own go-ahead.
+
+---
 ## Workflow linter — records pull request #188 opened; its merge asked
 **Timestamp**: 2026-11-17T23:24:25Z
 **User Input**: (none — continuation of "Push and open")
@@ -2163,6 +2198,13 @@ Availability for @GM
 **Context**: Construction — step 4.2 done. Step 4.3, the squash merge, approved, follows once the checks are read green again.
 
 ---
+## Text that cannot be stored — plan approved; Q1, Q2 and Q3 answered A
+**Timestamp**: 2026-11-17T23:31:46Z
+**User Input**: "Approve, all A" — and, in the same turn, after a `/model` command: "model switched you can continue"
+**AI Response**: His answer to "Approve the plan with Q1, Q2 and Q3 answered A?", the other answer offered being "Request changes". Recorded as the plan approved as it then stood, with: Q1 A, text that cannot be stored is refused once, where request text enters the API; Q2 A, the query string, a template's notification list, the return address of the sign-in route and the title of an event made from a poll are part of this change; Q3 A, a limit on the length of a time zone on the parse route is left for a change of its own. The answers are written into the plan's `[Answer]:` lines. `master` had moved to `eb6afb8` meanwhile: pull requests #182 (`4fdfa60`), #186 (`916ecd1`) and #184 (`723696d`, which edits the date readers `NaturalDateTimeParser` and `RsvpPolicy.TryParseClose` and three test files) merged, and release 0.37.1 (#185, `eb6afb8`). Nothing had been pushed, so the local branch is rebuilt on `eb6afb8`: its one commit — the plan, the two earlier entries of this change and its state section — is put back on top, the entries in their places by timestamp. In the plan, the baseline line now names `eb6afb8` and the two mentions of pull request #184 say that it has merged; nothing else in it changed. The trial of Q1 A that was in the working tree, uncommitted, is set aside until the tests have run against the unchanged code; step 2.1 starts from it. The baseline is run again on `eb6afb8` (step 0.1). Next: steps 1.1 to 1.5, the tests written first and run against the unchanged code; then the change (2.1 to 2.3), the verification (3.1 to 3.3) and both review agents' read of the local commits (3.4); then the completion gate. Nothing is pushed without his go-ahead.
+**Context**: Construction — code generation: part 1 (the plan) approved; part 2 (generation) begins.
+
+---
 ## Operations — public calendar day sets: released in 0.37.1
 **Timestamp**: 2026-11-17T23:33:22Z
 **User Input**: (none in this session — once #184 was merged, at 23:05:51Z, the release was asked of Joshua in the session working on #184; he answered there "Release now", recorded there at 23:23:47Z, and that session ran it)
@@ -2175,6 +2217,20 @@ Availability for @GM
 **User Input**: (none — continuation of "Hand run, then merge")
 **AI Response**: Read before the merge, at 23:31:59Z: GitHub listed #187 as conflicting with `master`. Two pull requests had been merged after the run by hand: #185, the release of 0.37.1, at 23:27:30Z (`eb6afb8`, `CHANGELOG.md` only), and #188, the workflow linter's records, at 23:30:29Z (`e792e1a`: the audit log, the state file, its plan, and the sentence of `CONTRIBUTING.md` that names the required checks, which now names `lint-workflows` too). The conflict was in the audit log only. `e792e1a` was taken in, named by its commit, as `bc4faa2`. Git merged `CONTRIBUTING.md` and the state file by themselves; the code owners note comes after the changed sentence and still agrees with it. The audit log was built from `master`'s file with this branch's eight entries put in by their stamps, which now interleave with #188's, and a script proved that taking them out again gives `master`'s file byte for byte. Against `master` the change is the same ten files. On the merged tree the release-notes project (365 tests, 348 passed, 17 skipped on this machine) and the web project (153 passed) were run again, 23:33Z to 23:34Z; nothing else changed in code. The local records since `e93a9fe` (the questions asked, the go-ahead, the run by hand) go out with this push, so the pull request's records reach the run by hand. 0.37.1's own release run (44199537457, 23:27:33Z to 23:30:48Z) was green and was read before the merge was tried: its release job fetched the action for the `v4` tag at the same commit, `5c625bf…`, and held `Contents: write`, `Metadata: read`, `PullRequests: write`; `publish-images` held `Contents: read`, `Metadata: read`, `Packages: write` and pushed all three images as `0.37.1` and `latest`; `announce-release` ran and succeeded. That is #181's plan step 5.1, and its tick goes with #181's records. The pull request's description now says that 0.37.1 was released before this merge, with the action still named by its tag (edited at 23:31:49Z with the keyring login, read back the same). In the plan: the baseline names the third merge, section 1 notes `lint-workflows` among the required checks, and section 4 says what #185's earlier merge changes. The branch is pushed again with the keyring login, by its name only; the merge waits for the checks on the new head.
 **Context**: Construction — step 4.3, the squash merge, approved. `master` is taken in once more so that the pull request can be merged; the merge follows once the checks on the new head are green.
+
+---
+## Unreadable date text — prod rolled out to 0.37.1
+**Timestamp**: 2026-11-17T23:35:34Z
+**User Input**: "Roll out now"
+**AI Response**: His answer to "Roll out 0.37.1 to prod now?", with the recommendation put beside it to roll out at once. Checked first: prod reported 0.37.0 and its pinned tag was 0.37.0, and nothing else had touched it. The database was backed up first, to `calcrony-prod-pre-0.37.1-20261117T233547Z.sql` (2,289,695 bytes, the dump complete). The pinned tag was then set to 0.37.1, and compose resolved it to the three 0.37.1 images. Only the API, the bot and the web app were pulled and restarted; the database container was left as it was, because its image differs from the local tag, and 0.37.1 carries no migration. The API started at 23:36:20Z and the bot and the web app at 23:36:37Z. `/health` and `/health/ready` report 0.37.1; the running images are the published ones; the running API build carries this change; and the logs since the restart show no failure, the bot connected and ready. This change is live on prod. The sessions behind #180 and #182 were told the tag and prod's version, as they had asked. Next: the docs pull request for these records, on Joshua's go-ahead.
+**Context**: Operations — delivery, step 6.4 done: the prod rollout. The records of the merge, the release and the rollout go out in one docs pull request, on its own go-ahead.
+
+---
+## Code of Conduct — request, workspace detection and requirements
+**Timestamp**: 2026-11-17T23:37:32Z
+**User Input**: "A Code of Conduct should be added to CalCrony. Make it match GitHub's recommended standards."
+**AI Response**: Workspace detection: brownfield, AIDLC state and records present, so no reverse engineering. The branch `docs/code-of-conduct` was cut from `master` at `e792e1a` in its own worktree. Read-only checks: GitHub's community profile for the repository is at 85 percent with no code of conduct; `GET /codes_of_conduct` offers the Contributor Covenant (template version 2.0, one blank for the contact method) and Django's. Requirements at minimal depth written to `inception/requirements/code-of-conduct-requirements.md`: CC1–CC5, NF1–NF3, and four questions (version, where reports go, where it applies, where it is linked), each with a recommendation. User stories and design stages skipped as documentation only. Asked of Joshua: the four answers, then "Requirements analysis complete. Do you want to request changes or continue to the next stage?"
+**Context**: Inception — requirements analysis; waits for Joshua's answers.
 
 ---
 ## Operations — public calendar day sets: rolled out to prod
@@ -2205,11 +2261,25 @@ Availability for @GM
 **Context**: Operations — the change is merged; its records and the next change each wait for Joshua's go-ahead.
 
 ---
+## Code of Conduct — requirements approved; workflow and code generation plan
+**Timestamp**: 2026-11-17T23:43:57Z
+**User Input**: "Recommended. Continue."
+**AI Response**: Joshua's answer to "Requirements analysis complete. Do you want to request changes or continue to the next stage?" and the four questions asked at 2026-11-17T23:37:32Z: Q1–Q4 all A — Contributor Covenant 2.1; reports to the address in `SECURITY.md` with "CalCrony conduct" in the subject; applies to the GitHub repository and the official Discord server; linked from the README and `CONTRIBUTING.md`. The answers are written into the requirements, and CC1 now names the two changes CC2 and CC3 make to the text. The 2.1 text was read from the Covenant's own repository (`EthicalSource/contributor_covenant`, branch `release`). Written: `construction/plans/code-of-conduct-code-generation-plan.md`, with the workflow (code generation and build and test run; every other stage skipped) and the steps. Asked of Joshua at 2026-11-17T23:44:30Z: approval of the workflow and code generation plan.
+**Context**: Inception — requirements approved; workflow planning and code generation plan await approval.
+
+---
 ## Operations — public calendar day sets: the records read by two agents; the docs pull request asked
 **Timestamp**: 2026-11-17T23:54:45Z
 **User Input**: (none — the report of the rollout from the session working on #184, and the two agents' reports)
 **AI Response**: After the rollout was read here, `master` (`162fd42`, #187) was merged into this records branch. Only the audit log and the state file conflicted: the audit file keeps master's text as it is, with this branch's entries in order of their timestamps, and the state file keeps master's sections, with this one brought up to date. Over `master` the branch changes three files, all records: seven audit entries, three lines of the state file, and the plan's status and the end of its section 8. Two agents read it before any push, one for security and privacy and one for accuracy. Nothing was critical, high or medium; three low findings and seven nits are answered in the records. The rollout entry no longer gives the database container's start date, and the push of 16:59:30Z is described without the local refs. The merge time of #183 is GitHub's, 16:49:15Z. The plan says which of this branch's files #183 touched, and the entry of 16:59:57Z no longer calls the branch's changes additions only. The entry of 17:57:15Z says that "Continue" was typed on its own. The entries for the release and the rollout quote Joshua's words for each, given in the other session, and name the release run. The plan and the state file read more plainly. Every fact the accuracy agent checked against git, GitHub and prod held. Asked next: whether to push this branch and open its docs pull request, and whether to merge it once its checks pass.
 **Context**: Operations — complete. These records go out as a docs pull request on Joshua's go-ahead.
+
+---
+## Text that cannot be stored — built: the tests first, then the change
+**Timestamp**: 2026-11-17T23:57:25Z
+**User Input**: (none — no input from Joshua since his approval at 23:31:46Z)
+**AI Response**: Built on `fix/unstorable-text`, rebuilt on `eb6afb8`, as the plan he approved says. The baseline on `eb6afb8`: 0 errors and 22 warnings; 1,781 tests passed and none failed (865 API, 418 bot, 153 web, 345 release notes), and 17 release-notes tests skipped on this machine. The tests were written first and run against the unchanged code: 239 new test cases, of which all 132 refusal tests failed there and all 107 that pin what is accepted today passed. The change: a converter on the API's JSON options refuses text that cannot be stored while a body is read, and one check right after authorization does the same for the query string, both answered with a 400 and `The text contains a character that can't be saved.`; an RSVP option list with an entry missing altogether is refused with `Every RSVP option needs an emoji and a label.` on a new event and on an edited one, in both routes and in `RsvpPolicy.TryBuildOptions`; a template's notification list with an entry missing is refused with `Every notification needs minutesBefore.`; a sign-in return address longer than its column is dropped, as the route drops any other it does not keep; and an event made from a poll keeps whole characters where its title is cut. Seven source files in the API, one of them new; no migration; Contracts, the bot and the web app are not touched. Checked: `dotnet build CalCrony.slnx -c Release` without incremental state, with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release`, with 2,020 tests passed and none failed (1,104 API, 418 bot, 153 web, 345 release notes) and the same 17 skipped; fifteen changes that each take one rule out, made one at a time in a scratch copy, each of which failed tests written for that rule; and the whole diff read against the plan's section 2, rule by rule. The plan's steps 0.1 to 3.3 are ticked, and its section 7 has the figures. Next: the local commits, then both review agents' read of them before anything is pushed, then the completion gate.
+**Context**: Construction — code generation, part 2: generated and checked locally (plan steps 1.1 to 3.3). The review (step 3.4) is next. Nothing is pushed.
 
 ---
 ## Construction — date text gaps: the two reviews, and their findings answered
@@ -2226,11 +2296,32 @@ Availability for @GM
 **Context**: Construction — code generation: the reviews' second reads answered on the local branch; their next read and the completion gate follow.
 
 ---
+## Text that cannot be stored — the first reviews answered; the branch rebuilt on `162fd42`
+**Timestamp**: 2026-11-18T00:56:29Z
+**User Input**: (none — no input from Joshua since his approval at 23:31:46Z)
+**AI Response**: Two review agents read the three local commits up to `1ee6b5d`, each in a checkout of its own: one for correctness, one for security and the public text. What they asked for is answered. In the tests: rows for the RSVP option emoji on an edit and for a series' repeat end; tests that pin the refusal coming before a route checks its caller, the 403 of a route only the bot may use, how many notifications are checked first, and what a new event checks before its options; the refused request that stores nothing is now a reminder. In the plan: rules 3 and 5 of 2.1 and rule 2 of 2.2 say exactly what the code does; step 1.2 names the clear flags it covers; Q1's recommendation is one clause shorter than when it was approved; the state's workspace line names the `master` of that time, and the plan and the 23:31:46Z entry now say that pull request #184 edited the date readers, which that entry, written before, left out. Added after the approval, each with a test: the path of an address is checked with its query string (the plan's 2.1 rule 6), and a sign-in return address with a space or a character outside printable ASCII is dropped (2.4 rule 3); both are changes of substance to the plan as approved, put to Joshua at the completion gate. `master` had moved to `162fd42` (#188, #187); nothing had been pushed, so the branch is rebuilt there as two commits, the source and the tests, then the records. Checked on it: `dotnet build CalCrony.slnx -c Release` without incremental state, with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release`, with 2,037 tests passed and none failed (1,118 API, 418 bot, 153 web, 348 release notes) and 17 skipped; the 253 added test cases run against the unchanged code, where 139 refusal tests fail and 114 that pin what is accepted today pass; and seventeen changes that each take one rule out, each of which failed tests written for that rule. The plan's section 7 has the figures. Next: both agents read the rebuilt commits, then the completion gate. Nothing is pushed.
+**Context**: Construction — code generation, part 2: the first reviews answered (plan step 3.4). The second reads are next. Nothing is pushed.
+
+---
 ## Construction — date text gaps: the reviews' last reads, and their findings answered
 **Timestamp**: 2026-11-18T01:14:45Z
 **User Input**: (none — no input from Joshua since 23:11:19Z)
 **AI Response**: Both reviewers read the branch once more. The review of security and of what the public text says confirmed the code, and found that an end beside a part of the day that had begun was read on its own (`tonight until 2am`, typed at 9 PM, was 2 AM, where it was refused as past), that the plan's account of the second comparison had its breakdown wrong, and wording that drew attention where it need not; each is corrected. The review of correctness confirmed that the answers to its second read do what it had asked, and found three more readings, none of them right on `master` either: an end beside a time of its own was read as the time (`friday (9pm) till 2am` was Friday at 2 AM, where `master` reads today at 9 PM); an end beside a part of the day was read on another day the text names; and a range that names no single day still offers its first day at 9 AM beside a day inside it that has its own time, as on `master`. The first two, and the security review's, are answered by one rule: an end (`by 6pm`, `until 2am`) is the time only where the text has no other time and no part of the day, so `friday, by 6pm` is still Friday at 6 PM. Its cost is named in the plan: a deadline beside a time meant for something else, `friday, by 6pm (party 8pm)` or `by 6pm, ends 9pm`, reads that other time, as before where no day is named. The comparison then found that the rule kept `by night` from being read, the deadline being itself a part of the day; such a part does not count, and `by night` is tonight at 8 PM. The third is left as it reads before this change and listed for Joshua. On the branch now the Release build has no error and the same 22 warnings, 2,042 tests are green, 50 of 51 rules and limits taken out fail a test meant for them, and over the 25,707 generated texts no text that is one phrase to the recognizer and that `master` reads is read differently or refused. The local commits after the first answers are rebuilt as two, one for the code and one for the records, with the same content. Both reviewers read them before the completion gate. Nothing is pushed.
 **Context**: Construction — code generation: every read of the reviews answered on the local branch; their look at the rebuilt commits and the completion gate follow.
+
+---
+## Text that cannot be stored — the second reads answered; the commits rebuilt
+**Timestamp**: 2026-11-18T01:24:38Z
+**User Input**: (none — no input from Joshua since his approval at 23:31:46Z)
+**AI Response**: Both agents read the rebuilt commits and found what they had asked for answered. What they asked for in this read is answered too, and the two local commits are rebuilt once more on `162fd42`: `0c56280` (the source and the tests) and the records on top. In the tests: the test of a route only the bot may use carries the text in its query string, so that it pins where the check sits; the test of the refusal coming before a route's own checks covers an event that does not exist as well; a test name and the class summary are exact. In the code: three comments, in two files, are plainer and exact. In the plan: rule 3 of 2.4 says that a space is dropped too, as the code always did; every rule worded otherwise than when Joshua approved it carries a marker; step 3.2 names nineteen rule removals; the header names the rebuild; section 7 is rewritten from its verification bullet on; and the 00:56:29Z entry is reworded in places, its figures standing. Checked on `0c56280`: `dotnet build CalCrony.slnx -c Release` without incremental state, with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release`, with 2,037 tests passed and none failed (1,118 API, 418 bot, 153 web, 348 release notes) and 17 skipped; the 253 added test cases run against the unchanged code, where 139 refusal tests fail and 114 that pin what is accepted today pass; and nineteen changes that each take one rule out, each of which failed tests written for that rule. Next: both agents confirm this last delta, then the completion gate. Nothing is pushed.
+**Context**: Construction — code generation, part 2: the second reads answered (plan step 3.4). The confirmation is next. Nothing is pushed.
+
+---
+## Text that cannot be stored — the reviews confirmed; completion gate asked
+**Timestamp**: 2026-11-18T01:30:07Z
+**User Input**: (none — no input from Joshua since his approval at 23:31:46Z)
+**AI Response**: Both agents read the two local commits as they stand, `0c56280` (the source and the tests) and the records on top, on `162fd42`, and confirmed them, with nothing left to fix. Their last notes, on the wording of the records, are taken into the records commit: two phrases in the 01:24:38Z entry and in the plan's section 7 made exact, the first build's figures in section 7 labelled as such, and three paragraphs of the plan re-wrapped. The plan's steps 3.4 and 3.5 are ticked. Asked of Joshua, with the two rules added after the approval and every passage of the plan worded otherwise than when he approved it shown beside the wording he approved: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage" — B being the plan's step 6.1: take `master` in if it has moved, push the branch `fix/unstorable-text` and open the pull request. Nothing is merged without its own go-ahead.
+**Context**: Construction — code generation complete; the completion gate, waiting for Joshua's choice.
 
 ---
 ## Construction — date text gaps: the reviews' last look at the rebuilt commits
@@ -2247,6 +2338,20 @@ Availability for @GM
 **Context**: Construction — code generation: complete on the local branch; the completion gate waits for Joshua.
 
 ---
+## Code of Conduct — plan approved; code generation
+**Timestamp**: 2026-11-18T03:42:07Z
+**User Input**: "Approve plan"
+**AI Response**: Joshua's answer to the question asked at 2026-11-17T23:44:30Z, "Do you approve the plan?"; the other answer was "Request changes". Code generation starts: the file, the two links and the checks, per `construction/plans/code-of-conduct-code-generation-plan.md`.
+**Context**: Construction — code generation, on Joshua's approval.
+
+---
+## Text that cannot be stored — completion gate answered: continue
+**Timestamp**: 2026-11-18T03:43:19Z
+**User Input**: "B) Continue to next stage"
+**AI Response**: Code generation is complete. The plan's step 6.1: `origin/master` is still `162fd42`, the commit the branch is built on, so there is nothing to take in and the suite is not run again. The records are brought up to date for the answer — this entry, the plan's status line, and the state file's code-generation line, now ticked — in the records commit. The security reviewer reads what the records gained since its confirmation, and the pull request's text, before anything is pushed; then the branch `fix/unstorable-text` is pushed and the pull request opened. Nothing is merged without its own go-ahead.
+**Context**: Construction — the completion gate answered B (Continue to Next Stage); delivery, step 6.1.
+
+---
 ## Construction — date text gaps: Joshua's answer at the completion gate
 **Timestamp**: 2026-11-18T03:43:51Z
 **User Input**: "B) Continue"
@@ -2261,11 +2366,60 @@ Availability for @GM
 **Context**: Operations — the records of the merges of #181 and #187 go out on Joshua's go-ahead; the next change waits for his answer.
 
 ---
+## Code of Conduct — built and tested; committed locally; push asked
+**Timestamp**: 2026-11-18T03:44:33Z
+**User Input**: (none — continuation of "Approve plan")
+**AI Response**: `CODE_OF_CONDUCT.md` written in the repository root from the Contributor Covenant 2.1 text: the front matter dropped; the report contact filled with the address in `SECURITY.md` and "CalCrony conduct" in the subject; one sentence added to Scope naming the GitHub repository and the official CalCrony Discord server. A diff against the published body shows only those two lines changed; the attribution section is whole. Linked from the README's "Contributing, releases & security" paragraph and from the top of `CONTRIBUTING.md`. No control or format characters in the new file or the added lines. `dotnet test CalCrony.slnx`: Api 865, Web 153, Bot 418 passed; ReleaseNotes 345 passed and 17 skipped; none failed. Plan steps 1–3 and 4.1–4.2 ticked. Committed locally as `docs: add a code of conduct`, no attribution lines; nothing pushed. After the commit, `master` had moved to `162fd42` (#187) and was merged in; the one conflict, in `audit.md`, was resolved with `master`'s two entries before this branch's four, none dropped. Asked of Joshua: "Push the branch and open the pull request?", answers "Push and open" and "Not yet".
+**Context**: Build and test — committed locally; the push waits for Joshua's go-ahead.
+
+---
+## Code of Conduct — go-ahead to push and open the pull request
+**Timestamp**: 2026-11-18T03:48:59Z
+**User Input**: "Push and open"
+**AI Response**: Joshua's answer to the question asked at 2026-11-18T03:44:33Z, "Push the branch and open the pull request?"; the other answer was "Not yet". The branch `docs/code-of-conduct` is pushed with the keyring login and the pull request `docs: add a code of conduct` is opened against `master`. Before the push, `master` had moved to `04beae8` (#191) and was merged in; the one conflict, in `audit.md`, was resolved with the entries of both sides in timestamp order, each side's order kept and none dropped. It cuts no release. Its merge is asked separately.
+**Context**: Build and test — push and open, on Joshua's go-ahead.
+
+---
+## Unreadable date text — go-ahead to push the records branch and open its pull request
+**Timestamp**: 2026-11-18T03:49:25Z
+**User Input**: "Open it, plain"
+**AI Response**: His answer to "Push the records and open their docs pull request, kept plain?", with the recommendation put beside it to open it; the other answer was "Not yet". Checked first: `master` on GitHub had moved to `04beae8`, the records of two other changes (#191). It is taken in: this change's entries are placed among the others by their stamps, this change's section of the state file is still the last one and is kept as it was, and everything else is `master`'s as it stands. The security reviewer reads this entry and the take-in before the push. Then the branch `docs/log-unreadable-date-text` is pushed with the keyring login, with this entry, and the pull request `docs: log the refusal of date text that cannot be read through its rollout` is opened against `master` with the description as drafted. It changes the records only and cuts no release. Its merge is asked separately.
+**Context**: Operations — delivery: the records pull request, pushed and opened on Joshua's go-ahead. Its merge waits for his go-ahead.
+
+---
+## Code of Conduct — pull request #193 opened; its merge asked
+**Timestamp**: 2026-11-18T03:49:55Z
+**User Input**: (none — continuation of "Push and open")
+**AI Response**: The branch `docs/code-of-conduct` was pushed with the keyring login after a scan of everything it adds for a local path, anything shaped like a token and a mention outside backticks; the only hit was the report address in `CODE_OF_CONDUCT.md`, as Joshua chose (Q2 A). Pull request #193, `docs: add a code of conduct`, was opened against `master` at 2026-11-18T03:49:44Z. "Auto-fix pull requests" is on for it; auto-merge is off. This entry goes out as its second push, records only. Asked of Joshua: "Squash-merge pull request #193 once its checks are green?", answers "Merge when green" and "Not yet". After the merge, the community profile is read to confirm it lists the code of conduct (plan step 4.4).
+**Context**: Build and test — pull request #193 open; its merge waits for Joshua's go-ahead.
+
+---
 ## Operations — public calendar day sets: go-ahead to push the records, open their pull request and merge it
 **Timestamp**: 2026-11-18T03:53:57Z
 **User Input**: "A: open, merge green"
 **AI Response**: His answer to the question asked at 2026-11-17T23:54:45Z and put to him again, with the same choices, before he answered: A) push this branch, open its docs pull request, and merge it once its checks pass (recommended); B) push and open it, and ask before the merge; C) not yet. The app offered two buttons, "A: open, merge green" and "B: open only", and his answer is the first one's words. Read first (03:49Z): `master` on GitHub had moved from `162fd42` to `04beae8` (#191, the records of #181 and #187), so it was merged into this branch, as `b675ab7`, by script. Only the audit log conflicted. Its result is master's text as it is, with this branch's entries in the order of their timestamps, and the script checked both ways: take this branch's entries out and master's file comes back, take master's new entries out and this branch's comes back. The state file is git's own merge. Over `master` the branch still changes the same three record files, with the same line counts. The two review agents read the branch at `232ada6`. The merge and this entry were checked by me and not read by an agent. Next: the branch is pushed by name with the keyring login, its pull request `docs: log the public calendar day-set fix through its release and rollout` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. That merge is recorded after it, on a local branch cut from `master`, for a later records pull request.
 **Context**: Operations — the day-set fix's records go out on Joshua's go-ahead.
+
+---
+## Unreadable date text — records pull request #195 opened; its merge asked
+**Timestamp**: 2026-11-18T03:57:06Z
+**User Input**: (none — continuation of "Open it, plain")
+**AI Response**: The security reviewer read the records rebuilt on `04beae8` and the pull request's text, and cleared them, with one optional change of wording in the entry before this one, which was made before the push. The branch `docs/log-unreadable-date-text` was pushed with the keyring login at 03:55:53Z: one commit, `745e070`, with no attribution line. Pull request #195, `docs: log the refusal of date text that cannot be read through its rollout`, was opened against `master` at 03:55:55Z, and its checks started at once. "Auto-fix pull requests" is on for this session; auto-merge is off. This entry, and this change's section of the state file naming #195, go out with the next push, records only. Asked of Joshua: "Squash-merge pull request #195 once its checks are green?", with the recommendation to merge. On his go-ahead it is logged on the branch first, the reviewer reads the new entries before that push, and the merge is the REST call with the head named, once the checks on that head are green.
+**Context**: Operations — delivery: records pull request #195 open; its merge waits for Joshua's go-ahead.
+
+---
+## Code of Conduct — `master` taken in for pull request #193 (Auto-fix)
+**Timestamp**: 2026-11-18T03:59:03Z
+**User Input**: (none — Auto-fix event: pull request #193 conflicts with `master` at head `0c4c711`)
+**AI Response**: `master` had moved to `47209ab` (#194, records only) and was merged into `docs/code-of-conduct`. The one conflicted file was `audit.md`: both sides had only added entries, at several points; the result is the shared base with every added entry kept after the entry it followed, and where both sides added after the same entry, in timestamp order. No line of either side was dropped. Pushed under the standing Auto-fix authorization. The merge question for #193 is still open.
+**Context**: Build and test — pull request #193 brought up to date with `master`.
+
+---
+## Text that cannot be stored — `master` taken in before the push
+**Timestamp**: 2026-11-18T04:01:29Z
+**User Input**: (none — no input from Joshua since his answer at 03:43:19Z)
+**AI Response**: `master` moved after this change's entry of 03:43:19Z: pull request #191 was merged at 03:48:45Z as `04beae8`, and #194 at 03:57:54Z as `47209ab`, both records only — the audit log, the state file and three plans of other changes. Step 6.1 of the plan: `master` `47209ab` is taken in by a merge, `843be27`, so `0c56280`, the commit these records name for the source and the tests, stays in the branch's history. The audit entries of both sides are kept whole, in their places by timestamp; the state file merged by itself, every section kept and this change's section still the last. Nothing outside `aidlc-docs` changes, so the source and the tests are those of `0c56280`. On the merge, `dotnet build CalCrony.slnx -c Release` without incremental state gives 0 errors and the baseline's 22 warnings, and `dotnet test CalCrony.slnx -c Release`, 2026-11-18 from 03:59Z to 04:01Z, passes 2,037 tests and fails none (1,118 API, 418 bot, 153 web, 348 release notes), with 17 release-notes tests skipped on this machine. In the plan, the baseline line names the merge, section 7 gains a note on it, and one sentence of section 7 is made exact (three comments in two files) and its paragraph re-wrapped; in the state file, the completion-gate line says what came after the answer. Next: the security reviewer reads the merge, these records and the pull request's text; then the branch is pushed and the pull request opened.
+**Context**: Construction — delivery, step 6.1: `master` taken in before the push.
 
 ---
 ## Construction — date text gaps: `master` taken in once more before the push
@@ -2294,5 +2448,26 @@ Availability for @GM
 **User Input**: "Go ahead"
 **AI Response**: Read as A, the answer recommended: the other pull request is merged first. When the answer came it was not merged yet: a fetch at 18:31Z found `master` at 47209ab, as last taken in. Its merge is not made from this session. Once it is on `master`, #199 takes `master` in, both review agents read that, and it is pushed; #199's own merge is asked on its own. Until then, the taking-in is prepared on a local branch that is never pushed, so that it can be read as soon as it is needed.
 **Context**: Construction — build and test: pull request #199 open, its checks green (step 7.2).
+
+---
+## Code of Conduct — go-ahead to merge pull request #193
+**Timestamp**: 2026-11-18T18:33:39Z
+**User Input**: "Yes merge"
+**AI Response**: Joshua's answer to "Squash-merge pull request #193 once its checks are green?"; the other answer was "Not yet". Checked first, read-only: head `dc6b89c`, mergeable, blocked only on the required review; `build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses and the secret scan passed on it. No Copilot review was requested (no `review_requested` event), as on the records pull requests #188, #191 and #194, which were merged without one. This entry goes out as a records-only push; the merge is the REST call with `sha` set to the head that carries it, once its checks are green: squash, title `docs: add a code of conduct (#193)`. It cuts no release.
+**Context**: Build and test — the merge of #193, on Joshua's go-ahead.
+
+---
+## Unreadable date text — go-ahead to merge records pull request #195
+**Timestamp**: 2026-11-18T18:35:14Z
+**User Input**: "Yes"
+**AI Response**: His answer to "Squash-merge pull request #195 once its checks are green?", with the recommendation put beside it to merge; the other answer was "Not yet". Before it: `master` moved with #194, and GitHub reported a conflict; "Auto-fix pull requests" is on, so `master` `47209ab` was taken in by a merge, `a3c5647`, which the security reviewer read before it was pushed at 04:03:02Z, and the description was made exact. Every check on `a3c5647` was green. Checked first, after his answer: `master` on GitHub had moved again, to `67baa24` (#198), which adds records of its own. It is taken in by a second merge: this change's entries are placed among the others by their stamps, this change's section of the state file is kept as it is, now followed by the section #198 adds, and everything else is `master`'s as it stands. The security reviewer reads this entry and the merge before the push, and the description is made exact again. The merge is the REST call with that head named, once the checks on it are green.
+**Context**: Operations — delivery: the go-ahead to merge records pull request #195.
+
+---
+## Code of Conduct — `master` taken in again for pull request #193 (Auto-fix)
+**Timestamp**: 2026-11-18T18:36:07Z
+**User Input**: (none — Auto-fix event: pull request #193 conflicts with `master` at head `228a381`)
+**AI Response**: `master` had moved to `67baa24` (#198) and was merged into `docs/code-of-conduct`. Two records files conflicted. `audit.md`: both sides had only added entries; the shared base is kept with every added entry after the entry it followed, in timestamp order where both added at the same place; none dropped. `aidlc-state.md`: both sides had appended a section at the end; both are kept, `master`'s first. None of this branch's files are touched by #198. Pushed under the standing Auto-fix authorization. The merge on Joshua's "Yes merge" goes ahead once the checks on the new head are green.
+**Context**: Build and test — pull request #193 brought up to date with `master` a second time.
 
 ---

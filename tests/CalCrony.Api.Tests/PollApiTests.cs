@@ -179,6 +179,42 @@ public class PollApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal(HttpStatusCode.Conflict, stillOpen.StatusCode);
     }
 
+    [Fact]
+    public async Task Convert_cuts_a_long_title_to_the_title_length()
+    {
+        var party = char.ConvertFromUtf32(0x1F389);
+
+        var plain = await ConvertAsync("Long title?", new string('t', 200));
+        Assert.Equal(new string('t', FieldLimits.EventTitle), plain.Title);
+
+        var endingInEmoji = await ConvertAsync("Long title?", new string('t', FieldLimits.EventTitle - 2) + party + "zz");
+        Assert.Equal(new string('t', FieldLimits.EventTitle - 2) + party, endingInEmoji.Title);
+    }
+
+    [Fact]
+    public async Task Convert_keeps_whole_characters_where_it_cuts_a_title()
+    {
+        var party = char.ConvertFromUtf32(0x1F389);
+
+        var titled = await ConvertAsync("Long title?", new string('t', FieldLimits.EventTitle - 1) + party + "zz");
+        Assert.Equal(new string('t', FieldLimits.EventTitle - 1), titled.Title);
+
+        var fromQuestion = await ConvertAsync(new string('q', FieldLimits.EventTitle - 1) + party + "zz", title: null);
+        Assert.Equal(new string('q', FieldLimits.EventTitle - 1), fromQuestion.Title);
+    }
+
+    /// <summary>Closes a new time poll and converts it, with the title given or none.</summary>
+    private async Task<EventDto> ConvertAsync(string question, string? title)
+    {
+        var poll = await CreatePollAsync(new CreatePollRequest(
+            CreatorId, question, ChannelId, ["in 5 hours", "in 7 hours"], IsTimePoll: true));
+        (await Client.PostAsync($"/polls/{poll.Id}/close", null)).EnsureSuccessStatusCode();
+
+        var convert = await Client.PostAsJsonAsync($"/polls/{poll.Id}/convert", new ConvertPollRequest(CreatorId, Title: title));
+        Assert.Equal(HttpStatusCode.Created, convert.StatusCode);
+        return (await convert.Content.ReadFromJsonAsync<EventDto>())!;
+    }
+
     private Task<HttpResponseMessage> PostPollAsync(CreatePollRequest request) =>
         Client.PostAsJsonAsync($"/guilds/{GuildId}/polls", request);
 
