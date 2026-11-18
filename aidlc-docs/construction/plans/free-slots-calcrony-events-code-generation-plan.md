@@ -889,6 +889,16 @@ from `96db72a` only by the one comment, so the results of `05476a2` stand. Both 
 four commits after `96db72a` and confirmed them, with wording left for this paragraph and the
 state line, and the branch was pushed by its name at 20:56:14Z (`96db72a..ebaa7c6`).
 
+`master` then moved to `aeff22d` (#190) and is merged in as `8124d98`. The audit trail and the
+state file conflicted: the audit trail is merged by its stamps as before, keeping `master`'s
+rewording of two earlier entries that this branch had not changed, and the state file keeps both
+sections, `master`'s first. The README, the Docs page and its tests, and `RsvpPolicy.cs` merged by
+themselves; the README's Features part stays at 400 words, and this change's added and removed
+lines are the same against `aeff22d` as against `c97c15e`. On the merged tree the Release build
+has no error and 22 warnings, 2,599 tests pass with none failing (1,596 API, 499 bot, 154 web,
+350 for the release-summary tool; 17 of the tool's tests skipped on Windows), and the
+release-summary tool's check finds no problem.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan, design document and the two earlier plans loaded

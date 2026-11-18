@@ -3325,3 +3325,10 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): pushed under Auto-fix; this pull request's merge waits for the 0.37.2 release and rollout, then for Joshua's go-ahead.
 
 ---
+## Code Generation — `master` taken in for pull request #197 (Auto-fix) after #190 merged
+**Timestamp**: 2026-11-18T22:46:04Z
+**User Input**: (none — the app's Auto-fix reported that pull request #197 had merge conflicts with `master`)
+**AI Response**: `master` had moved to `aeff22d` (#190). It was merged in as `8124d98`. The audit trail and the state file conflicted: the audit trail is merged as a set in the order of its stamps, keeping `master`'s rewording of two earlier entries (04:08:13Z and 18:50:52Z), which this branch had not changed; taking this branch's new entries out gives `master`'s file exactly, and taking `master`'s new entries out, with its two rewordings put back, gives this branch's file exactly. The state file keeps both sections, `master`'s first. The README, the Docs page and its tests, and `RsvpPolicy.cs` merged by themselves; the README's Features part stays at 400 words, and this change's added and removed lines under `src`, `tests` and the documents are the same against `aeff22d` as against `c97c15e`. On the merged tree the Release build has no error and 22 warnings, 2,599 tests pass with none failing (1,596 API, 499 bot, 154 web, 350 for the release-summary tool; 17 of the tool's tests skipped on Windows), and the release-summary tool's check finds no problem. The commits not yet pushed — the records of the last push, this merge and these records — go to both review agents before the push.
+**Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; this pull request's merge waits for the 0.37.2 release and rollout.
+
+---
