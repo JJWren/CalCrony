@@ -84,7 +84,7 @@ public static class ActionLogEndpoints
             if (!Enum.TryParse<ActionLogAction>(action, ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed))
             {
                 return Results.BadRequest(new ErrorResponse(
-                    $"Unknown action \"{action}\". Valid actions: {string.Join(", ", Enum.GetNames<ActionLogAction>())}."));
+                    $"Unknown action \"{Validation.Quotable(action)}\". Valid actions: {string.Join(", ", Enum.GetNames<ActionLogAction>())}."));
             }
 
             actionFilter = parsed;

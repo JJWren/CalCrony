@@ -46,6 +46,7 @@ builder.Services.AddSingleton<CalendarTokenProtector>();
 builder.Services.AddHttpClient<ICalendarProvider, GoogleCalendarProvider>(
     http => http.Timeout = TimeSpan.FromSeconds(20));
 builder.Services.AddScoped<CalendarAvailabilityService>();
+builder.Services.AddScoped<EventBusyTimes>();
 builder.Services.AddScoped<FreeSlotsService>();
 
 builder.Services.AddScoped<WebTokenService>();
@@ -141,6 +142,7 @@ app.UseCors("Web");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseStorableText();
+app.UseRequestBodyChecks();
 
 var version = typeof(Program).Assembly
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?

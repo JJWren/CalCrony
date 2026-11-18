@@ -33,11 +33,11 @@ The private Discord guild used during development, where the bot registers slash
 _Avoid_: dev server, staging guild
 
 **Free Slot**:
-A stretch of time in which every Counted Member is inside their Available Hours with nothing on a linked calendar. Computed live for one reply and never stored; it belongs to the caller's calendar day it starts on.
+A stretch of time in which every Counted Member is inside their Available Hours with nothing on a linked calendar and no CalCrony event of the server that counts for them — one they created, or one they hold a seat in on its attending option. Computed live for one reply and never stored; it belongs to the caller's calendar day it starts on.
 _Avoid_: opening, gap, free block
 
 **Counted Member**:
-A member whose availability actually shaped a free-slots answer: counted on a linked calendar, on saved Available Hours, or on both. Everyone else who was asked about is accounted for in the reply under the reason they were left out — by name, or in a count once a list grows long.
+A member whose availability actually shaped a free-slots answer: counted on a linked calendar, on saved Available Hours, or on both. CalCrony events cut a Counted Member's time; they never make a member counted. Everyone else who was asked about is accounted for in the reply under the reason they were left out — by name, or in a count once a list grows long.
 _Avoid_: included member, participant
 
 **Available Hours**:

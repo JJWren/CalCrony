@@ -274,12 +274,18 @@
         default), <code>days</code> how many (7 by default) and <code>duration</code> the shortest
         slot worth listing (60 minutes by default). A slot is time inside each member's available
         hours (8 AM to 11 PM until they save their own), read in that member's own timezone (the
-        server's, if they haven't set one), with nothing on a linked calendar. It is listed under
-        the day it starts on, and a day with none of its own that begins inside one says until
-        when it's free. Members with neither saved hours nor a linked calendar aren't counted, and
-        the reply lists them under <b>Not counted</b> (a long list ends in a count); it also says
-        when a member was counted on saved hours alone. Read-only: it never blocks creating or
-        RSVPing.
+        server's, if they haven't set one), with nothing on a linked calendar and none of their
+        CalCrony events in this server. An event counts for the member who created it and for
+        members holding a seat on its attending option (Going by default): a waitlisted RSVP or
+        one on another option doesn't count, and whoever created the event stays busy even if
+        they RSVP elsewhere. A repeating event's later dates count for the member who created
+        it. Only <code>slots</code> counts CalCrony events: <code>/availability role</code>,
+        <code>/availability event</code> and the grid show linked calendars alone. A slot is
+        listed under the day it starts on, and a day with none of its own that begins inside one
+        says until when it's free. Members with neither saved hours nor a linked calendar aren't
+        counted, whatever events they have, and the reply lists them under <b>Not counted</b> (a
+        long list ends in a count); it also says when a member was counted on saved hours alone.
+        Read-only: it never blocks creating or RSVPing.
     </li>
     <li class="mb-2">
         <b>Available hours</b> (per member; only you can set yours) —
@@ -292,8 +298,9 @@
         back to the default. With saved hours you are counted in free-slot lists even without a
         linked calendar, marked as hours only.
         Saving hours also lets members of the servers you share with CalCrony list your free slots
-        by name, which shows roughly the hours you keep and, if your calendar is linked, when
-        you're busy inside them; <code>reset</code> takes that back.
+        by name, which shows roughly the hours you keep and when you're busy inside them: with
+        your CalCrony events in that server and, if your calendar is linked, with what's on your
+        calendar; <code>reset</code> takes that back.
     </li>
 </ul>
 

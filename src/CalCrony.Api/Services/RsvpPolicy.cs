@@ -30,14 +30,26 @@ public static partial class RsvpPolicy
     /// to the lowest SortOrder so pre-flag rows still resolve; null only without options.</summary>
     /// <param name="options">The event's RSVP options.</param>
     /// <returns>The attending option, or null.</returns>
-    public static RsvpOption? AttendingOption(IEnumerable<RsvpOption> options)
+    public static RsvpOption? AttendingOption(IEnumerable<RsvpOption> options) =>
+        AttendingOf(options, option => option.IsAttending, option => option.SortOrder);
+
+    /// <summary>The rule behind <see cref="AttendingOption"/>, for rows that carry an option's flag
+    /// and sort order without being whole options — a read that selects only those columns. The
+    /// flagged row, else the one with the lowest sort order; null only without rows.</summary>
+    /// <typeparam name="T">The row type.</typeparam>
+    /// <param name="options">One event's options.</param>
+    /// <param name="isAttending">Reads a row's attending flag.</param>
+    /// <param name="sortOrder">Reads a row's sort order.</param>
+    /// <returns>The attending row, or null.</returns>
+    public static T? AttendingOf<T>(IEnumerable<T> options, Func<T, bool> isAttending, Func<T, int> sortOrder)
+        where T : class
     {
-        RsvpOption? flagged = null;
-        RsvpOption? first = null;
+        T? flagged = null;
+        T? first = null;
         foreach (var option in options)
         {
-            flagged ??= option.IsAttending ? option : null;
-            if (first is null || option.SortOrder < first.SortOrder)
+            flagged ??= isAttending(option) ? option : null;
+            if (first is null || sortOrder(option) < sortOrder(first))
             {
                 first = option;
             }

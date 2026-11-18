@@ -1791,7 +1791,7 @@ public static class EventEndpoints
             if (explicitZone is null)
             {
                 return Results.BadRequest(new ErrorResponse(
-                    $"Unknown time zone \"{request.TimeZone}\". Use an IANA id like America/Chicago."));
+                    $"Unknown time zone \"{Validation.Quotable(request.TimeZone)}\". Use an IANA id like America/Chicago."));
             }
 
             zone = explicitZone;

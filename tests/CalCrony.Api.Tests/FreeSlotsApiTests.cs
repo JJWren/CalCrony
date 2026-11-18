@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -11,11 +12,15 @@ namespace CalCrony.Api.Tests;
 
 /// <summary>POST /calendar/free-slots end to end on the fake calendar provider. The API runs on the
 /// real clock, so each test asks for a concrete day a few days ahead in the zone under test —
-/// "now" then cuts nothing, and the expected instants do not depend on when the suite runs.</summary>
+/// "now" then cuts nothing, and the expected instants do not depend on when the suite runs. The
+/// scheduler is off in tests, so events and series stay as a test seeds them.</summary>
 public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<CalendarApiFixture>
 {
     private static readonly DateTimeZone Chicago = DateTimeZoneProviders.Tzdb["America/Chicago"];
     private static readonly DateTimeZone Berlin = DateTimeZoneProviders.Tzdb["Europe/Berlin"];
+
+    /// <summary>The tables a lookup reads CalCrony's events from, as they are quoted in a command.</summary>
+    private static readonly string[] EventTables = ["\"Events\"", "\"EventSeries\"", "\"Rsvps\"", "\"RsvpOptions\""];
 
     private HttpClient Client => fixture.Client;
 
@@ -623,6 +628,632 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.HoursOnly)], twice.Members);
     }
 
+    // CalCrony's own events as busy time. The members here are on saved hours of 9 AM to 5 PM
+    // with no calendar linked unless a test says otherwise, so an event is all that can cut them.
+
+    [Theory]
+    [InlineData(9500, null)]
+    [InlineData(9510, "Not going")]
+    [InlineData(9520, "Maybe")]
+    [InlineData(9530, "Going")]
+    public async Task An_event_cuts_its_creators_slots_whatever_rsvp_they_gave_themself(long guildId, string? ownRsvp)
+    {
+        long caller = guildId + 1, creator = guildId + 2;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+        var eventId = await SeedEventAsync(guildId, creator, At(Chicago, day, 12));
+        if (ownRsvp is not null)
+        {
+            await SeedRsvpAsync(eventId, creator, ownRsvp);
+        }
+
+        var providerCalls = fixture.Provider.FreeBusyCalls.Count;
+
+        var result = await GetAsync(new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        // Counted as before, on hours alone, and cut by the two hours of their event.
+        Assert.Equal([new FreeSlotMemberDto(creator, FreeSlotMemberState.HoursOnly)], result.Members);
+        Assert.Equal(1, result.CountedMembers);
+        Assert.Equal(
+            [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 17))],
+            result.Days.Single().Slots);
+
+        // There is no calendar, so none was asked.
+        Assert.Equal(providerCalls, fixture.Provider.FreeBusyCalls.Count);
+    }
+
+    [Theory]
+    [InlineData(9540, "Going", false, true)]
+    [InlineData(9550, "Going", true, false)]        // waitlisted: no seat
+    [InlineData(9560, "Not going", false, false)]
+    [InlineData(9570, "Maybe", false, false)]
+    public async Task Only_a_seat_on_the_attending_option_ties_a_member_to_an_event_they_did_not_create(
+        long guildId, string option, bool waitlisted, bool cut)
+    {
+        long caller = guildId + 1, host = guildId + 2, member = guildId + 3;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(member, "America/Chicago", EveryDay(540, 1020));
+        var eventId = await SeedEventAsync(guildId, host, At(Chicago, day, 12));
+        await SeedRsvpAsync(eventId, member, option, waitlisted);
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal(
+            cut
+                ? [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 17))]
+                : [Slot(At(Chicago, day, 9), At(Chicago, day, 17))],
+            result.Days.Single().Slots);
+    }
+
+    [Theory]
+    [InlineData(9580, EventStatus.Scheduled, true)]
+    [InlineData(9590, EventStatus.Started, true)]
+    [InlineData(9600, EventStatus.Ended, false)]
+    [InlineData(9610, EventStatus.Cancelled, false)]
+    public async Task Only_a_scheduled_or_started_event_counts(long guildId, EventStatus status, bool cut)
+    {
+        long caller = guildId + 1, creator = guildId + 2;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+        await SeedEventAsync(guildId, creator, At(Chicago, day, 12), status: status);
+
+        var result = await GetAsync(new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal(
+            cut
+                ? [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 17))]
+                : [Slot(At(Chicago, day, 9), At(Chicago, day, 17))],
+            result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task A_deleted_event_gives_the_time_back_on_the_next_lookup()
+    {
+        const long guildId = 9620, caller = 9621, creator = 9622;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+        var eventId = await SeedEventAsync(guildId, creator, At(Chicago, day, 12));
+        var request = new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60);
+
+        var before = await GetAsync(request);
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            db.Events.Remove(await db.Events.SingleAsync(e => e.Id == eventId));
+            await db.SaveChangesAsync();
+        }
+
+        var after = await GetAsync(request);
+
+        // Nothing is kept between lookups: the row is gone, so the time is free again.
+        Assert.Equal(
+            [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 17))],
+            before.Days.Single().Slots);
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], after.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task Events_and_series_count_only_in_the_server_they_belong_to()
+    {
+        const long here = 9630, elsewhere = 9635, caller = 9631, creator = 9632;
+        await SeedGuildAsync(here, "America/Chicago");
+        await SeedGuildAsync(elsewhere, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+
+        // In the other server: an event at noon, and a weekly series whose next date is the same
+        // day at 3 PM.
+        await SeedEventAsync(elsewhere, creator, At(Chicago, day, 12));
+        await SeedSeriesAsync(elsewhere, creator, anchor: day.PlusDays(-7), cursor: day.PlusDays(-7), new LocalTime(15, 0));
+
+        var inThisServer = await GetAsync(new FreeSlotsRequest([creator], caller, here, Iso(day), 1, 60));
+        var inTheOther = await GetAsync(new FreeSlotsRequest([creator], caller, elsewhere, Iso(day), 1, 60));
+
+        // Neither reaches a list made here; both cut the list made there.
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], inThisServer.Days.Single().Slots);
+        Assert.Equal(
+            [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 15))],
+            inTheOther.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task With_a_custom_option_set_only_the_option_marked_as_attending_counts()
+    {
+        const long guildId = 9750, caller = 9751, host = 9752, healer = 9753, tank = 9754;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(healer, "America/Chicago", EveryDay(540, 1020));
+        await SeedProfileAsync(tank, "America/Chicago", EveryDay(540, 1020));
+
+        // The attending option is the second one by sort order: the mark decides, not the order.
+        var eventId = await SeedEventAsync(
+            guildId, host, At(Chicago, day, 12),
+            options:
+            [
+                new RsvpOption { Id = Guid.NewGuid(), Emote = "T", Label = "Tank", SortOrder = 0 },
+                new RsvpOption { Id = Guid.NewGuid(), Emote = "H", Label = "Healer", SortOrder = 1, IsAttending = true },
+            ]);
+        await SeedRsvpAsync(eventId, healer, "Healer");
+        await SeedRsvpAsync(eventId, tank, "Tank");
+
+        var forTheHealer = await GetAsync(new FreeSlotsRequest([healer], caller, guildId, Iso(day), 1, 60));
+        var forTheTank = await GetAsync(new FreeSlotsRequest([tank], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal(
+            [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 17))],
+            forTheHealer.Days.Single().Slots);
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], forTheTank.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task An_event_with_no_length_set_counts_sixty_minutes()
+    {
+        const long guildId = 9640, caller = 9641, creator = 9642;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+        await SeedEventAsync(guildId, creator, At(Chicago, day, 12), durationMinutes: null);
+
+        var result = await GetAsync(new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal(
+            [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 13), At(Chicago, day, 17))],
+            result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task An_event_that_began_before_the_first_day_and_runs_into_it_cuts_the_start_of_the_day()
+    {
+        const long guildId = 9650, caller = 9651, creator = 9652;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+
+        // Sixteen hours, ending at noon. Counted back from noon, so that a clock change in the
+        // night between cannot move the end.
+        await SeedEventAsync(guildId, creator, At(Chicago, day, 12) - Duration.FromHours(16), durationMinutes: 16 * 60);
+
+        var result = await GetAsync(new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal([Slot(At(Chicago, day, 12), At(Chicago, day, 17))], result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task An_event_of_the_longest_length_that_began_four_weeks_earlier_still_counts()
+    {
+        const long guildId = 9660, caller = 9661, creator = 9662;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(540, 1020));
+
+        // Four weeks long, the most an event can be given, and ending at 10 AM on the first day:
+        // it began an hour less than four weeks before the 9 AM the member's hours start at.
+        var end = At(Chicago, day, 10);
+        await SeedEventAsync(
+            guildId, creator, end - Duration.FromMinutes(FieldLimits.MaxMinutes), durationMinutes: FieldLimits.MaxMinutes,
+            status: EventStatus.Started);
+
+        var result = await GetAsync(new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal([Slot(end, At(Chicago, day, 17))], result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task An_event_on_the_day_after_the_last_one_ends_a_slot_that_runs_to_it()
+    {
+        const long guildId = 9670, caller = 9671, creator = 9672;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // Midnight to midnight every day: without the event, one slot to the lookup's edge.
+        await SeedProfileAsync(creator, "America/Chicago", EveryDay(0, 1440));
+        await SeedEventAsync(guildId, creator, At(Chicago, day.PlusDays(1), 2), durationMinutes: 60);
+
+        var result = await GetAsync(new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        // The lookup reads a day past the last day listed, events included, so the slot shows
+        // its real end.
+        Assert.Equal([Slot(At(Chicago, day, 0), At(Chicago, day.PlusDays(1), 2))], result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task Events_never_make_a_member_counted_and_with_nobody_counted_none_is_read()
+    {
+        const long guildId = 9680, caller = 9681, creator = 9682;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedEventAsync(guildId, creator, At(Chicago, day, 12));
+
+        var (response, eventReads) = await PostCountingEventReadsAsync(
+            new FreeSlotsRequest([creator], caller, guildId, Iso(day), 1, 60));
+
+        // No hours saved and no calendar linked: nothing to go on, whatever events they have.
+        var result = (await response.Content.ReadFromJsonAsync<FreeSlotsResponse>())!;
+        Assert.Equal([new FreeSlotMemberDto(creator, FreeSlotMemberState.NotCounted)], result.Members);
+        Assert.Equal(0, result.CountedMembers);
+        Assert.Empty(result.Days);
+        Assert.Empty(eventReads);
+    }
+
+    [Fact]
+    public async Task The_by_name_refusal_is_the_same_text_and_reads_no_event_rsvp_or_series()
+    {
+        const long guildId = 9690, caller = 9691, member = 9692;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // A profile and no saved hours — and an event, a seat and a running series that a
+        // lookup would otherwise read.
+        await SeedProfileAsync(member, "America/Chicago");
+        var eventId = await SeedEventAsync(guildId, member, At(Chicago, day, 12));
+        await SeedRsvpAsync(eventId, member, "Going");
+        await SeedSeriesAsync(guildId, member, anchor: day, cursor: day, new LocalTime(18, 0));
+
+        var (response, eventReads) = await PostCountingEventReadsAsync(
+            new FreeSlotsRequest([member], caller, guildId, Iso(day), 1, 60, ByName: true));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            FreeSlotsService.NamedMemberHasNoSavedHours, (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        Assert.Empty(eventReads);
+    }
+
+    [Fact]
+    public async Task A_role_lookup_cuts_each_member_by_their_own_events()
+    {
+        const long guildId = 9700, caller = 9701, first = 9702, second = 9703;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(first, "America/Chicago", EveryDay(540, 1020));
+        await SeedProfileAsync(second, "America/Chicago", EveryDay(540, 1020));
+        await SeedEventAsync(guildId, first, At(Chicago, day, 10), durationMinutes: 60);
+        await SeedEventAsync(guildId, second, At(Chicago, day, 14), durationMinutes: 60);
+
+        var result = await GetAsync(new FreeSlotsRequest([first, second], caller, guildId, Iso(day), 1, 60));
+
+        // The time both are free: each one's event is cut out of what they share.
+        Assert.Equal(2, result.CountedMembers);
+        Assert.Equal(
+            [
+                Slot(At(Chicago, day, 9), At(Chicago, day, 10)),
+                Slot(At(Chicago, day, 11), At(Chicago, day, 14)),
+                Slot(At(Chicago, day, 15), At(Chicago, day, 17)),
+            ],
+            result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task A_series_later_date_cuts_its_creators_slots_and_not_an_attendees()
+    {
+        const long guildId = 9710, caller = 9711, gameMaster = 9712, player = 9713;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(gameMaster, "America/Chicago", EveryDay(540, 1380));
+        await SeedProfileAsync(player, "America/Chicago", EveryDay(540, 1380));
+
+        // A weekly session at 6 PM, two hours long. Its first occurrence exists and the player is going.
+        var seriesId = await SeedSeriesAsync(guildId, gameMaster, anchor: day, cursor: day, new LocalTime(18, 0));
+        var occurrence = await SeedEventAsync(guildId, gameMaster, At(Chicago, day, 18), seriesId: seriesId);
+        await SeedRsvpAsync(occurrence, player, "Going");
+
+        // A second series of the game master's that was stopped: it has no later dates.
+        await SeedSeriesAsync(guildId, gameMaster, anchor: day, cursor: day, new LocalTime(12, 0), ended: true);
+
+        async Task<IReadOnlyList<FreeSlotDto>> SlotsAsync(long member, LocalDate firstDay) =>
+            (await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(firstDay), 1, 60))).Days.Single().Slots;
+
+        // The occurrence that exists is an event: busy for its creator and for whoever is going.
+        FreeSlotDto[] cutThisWeek = [Slot(At(Chicago, day, 9), At(Chicago, day, 18)), Slot(At(Chicago, day, 20), At(Chicago, day, 23))];
+        Assert.Equal(cutThisWeek, await SlotsAsync(gameMaster, day));
+        Assert.Equal(cutThisWeek, await SlotsAsync(player, day));
+
+        // A week on there is no occurrence yet. Its time is busy for the member who created the
+        // series, and nobody holds a seat in it.
+        var nextWeek = day.PlusDays(7);
+        Assert.Equal(
+            [Slot(At(Chicago, nextWeek, 9), At(Chicago, nextWeek, 18)), Slot(At(Chicago, nextWeek, 20), At(Chicago, nextWeek, 23))],
+            await SlotsAsync(gameMaster, nextWeek));
+        Assert.Equal([Slot(At(Chicago, nextWeek, 9), At(Chicago, nextWeek, 23))], await SlotsAsync(player, nextWeek));
+    }
+
+    [Fact]
+    public async Task A_series_occurrence_moved_past_the_next_slot_leaves_that_slot_free()
+    {
+        const long guildId = 9760, caller = 9761, gameMaster = 9762;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(gameMaster, "America/Chicago", EveryDay(540, 1380));
+
+        // Weekly at 6 PM. This week's occurrence was moved, on its own, to the day after next
+        // week's slot.
+        var nextWeek = day.PlusDays(7);
+        var movedTo = nextWeek.PlusDays(1);
+        var seriesId = await SeedSeriesAsync(guildId, gameMaster, anchor: day, cursor: day, new LocalTime(18, 0));
+        await SeedEventAsync(guildId, gameMaster, At(Chicago, movedTo, 18), seriesId: seriesId);
+
+        var result = await GetAsync(new FreeSlotsRequest([gameMaster], caller, guildId, Iso(nextWeek), 2, 60));
+
+        // The scheduler creates the next occurrence when the moved one ends, so next week's slot
+        // will never exist: that evening is free. The day after is cut by the occurrence itself.
+        Assert.Equal([Slot(At(Chicago, nextWeek, 9), At(Chicago, nextWeek, 23))], result.Days[0].Slots);
+        Assert.Equal(
+            [Slot(At(Chicago, movedTo, 9), At(Chicago, movedTo, 18)), Slot(At(Chicago, movedTo, 20), At(Chicago, movedTo, 23))],
+            result.Days[1].Slots);
+    }
+
+    [Fact]
+    public async Task A_member_with_a_linked_calendar_is_cut_by_their_calendar_and_their_events_together()
+    {
+        const long guildId = 9780, caller = 9781, member = 9782;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedConnectionAsync(member, "access-slots-9782");
+        fixture.Provider.BusyBlocksByAccessToken["access-slots-9782"] = [(At(Chicago, day, 10), At(Chicago, day, 11))];
+        await SeedEventAsync(guildId, member, At(Chicago, day, 15));
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 1, 60));
+
+        // No hours saved, so the default ones, with the calendar's block and the event both cut out.
+        Assert.Equal([new FreeSlotMemberDto(member, FreeSlotMemberState.DefaultHours)], result.Members);
+        Assert.Equal(
+            [
+                Slot(At(Chicago, day, 8), At(Chicago, day, 10)),
+                Slot(At(Chicago, day, 11), At(Chicago, day, 15)),
+                Slot(At(Chicago, day, 17), At(Chicago, day, 23)),
+            ],
+            result.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task With_no_option_marked_as_attending_the_first_by_sort_order_is_the_one_that_counts()
+    {
+        const long guildId = 9790, caller = 9791, host = 9792, early = 9793, late = 9794;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(early, "America/Chicago", EveryDay(540, 1020));
+        await SeedProfileAsync(late, "America/Chicago", EveryDay(540, 1020));
+
+        // A set with no option marked, as a row from before the mark could be: the rule everywhere
+        // else takes the option first by sort order, and so does a lookup. It is not the first
+        // option stored.
+        var eventId = await SeedEventAsync(
+            guildId, host, At(Chicago, day, 12),
+            options:
+            [
+                new RsvpOption { Id = Guid.NewGuid(), Emote = "L", Label = "Late", SortOrder = 1 },
+                new RsvpOption { Id = Guid.NewGuid(), Emote = "E", Label = "Early", SortOrder = 0 },
+            ]);
+        await SeedRsvpAsync(eventId, early, "Early");
+        await SeedRsvpAsync(eventId, late, "Late");
+
+        var forEarly = await GetAsync(new FreeSlotsRequest([early], caller, guildId, Iso(day), 1, 60));
+        var forLate = await GetAsync(new FreeSlotsRequest([late], caller, guildId, Iso(day), 1, 60));
+
+        Assert.Equal(
+            [Slot(At(Chicago, day, 9), At(Chicago, day, 12)), Slot(At(Chicago, day, 14), At(Chicago, day, 17))],
+            forEarly.Days.Single().Slots);
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], forLate.Days.Single().Slots);
+    }
+
+    [Fact]
+    public async Task A_series_reaches_the_projection_as_it_is_stored()
+    {
+        const long guildId = 9800, creator = 9802;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // Every field differs from each field of the same type, so one read into the wrong place
+        // gives other dates: every second week on two weekdays, with a count and an until date, in
+        // a zone, at a start time and with a length of its own. The weeks it falls on are counted
+        // from its first date, a week before the last one created, as after a change of its rule.
+        var schedule = new SeriesSchedule(
+            Unit: RecurrenceUnit.Week,
+            Interval: 2,
+            MonthlyMode: MonthlyMode.NthWeekday,
+            DaysOfWeek: DayOf(day) | DayOf(day.PlusDays(2)),
+            AnchorDate: day.PlusDays(-7),
+            StartTime: new LocalTime(18, 30),
+            TimeZone: "Europe/Berlin",
+            UntilDate: day.PlusDays(45),
+            MaxOccurrences: 5,
+            CurrentOccurrenceDate: day,
+            OccurrenceCount: 1,
+            DurationMinutes: 150);
+        await SeedSeriesAsync(guildId, creator, schedule);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var (windowStart, windowEnd) = (At(Chicago, day, 0), At(Chicago, day.PlusDays(60), 0));
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var busy = await scope.ServiceProvider.GetRequiredService<EventBusyTimes>().GetAsync(
+            guildId, [creator], now, windowStart, windowEnd, CancellationToken.None);
+
+        var expected = SeriesProjection.LaterOccurrences(schedule, live: null, now, windowStart, windowEnd);
+        Assert.True(expected.Count >= 2, $"The projection gives {expected.Count} occurrences.");
+        Assert.Equal(expected, busy[creator]);
+    }
+
+    [Fact]
+    public async Task A_series_whose_rule_cannot_be_stepped_is_left_out_and_everything_else_still_counts()
+    {
+        const long guildId = 9870, creator = 9872, other = 9873;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // An interval of zero, which creating or editing a series refuses, so the rule cannot be
+        // stepped. Its first date and its last created date are a week before the day, so it can
+        // reach the window and its rule is read.
+        var broken = new SeriesSchedule(
+            Unit: RecurrenceUnit.Week,
+            Interval: 0,
+            MonthlyMode: MonthlyMode.DayOfMonth,
+            DaysOfWeek: RecurrenceDays.None,
+            AnchorDate: day.PlusDays(-7),
+            StartTime: new LocalTime(9, 0),
+            TimeZone: "America/Chicago",
+            UntilDate: null,
+            MaxOccurrences: null,
+            CurrentOccurrenceDate: day.PlusDays(-7),
+            OccurrenceCount: 1,
+            DurationMinutes: 120);
+        await SeedSeriesAsync(guildId, creator, broken);
+
+        // The same member's event at noon, and another member's weekly series at 6 PM.
+        await SeedEventAsync(guildId, creator, At(Chicago, day, 12));
+        await SeedSeriesAsync(guildId, other, anchor: day.PlusDays(-7), cursor: day.PlusDays(-7), new LocalTime(18, 0));
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var (windowStart, windowEnd) = (At(Chicago, day, 0), At(Chicago, day.PlusDays(1), 0));
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var busy = await scope.ServiceProvider.GetRequiredService<EventBusyTimes>().GetAsync(
+            guildId, [creator, other], now, windowStart, windowEnd, CancellationToken.None);
+
+        // Stepped on its own, the rule throws; the lookup leaves that series out and nothing else.
+        Assert.ThrowsAny<Exception>(() => SeriesProjection.LaterOccurrences(broken, live: null, now, windowStart, windowEnd));
+        Assert.Equal([(At(Chicago, day, 12), At(Chicago, day, 14))], busy[creator]);
+        Assert.Equal([(At(Chicago, day, 18), At(Chicago, day, 20))], busy[other]);
+    }
+
+    [Fact]
+    public async Task A_session_the_scheduler_creates_while_a_lookup_reads_is_busy_for_its_creator_wherever_it_lands()
+    {
+        var day = DayAhead(Chicago);
+        var lastWeek = day.PlusDays(-7);
+
+        // The scheduler's step — last week's session ends and this week's is created — lands just
+        // before a different read of the lookup each time: before its first read of events, RSVPs,
+        // options or series, before its second, and so on. Wherever it lands, this week's session
+        // is busy time for the member who created the series.
+        for (var read = 1; read <= 5; read++)
+        {
+            long guildId = 9810 + (10 * read), caller = guildId + 1, gameMaster = guildId + 2;
+            await SeedGuildAsync(guildId, "America/Chicago");
+            await SeedProfileAsync(gameMaster, "America/Chicago", EveryDay(540, 1380));
+
+            // Weekly at 6 PM. Last week's session is over, and the sweep has not moved the series on yet.
+            var seriesId = await SeedSeriesAsync(guildId, gameMaster, anchor: lastWeek, cursor: lastWeek, new LocalTime(18, 0));
+            var over = await SeedEventAsync(
+                guildId, gameMaster, At(Chicago, lastWeek, 18), status: EventStatus.Started, seriesId: seriesId);
+
+            // Someone else's event at noon that the game master is going to, so that the lookup
+            // reads seats and options as well: five reads in all.
+            var noon = await SeedEventAsync(guildId, guildId + 3, At(Chicago, day, 12));
+            await SeedRsvpAsync(noon, gameMaster, "Going");
+
+            var seen = 0;
+            var landsBefore = read;
+            var landed = false;
+            fixture.Commands.BeforeReader = async command =>
+            {
+                if (!EventTables.Any(command.Contains) || ++seen != landsBefore)
+                {
+                    return;
+                }
+
+                fixture.Commands.BeforeReader = null;
+                landed = true;
+                await MoveSeriesOnAsync(seriesId, over, day, At(Chicago, day, 18));
+            };
+
+            IReadOnlyList<FreeSlotDto> slots;
+            try
+            {
+                slots = (await GetAsync(new FreeSlotsRequest([gameMaster], caller, guildId, Iso(day), 1, 60))).Days.Single().Slots;
+            }
+            finally
+            {
+                fixture.Commands.BeforeReader = null;
+            }
+
+            Assert.True(landed, $"The step never landed before read {read}.");
+            FreeSlotDto[] expected =
+            [
+                Slot(At(Chicago, day, 9), At(Chicago, day, 12)),
+                Slot(At(Chicago, day, 14), At(Chicago, day, 18)),
+                Slot(At(Chicago, day, 20), At(Chicago, day, 23)),
+            ];
+            Assert.True(
+                slots.SequenceEqual(expected),
+                $"With the step before read {read}: {string.Join(", ", slots.Select(slot => $"{slot.StartUtc:t}-{slot.EndUtc:t}"))}");
+        }
+    }
+
+    [Fact]
+    public async Task The_events_cost_five_reads_whether_one_member_is_looked_up_for_a_day_or_three_for_fourteen()
+    {
+        const long guildId = 9720, caller = 9721, first = 9722, second = 9723, third = 9724;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        foreach (var member in new[] { first, second, third })
+        {
+            await SeedProfileAsync(member, "America/Chicago", EveryDay(540, 1020));
+        }
+
+        // Everything a lookup can read, twice over: two events with seats, and two series, each
+        // with its occurrence. A read per event, per seated event or per series would show.
+        var eventId = await SeedEventAsync(guildId, first, At(Chicago, day, 12));
+        await SeedRsvpAsync(eventId, first, "Going");
+        await SeedRsvpAsync(eventId, second, "Going");
+        var otherEventId = await SeedEventAsync(guildId, third, At(Chicago, day, 9), durationMinutes: 60);
+        await SeedRsvpAsync(otherEventId, first, "Going");
+        foreach (var hour in new[] { 15, 18 })
+        {
+            var seriesId = await SeedSeriesAsync(guildId, first, anchor: day, cursor: day, new LocalTime(hour, 0));
+            await SeedEventAsync(guildId, first, At(Chicago, day, hour), durationMinutes: 60, seriesId: seriesId);
+        }
+
+        var (oneResponse, oneMemberOneDay) = await PostCountingEventReadsAsync(
+            new FreeSlotsRequest([first], caller, guildId, Iso(day), 1, 60));
+        var (threeResponse, threeMembersFourteenDays) = await PostCountingEventReadsAsync(
+            new FreeSlotsRequest([first, second, third], caller, guildId, Iso(day), 14, 60));
+
+        // The events in range, the seats, the options, the series and their live occurrences:
+        // five reads, not one per member, day or event.
+        Assert.Equal(HttpStatusCode.OK, oneResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, threeResponse.StatusCode);
+        Assert.Equal(5, oneMemberOneDay.Count);
+        Assert.Equal(5, threeMembersFourteenDays.Count);
+    }
+
+    [Fact]
+    public async Task An_event_counts_once_for_a_member_however_many_ties_they_have_to_it()
+    {
+        const long guildId = 9730, creator = 9732, bystander = 9733;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+
+        // Created it, holds a seat in it, and gave a second RSVP on an event that allows several.
+        var eventId = await SeedEventAsync(guildId, creator, At(Chicago, day, 12), allowMultipleRsvps: true);
+        await SeedRsvpAsync(eventId, creator, "Going");
+        await SeedRsvpAsync(eventId, creator, "Maybe");
+
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var busy = await scope.ServiceProvider.GetRequiredService<EventBusyTimes>().GetAsync(
+            guildId, [creator, bystander], SystemClock.Instance.GetCurrentInstant(),
+            At(Chicago, day, 13), At(Chicago, day, 20), CancellationToken.None);
+
+        // One interval, given whole although the window starts inside it; the calculation clips.
+        Assert.Equal([(At(Chicago, day, 12), At(Chicago, day, 14))], busy[creator]);
+        Assert.Empty(busy[bystander]);
+    }
+
+    [Fact]
+    public async Task The_answer_says_that_events_were_counted_even_when_there_are_none()
+    {
+        const long guildId = 9740, caller = 9741, member = 9742;
+        await SeedGuildAsync(guildId, "America/Chicago");
+        var day = DayAhead(Chicago);
+        await SeedProfileAsync(member, "America/Chicago", EveryDay(540, 1020));
+
+        var result = await GetAsync(new FreeSlotsRequest([member], caller, guildId, Iso(day), 1, 60));
+
+        Assert.True(result.EventsCounted);
+        Assert.Equal([Slot(At(Chicago, day, 9), At(Chicago, day, 17))], result.Days.Single().Slots);
+    }
+
     /// <summary>A first day beyond the horizon: a refusal with its reason, not a 500 — and the
     /// member's calendar is never asked. Natural language reaches any year.</summary>
     private async Task AssertRefusedAsTooFarAheadAsync(string when, long member)
@@ -705,4 +1336,155 @@ public class FreeSlotsApiTests(CalendarApiFixture fixture) : IClassFixture<Calen
         });
         await db.SaveChangesAsync();
     }
+
+    /// <summary>Posts a lookup and gives its response together with the commands it sent that read
+    /// an event, an RSVP, an option or a series — what the answer itself does not show.</summary>
+    private async Task<(HttpResponseMessage Response, IReadOnlyList<string> EventReads)> PostCountingEventReadsAsync(
+        FreeSlotsRequest request)
+    {
+        var mark = fixture.Commands.Count;
+        var response = await Client.PostAsJsonAsync("/calendar/free-slots", request);
+        return (response, [.. fixture.Commands.Since(mark).Where(command => EventTables.Any(command.Contains))]);
+    }
+
+    /// <summary>An event two hours long, with the default options — Going (the attending one),
+    /// Not going, Maybe — unless the test says otherwise.</summary>
+    private async Task<Guid> SeedEventAsync(
+        long guildId, long creatorId, Instant startsAt, int? durationMinutes = 120,
+        EventStatus status = EventStatus.Scheduled, Guid? seriesId = null, bool allowMultipleRsvps = false,
+        List<RsvpOption>? options = null)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var ev = new Event
+        {
+            Id = Guid.NewGuid(),
+            GuildId = guildId,
+            CreatorId = creatorId,
+            Title = "Session",
+            StartsAt = startsAt,
+            TimeZone = "America/Chicago",
+            DurationMinutes = durationMinutes,
+            ChannelId = 9001,
+            Status = status,
+            SeriesId = seriesId,
+            AllowMultipleRsvps = allowMultipleRsvps,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            Options = options ?? RsvpPolicy.OptionsFromTemplate(null),
+        };
+        db.Events.Add(ev);
+        await db.SaveChangesAsync();
+        return ev.Id;
+    }
+
+    /// <summary>An RSVP on the option with the given label; waitlisted when the test says so.</summary>
+    private async Task SeedRsvpAsync(Guid eventId, long userId, string option, bool waitlisted = false)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var optionId = await db.RsvpOptions
+            .Where(o => o.EventId == eventId && o.Label == option)
+            .Select(o => o.Id)
+            .SingleAsync();
+        db.Rsvps.Add(new Rsvp
+        {
+            Id = Guid.NewGuid(),
+            EventId = eventId,
+            UserId = userId,
+            OptionId = optionId,
+            Waitlisted = waitlisted,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+        });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>A weekly series in Chicago time, two hours long, on its anchor's weekday. The
+    /// cursor is the slot date of the last occurrence created.</summary>
+    private Task<Guid> SeedSeriesAsync(
+        long guildId, long creatorId, LocalDate anchor, LocalDate cursor, LocalTime startTime, bool ended = false) =>
+        SeedSeriesAsync(
+            guildId,
+            creatorId,
+            new SeriesSchedule(
+                Unit: RecurrenceUnit.Week,
+                Interval: 1,
+                MonthlyMode: MonthlyMode.DayOfMonth,
+                DaysOfWeek: RecurrenceDays.None,
+                AnchorDate: anchor,
+                StartTime: startTime,
+                TimeZone: "America/Chicago",
+                UntilDate: null,
+                MaxOccurrences: null,
+                CurrentOccurrenceDate: cursor,
+                OccurrenceCount: 1,
+                DurationMinutes: 120),
+            ended);
+
+    /// <summary>A series stored with the given schedule.</summary>
+    private async Task<Guid> SeedSeriesAsync(long guildId, long creatorId, SeriesSchedule schedule, bool ended = false)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var series = new EventSeries
+        {
+            Id = Guid.NewGuid(),
+            GuildId = guildId,
+            CreatorId = creatorId,
+            Unit = schedule.Unit,
+            Interval = schedule.Interval,
+            MonthlyMode = schedule.MonthlyMode,
+            DaysOfWeek = schedule.DaysOfWeek,
+            AnchorDate = schedule.AnchorDate,
+            StartTime = schedule.StartTime,
+            TimeZone = schedule.TimeZone,
+            UntilDate = schedule.UntilDate,
+            MaxOccurrences = schedule.MaxOccurrences,
+            CurrentOccurrenceDate = schedule.CurrentOccurrenceDate,
+            OccurrenceCount = schedule.OccurrenceCount,
+            Ended = ended,
+            Title = "Weekly session",
+            DurationMinutes = schedule.DurationMinutes,
+            ChannelId = 9001,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+        };
+        db.EventSeries.Add(series);
+        await db.SaveChangesAsync();
+        return series.Id;
+    }
+
+    /// <summary>What the scheduler does once a series' live occurrence is over: that one ends, and
+    /// the next is created at the slot given and becomes the series' live occurrence. Two saves,
+    /// so that the series never has two live occurrences; the lookup a test pauses runs no read
+    /// between them.</summary>
+    private async Task MoveSeriesOnAsync(Guid seriesId, Guid overId, LocalDate nextDate, Instant nextStart)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var over = await db.Events.SingleAsync(e => e.Id == overId);
+        over.Status = EventStatus.Ended;
+        await db.SaveChangesAsync();
+
+        var series = await db.EventSeries.SingleAsync(s => s.Id == seriesId);
+        series.CurrentOccurrenceDate = nextDate;
+        series.OccurrenceCount++;
+        db.Events.Add(new Event
+        {
+            Id = Guid.NewGuid(),
+            GuildId = series.GuildId,
+            CreatorId = series.CreatorId,
+            Title = series.Title,
+            StartsAt = nextStart,
+            TimeZone = series.TimeZone,
+            DurationMinutes = series.DurationMinutes,
+            ChannelId = series.ChannelId,
+            Status = EventStatus.Scheduled,
+            SeriesId = series.Id,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            Options = RsvpPolicy.OptionsFromTemplate(null),
+        });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>The weekly day-set flag for a date's weekday.</summary>
+    private static RecurrenceDays DayOf(LocalDate date) => (RecurrenceDays)(1 << ((int)date.DayOfWeek - 1));
 }
