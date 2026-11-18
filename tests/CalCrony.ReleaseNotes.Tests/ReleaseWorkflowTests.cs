@@ -271,8 +271,11 @@ public class ReleaseWorkflowTests
         Assert.Equal(["contents: write", "pull-requests: write"], Workflow.Block(ReleaseJob, "permissions"));
 
         // One step, the action, and it is given no token of its own. It then takes the job's,
-        // so what the block says is what the action can do.
-        const string Action = "- uses: googleapis/release-please-action@v4";
+        // so what the block says is what the action can do. The action is named by a commit,
+        // the one its v4.4.1 tag names, with that version after it: the v4 tag is moved from one
+        // 4.x release to the next, and a commit names the same code for good. A newer version
+        // goes in as its commit, in the workflow and here together.
+        const string Action = "- uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1";
 
         Assert.Equal([Action], Workflow.StepLabels(ReleaseJob));
         Assert.Equal([Action, "id: release", "with:", "release-type: simple"], Workflow.Step(ReleaseJob, Action));
