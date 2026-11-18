@@ -483,7 +483,7 @@ row says otherwise
 - [x] 3.1 The list in `short-weekend-days-code-generation-plan.md`, section 8.
 - [x] 3.2 `free-slots-code-generation-plan.md`, section 4.1.
 - [x] 3.3 `live-e2e-script.md`: the items.
-- [ ] 3.4 The release summary, shown to Joshua before the pull request is opened.
+- [x] 3.4 The release summary, shown to Joshua before the pull request is opened.
 
 **4. Verification**
 - [x] 4.1 `dotnet build CalCrony.slnx -c Release` with no new warning;
@@ -491,10 +491,10 @@ row says otherwise
 - [x] 4.2 Each rule and each limit taken out in a scratch copy fails a test meant to pin it.
 - [x] 4.3 The comparison of section 3 run again through the parser as built, against the parser
       as it is on `master`: only the kinds of change sections 2.1 to 2.4 name.
-- [ ] 4.4 Two review agents read the local commits before anything is pushed, one for correctness
+- [x] 4.4 Two review agents read the local commits before anything is pushed, one for correctness
       and one for security and what the public text says. Their findings are answered and
       recorded in section 8.
-- [ ] 4.5 `aidlc-state.md` and `audit.md` brought up to date; this plan's boxes ticked.
+- [x] 4.5 `aidlc-state.md` and `audit.md` brought up to date; this plan's boxes ticked.
 
 ## 7. Delivery
 

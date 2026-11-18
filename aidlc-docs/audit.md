@@ -2149,3 +2149,10 @@ Availability for @GM
 **Context**: Construction — code generation: every read of the reviews answered on the local branch; their confirmation of the last change and the completion gate follow.
 
 ---
+## Construction — date text gaps: code generation complete, the gate put to Joshua
+**Timestamp**: 2026-11-18T01:34:12Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Both reviewers confirmed the commits as rebuilt (a8d42dc, the code; 6619a1b, the records): the review of correctness that the last change is the one it had tried and reads as it did, and the review of security and of what the public text says that it found nothing wrong in either. The plan's steps are ticked through 4.5, and the release summary in `docs/release-notes/0.37.2.md` is shown to Joshua with the question. Asked, with B recommended: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage". B is to push the branch and open the pull request, titled "fix: read deadlines, a time apart from its day and a weekday on its own day in date text"; its merge, the release and the prod rollout are each asked on their own afterwards. Put to him with the question: the six points where the change goes further than section 2 of the plan, each in section 8; the two kinds of text the rule for ends reads worse (`tonight, ends 11pm`, and a deadline beside a time meant for something else); and the readings left as `master` has them and listed at the end of section 8. Nothing is pushed.
+**Context**: Construction — code generation: complete on the local branch; the completion gate waits for Joshua.
+
+---
