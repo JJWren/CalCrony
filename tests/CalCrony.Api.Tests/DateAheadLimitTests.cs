@@ -85,6 +85,7 @@ public class DateAheadLimitTests
     [InlineData("in 4000 days")]
     [InlineData("january 1 2040")]
     [InlineData("1/1/2040 9am")]
+    [InlineData("may 2040")]
     public void Refuses_a_date_past_the_limit_however_it_is_written(string text)
     {
         var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
@@ -164,6 +165,99 @@ public class DateAheadLimitTests
         var zone = DateTimeZoneProviders.Tzdb[zoneId];
         var days = Period.DaysBetween(Now.InZone(zone).Date, LocalDate.MaxIsoValue);
         var text = $"in {days} days at 6pm";
+
+        var ok = CreateParser().TryResolve(text, zone, out var result, out var error);
+
+        Assert.False(ok);
+        Assert.Equal(default, result);
+        Assert.Equal(TooFarAhead(text), error);
+    }
+
+    // A day and its time can also be written apart, as a deadline, as the end of the day or as a
+    // part of the day, with a time of its own or from its start. Each is held to the same last day.
+    [Theory]
+    [InlineData("7/15/2036 (6pm)", 18)]
+    [InlineData("7/15/2036. 6pm", 18)]
+    [InlineData("by 7/15/2036 6pm", 18)]
+    [InlineData("7/15/2036, by 6pm", 18)]
+    [InlineData("7/15/2036 evening (6pm)", 18)]
+    [InlineData("7/15/2036 night", 20)]
+    public void Reads_a_time_on_the_last_day_allowed_however_the_day_and_time_are_written(string text, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(At(Chicago, 2036, 7, 15, hour), result);
+    }
+
+    [Fact]
+    public void Reads_the_end_of_the_last_day_allowed()
+    {
+        var ok = CreateParser().TryResolve("eod 7/15/2036", Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        // "end of day" is the day's last second.
+        Assert.Equal(new LocalDateTime(2036, 7, 15, 23, 59, 59).InZoneLeniently(Chicago).ToInstant(), result);
+    }
+
+    [Theory]
+    [InlineData("7/16/2036 (6pm)")]
+    [InlineData("7/16/2036. 6pm")]
+    [InlineData("by 7/16/2036 6pm")]
+    [InlineData("7/16/2036, by 6pm")]
+    [InlineData("7/16/2036 evening (6pm)")]
+    [InlineData("7/16/2036 night")]
+    [InlineData("eod 7/16/2036")]
+    public void Refuses_the_day_after_the_last_day_allowed_however_the_day_and_time_are_written(string text)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.False(ok);
+        Assert.Equal(default, result);
+        Assert.Equal(TooFarAhead(text), error);
+    }
+
+    /// <summary>Ways of writing a time on the day <c>{days}</c> days from today other than
+    /// together with it: apart from it, as a deadline, as the end of the day, and as a part of the
+    /// day, with a time of its own or from its start.</summary>
+    private static readonly string[] TimesWrittenOtherwise =
+    [
+        "in {days} days (6pm)",
+        "in {days} days. 6pm",
+        "{days} days from now (6pm)",
+        "by 6pm in {days} days",
+        "in {days} days, by 6pm",
+        "until in {days} days (6pm)",
+        "in {days} days (eod)",
+        "eod in {days} days",
+        "in {days} days evening (6pm)",
+        "in {days} days (night)",
+    ];
+
+    /// <summary>Each way in <see cref="TimesWrittenOtherwise"/>, in each of three zones.</summary>
+    /// <returns>Rows of a zone and a way of writing the time.</returns>
+    public static TheoryData<string, string> ZonesAndTimesWrittenOtherwise()
+    {
+        var rows = new TheoryData<string, string>();
+        foreach (var zoneId in new[] { "UTC", "America/Chicago", "Pacific/Kiritimati" })
+        {
+            foreach (var spelling in TimesWrittenOtherwise)
+            {
+                rows.Add(zoneId, spelling);
+            }
+        }
+
+        return rows;
+    }
+
+    // As above, on the calendar's last day, however the time on it is written.
+    [Theory]
+    [MemberData(nameof(ZonesAndTimesWrittenOtherwise))]
+    public void Refuses_a_time_on_the_calendars_last_day_however_the_day_and_time_are_written(string zoneId, string spelling)
+    {
+        var zone = DateTimeZoneProviders.Tzdb[zoneId];
+        var days = Period.DaysBetween(Now.InZone(zone).Date, LocalDate.MaxIsoValue);
+        var text = spelling.Replace("{days}", $"{days}", StringComparison.Ordinal);
 
         var ok = CreateParser().TryResolve(text, zone, out var result, out var error);
 
