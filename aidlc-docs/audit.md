@@ -2100,3 +2100,10 @@ Availability for @GM
 **Context**: Operations — the change is merged; its records and the next change each wait for Joshua's go-ahead.
 
 ---
+## Operations — the records branch of #181 and #187: go-ahead to push it, open its pull request and merge it
+**Timestamp**: 2026-11-18T03:44:24Z
+**User Input**: "Yes, through merge"
+**AI Response**: Read as A to the first question asked at 2026-11-17T23:42:07Z: the local branch `docs/log-release-permissions-and-code-owners-merges` is pushed with the keyring login, its pull request `docs: log the release workflow's least access and the code owners file through their merges` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. `master` was fetched first and had not moved from `162fd42`, so nothing was taken in. The second question, pinning the other actions to their commits with Dependabot version updates for actions, was not answered; it stays open and nothing is started for it.
+**Context**: Operations — the records of the merges of #181 and #187 go out on Joshua's go-ahead; the next change waits for his answer.
+
+---
