@@ -2310,3 +2310,10 @@ Availability for @GM
 **Context**: Delivery — records pull request, go-ahead given. Next: take in `master`, push, open the pull request, then ask the merge.
 
 ---
+## Delivery — short weekend days: records pull request #201 opened; `master` taken in again; its merge asked
+**Timestamp**: 2026-11-18T18:38:17Z
+**User Input**: (none — this entry records the push, the pull request and the question that follows)
+**AI Response**: `master` (`47209ab`) was taken in as `632e45a`. Only the audit log conflicted, and both sides' entries are kept in the order of their stamps. The branch was pushed by name at 18:36:58Z, and pull request #201, `docs: log the sat and sun fix through its release`, was opened against `master` at 18:37:02Z, with no code changes. #198 had merged into `master` at 18:35:12Z, after the take-in and before the push, so the pull request opened with a conflict. `67baa24` was taken in as `9cd0d05`, again with only the audit log conflicting and both sides' entries kept in stamp order. The pull request is bound to this session with Auto-fix on. Asked next: "Squash-merge pull request #201 once its checks pass?", recommending yes.
+**Context**: Delivery — records pull request opened. Next: its merge, on its own go-ahead.
+
+---
