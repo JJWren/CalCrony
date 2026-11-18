@@ -2142,3 +2142,10 @@ Availability for @GM
 **Context**: Operations — delivery: the records pull request, pushed and opened on Joshua's go-ahead. Its merge waits for his go-ahead.
 
 ---
+## Unreadable date text — records pull request #195 opened; its merge asked
+**Timestamp**: 2026-11-18T03:57:06Z
+**User Input**: (none — continuation of "Open it, plain")
+**AI Response**: The security reviewer read the records rebuilt on `04beae8` and the pull request's text, and cleared them, with one optional change of wording in the entry before this one, which was made before the push. The branch `docs/log-unreadable-date-text` was pushed with the keyring login at 03:55:53Z: one commit, `745e070`, with no attribution line. Pull request #195, `docs: log the refusal of date text that cannot be read through its rollout`, was opened against `master` at 03:55:55Z, and its checks started at once. "Auto-fix pull requests" is on for this session; auto-merge is off. This entry, and this change's section of the state file naming #195, go out with the next push, records only. Asked of Joshua: "Squash-merge pull request #195 once its checks are green?", with the recommendation to merge. On his go-ahead it is logged on the branch first, the reviewer reads the new entries before that push, and the merge is the REST call with the head named, once the checks on that head are green.
+**Context**: Operations — delivery: records pull request #195 open; its merge waits for Joshua's go-ahead.
+
+---
