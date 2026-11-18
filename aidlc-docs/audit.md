@@ -3192,3 +3192,10 @@ Availability for @GM
 **Context**: Operations — #187's step 5.1 waits for Joshua's answer.
 
 ---
+## Operations — the release pull request's merge box: what it lists
+**Timestamp**: 2026-11-18T22:59:19Z
+**User Input**: "Yes, it's listed"
+**AI Response**: Recorded: the merge box of #200, the release pull request that release-please opened, lists "Code owner review required". That was the last read of #187's step 5.1, so the step is ticked, with the plan's status and its state line saying the unit is complete.
+**Context**: Operations — #187's plan is complete.
+
+---
