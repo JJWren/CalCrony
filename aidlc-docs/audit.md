@@ -2135,3 +2135,10 @@ Availability for @GM
 **Context**: Delivery — plan steps 7.3 and 7.4 complete; the state file's release line ticked. Next: the records pull request, on its own go-ahead.
 
 ---
+## Delivery — short weekend days: go-ahead for the records pull request
+**Timestamp**: 2026-11-18T18:33:26Z
+**User Input**: "Yes"
+**AI Response**: Read as A, the recommended answer to "Push the records branch and open its docs pull request?", asked at 2026-11-17T23:42:33Z and repeated in this session's later messages. `master` has moved since `162fd42`: the records pull requests #191 and #194 merged, and it is now `47209ab`. It is taken into this branch first, with the audit entries in the order of their stamps. Then the branch is pushed by name and the pull request `docs: log the sat and sun fix through its release` is opened against `master`. Its merge is asked on its own.
+**Context**: Delivery — records pull request, go-ahead given. Next: take in `master`, push, open the pull request, then ask the merge.
+
+---
