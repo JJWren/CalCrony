@@ -21,7 +21,9 @@ the release action by its commit` (`ci:` cuts no release).
 **Status**: generated on the local branch on 2026-11-17 and read by two review agents the same day,
 in two rounds (section 7); the findings of both rounds are answered. Joshua answered the completion
 gate B the same day ("B, continue"), so `master` was taken in again and the branch pushed and opened
-as a pull request (step 4.1). A run by hand and the merge each wait for his go-ahead.
+as a pull request (step 4.1). On his "Hand run, then merge" the workflow was run once by hand from
+the branch (step 4.2) and pull request #187 was squash-merged as `162fd42` (step 4.3). Step 5.1 is
+done but for what GitHub lists as required on the next pull requests, none being open after it.
 
 ## 1. What exists today (verified 2026-11-17)
 
@@ -282,10 +284,15 @@ Each is a change or a decision of its own.
       pull request's description. Approved 2026-11-17 ("Hand run, then merge"): run 44199345170,
       green; the action fetched by its commit, the job's token as #181 set it, #185 "remained the
       same", no release made.
-- [ ] 4.3 On his go-ahead: the squash merge.
+- [x] 4.3 On his go-ahead: the squash merge. Approved 2026-11-17 ("Hand run, then merge"). #185 and
+      #188 were merged first, so `master` was taken in a third time; then, every check on the head
+      `09d6cd1` green, the REST call with that head named merged it at 23:38:12Z as `162fd42`.
 - [ ] 5.1 After the merge: the run the merge starts read for the action's commit; the code owners
       question asked again about `master`; what GitHub lists as required on the release pull request
-      and on one the owner opened.
+      and on one the owner opened. Read on 2026-11-17: the merge's run (44201104260) fetched the
+      action by `5c625bf…` from `master`, found no user-facing commit and wrote nothing; GitHub's
+      `codeowners/errors` for `master` is empty. No pull request was open after the merge, so the
+      last part waits for the next release pull request and the next one the owner opens.
 
 ## 7. Review (2026-11-17)
 
