@@ -2212,3 +2212,10 @@ Availability for @GM
 **Context**: Operations — delivery: records pull request #195 open; its merge waits for Joshua's go-ahead.
 
 ---
+## Unreadable date text — go-ahead to merge records pull request #195
+**Timestamp**: 2026-11-18T18:35:14Z
+**User Input**: "Yes"
+**AI Response**: His answer to "Squash-merge pull request #195 once its checks are green?", with the recommendation put beside it to merge; the other answer was "Not yet". Before it: `master` moved with #194, and GitHub reported a conflict; "Auto-fix pull requests" is on, so `master` `47209ab` was taken in by a merge, `a3c5647`, which the security reviewer read before it was pushed at 04:03:02Z, and the description was made exact. Every check on `a3c5647` was green. Checked first, after his answer: `master` on GitHub had moved again, to `67baa24` (#198), which adds records of its own. It is taken in by a second merge: this change's entries are placed among the others by their stamps, this change's section of the state file is kept as it is, now followed by the section #198 adds, and everything else is `master`'s as it stands. The security reviewer reads this entry and the merge before the push, and the description is made exact again. The merge is the REST call with that head named, once the checks on it are green.
+**Context**: Operations — delivery: the go-ahead to merge records pull request #195.
+
+---
