@@ -218,8 +218,8 @@ public sealed class EventBusyTimes(CalCronyDbContext db, ILogger<EventBusyTimes>
                         && (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started))
             .Select(e => new { SeriesId = e.SeriesId!.Value, e.StartsAt, e.DurationMinutes })
             .ToListAsync(cancellationToken);
-        // Nullable values, so that a series with no live occurrence gets null below, not an
-        // empty one.
+        // Nullable values, so that a series with no live occurrence gets null below, not a
+        // default one.
         var live = liveRows
             .GroupBy(e => e.SeriesId)
             .ToDictionary(g => g.Key, g => (LiveOccurrence?)new LiveOccurrence(g.Key, g.First().StartsAt, g.First().DurationMinutes));

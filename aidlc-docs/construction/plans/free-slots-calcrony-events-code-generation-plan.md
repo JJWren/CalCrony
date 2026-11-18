@@ -862,14 +862,20 @@ nits; code quality found the merge's code exact, with two minor findings and sev
 comments and records. The design document's row said that `Upcoming` takes the one
 `LiveOccurrence`, which it does not (both agents); the plan did not read D17 and 4.4 again
 against the public calendar's change; the audit entry of 20:11:31Z counts the design rows among
-what `05476a2` did, where they changed in `7a55431`; and the nits asked for a comment on the
-nullable values in `EventBusyTimes`, exact wording for the public calendar's entry point, two
-sentences in the right tense, the summary limit in step 5.4, and `5935891` named for two answers.
-All are answered in `5e5af40`, comments and records only: the paragraph above reads D17 and 4.4
-again, and the entry of 20:11:31Z stays as written, corrected here and in the audit trail. No
-code line changed, so the results of `05476a2` stand; a full rebuild has no error and 22
-warnings. Joining the two projections into one stepping loop, with one way to work out an end,
-stays the follow-up D17 names.
+what `05476a2` did, where they changed in `7a55431` (security); and the nits asked for a comment
+on the nullable values in `EventBusyTimes`, exact wording for the public calendar's entry point,
+two sentences in the right tense, one subject made clear, the summary limit in step 5.4,
+`5935891` named for two answers, and the pull request's text checked now that this change edits
+`SeriesProjection.cs` rather than adding it. All are answered in `5e5af40`, comments and records
+only: the paragraph above reads D17 and 4.4 again, and the entry of 20:11:31Z stays as written,
+corrected here and in the audit trail; the pull request's text still holds, as it says only that
+a pure `SeriesProjection` steps a series' rule. No code line changed, so the results of
+`05476a2` stand; a full rebuild has no error and 22 warnings. One projection for the feed, the
+public calendar and free slots, with one way to work out an end, stays the follow-up D17 names.
+
+Both agents confirmed `5e5af40` and `96db72a`, with a few words left: the comment on the nullable
+values now says "a default one", and this paragraph names every nit and the source of each
+point. The branch was pushed by its name at 20:36:53Z (`a3b30a5..96db72a`).
 
 ## 10. Plan checklist
 

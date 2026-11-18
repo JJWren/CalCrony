@@ -3038,3 +3038,17 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; the order of the 0.37.2 release and this change's merge is to be put to Joshua with the merge.
 
 ---
+## Code Generation — round 9 confirmed; the branch pushed with `master` at `1fce915`
+**Timestamp**: 2026-11-18T20:37:42Z
+**User Input**: (none — continuation of the Auto-fix report)
+**AI Response**: Both review agents confirmed `5e5af40` and `96db72a`: no finding on the code, which changed in comments only, nor under the public-text rule. A few words were left, answered in the next local commit: the comment on the nullable values in `EventBusyTimes` now says "a default one"; the entry of 20:33:57Z named five of code quality's seven nits — the other two were one subject made clear in the plan, in `5e5af40`, and the pull request's text checked, which still holds, as it says only that a pure `SeriesProjection` steps a series' rule — and it did not say that the point about the entry of 20:11:31Z came from security; and the follow-up D17 names is one projection for the feed, the public calendar and free slots, not two. The branch was pushed by its name at 2026-11-18T20:36:53Z (`a3b30a5..96db72a`); the remote's head is `96db72a`, and nothing else was pushed. GitHub lists pull request #197 as mergeable, and its checks are running. `master` is `1fce915`, and the release pull request for 0.37.2 is open.
+**Context**: Construction — delivery (plan section 8): pushed under Auto-fix after rounds 7 to 9; this pull request's merge, and its order against the 0.37.2 release, wait for Joshua.
+
+---
+## Code Generation — the order of the 0.37.2 release and this pull request's merge asked
+**Timestamp**: 2026-11-18T20:38:09Z
+**User Input**: (none — continuation of the Auto-fix report)
+**AI Response**: Question put to Joshua: which goes first. A) The release of 0.37.2, recommended: this pull request's merge waits until 0.37.2 is released and rolled out, so that release's fixes go out without waiting for this change's checks after its merge; `0.37.2.md` stays where it is, and this change goes out as 0.38.0 with its own summary. B) This pull request first: before it merges, `0.37.2.md` is folded into `0.38.0.md` and cut to the 1,800 characters a release summary may have, with his approval of the wording, and the next release is 0.38.0 with all of it. Either way, this pull request's merge is asked on its own after that. Nothing is merged.
+**Context**: Construction — delivery (plan section 8): the order of the release and the merge put to Joshua.
+
+---
