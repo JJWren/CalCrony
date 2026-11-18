@@ -346,6 +346,17 @@ apart.
       commit. Only `aidlc-docs/audit.md` conflicts: it is `master`'s entries with this change's put
       in by their timestamps; git merges the state file by itself. Nothing outside `aidlc-docs`
       differs from the tree of step 5.8, so its result stands for this one.
+- [x] 5.11 `master` merged in again at `6cb41c8` (pull request #199, merged 2026-11-18T19:40:26Z),
+      which changes how date text is read and adds its lines to `docs/release-notes/0.37.2.md`. The
+      records and the release summary conflict: the audit log is `master`'s entries with this
+      change's put in by their timestamps, the two entries this branch made exact keeping its
+      wording; the state file is `master`'s, with the date limit's build-and-test line as this
+      branch has it and this change's section after #199's; and the release summary keeps `master`'s
+      lines, with this change's two lines after them and its step as step 3 under "How to use it"
+      (1,595 of the 1,800 characters; the repository's check passes it). Git merges the code by
+      itself: #199 changes `NaturalDateTimeParser` and its tests, which this change does not touch.
+      Result on the merged tree, built from scratch: 0 errors and 22 warnings; 2,510 tests green —
+      1,517 API, 490 bot, 154 web and 349 for the release-notes tool — and 17 of the tool's skipped.
 
 ## 6. Delivery
 
@@ -614,3 +625,8 @@ last commit, which this branch holds, nothing outside the records changes. Step 
 
 #202 (records) reached `master` just before that merge was pushed, and is merged in on top in the
 same way. Step 5.10 has it.
+
+`master` then moved to `6cb41c8` by pull request #199, which changes how date text is read and adds
+its lines to `docs/release-notes/0.37.2.md`. It is merged in; the summary keeps #199's lines, with
+this change's after them. The code merges without a conflict, and the whole suite is run on the
+merged tree. Step 5.11 has the result.

@@ -1709,6 +1709,13 @@ Availability for @GM
 **Context**: Construction — code generation, part 1 (the plan), with the requirements and the workflow plan folded in. Waiting for Joshua's answers and approval.
 
 ---
+## Fix request — older gaps in how a date typed in words is read
+**Timestamp**: 2026-11-16T17:11:52Z
+**User Input**: (none typed by Joshua — the task was handed over from another session: look into the five older points listed at the end of section 8 of the plan for `sat` and `sun` — `by friday`, `every saturday 8pm`, a weekday typed on its own day, a day and a time written apart, and `easter sat`; find out by running the real parser what each does today, recommend for each whether to fix it, give a better refusal or leave it, and put the decision to Joshua before anything is built.)
+**AI Response**: Brownfield, aidlc-state resumed; `master` at `4af1305`, whose code is v0.37.0, the release prod runs. The fix for `sat` and `sun` that the list comes from is pull request #180, open and not merged, and the task says to build only on a `master` that has it. So nothing is built: the parser was run as it stands on that pull request's branch, from a scratch harness that is not committed, as a read-only look, and Joshua is asked whether to wait for the merge. A small change inside one class, on a branch cut from `master`, `fix/date-text-gaps`: requirements at minimal depth — the task is the requirement; no user stories, application design or units; one construction unit, code generation only. As the task asks, the findings and a recommendation for each point are put to Joshua before anything is built.
+**Context**: Inception (brownfield) — workspace detection and intent analysis; next, what the parser does with each of the five today.
+
+---
 ## CI request — least access for the two older jobs of the release workflow
 **Timestamp**: 2026-11-16T17:19:01Z
 **User Input**: (none typed by Joshua to this session — the task came as the brief of a card that the session which built the release summary, pull request #179, had proposed: give the two older jobs of `.github/workflows/release-please.yml`, `release-please` and `publish-images`, only the repository access each needs, with the exact permissions worked out from the action's documentation and from what the jobs do; make the workflow's default as small as it can be; set `persist-credentials: false` on the image job's checkout unless a later step needs the stored token; change nothing in the three newer jobs; start only once #179 is merged; and push, open, start or merge nothing without his go-ahead at each step.)
@@ -1768,6 +1775,13 @@ Availability for @GM
 **Context**: Construction — code generation for the date limit: review round 2 answered, `master` taken in; the agents' read of this commit next, then the completion gate.
 
 ---
+## Construction — date text gaps: what the parser does with each of the five today; plan written; answers asked
+**Timestamp**: 2026-11-16T17:37:23Z
+**User Input**: (none — findings, a plan and five questions; no input from Joshua yet)
+**AI Response**: The parser was run as it stands on pull request #180, from a scratch harness that is not committed, on the parser tests' Wednesday and at other moments: a weekday morning, and the day itself early and late. (1) `by friday`, `until saturday`, `before saturday 6pm`, `by 6pm`, `by nov 12 6pm` and `friday before 6pm` are refused as not understood by both readers: the recognizer returns a range with an end and no start, and both readers take a range's start; `after friday 6pm`, a start and no end, is read. (2) `every saturday 8pm`, `fridays at 8pm`, `daily` and `weekly` are refused in the same general words, the recognizer marking a repeat as a kind of its own; `friday 8pm every week` is read as Friday 8 PM once, the repeat dropped. (3) A weekday typed on its own day is refused as past by the date-and-time reader from the time named, 9 AM when none is typed, until midnight: the recognizer offers last week's and today's; typed the day before it is tomorrow, and the day after it is next week's; the day reader gives today. (4) A day and a time that the recognizer does not join are two readings, and the date-and-time reader takes the earliest that is ahead, which is the time, today: `fri (6pm)`, `fri. 6pm`, `friday from 6pm`, `friday: 6pm`, `tomorrow (6pm)` and `nov 12 (6pm)` all come back as today at 6 PM, and so does a second time beside a day that has its own — `friday 6pm, ends 9pm` is today at 9 PM, `friday 6pm or 8pm` today at 8 PM; the day reader gives the day that was typed in each. This reaches further than the three forms the list named, and it is the one of the five that gives a wrong date and says nothing. (5) `easter sat` reads as `easter saturday`, a holiday the recognizer knows as the Saturday before Easter Sunday, at every moment tried, Easter week of 2027 among them: right, and to be left. The plan (`construction/plans/date-text-gaps-code-generation-plan.md`) recommends: for 1, read the range's end, so that the text reads as the date and time it names, in the date-and-time reader only, and neither in front of a whole period (`by end of month`) nor beside a length of time (`2 hours before friday 6pm`); for 2, a refusal that says the text repeats and what to type, from both readers, wherever a repeat stands in the text — which would also refuse `friday 8pm every week`, read as one event today; for 3, next week's once today's is behind; for 4, the day reader's own rule, that a day the text names outranks a today that is only implied — a time apart from a day is read on that day, as the same two written together are, and a further time beside a day that has its own is not read; for 5, nothing. For each the plan says what would change for text that is read today, among them `wednesday or aug 20` typed on a Wednesday, `friday 9am or 6pm` typed on that Friday, and `6pm or friday 8pm`. The rules were tried in a scratch copy of the parser beside the parser itself over 25,531 generated texts at nine moments: of the 2,183 that are one phrase to the recognizer and not a repeat, none that is read today reads differently or is refused, and the day reader changes for the repeats only. Five questions are Joshua's, each with lettered options and a recommendation: Q1 to Q4, one for each gap, and Q5, whether to wait for pull request #180 to merge before building, which is recommended, or to build now on its branch. Asked: "Approve the plan for the older gaps in date text with Q1 to Q5 answered A?" Nothing is built. The plan and these records are in a local commit on `fix/date-text-gaps`; nothing is pushed.
+**Context**: Construction — code generation, part 1 (the plan): waits for Joshua's answers to Q1–Q5.
+
+---
 ## Construction — two review agents on the local commit; their findings answered
 **Timestamp**: 2026-11-16T18:16:22Z
 **User Input**: (none — review round; no input from Joshua)
@@ -1825,6 +1839,13 @@ Availability for @GM
 **User Input**: "Approve, all A"
 **AI Response**: His answer to "Approve the plan with Q1, Q2 and Q3 answered A?", the other answer offered being "Request changes". Recorded as the plan approved as it then stood, with: Q1 A, build now on `master` as it is and take `master` in before the push; Q2 A, date text that is missing altogether is refused in this change too; Q3 A, text with a zone abbreviation that has no zone is refused as not understood. The answers are written into the plan's `[Answer]:` lines, and step 0.1 is ticked: the baseline was run before approval. Checked first: `master` is still at `4af1305`, and pull request #180 is open and not merged. Next: steps 1.1 to 1.4, the tests written first and run against the unchanged code; then the change (2.1 to 2.3), the verification (3.1 to 3.3) and both review agents' read of the local commits (3.4); then the completion gate. Nothing is pushed without his go-ahead.
 **Context**: Construction — code generation: part 1 (the plan) approved; part 2 (generation) begins.
+
+---
+## Construction — date text gaps: plan approved, Q1 to Q5 answered A
+**Timestamp**: 2026-11-16T23:13:36Z
+**User Input**: "Approve, all A"
+**AI Response**: The plan is approved as written, with each of its five questions answered A. Q1: `by`, `until` and `before` in front of a date read as the date and time named, in the date-and-time reader only, and neither in front of a whole period nor beside a length of time; the day reader keeps its refusal. Q2: a refusal that says the text repeats and what to type, from both readers, wherever a repeat stands in the text, so `friday 8pm every week` is refused too. Q3: next week's for a weekday typed on its own day once its time is behind, alone and with a time. Q4: a time written apart from its day is read on that day, and a further time beside a day that has its own is not read. Q5: wait for pull request #180 to merge, then build on `master`. `easter sat` is left as it is. The answer is written into the plan's five `[Answer]:` lines. Read at 23:13Z: pull request #180 is open with its checks green and not merged, and `master` is at `4af1305`, so by Q5 nothing is generated in the repository yet. The stamp is the first clock read after his answer.
+**Context**: Construction — code generation: the plan is approved; generation waits for pull request #180 to be on `master` (Q5).
 
 ---
 ## Workflow linter — plan approved as recommended
@@ -1888,6 +1909,20 @@ Availability for @GM
 **User Input**: (none — no input from Joshua since his approval at 23:13:28Z)
 **AI Response**: Built on `fix/unreadable-date-text`, as the plan he approved says. The tests were written first and run against the unchanged code: the refusal tests failed there, and the tests that pin what is read today passed (12 of 124 failing with the tests as first written; 13 of 127 once three more tests had been added, run in a scratch copy with the source as on `master`). The change: `NaturalDateTimeParser.TryResolve` refuses text whose zone abbreviation its table has no zone for, with `Could not understand "<text>" as a date/time.` and the text as typed; the relative-cutoff pattern in `RsvpPolicy` takes a whole number of one to five digits as its amount, and other cutoff text goes to the date parser as before; and both of the parser's readers refuse text that is missing altogether with `The date/time text is required.`, which the parse route, a new reminder and a new event turn into a 400. Two source files in the API; no migration; Contracts, the bot and the web app are not touched. Checked: `dotnet build CalCrony.slnx -c Release` without incremental state, with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release`, with 1,653 tests passed and none failed (744 API, 418 bot, 153 web, 338 release notes; the baseline's 1,630 and the 23 added, all in the API project) and the same 17 release-notes tests skipped on this machine; ten changes that each take one rule out, made one at a time in a scratch copy, each of which failed tests written for that rule; and a comparison of the code before the change with the code after it over 223,224 generated texts, in which every reading and every refusal the code gave before, 473,980 of them, is the same after, word for word. `master` moved to `ab32e96` at 23:15:31Z, when pull request #181 merged (the release workflow and its records, no application code); it is taken in before the push. Next: two local commits, then both review agents' read of them before anything is pushed, then the completion gate.
 **Context**: Construction — code generation, part 2: generated and checked locally (plan steps 1.1 to 3.3). The review (step 3.4) is next. Nothing is pushed.
+
+---
+## Construction — date text gaps: the change prepared outside the repository while pull request #180 waits
+**Timestamp**: 2026-11-17T00:00:31Z
+**User Input**: (none — work done while waiting; no input from Joshua since his approval)
+**AI Response**: Pull request #180 is still open, so by Q5 nothing is generated in the repository. To use the wait, the change and its tests were prepared in a scratch copy of that pull request's tree, outside the repository: the four rules in `NaturalDateTimeParser`, and the tables beside the parser's tests. There the parser's tests pass; each rule and limit taken out fails a test meant for it, all but one check that no text reaches; and the parser as prepared was run beside the parser of #180 over the generated texts of the plan's section 3, where no text that is one phrase to the recognizer and is read today reads differently. Preparing turned up two kinds of text that the rules as the plan words them would have read worse than they are read today, and in the change as prepared each keeps its reading. First, a time beside a range that is under way: `this week 6pm` on a Wednesday is today at 6 PM, and `tonight (9pm)` typed once the night has begun is today at 9 PM; read on the day the range began, both would have been refused as past. A range that has begun and not ended names no day, as the day reader already has it, so the time beside it stays a time alone. Second, "end of day" beside a day: `by end of day friday` is Friday at 9 AM today, because the deadline is not read; with the deadline read it would have become today at 11:59 PM, the recognizer taking "end of day" as today's last second. Beside a day it is now that day's last second, which also moves `eod friday` and `friday end of day` from today at 11:59 PM to Friday at 11:59 PM — a change to text that is read today, and one of the points the plan had listed as noticed and not part of this. Smaller points: `by late friday` and `by early friday` stay not understood; `by the end of friday` is read; a span of days that begins today is left alone; and one check in the rule for a weekday on its own day is reached by no text that was found. All of it is in the plan's section 8, to be checked again when the change is built on `master` and put to Joshua at the completion gate. Nothing is generated in the repository, and nothing is pushed.
+**Context**: Construction — code generation: the plan is approved; generation in the repository still waits for pull request #180 to be on `master` (Q5).
+
+---
+## Construction — date text gaps: one question from the preparation put to Joshua (Q6)
+**Timestamp**: 2026-11-17T00:04:24Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Of what preparing the change turned up, one point is a decision and is put to Joshua as Q6 in the plan: what "end of day" means beside a day. A) that day's last second, so `by end of day friday` is Friday at 11:59 PM, and `eod friday`, today at 11:59 PM now, becomes Friday at 11:59 PM as well — recommended, and how the change is prepared; B) leave `eod friday` as it is and keep `by end of day friday` at Friday 9 AM by not reading an end-of-day deadline where a day stands beside it; C) other. Asked: "Read end of day beside a day as that day's last second, as prepared (Q6: A)?" Said with it: the other point, a time beside a range that is under way, needs no decision, because it keeps what is read today; and the change is built in the repository as soon as pull request #180 is on `master`, which at 00:03Z it was not. Nothing is generated in the repository, and nothing is pushed.
+**Context**: Construction — code generation: waits for pull request #180 to be on `master` (Q5), and for Joshua's answer to Q6.
 
 ---
 ## Construction — public calendar day sets: two review agents on the local commits; their findings answered
@@ -1979,6 +2014,13 @@ Availability for @GM
 **User Input**: (none — no input from Joshua since 2026-11-17T02:02:52Z)
 **AI Response**: Both agents read the commit that carries the entry above, and then its last amendment, in which neither found anything in the code, the tests or the records that should hold up a push. Their points on the first are answered in it. Checked once more on it: `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings; `dotnet test CalCrony.slnx -c Release` with 1,803 tests green (814 API, 490 bot, 154 web, 345 for the release-notes tool) and 17 of that tool's skipped; the release summary's check passes; and the thirty-four changes to the API that each take one rule out each failed the same tests once more. `master` is still at `ab32e96`. One sentence of the plan is changed with this entry: the line a failed save writes is listed as built with the payload column, not as asked for. The completion gate is put to Joshua in the form the workflow sets, "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", and with it, as a question of its own, the go-ahead for the push and the two pull requests. This entry, the plan's sentence and the state file's line are not in the commit the agents read: they go in with his answer, and both agents read that difference before anything is pushed. Nothing is pushed.
 **Context**: Construction — code generation for delivery posts complete and reviewed; awaiting Joshua at the completion gate (A: request changes; B: continue to the push and the pull requests).
+
+---
+## Construction — date text gaps: Joshua's answer to Q6
+**Timestamp**: 2026-11-17T16:29:45Z
+**User Input**: "Yes, A"
+**AI Response**: Read as his answer to the question asked at 00:04:24Z, "Read end of day beside a day as that day's last second, as prepared (Q6: A)?": Q6 is answered A. Beside a day, "end of day" is that day's last second in the date-and-time reader: `by end of day friday` and `by eod friday` are Friday at 11:59 PM, and `eod friday`, `friday eod` and `friday end of day` move from today at 11:59 PM to Friday at 11:59 PM. Alone, `eod` stays today's, and the day reader is not changed. That is how the change is prepared, so nothing in it changes. The answer is written into the plan's Q6, and the plan's status line and the state file say so. Pull request #180 was read after the answer: at 16:30Z it is still open, mergeable, with its checks green, and `master` is still at ab32e96. By Q5 the change is therefore still not built in the repository. Nothing is pushed.
+**Context**: Construction — code generation: every question of the plan is answered (Q1 to Q6, each A); generation in the repository waits for pull request #180 to be on `master` (Q5).
 
 ---
 ## Text that cannot be stored — the request and workspace detection
@@ -2121,6 +2163,13 @@ Availability for @GM
 **Context**: Operations for the release summary — Joshua approved the merge of the records pull request; `master` taken in once more before it.
 
 ---
+## Construction — date text gaps: generated on the branch, once pull request #180 was on `master`
+**Timestamp**: 2026-11-17T17:06:40Z
+**User Input**: (none — no input from Joshua since his answer to Q6; the session that wrote pull request #180 sent word that it was merged, and that was checked here before anything was built)
+**AI Response**: Pull request #180 was merged at 16:36:36Z as b582c2b, on Joshua's go-ahead in the session that wrote it. Read here at 16:38Z: merged, and `master`'s tree the same as the head its checks ran on. By Q5 that is the condition for building, so generation began. `master` was taken into the branch, with this branch's audit entries put in by their timestamps and both new sections of the state file kept in the order of their start dates, and step 0.1 was run on that tree: a Release build with no error and 22 warnings, and 1,729 tests green. The change as it had been prepared outside the repository was applied by script; the parser and its tests on the branch are the prepared files, line for line. With it: a full Release build with no error and 22 warnings, in the same files and with the same codes, none in the parser or its tests; and 1,945 tests green — 1,029 API, 418 bot, 153 web and 345 for the release-notes tool, with 17 of the tool's skipped on Windows. The 216 more are all in `NaturalDateTimeParserTests`. Each of 32 rules and limits was taken out in a scratch copy: 31 fail a test meant for them, and the one that fails none is the check no text reaches, as the plan had said. The comparison of section 3 was run again through the parser as built, against `master`'s, over 25,707 texts at nine moments: of the 2,291 texts that are one phrase to the recognizer and not a repeat, none that `master` reads is read differently or refused, and the day reader changes for repeats only. The records are written: the plan's boxes and its section 8; what became of the four points, in the plan for `sat` and `sun`; a dated note in section 4.1 of the free-slots plan; five items in the live script; and four bullets and two steps added to the release summary of 0.37.1, the version of the open release pull request, which passes the repository's check at 1,196 of 1,800 characters. No documentation example is made wrong by the change. It is committed locally as two commits, the code with its tests and the records. Two review agents read the local commits before anything is pushed: the review for correctness began on the code's commit, and the review for security and for what the public text says begins on both. Their findings and the completion gate follow. Nothing is pushed.
+**Context**: Construction — code generation: generated and verified on the local branch; the two reviews are under way; the completion gate follows them.
+
+---
 ## Unreadable date text — `master` taken in a second time
 **Timestamp**: 2026-11-17T17:08:11Z
 **User Input**: (none — continuation of "B) Continue")
@@ -2203,6 +2252,13 @@ Availability for @GM
 **User Input**: "switched models, you can continue"
 **AI Response**: Read as leave to go on, and not as the go-ahead for the push, which is still his to give. It is put to him again with this entry, and with it a question on the release pull request open for 0.37.1 (#185): whether it waits until both changes are on `master`. While work was paused, the security agent read the two commits made on `916ecd1` and found nothing that should hold up a push; the quality agent's read of them stopped before it was done. `master` moved to `723696d` meanwhile (pull request #184, merged 2026-11-17T23:05:51Z), which changes the date parser and `RsvpPolicy`, two files these changes touch. Both commits are made again on it, and both agents read them before anything is pushed. Nothing is pushed.
 **Context**: Construction — the date limit and delivery posts: work resumed; the push, and whether the release waits for both changes, are before Joshua.
+
+---
+## Construction — date text gaps: `master` taken in twice more, and the two reviews started again
+**Timestamp**: 2026-11-17T23:11:19Z
+**User Input**: "switched models you can now continue"
+**AI Response**: Read as leave to go on with the work under way. Since the entry of 17:06:40Z the two reviews had stopped before either reported, and `master` had moved twice. First pull requests #183, #182 and #186 were merged, and `master` was taken in at 916ecd1: on that tree the Release build had no error and the same 22 warnings, and 1,959 tests were green, the 14 more being those of #182. In the release summary of 0.37.1 the bullets about dates were kept together, with #182's bullet after them. Then pull request #184 was merged, and `master` was taken in again at 723696d. It changes the same file as this branch, in other lines; the two changes met only in the comments that sum up the two methods, and both are kept. Each time, this branch's audit entries went in by their timestamps and its section of the state file after the others. The build, the whole suite, the rule removals and the comparison are being run again on this tree, and both reviews are started again from the beginning, on the branch as it now stands. Their findings and the completion gate follow. Nothing is pushed.
+**Context**: Construction — code generation: generated on the local branch, with `master` taken in; the checks run again; the two reviews are under way; the completion gate follows them.
 
 ---
 ## Construction — code owners and the pinned release action: completion gate answered B; `master` taken in; pushed as a pull request
@@ -2408,11 +2464,32 @@ Availability for @GM
 **Context**: Construction — the date limit and delivery posts: pushed and open as pull requests (step 6.2 of each plan).
 
 ---
+## Construction — date text gaps: the two reviews, and their findings answered
+**Timestamp**: 2026-11-18T00:07:35Z
+**User Input**: (none — no input from Joshua since 23:11:19Z)
+**AI Response**: Both reviews reported. The review of correctness found the merge with pull request #184 right and both of the task's constraints holding — a missing text and text over the length limit refused before anything reads it, and `sat` and `sun` read as their full names — and asked for changes to the code, the tests and the comments. Four change how text is read: a part of the day takes a time written beside it as its own (`tonight (7pm)` is 7 PM, as before, and `friday night (9pm)` is Friday at 9 PM); a range of days has begun on its first day (`this weekend 6pm`, typed on the Saturday evening, is Sunday at 6 PM, as before); a span from one weekday to another is not moved a week; and a deadline on today's date is today's (`by jul 15`, typed on July 15). It also found that a time beside a month or a year (`6pm (may change)`) was read on that period's first day; a whole period longer than a week now names no single day, and such a time is a time alone, as before. Two kinds of text read worse under the first of these, and the plan names them: an end beside a part of the day, `tonight, ends 11pm` and `this evening until 9pm`. `by friday midnight`, which is Friday at 00:00 as `friday midnight` is, and words that read as a repeat though they describe, are left as they are and listed for Joshua. The review of security and of what the public text says found that 0.37.1 had been released at 23:27Z without this change, so the summary moved to `docs/release-notes/0.37.2.md` and `0.37.1.md` is as released; that the summary named `by end of day friday` among texts that were not understood, which it was not; and statements in the records that were stale or untrue. Each finding and its answer is in the plan's section 8, step 4.4. `master` was taken in again at 162fd42, with the release in it. On the branch as it now stands the Release build has no error and the same 22 warnings, 2,024 tests are green, 40 of 41 rules and limits taken out fail a test meant for them, and over the 25,707 generated texts no text that is one phrase to the recognizer and that `master` reads is read differently or refused. Both reviewers read the answers next. Nothing is pushed.
+**Context**: Construction — code generation: the reviews answered on the local branch; their confirmation and the completion gate follow.
+
+---
+## Construction — date text gaps: the reviews' second reads, and their findings answered
+**Timestamp**: 2026-11-18T00:42:17Z
+**User Input**: (none — no input from Joshua since 23:11:19Z)
+**AI Response**: Both reviewers read the answers. The review of security and of what the public text says confirmed them and the code, and found four points of counting and wording in the plan's notes; each is corrected. The review of correctness confirmed the answers to its first read and found three more: an end beside a part of the day was taken as its time (`friday night till 2am` became Friday at 2 AM, where it was 8 PM); beside a time, a phrase that names no single day still offered its first day at 9 AM, so `this weekend 6pm` typed on the Saturday before 9 AM was 9 AM; and a deadline written with a part of the day on today's date (`by jul 15 evening`) was next year's. Each is answered in the code: an end ends a part of the day and is not its time, as before; beside a time, the first day of such a phrase is not offered, so the time is meant, which changes text that was read from 9 AM to the time typed; and such a deadline is today's. Tests hold each, and an afternoon with a time, a period of two weeks, and a date alone on its own day, which no test held. On the branch now the Release build has no error and the same 22 warnings, 2,034 tests are green, 46 of 47 rules and limits taken out fail a test meant for them, and over the 25,707 generated texts no text that is one phrase to the recognizer and that `master` reads is read differently or refused. Both reviewers read these answers next. Nothing is pushed.
+**Context**: Construction — code generation: the reviews' second reads answered on the local branch; their next read and the completion gate follow.
+
+---
 ## Text that cannot be stored — the first reviews answered; the branch rebuilt on `162fd42`
 **Timestamp**: 2026-11-18T00:56:29Z
 **User Input**: (none — no input from Joshua since his approval at 23:31:46Z)
 **AI Response**: Two review agents read the three local commits up to `1ee6b5d`, each in a checkout of its own: one for correctness, one for security and the public text. What they asked for is answered. In the tests: rows for the RSVP option emoji on an edit and for a series' repeat end; tests that pin the refusal coming before a route checks its caller, the 403 of a route only the bot may use, how many notifications are checked first, and what a new event checks before its options; the refused request that stores nothing is now a reminder. In the plan: rules 3 and 5 of 2.1 and rule 2 of 2.2 say exactly what the code does; step 1.2 names the clear flags it covers; Q1's recommendation is one clause shorter than when it was approved; the state's workspace line names the `master` of that time, and the plan and the 23:31:46Z entry now say that pull request #184 edited the date readers, which that entry, written before, left out. Added after the approval, each with a test: the path of an address is checked with its query string (the plan's 2.1 rule 6), and a sign-in return address with a space or a character outside printable ASCII is dropped (2.4 rule 3); both are changes of substance to the plan as approved, put to Joshua at the completion gate. `master` had moved to `162fd42` (#188, #187); nothing had been pushed, so the branch is rebuilt there as two commits, the source and the tests, then the records. Checked on it: `dotnet build CalCrony.slnx -c Release` without incremental state, with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release`, with 2,037 tests passed and none failed (1,118 API, 418 bot, 153 web, 348 release notes) and 17 skipped; the 253 added test cases run against the unchanged code, where 139 refusal tests fail and 114 that pin what is accepted today pass; and seventeen changes that each take one rule out, each of which failed tests written for that rule. The plan's section 7 has the figures. Next: both agents read the rebuilt commits, then the completion gate. Nothing is pushed.
 **Context**: Construction — code generation, part 2: the first reviews answered (plan step 3.4). The second reads are next. Nothing is pushed.
+
+---
+## Construction — date text gaps: the reviews' last reads, and their findings answered
+**Timestamp**: 2026-11-18T01:14:45Z
+**User Input**: (none — no input from Joshua since 23:11:19Z)
+**AI Response**: Both reviewers read the branch once more. The review of security and of what the public text says confirmed the code, and found that an end beside a part of the day that had begun was read on its own (`tonight until 2am`, typed at 9 PM, was 2 AM, where it was refused as past), that the plan's account of the second comparison had its breakdown wrong, and wording that drew attention where it need not; each is corrected. The review of correctness confirmed that the answers to its second read do what it had asked, and found three more readings, none of them right on `master` either: an end beside a time of its own was read as the time (`friday (9pm) till 2am` was Friday at 2 AM, where `master` reads today at 9 PM); an end beside a part of the day was read on another day the text names; and a range that names no single day still offers its first day at 9 AM beside a day inside it that has its own time, as on `master`. The first two, and the security review's, are answered by one rule: an end (`by 6pm`, `until 2am`) is the time only where the text has no other time and no part of the day, so `friday, by 6pm` is still Friday at 6 PM. Its cost is named in the plan: a deadline beside a time meant for something else, `friday, by 6pm (party 8pm)` or `by 6pm, ends 9pm`, reads that other time, as before where no day is named. The comparison then found that the rule kept `by night` from being read, the deadline being itself a part of the day; such a part does not count, and `by night` is tonight at 8 PM. The third is left as it reads before this change and listed for Joshua. On the branch now the Release build has no error and the same 22 warnings, 2,042 tests are green, 50 of 51 rules and limits taken out fail a test meant for them, and over the 25,707 generated texts no text that is one phrase to the recognizer and that `master` reads is read differently or refused. The local commits after the first answers are rebuilt as two, one for the code and one for the records, with the same content. Both reviewers read them before the completion gate. Nothing is pushed.
+**Context**: Construction — code generation: every read of the reviews answered on the local branch; their look at the rebuilt commits and the completion gate follow.
 
 ---
 ## Text that cannot be stored — the second reads answered; the commits rebuilt
@@ -2429,6 +2506,20 @@ Availability for @GM
 **Context**: Construction — code generation complete; the completion gate, waiting for Joshua's choice.
 
 ---
+## Construction — date text gaps: the reviews' last look at the rebuilt commits
+**Timestamp**: 2026-11-18T01:31:23Z
+**User Input**: (none — no input from Joshua since 23:11:19Z)
+**AI Response**: Both reviewers took a last look at the commits as rebuilt. The review of security and of what the public text says confirmed them, with one nit of wording in this log, corrected. The review of correctness confirmed the rule for ends everywhere but one shape, which the rule itself had broken: an end beside a part of the day that is itself a deadline (`by friday night (until 2am)`) was read on its own, today or tomorrow, where it had been Friday at 8 PM. The line that keeps such an end from being read is back, as the review tried it, with three tests, and `by friday night (until 2am)` is Friday at 8 PM again. It also noted that an end beside a whole period is read as a time alone, as `6pm (may change)` is; that is listed for Joshua. On the branch now the Release build has no error and the same 22 warnings, 2,044 tests are green, 51 of 52 rules and limits taken out fail a test meant for them, and the comparison over the 25,707 generated texts is as before. The commits after the first answers are rebuilt again as two, the code and the records. Both reviewers confirm them; the completion gate follows. Nothing is pushed.
+**Context**: Construction — code generation: every read of the reviews answered on the local branch; their confirmation of the last change and the completion gate follow.
+
+---
+## Construction — date text gaps: code generation complete, the gate put to Joshua
+**Timestamp**: 2026-11-18T01:34:12Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Both reviewers confirmed the commits as rebuilt (a8d42dc, the code; 6619a1b, the records): the review of correctness that the last change is the one it had tried and reads as it did, and the review of security and of what the public text says that it found nothing wrong in either. The plan's steps are ticked through 4.5, and the release summary in `docs/release-notes/0.37.2.md` is shown to Joshua with the question. Asked, with B recommended: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage". B is to push the branch and open the pull request, titled "fix: read deadlines, a time apart from its day and a weekday on its own day in date text"; its merge, the release and the prod rollout are each asked on their own afterwards. Put to him with the question: the six points where the change goes further than section 2 of the plan, each in section 8; the two kinds of text the rule for ends reads worse (`tonight, ends 11pm`, and a deadline beside a time meant for something else); and the readings left as `master` has them and listed at the end of section 8. Nothing is pushed.
+**Context**: Construction — code generation: complete on the local branch; the completion gate waits for Joshua.
+
+---
 ## Code of Conduct — plan approved; code generation
 **Timestamp**: 2026-11-18T03:42:07Z
 **User Input**: "Approve plan"
@@ -2441,6 +2532,13 @@ Availability for @GM
 **User Input**: "B) Continue to next stage"
 **AI Response**: Code generation is complete. The plan's step 6.1: `origin/master` is still `162fd42`, the commit the branch is built on, so there is nothing to take in and the suite is not run again. The records are brought up to date for the answer — this entry, the plan's status line, and the state file's code-generation line, now ticked — in the records commit. The security reviewer reads what the records gained since its confirmation, and the pull request's text, before anything is pushed; then the branch `fix/unstorable-text` is pushed and the pull request opened. Nothing is merged without its own go-ahead.
 **Context**: Construction — the completion gate answered B (Continue to Next Stage); delivery, step 6.1.
+
+---
+## Construction — date text gaps: Joshua's answer at the completion gate
+**Timestamp**: 2026-11-18T03:43:51Z
+**User Input**: "B) Continue"
+**AI Response**: Read as his answer to the gate asked at 01:34:12Z: B, Continue to Next Stage — push the branch and open the pull request, titled "fix: read deadlines, a time apart from its day and a weekday on its own day in date text". At the fetch at 03:43Z, `master` had not moved since it was last taken in (162fd42). One clause of the entry before, on what the review of security confirmed, now says it in that review's own terms; that entry had not been pushed. The two commits the review agents have not read, the log of the gate and this one, go to both of them before the push. No auto-merge; the merge, the release and the prod rollout are each asked on their own.
+**Context**: Construction — code generation: complete and approved; build and test, in this repository's collapsed form, goes on with the pull request and its checks.
 
 ---
 ## Operations — the records branch of #181 and #187: go-ahead to push it, open its pull request and merge it
@@ -2520,6 +2618,13 @@ Availability for @GM
 **Context**: Construction — delivery, step 6.1: `master` taken in before the push.
 
 ---
+## Construction — date text gaps: `master` taken in once more before the push
+**Timestamp**: 2026-11-18T04:03:53Z
+**User Input**: (none — no input from Joshua in this session since 03:43:51Z)
+**AI Response**: Both review agents read the two records commits no one had read, the log of the gate and the log of the answer, and the pull request's text. Both found the same thing to fix: `master` moved after the answer was logged, when pull request #191 was merged at 03:48:45Z, so it had to be taken in before the push, as step 7.1 says. A fetch at 04:00Z found pull request #194 merged as well, and `master` was taken in at 47209ab, which has both. Both change only records under `aidlc-docs`, which no test reads, so the build and the suite were not run again. `audit.md` is `master`'s file line for line, with this branch's entries put in by their timestamps, and the state file merged without conflict. The log of the answer, not pushed, now says that the fetch at 03:43Z found `master` as it was last taken in, and no longer that nothing would be merged. The review of correctness also noted that the gate called the list at the end of section 8 the readings left as `master` has them, though it holds a few that this change moves: `6pm in the sun` is Sunday at 6 PM, `8pm (week 2)` is refused as past and `next 8 days (6pm)` is tomorrow at 6 PM, where each was today, and an end beside a whole period is read as a time alone, where it was the period's first day at 9 AM. The log of the gate stands as the question was put, and Joshua is told of the correction. The pull request's text is now laid out as the repository's other fixes are, with what the change reads worse taken from section 8. Laying it out turned up a short form in the records: the state file and the entries at 00:07:35Z, 00:42:17Z and 01:14:45Z give the comparison's result without its condition, that the text not be a repeat. Every text with a repeat is refused, as 2.2 means, and step 4.3 of the plan states the condition; the state file now does too. The merge, this entry and that text go to both review agents before the push.
+**Context**: Construction — build and test, in the repository's collapsed form: `master` taken in before the push (step 7.1).
+
+---
 ## Date limit — `master` merged in again, before the push
 **Timestamp**: 2026-11-18T04:08:13Z
 **User Input**: (none — no input from Joshua in this session since 2026-11-17T23:35:33Z; this follows the Auto-fix report of the entry of 03:57:01Z)
@@ -2532,6 +2637,27 @@ Availability for @GM
 **User Input**: (none — as in the entry before)
 **AI Response**: The date limit's merge of `47209ab` is merged into `fix/delivery-posts` in the same way, for the same reason. The second time only `aidlc-docs/audit.md` conflicted, and it is the date limit's merge with this change's entries put in by their timestamps. Nothing outside `aidlc-docs` differs from `92fd33b`. From the quality agent's read, taken: the entry of 03:58:26Z and the plan's note give the reason for these merges exactly; step 6.2 says that GitHub moves #190 to `master` when the date limit's branch is deleted at its merge, and that #190 shows the date limit's change as well until `master` is merged in; and a tense in the state file. The plan's step 5.7 and the state file name both merges. Both agents read this merge before it is pushed.
 **Context**: Construction — delivery posts: the date limit's second merge merged in; pushed with it once both agents' read is clean.
+
+---
+## Construction — date text gaps: pushed, and pull request #199 opened
+**Timestamp**: 2026-11-18T04:18:22Z
+**User Input**: (none — no input from Joshua in this session since 03:43:51Z)
+**AI Response**: Both review agents read the merge of `master`, its record and the pull request's text. They found the merge right and had points on the wording only. The record's User Input now says "in this session", since the entries of #191 and #194 above it quote Joshua's answers in other sessions; that commit was amended before any push (a0739a0). The pull request's text was worded more narrowly in four places: its summary, what it says reads worse, the numbers for repeats set against `master`'s, and where the reviews' notes are. Both confirmed the amended commit and the text. A fetch at 04:16:54Z found `master` at 47209ab, as taken in, and the branch was pushed by name at a0739a0. Pull request #199 was opened at 04:17Z, titled "fix: read deadlines, a time apart from its day and a weekday on its own day in date text". Its first checks passed (pr-title, lint-workflows, GitGuardian), and build-test and CodeQL were running. The app reports Auto-fix on for it. No auto-merge; the merge, the release and the prod rollout are each asked on their own.
+**Context**: Construction — build and test, in the repository's collapsed form: the pull request and its checks (step 7.1 done; 7.2 next).
+
+---
+## Construction — date text gaps: the order of the merges, put to Joshua
+**Timestamp**: 2026-11-18T04:20:35Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Asked, with A recommended, the order in which pull request #199 and another open pull request are merged: A) the other first, after which #199 takes `master` in and both review agents read that before it is pushed; B) #199 first, once its checks are green. Either way, #199's own merge is asked on its own. Joshua is also told two corrections to what the gate said: the comparison's result holds for texts that are not a repeat, and the list at the end of section 8 holds some readings this change moves.
+**Context**: Construction — build and test: pull request #199 open, its checks running.
+
+---
+## Construction — date text gaps: the order of the merges, answered
+**Timestamp**: 2026-11-18T18:31:57Z
+**User Input**: "Go ahead"
+**AI Response**: Read as A, the answer recommended: the other pull request is merged first. When the answer came it was not merged yet: a fetch at 18:31Z found `master` at 47209ab, as last taken in. Its merge is not made from this session. Once it is on `master`, #199 takes `master` in, both review agents read that, and it is pushed; #199's own merge is asked on its own. Until then, the taking-in is prepared on a local branch that is never pushed, so that it can be read as soon as it is needed.
+**Context**: Construction — build and test: pull request #199 open, its checks green (step 7.2).
 
 ---
 ## Code of Conduct — go-ahead to merge pull request #193
@@ -2569,6 +2695,13 @@ Availability for @GM
 **Context**: Build and test — complete; the records branch waits for Joshua's go-ahead.
 
 ---
+## Construction — date text gaps: `master` taken in once more, on the app's report of a conflict
+**Timestamp**: 2026-11-18T18:50:42Z
+**User Input**: (none — no input from Joshua in this session since 18:31:57Z)
+**AI Response**: The app, which Joshua set to fix pull request #199 when something needs it, reported at 18:47Z that #199 conflicts with `master`. `master` had moved to 5fc9239: pull requests #198 (merged at 18:35:13Z), #193 (18:39:32Z) and #195, which records a change already released. It was taken in, pinned at that commit. Only the records met: `audit.md` is `master`'s file line for line, with this branch's entries put in by their timestamps, and the state file is `master`'s line for line, with this branch's section after the sections `master` added. The code merged without a conflict; none of the three touches the parser or its tests. On the merged tree the Release build has no error and the same 22 warnings, and 2,297 tests are green (1,377 API, 418 bot, 153 web, 349 for the release-notes tool, with the same 17 skipped). The pull request that Joshua chose to merge before #199 is still open; it is taken in once it is merged. Both review agents read the merge and these records before the push.
+**Context**: Construction — build and test, in the repository's collapsed form: `master` taken in (step 7.2).
+
+---
 ## Date limit — `master` merged in a third time
 **Timestamp**: 2026-11-18T18:50:52Z
 **User Input**: (none — no input from Joshua in this session since 2026-11-17T23:35:33Z; the desktop app's Auto-fix reported that #189 conflicts with `master` again)
@@ -2588,6 +2721,13 @@ Availability for @GM
 **User Input**: "Yes, merge #189"
 **AI Response**: His answer to "Merge #189 once its checks are green?", asked in this session after the push of 18:59:48Z, with yes as the recommendation. Every check on #189 was green at `0addf9e`, the head both agents read, and `master` was still `5fc9239`. Two lines of the pull request's text, which becomes the squash commit's message, were out of date and are brought up to date first: the test count (2,102, on the branch with `5fc9239` merged in) and the sentence on the next release, since a release pull request, for 0.37.2, is open now. Squash-merged through the REST call, at that head, at 19:21:34Z as `3e35071`; its tree is `0addf9e`'s. GitHub deleted the branch and moved #190 to `master`. By his answer of 2026-11-17 ("A, wait") the release waits for #190 as well; the release and the rollout each wait for his go-ahead.
 **Context**: Construction — the date limit: squash merge, on Joshua's go-ahead.
+
+---
+## Construction — date text gaps: the merge of `master` pushed
+**Timestamp**: 2026-11-18T19:20:23Z
+**User Input**: (none — no input from Joshua in this session since 18:31:57Z)
+**AI Response**: Both review agents read the four commits since the push (the records of the push and of Joshua's answer, the merge of `master` at 5fc9239 and its records) and found nothing to change; one ran the whole suite again and the other the build and the API tests, with the same counts. A fetch at 19:17:53Z found `master` at 5fc9239, as taken in, and the branch was pushed by name at 19:18:04Z, at 7960051. #199 then showed no conflict, and its checks ran again. The pull request's text was brought up to date in two places: the tests as run with `master` taken in (2,297 green), and the pull requests merged in since it was opened.
+**Context**: Construction — build and test, in the repository's collapsed form: `master` taken in (step 7.2).
 
 ---
 ## Code of Conduct — go-ahead to push the records branch and open its pull request
@@ -2618,10 +2758,31 @@ Availability for @GM
 **Context**: Construction — delivery posts: `master` merged in after #189's squash merge; pushed, as step 6.2 of the plan has it, once both agents' read is clean.
 
 ---
+## Construction — date text gaps: Joshua's go-ahead for the merge
+**Timestamp**: 2026-11-18T19:25:06Z
+**User Input**: "Go ahead"
+**AI Response**: Read as the go-ahead for #199's squash merge (step 7.2). It came in answer to a message which said that pull request #189, which Joshua chose to merge first, had merged, that it had been taken in locally, and that the merge of #199 would be asked once both review agents had confirmed the taking-in and it was pushed. The merge goes through only after both agents confirm, the branch is pushed, and the checks on the pushed head are green, by the REST call pinned to that head. The release and the prod rollout are still asked on their own.
+**Context**: Construction — build and test: step 7.2.
+
+---
+## Construction — date text gaps: `master` taken in with the limit on how far ahead a date can be set
+**Timestamp**: 2026-11-18T19:27:39Z
+**User Input**: (none beyond Joshua's go-ahead, logged above at 19:25:06Z)
+**AI Response**: Pull request #189 was merged at 19:21:34Z, as Joshua chose at 18:31:57Z, and `master` was taken in at 3e35071. #189 limits how far ahead a date typed in words can be set, to ten years. Four files met. In `NaturalDateTimeParser.cs`, #189 checked each reading's day before the reading was turned into an instant, inside a loop that this change replaced; the check now stands where this change turns its readings into instants, which every reading that can be the answer reaches, so the limit holds for the new ways of writing a day and its time: apart, as a deadline, as the end of the day, or as a part of the day. `docs/release-notes/0.37.2.md`, which both add, has #189's line first, then this change's four lines and its two steps. In the state file both sections are kept, #189's first, and `audit.md` is `master`'s file line for line, with this branch's entries put in by their timestamps. 45 cases are added to #189's tests (`DateAheadLimitTests`): on the last day allowed, on the day after it, and on the calendar's last day in three zones, and a month past the limit. Taking the check out fails 53 of those 70 tests, refusing the last day itself fails 11, and letting the start of a part of the day or the first day of a month pass unchecked fails one each. On the merged tree the Release build has no error and the same 22 warnings, and 2,406 tests are green. The taking-in was prepared while #189 was open, on a local copy of this branch with #189's head merged in, and both review agents read it there; the merge with `master` gives the same parser, tests and release summary as that copy. Both read the merge before the push.
+**Context**: Construction — build and test: `master` taken in (step 7.2).
+
+---
 ## Delivery posts — `master` merged in again (pull request #202)
 **Timestamp**: 2026-11-18T19:30:52Z
 **User Input**: (none — no input from Joshua in this session since 2026-11-18T19:20:21Z)
 **AI Response**: `master` moved to `6b85491` (pull request #202, records only, merged at 19:27:56Z) just before the merge of 19:24:55Z was pushed at 19:28:46Z, so #190 conflicts with `master` again. `6b85491` is merged in on top, in a second merge commit. Only `aidlc-docs/audit.md` conflicted, and it is `master`'s entries with this change's put in by their timestamps; git merged the state file by itself. Nothing outside `aidlc-docs` differs from `0449516`, so its result stands. The plan's step 5.10 and its note, and the state file, have it. Both agents read this merge before it is pushed.
 **Context**: Construction — delivery posts: `master` (`6b85491`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
+
+---
+## Delivery posts — `master` merged in again (pull request #199)
+**Timestamp**: 2026-11-18T19:50:05Z
+**User Input**: (none — no input from Joshua in this session since 2026-11-18T19:20:21Z)
+**AI Response**: #190's checks passed on `5a6fa15` (`build-test`, CodeQL, `pr-title`, `lint-workflows`). `master` then moved to `6cb41c8` (pull request #199, merged at 19:40:26Z), which changes how date text is read and adds its lines to `docs/release-notes/0.37.2.md`, so #190 conflicts with it again. It is merged in, in a merge commit. The records and the release summary conflicted: the audit log is `master`'s entries with this change's put in by their timestamps, the two entries this branch made exact keeping its wording; the state file is `master`'s, with the date limit's build-and-test line as this branch has it and this change's section after #199's; and the release summary keeps `master`'s lines, with this change's two lines after them and its step as step 3 under "How to use it" (1,595 of the 1,800 characters; the repository's check passes it). Git merged the code by itself: #199 changes `NaturalDateTimeParser` and its tests, which this change does not touch. On the merged tree, built from scratch: 0 errors and 22 warnings, 2,510 tests green (1,517 API, 490 bot, 154 web, 349 for the release-notes tool) and 17 of the tool's skipped. The plan's step 5.11 and its note, and the state file, have it. Both agents read this merge before it is pushed.
+**Context**: Construction — delivery posts: `master` (`6cb41c8`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
 
 ---
