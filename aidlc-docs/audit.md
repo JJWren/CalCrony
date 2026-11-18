@@ -3171,3 +3171,10 @@ Availability for @GM
 **Context**: Operations — the records of the follow-up go out on Joshua's go-ahead; their merge is the first under the "Restrict updates" rule.
 
 ---
+## Operations — the first merges under "Restrict updates"; `master` taken in for pull request #205
+**Timestamp**: 2026-11-18T22:49:37Z
+**User Input**: (none — continuation of "Yes, through merge")
+**AI Response**: Pull request #205, `docs: log the code owners follow-up and say that only admins can update master`, was opened at 22:45:32Z from the pushed branch, and every check on its head `b61efef` was green by 22:48:32Z. Just before the merge call, `master` was found at `384ea0d` (#204, merged 22:48:36Z), not `5b30e5b`, so no merge was made: `master` was taken into the branch, the audit log kept in time order, to be pushed again and merged once green. The ruleset's records of the first two merges under the new rule, #203 (`5b30e5b`, 22:40:33Z) and #204 (`384ea0d`), each list `update` as "Cannot update this protected ref." with the merge let through by the admin's bypass: a pull request's merge is held to the rule, and only an admin can make it.
+**Context**: Operations — the rule is seen at work; #205 is to be merged once its checks are green again.
+
+---
