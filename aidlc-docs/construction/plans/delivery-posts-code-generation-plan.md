@@ -59,6 +59,7 @@ one paragraph of the Docs page. No configuration. The web app's pages are not ch
 | The code as it is | The waitlist promotion already names the one member it may notify, because the text around the mention is written by members. |
 | The code as it is | Editing and deleting an event are for its creator or a server manager, in Discord and on the web. The API applies that to web callers and takes the bot's word for callers in Discord. |
 | Standing practice | Two review agents, one on security and one on code quality, read each commit before it is pushed, and the pushed head stays the commit they read. The push, the pull request, the merge, the release and the rollout each wait for Joshua's go-ahead. |
+| Joshua, 2026-11-18, after the push | The desktop app's Auto-fix is on for the two pull requests: what it reports on them (a failed check, a conflict with `master`, a review comment) is answered, and a fix pushed to the branch, without asking him first. The two review agents still read each fix before it is pushed. |
 
 In this plan a Discord server is called a server, as the Docs page does. The code calls it a
 guild, as the rest of the code does.
@@ -314,18 +315,24 @@ apart.
       `0.37.1.md` stays as 0.37.1 shipped it. No code under `src` differs from step 5.5's.
       Result on that tree: 0 errors and 22 warnings; 1,953 tests green — 960 API, 490 bot,
       154 web and 349 for the release-notes tool — and 17 of the tool's skipped.
+- [x] 5.7 The date limit's merge of `master` (`04beae8`, pull request #191, records only) merged in
+      on 2026-11-18, after the push, in a merge commit. Only `aidlc-docs/aidlc-state.md` conflicted:
+      it keeps the date limit's lines as that merge has them, and this change's section after them.
+      Git merged the audit log by itself, with the entries in the order of their timestamps. Nothing
+      outside `aidlc-docs` differs from the tree of step 5.6, so its result stands for this one.
 
 ## 6. Delivery
 
 - [x] 6.1 Both review agents read each commit before any push; what they find is answered in a
       commit they read again.
-- [ ] 6.2 *Go-ahead:* push, together with the date limit. If Joshua keeps two pull requests, the
-      date limit's is opened against `master` and this change's on top of it: while its base is
-      the date limit's branch it shows this change alone. Once the date limit is squash-merged,
-      `master` holds it as a new commit, so this branch is put onto the new `master` (`git rebase
-      --onto origin/master <the date limit's head> fix/delivery-posts`) and its pull request
-      moved to `master`. That gives this change's commit a new hash and the same tree: the
-      agents' read holds for it when `git diff` between the two heads is empty.
+- [x] 6.2 *Go-ahead:* push, together with the date limit. Pushed on 2026-11-18, on Joshua's go-ahead
+      of 2026-11-17 ("A, push both"), at `92fd33b`, and opened as pull request #190 with the date
+      limit's branch (#189) as its base: while that is its base it shows this change alone, and CI
+      and CodeQL, which run on pull requests into `master`, wait until it is moved there. Once the
+      date limit is squash-merged, `master` holds it as a new commit. The branch is on GitHub, so
+      `master` is then merged into it, the date limit's lines being on both sides, rather than the
+      branch being put onto the new `master`; and the pull request is moved to `master`. The agents
+      read that merge before it is pushed.
 - [ ] 6.3 *Go-ahead:* squash merge. The test stack picks up `:main`. One thing is looked at there
       before the release, since no test here can see Discord's side of it: whom a start
       announcement, a reminder and a scheduled ping notify.
@@ -540,7 +547,7 @@ answer of the look for rows that went is kept as a set; and the summary in `Seri
 points at the class. With the reworded line, a failure for which the save has nothing left to
 let go of is handed on at once. Both agents read this commit before any push.
 
-### `master` taken in (2026-11-17)
+### `master` taken in (2026-11-17 and 2026-11-18)
 
 After the completion gate `master` moved from `ab32e96` to `916ecd1`, by pull requests #180, #183,
 #182 and #186. The date limit is taken onto it first (its plan, step 5.6), and this change is
@@ -562,3 +569,8 @@ followed; `master` is taken in at `162fd42`, with the date limit under it. The s
 move to the next version's file: `docs/release-notes/0.37.2.md` holds the date limit's line,
 this change's two lines and, under a heading of its own, its step. No code under `src` differs
 from the take-in before. Step 5.6 has the result.
+
+After the push, on 2026-11-18, `master` moved to `04beae8` by pull request #191 (records), and the
+date limit merges it in (its plan, step 5.9). This branch merges in the date limit's merge, so that
+its pull request still shows this change alone. The audit entries of both sides are in the order of
+their timestamps. Nothing outside `aidlc-docs` differs. Step 5.7 has it.

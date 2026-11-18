@@ -38,6 +38,7 @@ other refusals.
 | Joshua, 2026-11-16, at the completion gate | The branch is pushed together with a second change, which is built first, so that one release and one rollout carry both. |
 | Joshua, 2026-11-16 | Building starts from the proposal; the written plan is shown with the code at the completion gate, before any push. |
 | Standing practice | Two review agents, one on security and one on code quality, read each commit before it is pushed, and the pushed head stays the commit they read. The push, the pull request, the merge, the release and the rollout each wait for Joshua's go-ahead. |
+| Joshua, 2026-11-18, after the push | The desktop app's Auto-fix is on for the two pull requests: what it reports on them (a failed check, a conflict with `master`, a review comment) is answered, and a fix pushed to the branch, without asking him first. The two review agents still read each fix before it is pushed. |
 
 ## 3. Rules
 
@@ -129,7 +130,7 @@ the recognizer and from the class summary, and its parser tests are in a file of
 
 - [x] 0.1 Branch `fix/date-ahead-limit`, on `master` 56b61ab; since step 5.4 on `4af1305`,
       since step 5.5 on `ab32e96`, since step 5.6 on `916ecd1`, since step 5.7 on `723696d`,
-      and since step 5.8 on `162fd42`.
+      and since step 5.8 on `162fd42`, with `04beae8` merged in at step 5.9.
 - [x] 1.1 `DateTextLimits.MaxYearsAhead`, documented in the file's style.
 - [x] 1.2 `TryResolve` (3.1). `DateAheadLimitTests`: a time on the last day allowed is read and the
       same time a day later is refused, with the refusal's exact words; relative text that lands
@@ -212,12 +213,19 @@ the recognizer and from the class summary, and its parser tests are in a file of
       and no test this change adds or changes. Result on that tree: 0 errors and 22
       warnings; 1,849 tests green — 929 API, 418 bot, 153 web and 349 for the release-notes
       tool — and 17 of the tool's skipped.
+- [x] 5.9 `master` merged in at `04beae8` (pull request #191, records only) on 2026-11-18, after the
+      push, when GitHub reported that the pull request conflicts with it. The branch is on GitHub,
+      so `master` is merged in rather than put under the change again. Only `aidlc-docs/audit.md`
+      conflicts: it is `master`'s entries with this change's put in by their timestamps. Nothing
+      outside `aidlc-docs` differs from the tree of step 5.8, so its result stands for this one.
 
 ## 6. Delivery
 
 - [x] 6.1 Both review agents read each commit before any push; what they find is answered in a
       commit they read again.
-- [ ] 6.2 *Go-ahead:* push the branch and open the pull request, at the commit the agents passed.
+- [x] 6.2 *Go-ahead:* push the branch and open the pull request, at the commit the agents passed.
+      Pushed on 2026-11-18, on Joshua's go-ahead of 2026-11-17 ("A, push both"), together with the
+      second change, at `6620517`, and opened as pull request #189 into `master`.
 - [ ] 6.3 *Go-ahead:* squash merge. The test stack picks up `:main`.
 - [ ] 6.4 *Go-ahead:* the release (a patch release, opened by release-please).
 - [ ] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only.
@@ -329,7 +337,7 @@ Both agents read the commit that answered round 1.
   two and a half days, so that no slot falls on the moment the occurrence ends; and smaller
   corrections to this plan.
 
-### `master` taken in (2026-11-16 and 2026-11-17)
+### `master` taken in (2026-11-16 to 2026-11-18)
 
 `master` had moved from 56b61ab to `4af1305` (pull request #179). It is taken in, and the change
 is one commit on top of it. Both sides add to `aidlc-docs/audit.md` and
@@ -392,3 +400,10 @@ Of the two cases the note of 2026-11-16 above names, the first came about: a rel
 in between, so the change's entry moves to the next version's file. It starts
 `docs/release-notes/0.37.2.md`, and `0.37.1.md` stays as 0.37.1 shipped it. No code under
 `src` differs from the take-in before. Step 5.8 has the result.
+
+After the push, on 2026-11-18, `master` moved to `04beae8` by pull request #191 (records), and
+GitHub reported that #189 conflicts with it, in `aidlc-docs/audit.md`. With the branch on GitHub,
+`master` is merged in, in a merge commit, rather than put under the change again; the squash merge
+makes one commit of the pull request either way. The audit entries of both sides are in the order of
+their timestamps, and git merges the state file by itself. Nothing outside `aidlc-docs` differs.
+Step 5.9 has it.
