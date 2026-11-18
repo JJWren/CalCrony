@@ -72,7 +72,8 @@ public static class SettingsEndpoints
 
         if (Mapping.FindZone(settings.TimeZone) is null)
         {
-            return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
+            return Results.BadRequest(new ErrorResponse(
+                $"Unknown time zone \"{Validation.Quotable(settings.TimeZone)}\". Use an IANA id like America/Chicago."));
         }
 
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
@@ -156,13 +157,14 @@ public static class SettingsEndpoints
 
         if (settings.TimeZone is not null && Mapping.FindZone(settings.TimeZone) is null)
         {
-            return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
+            return Results.BadRequest(new ErrorResponse(
+                $"Unknown time zone \"{Validation.Quotable(settings.TimeZone)}\". Use an IANA id like America/Chicago."));
         }
 
         if (settings.Theme is not null && !InterfaceThemes.IsValid(settings.Theme))
         {
             return Results.BadRequest(new ErrorResponse(
-                $"Unknown theme \"{settings.Theme}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
+                $"Unknown theme \"{Validation.Quotable(settings.Theme)}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
         }
 
         // One transaction for the profile write and any queued-DM withdrawal it implies: the
