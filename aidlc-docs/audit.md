@@ -2289,3 +2289,10 @@ Availability for @GM
 **Context**: Construction — build and test: pull request #199 open, its checks running.
 
 ---
+## Construction — date text gaps: the order of the merges, answered
+**Timestamp**: 2026-11-18T18:31:57Z
+**User Input**: "Go ahead"
+**AI Response**: Read as A, the answer recommended: the other pull request is merged first. When the answer came it was not merged yet: a fetch at 18:31Z found `master` at 47209ab, as last taken in. Its merge is not made from this session. Once it is on `master`, #199 takes `master` in, both review agents read that, and it is pushed; #199's own merge is asked on its own. Until then, the taking-in is prepared on a local branch that is never pushed, so that it can be read as soon as it is needed.
+**Context**: Construction — build and test: pull request #199 open, its checks green (step 7.2).
+
+---
