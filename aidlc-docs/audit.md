@@ -3213,3 +3213,42 @@ Availability for @GM
 **Context**: Operations — the code owners unit is complete; its last records go out on Joshua's go-ahead.
 
 ---
+## Server Members intent — request
+**Timestamp**: 2026-11-18T23:02:42Z
+**User Input**: Three inputs. On 2026-11-13, shortly before 22:35Z: "I have an email ([address withheld from this public record]) from Discord stating I need to do some stuff bc the app has hit 10k users (I don't even know where I can see this at). Please review and advise:
+
+Subject line
+Action Required: Privileged Intents Review for CalCrony, id 1527749302443835532"
+On 2026-11-18, his answer to the question "Build a switch so the bot can run without the Server Members intent?": "Yes, build it". Then, after a change of model in the app: "Try again".
+**AI Response**: On 2026-11-13 the notice was read and found genuine: Discord's new rule counts the unique users the app reaches across its servers, the hosted app has passed 10,000, and it must apply to keep the Server Members intent by 2027-02-02 or lose it. The bot asks for the intent at login, so as built a loss would keep the whole bot offline. Advice given: first build a switch so the bot can run without the intent, then apply well before the deadline, which is Joshua's to do in the Developer Portal. On 2026-11-18 "Yes, build it" is read as the go-ahead to start the workflow for that switch, and "Try again" as asking for the same, the first attempt not having run.
+**Context**: Inception — request received. The only change to his words is the e-mail address, withheld because this log is public.
+
+---
+## Server Members intent — workspace detection
+**Timestamp**: 2026-11-18T23:02:51Z
+**User Input**: (none)
+**AI Response**: Brownfield; existing state resumed from `aidlc-state.md`. `master` fetched at `4242144` (#205), whose application code is v0.37.1's with the changes waiting for 0.37.2 (#200). The main checkout holds another session's branch with uncommitted work, so this change has a worktree of its own: branch `feature/run-without-members-intent`, cut from `origin/master`, with no upstream. Reverse engineering is skipped, as on the earlier changes: this file, the ADRs and the Docs page are the architecture record, and the code the intent touches was read for the plan (the bot's start-up, `RoleSnapshotService`, `AvailabilityModule`, the REST fallbacks, the API's snapshot, gate, retention and presence routes). Next: requirements, workflow planning and the code-generation plan in one document.
+**Context**: Inception — workspace detection.
+
+---
+## Server Members intent — plan written
+**Timestamp**: 2026-11-18T23:08:32Z
+**User Input**: (none)
+**AI Response**: `construction/plans/members-intent-switch-code-generation-plan.md`, one document for requirements, workflow planning and code generation, as on the other changes inside existing components. It sets out why (the review, and what a loss does today), what uses the intent (`/availability role`, `/availability slots` with a role, and role snapshots for the website) and what does not; the rules for a setting `Discord:ServerMembersIntent`, a refusal while running, role lists without the intent, and names-only role snapshots; four questions, each with a recommendation; the files, the execution plan and the delivery, with a must-pass live item that a restriction is still enforced in Discord without the intent. No user stories, application design, units, NFR or infrastructure stages.
+**Context**: Inception — requirements, workflow planning and code-generation plan written.
+
+---
+## Server Members intent — plan put to Joshua
+**Timestamp**: 2026-11-18T23:09:22Z
+**User Input**: (none — question put to Joshua)
+**AI Response**: Asked: approve the plan with Q1–Q4 answered as recommended, all A — Q1 A, a setting with `auto`, `on` and `off`, `auto` by default, reading the application's flags at start; Q2 A, in `auto` a refusal while running ends in a restart that decides again, in `on` a log line only; Q3 A, without the intent role snapshots keep names and no member rows, and the website asks members to make a restricted choice from Discord; Q4 A, `feat:` as 0.38.0, merged after 0.37.2 has been released and rolled out, with one summary line for self-hosters. Nothing is built before his answer.
+**Context**: Inception — approval of the plan asked; waiting for Joshua.
+
+---
+## Server Members intent — plan approved
+**Timestamp**: 2026-11-18T23:11:26Z
+**User Input**: "Approve, all A"
+**AI Response**: Read as approval of the plan as written, with Q1–Q4 each answered A: a setting with `auto`, `on` and `off`, `auto` by default; in `auto` a refusal of the intent while running ends in a restart that decides again; without the intent, role snapshots keep names and no member rows, and the website asks members to make a restricted choice from Discord; `feat:`, so 0.38.0, merged once 0.37.2 has been released and rolled out, with one summary line for self-hosters. `master` had moved to `6e0d8b2` (release 0.37.2, #200, after #206), so the branch was moved onto it before any code, the audit log kept in time order. Next: code generation, tests first, then both review agents' read of the local commits.
+**Context**: Inception complete; Construction — code generation starts.
+
+---
