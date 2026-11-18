@@ -2359,3 +2359,10 @@ Availability for @GM
 **Context**: Build and test — complete; the records branch waits for Joshua's go-ahead.
 
 ---
+## Code of Conduct — go-ahead to push the records branch and open its pull request
+**Timestamp**: 2026-11-18T19:21:34Z
+**User Input**: "Push and open"
+**AI Response**: Joshua's answer to "Should I push docs/log-code-of-conduct-merge and open its pull request?"; the other answer was "Not yet". `master` had moved to `5fc9239` (#195) and was merged into the branch without a conflict. The branch is pushed with the keyring login and the pull request `docs: log the code of conduct through its merge` is opened against `master`. Records only; it cuts no release. Its merge is asked separately.
+**Context**: Build and test — the records pull request, on Joshua's go-ahead.
+
+---
