@@ -885,9 +885,10 @@ released and rolled out.
 
 `master` then moved to `c97c15e` (#201, records only) and is merged in as `e0b2337`: only the
 audit trail conflicted, merged by its stamps as before. Outside `aidlc-docs` the branch differs
-from `96db72a` only by the one comment, so the results of `05476a2` stand. Both agents read the
-four commits after `96db72a` and confirmed them, with wording left for this paragraph and the
-state line, and the branch was pushed by its name at 20:56:14Z (`96db72a..ebaa7c6`).
+from `96db72a` only by the one comment, so the results of `05476a2` stand. Both agents read
+`8a7cabc`, `5d453e6`, `e0b2337` and `ebaa7c6` and confirmed them, with wording left for the
+round-9 paragraph, this one and the state line, and the branch was pushed by its name at 20:56:14Z
+(`96db72a..ebaa7c6`).
 
 `master` then moved to `aeff22d` (#190) and is merged in as `8124d98`. The audit trail and the
 state file conflicted: the audit trail is merged by its stamps as before, keeping `master`'s
@@ -898,6 +899,27 @@ lines are the same against `aeff22d` as against `c97c15e`. On the merged tree th
 has no error and 22 warnings, 2,599 tests pass with none failing (1,596 API, 499 bot, 154 web,
 350 for the release-summary tool; 17 of the tool's tests skipped on Windows), and the
 release-summary tool's check finds no problem.
+
+While `aeff22d` was being taken in, `master` moved to `5b30e5b` (#203, records only), and so that
+the branch goes out once it was merged in as `7ccc5c9`, without a conflict: everything merged by
+itself, and nothing outside `aidlc-docs` differs from `8124d98`. Round 10, two new agents on
+`f879fcf`, `8124d98`, `3078abe`, `7ccc5c9` and `17c9f91`: security and privacy found nothing; code
+quality found both merges exact, with two minor findings and a few nits, all on records. The
+plan and the state line did not name `7ccc5c9`; the audit entry of 22:46:58Z speaks of a conflict
+that #203 did not bring; the paragraph above did not name the commits the agents read; and
+"with its two rewordings put back" in the entry of 22:46:04Z means the two entries' earlier
+wording put back. These paragraphs and the state line answer them, and the audit trail corrects
+the two entries. While the agents read, `master` moved again, to `4242144` (#204 and #205), the
+next take-in below.
+
+`master` at `4242144` is merged in as `ceaa324`. The audit trail and the state file conflicted:
+the audit trail is merged by its stamps as before, and two of `master`'s entries that share a
+stamp stay in `master`'s order; the state file keeps both sections, `master`'s first.
+`Program.cs` merged by itself, and this change's added and removed lines are the same against
+`4242144` as against `5b30e5b`. On the merged tree the Release build has no error and 22
+warnings, 2,657 tests pass with none failing (1,654 API, 499 bot, 154 web, 350 for the
+release-summary tool; 17 of the tool's tests skipped on Windows), and the release-summary tool's
+check finds no problem.
 
 ## 10. Plan checklist
 
