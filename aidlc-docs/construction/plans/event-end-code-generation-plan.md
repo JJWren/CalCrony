@@ -9,9 +9,10 @@ session of pull request #196, once that pull request had merged.
 **Branch**: `refactor/event-end-one-place` → a pull request titled
 `refactor: work out an event's end in one place`.
 **Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
-A ("Approve, Q1 A"); code generated and checked the same day, and read by two review agents, who
-found no fault in the change; `master` taken in at `f05e1d0` before the push (section 7). Next:
-the agents' read of that merge, then the completion gate.
+A ("Approve, Q1 A"); code generated and checked the same day, and read three times by two review
+agents, who found no fault in the change; `master` taken in at `f05e1d0` before the push
+(section 7). At the completion gate; the push and the pull request then each wait for Joshua's
+go-ahead.
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -150,30 +151,62 @@ Generated on 2026-11-18, after the approval.
 
 **`master` taken in.** Before the review, `master` had moved from `aeff22d` to `ee844fb` (pull
 request #204, which changes code and tests outside this change's files, and pull requests #203,
-#205 and #206, records and documentation), and the review read the branch with that merged in.
-While it read, `master` moved on to `f05e1d0`: pull request #200, the release of 0.37.2, and pull
-request #197, which rewrites `SeriesProjection.cs` and `SeriesProjectionTests.cs` for the
-free-slots lookup. Nothing had been pushed, so the branch is made again on `aeff22d` with one
-merge of `master`, at `f05e1d0`, as `73fc5bf`, in place of the merge of `ee844fb`. The records
-keep master's text as it is, with this branch's audit entries each placed among master's by its
-timestamp and this state section after master's. The two files are #197's, with this change
-made to them: the constant removed, `EndOf` returning `EventTimes.End`, and the summaries that
-spoke of the default length naming `EventTimes.DefaultLengthMinutes`, three of them now with
-#197's `SeriesSchedule`; the test class's summary, #197's, names `EndOf` as well, and the new
-test sits before `Upcoming`'s. #197's own new code already takes an occurrence's end from
-`EventTimes.End`. `PublicCalendarBuilder.cs` and `EventTimes.cs` are as on `master`. On the
-merged tree the Release build has no error and the same 22 warnings, and 2,661 tests pass and
-none fails (1,658 API, 499 bot, 154 web and 350 for the release-notes tool, with the same
-seventeen skipped); with the documentation file turned on, every reference in the API resolves
-and no warning names `SeriesProjection.cs`.
+#205 and #206, records and documentation). The review read the branch with that merged in:
+`98b4d81` and `f71d3ad`, the merge `055a7c5` and its record `f33a05c`, none of which was pushed.
+Pull request #200, the release of 0.37.2, had merged seconds after that merge, and while the
+review read, pull request #197 merged, which rewrites `SeriesProjection.cs` and
+`SeriesProjectionTests.cs` for the free-slots lookup; `master` was then at `f05e1d0`. So the
+branch is made again on `aeff22d`, as `8c93b63` and `844f8ff`, with one merge of `master`, at
+`f05e1d0`, as `73fc5bf`, in place of the merge of `ee844fb`; the audit entry of 23:12:47Z, which
+recorded that merge, goes with it. The records keep master's text as it is, with this branch's
+audit entries each placed among master's by its timestamp and this state section after
+master's. The two files are #197's, with this change made to them: the constant removed, `EndOf`
+returning `EventTimes.End`, and the summaries that spoke of the default length naming
+`EventTimes.DefaultLengthMinutes`, three of them now with #197's `SeriesSchedule`; the test
+class's summary, #197's, names `EndOf` as well, and the new test sits before `Upcoming`'s.
+#197's own new code already takes an occurrence's end from `EventTimes.End`.
+`PublicCalendarBuilder.cs` and `EventTimes.cs` are as on `master`. On the merged tree the Release
+build has no error and the same 22 warnings, and 2,661 tests pass and none fails (1,658 API, 499
+bot, 154 web and 350 for the release-notes tool, with the same seventeen skipped); with the
+documentation file turned on, the references this change adds resolve and no warning names
+`SeriesProjection.cs`.
 
-**Review.** Two review agents read the branch before any push, with `ee844fb` merged in, and the
-draft text of the pull request: one for security and privacy, one for quality and accuracy.
-Neither found a fault in the change. Between them, by reading and by runs of their own: `EndOf`
-gives the end `EventTimes.End` gives; the builder, `EventTimes` and the calendar's route are as
-on `master`; no route's answer changes; the references resolve; and the merge kept master's
-records as they are, with this branch's entries by their timestamps. Both found that `master` had
-moved on, answered above. The quality agent also found that the status did not say that
-`master` had been taken in, answered there, and that the audit entry of 22:47:36Z gives `master`
-on GitHub as `aeff22d` when pull request #203 had merged at 22:40:32Z, answered in the entry that
-records this merge. Both read the new merge and its records next.
+**Review.** Two review agents read the branch before any push, together with the draft text of
+the pull request: one for security and privacy, one for quality and accuracy.
+
+*First read*, of `98b4d81`, `f71d3ad`, `055a7c5` and `f33a05c`: neither found a fault in the
+change. Between them, by reading and by runs of their own: `EndOf` gives the end `EventTimes.End`
+gives; the builder, `EventTimes` and the calendar's route are as on `master`; no route's answer
+changes; the references this change adds resolve; and the merge kept master's records as they
+are, with this branch's entries by their timestamps. Their findings, with the answers:
+
+- Both (quality: high; security: medium): `master` had moved on to `f05e1d0`, and #197 changes
+  the two files this change touches. *Answered*: `master` taken in, as above.
+- Quality (low): the status did not say that `master` had been taken in. *Answered* in the
+  status.
+- Quality (nit): the audit entry of 22:47:36Z gives `master` on GitHub as `aeff22d`; pull request
+  #203 had merged at 22:40:33Z, so it was `5b30e5b` by then. The branch was cut from `aeff22d`,
+  where the baseline ran. *Answered* in the entry of 23:29:42Z.
+- Quality (nit): step 0.1 was ticked in the change's commit, not in the plan's. No change.
+
+*Second read*, of `8c93b63`, `844f8ff`, `73fc5bf` and `e775448`: neither found a fault in the
+change or in the merge. The quality agent's own run of the whole suite on `73fc5bf` gave the
+counts above, and the security agent's runs of 165 tests on that code, the public calendar's and
+the free-slots lookup's route tests among them, passed. Their findings, with the answers:
+
+- Quality (low): the records did not name the commits the first read covered, nor say what
+  became of the audit entry of 23:12:47Z. *Answered* above.
+- Both (nit): the entry of 23:29:42Z gives #203's merge as 22:40:32Z, the time of its commit;
+  GitHub gives 22:40:33Z. Quality (nit): that entry also says that `master` moved to `f05e1d0`
+  while the review read, when #200 had merged before it began, and that every reference in the
+  API resolves, when the build reports three ambiguous references in `AttendeeRoleSync.cs`, which
+  this change does not touch. *Answered* in this section and in the next audit entry.
+- Quality (nit): the step-0.1 nit was missing from this section. *Answered* above.
+- Both (nit): a line of the pull request's draft text was longer than the rest. *Answered*: the
+  summary's long line and three checklist items rewrapped.
+
+*Third read*, of the record of the second read and the draft text: neither found a fault. Their
+nits are answered here and in that record before anything is pushed: a paragraph of this section
+rewrapped, the first read's first item given its severity, the item above made exact about what
+was rewrapped, and the second read's paragraph and its audit entry made exact about who ran
+which tests.

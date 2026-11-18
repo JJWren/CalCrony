@@ -3563,3 +3563,17 @@ Availability for @GM
 **Context**: Code generation (part 2) — the review, and `master` taken in before the push.
 
 ---
+## Code generation — one place for an event's end: the second read, and corrections to the entry of 23:29:42Z
+**Timestamp**: 2026-11-18T23:37:17Z
+**User Input**: (none — no input from Joshua since "Approve, Q1 A")
+**AI Response**: Both review agents read `8c93b63`, `844f8ff`, `73fc5bf` and `e775448`, and the pull request's draft text. Neither found a fault in the change or in the merge: by reading and by runs of their own, `73fc5bf` differs from `f05e1d0` outside the records only in `SeriesProjection.cs` and `SeriesProjectionTests.cs`, as the plan says; `PublicCalendarBuilder.cs` and `EventTimes.cs` are as on `master`; master's records are kept as they are, with this branch's entries by their timestamps; the quality agent's own run of the whole suite on `73fc5bf` gives the counts recorded; and the security agent's runs of 165 tests on that code pass. Corrections to the entry of 23:29:42Z: pull request #203 merged at 22:40:33Z, GitHub's time, not 22:40:32Z, the time of its commit; pull request #200 merged at 23:08:45Z, before the review began, so only #197 merged while the agents read; and with the documentation file turned on, the references this change adds resolve and no warning names `SeriesProjection.cs`, while the build reports three ambiguous references in `AttendeeRoleSync.cs`, which this change does not touch. The first read covered `98b4d81`, `f71d3ad`, `055a7c5` (the merge of `ee844fb`) and `f33a05c`, none of which was pushed; when the branch was made again, the entry of 23:12:47Z, which recorded the merge of `ee844fb`, went with that merge. Section 7 of the plan now lists the reads' findings with their answers, and one long line of the pull request's draft text is rewrapped. Committed locally; nothing is pushed. Next: both agents read this record, then the completion gate.
+**Context**: Code generation (part 2) — the review's second read.
+
+---
+## Code generation — one place for an event's end: the third read, and the completion gate asked
+**Timestamp**: 2026-11-18T23:42:23Z
+**User Input**: (none — this entry records the question put to Joshua)
+**AI Response**: Both review agents read the record of their second read and the pull request's draft text, and neither found a fault; their nits, on wording, line length and who ran which tests, are answered in section 7 of the plan and in that record, before anything is pushed. The change has been read three times without a fault: `SeriesProjection.EndOf` returns `EventTimes.End`, `SeriesProjection.DefaultLengthMinutes` is gone, the summaries name `EventTimes.DefaultLengthMinutes`, and the new test has its four cases; `master` is taken in at `f05e1d0`, and on that tree the Release build has no error and the same 22 warnings and 2,661 tests pass. Both agents read this commit before the push. Asked: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage" (recommended: B). On B, the push of `refactor/event-end-one-place` and its pull request, `refactor: work out an event's end in one place`, are asked next, each on Joshua's go-ahead.
+**Context**: Code generation (part 2) — the completion gate; waiting for Joshua's answer.
+
+---
