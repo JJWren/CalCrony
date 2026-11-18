@@ -120,6 +120,11 @@ public static class TemplateEndpoints
                 return Results.BadRequest(new ErrorResponse($"A template can carry at most {MaxNotifications} notifications."));
             }
 
+            if (specs.Any(spec => spec is null))
+            {
+                return Results.BadRequest(new ErrorResponse("Every notification needs minutesBefore."));
+            }
+
             foreach (var spec in specs)
             {
                 if (spec.MinutesBefore is < 0 or > FieldLimits.MaxMinutes)

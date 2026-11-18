@@ -15,6 +15,10 @@ namespace CalCrony.Api.Endpoints;
 public static class AuthEndpoints
 {
     private const int LoginStateExpiryMinutes = 10;
+
+    /// <summary>The longest return address a sign-in can carry: the length of its column.</summary>
+    private const int MaxReturnUrlLength = 256;
+
     public const string RefreshCookieName = "calcrony_refresh";
 
     /// <summary>Discord OAuth web login: start/callback plus refresh-cookie rotation and logout.</summary>
@@ -53,8 +57,11 @@ public static class AuthEndpoints
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
-        // Relative-only: "/app", never "https://evil" or "//evil".
-        if (returnUrl is not null && (!returnUrl.StartsWith('/') || returnUrl.StartsWith("//")))
+        // Relative-only: "/app", never "https://evil" or "//evil"; no longer than can be stored; and
+        // no space or character outside printable ASCII.
+        if (returnUrl is not null
+            && (!returnUrl.StartsWith('/') || returnUrl.StartsWith("//") || returnUrl.Length > MaxReturnUrlLength
+                || returnUrl.Any(c => c is < '!' or > '~')))
         {
             returnUrl = null;
         }
