@@ -2163,3 +2163,10 @@ Availability for @GM
 **Context**: Construction — code generation approved at the completion gate; the push and the pull request wait for their own go-ahead.
 
 ---
+## Build and test — the moved occurrence: go-ahead for the push and the pull request; `master` taken in
+**Timestamp**: 2026-11-18T03:53:44Z
+**User Input**: "Push and open"
+**AI Response**: His answer to "Push the branch and open the pull request?", where the recommendation was yes ("Push and open"). Checked first (03:51Z): `master` on GitHub had moved from `162fd42` to `04beae8` (pull request #191: the audit log, the state file and two plans), and pull requests #189 and #190 are still open. So `master` is merged in: the audit log keeps master's text as it is, with each of this branch's entries placed among master's in the order of their timestamps, and the state file keeps master's sections, with this one after them. Nothing under `src`, `tests`, `docs` or `tools` changes, so the code and the tests are the ones the review agents read and the 1,808 tests passed on. Next: both review agents read the records written since their last read and the pull request's text; then `fix/public-calendar-moved-occurrence` is pushed by its name and the pull request `fix: drop the dates a moved or long occurrence passes from the public calendar` is opened against `master`, with its number recorded in the entry after this one. Build and test, in the repository's collapsed form, is the pull request's checks. The merge, the release and the rollout are each asked separately.
+**Context**: Build and test, in the repository's collapsed form — the push and the pull request.
+
+---
