@@ -2597,3 +2597,10 @@ Availability for @GM
 **Context**: Delivery — records pull request #201, merge go-ahead given. Next: the merge.
 
 ---
+## Delivery — short weekend days: the merge refused for a conflict; `master` taken in again for pull request #201
+**Timestamp**: 2026-11-18T19:23:26Z
+**User Input**: (none — GitHub refused the merge call)
+**AI Response**: The merge call for #201, pinned to `d9e776c`, was refused at 19:22:17Z with "Pull Request has merge conflicts". #189 had merged into `master` at 19:21:33Z as `3e35071`, after this head's checks had passed. Nothing was merged. The go-ahead entry above was moved into this pull request, and `3e35071` was taken in as `b1aeba8`. Only the audit log conflicted, and both sides' entries are kept in the order of their stamps. The merge waits for the checks on the new head, as the go-ahead says, and is then made through the REST call, pinned to it.
+**Context**: Delivery — records pull request kept up to date with `master`. Next: the merge, once the new head's checks pass.
+
+---
