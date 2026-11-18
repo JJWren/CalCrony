@@ -333,6 +333,13 @@ apart.
       any line of this change that reads the entries. Result on the merged tree, built from scratch:
       0 errors and 22 warnings; 2,206 tests green — 1,213 API, 490 bot, 154 web and 349 for the
       release-notes tool — and 17 of the tool's skipped.
+- [x] 5.9 `master` merged in at `3e35071`, the date limit's squash merge (pull request #189,
+      2026-11-18T19:21:34Z), once GitHub had moved this pull request to `master` (step 6.2). Its
+      tree is the date limit's `0addf9e`, which this branch holds since step 5.8, so the merge's
+      result is this branch's own tree: where git found conflicts, in the records, in
+      `docs/release-notes/0.37.2.md` and in `SchedulingTests.cs`, this branch's side is kept, which
+      has the date limit's lines already. Nothing outside `aidlc-docs` differs from the tree of step
+      5.8, so its result stands for this one. From here the pull request shows this change alone.
 
 ## 6. Delivery
 
@@ -594,3 +601,7 @@ Later that day `master` moved to `5fc9239` by pull requests #198, which changes 
 records, #193, which adds a code of conduct and records, and #195, records only, and the date limit
 merges it in (its plan, step 5.10); this branch merges in that merge in the same way. The code
 merges without a conflict, and the whole suite is run on the merged tree. Step 5.8 has the result.
+
+On 2026-11-18 at 19:21:34Z the date limit was squash-merged (#189, `3e35071`), and GitHub moved this
+pull request to `master`. `master` is merged in as step 6.2 says; since its tree is the date limit's
+last commit, which this branch holds, nothing outside the records changes. Step 5.9 has it.
