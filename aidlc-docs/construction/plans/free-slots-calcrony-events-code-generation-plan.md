@@ -877,6 +877,11 @@ Both agents confirmed `5e5af40` and `96db72a`, with a few words left: the commen
 values now says "a default one", and this paragraph names every nit and the source of each
 point. The branch was pushed by its name at 20:36:53Z (`a3b30a5..96db72a`).
 
+Asked which goes first, the release of 0.37.2 or this change's merge, Joshua answered "A" the same
+day: 0.37.2 first. So `0.37.2.md` stays where it is and step 5.4's fold does not apply; this
+change goes out as 0.38.0 with `0.38.0.md` as it stands, and its merge is asked once 0.37.2 is
+released and rolled out.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan, design document and the two earlier plans loaded

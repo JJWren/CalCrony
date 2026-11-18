@@ -3052,3 +3052,10 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): the order of the release and the merge put to Joshua.
 
 ---
+## Code Generation — the release order answered: 0.37.2 first
+**Timestamp**: 2026-11-18T20:48:02Z
+**User Input**: "A"
+**AI Response**: Read as answer A to the question of 20:38:09Z: the release of 0.37.2 goes first, and this pull request's merge waits until 0.37.2 is released and rolled out. `0.37.2.md` stays where it is, step 5.4's fold does not apply, and this change goes out as 0.38.0 with `0.38.0.md` as it stands. Not a go-ahead for the release, the rollout or this pull request's merge: each is asked on its own. Nothing is merged.
+**Context**: Construction — delivery (plan section 8): the order settled; this pull request's merge waits for the 0.37.2 release and rollout, then for Joshua's go-ahead.
+
+---
