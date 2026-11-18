@@ -14,8 +14,8 @@ last at 162fd42.
 **Status**: written 2026-11-16 and approved by Joshua the same day, as written, with Q1–Q5 each
 answered A (section 4). Q6, which preparing the change turned up, was asked on 2026-11-17 and
 answered A the same day. Generated on 2026-11-17, once pull request #180 was on `master` (Q5), and
-reviewed before any push; section 8 has the notes. Nothing is pushed until Joshua says so
-(section 7).
+reviewed before any push; section 8 has the notes. At the gate on 2026-11-18 Joshua answered B:
+push the branch and open the pull request (section 7).
 
 A change inside one class, so the workflow runs at minimal depth, as on the fix for `sat` and
 `sun`: the task is the requirement; no user stories, application design, units, NFR or
