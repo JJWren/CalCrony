@@ -476,6 +476,12 @@ public static class EventEndpoints
         var wantsThread = request.WantsThread;
         var allowMultiple = request.AllowMultipleRsvps;
 
+        // The first check of the options: a list with an entry missing altogether gets their own sentence.
+        if (RsvpPolicy.HasMissingEntry(request.RsvpOptions))
+        {
+            return Results.BadRequest(new ErrorResponse(RsvpPolicy.IncompleteOptionError));
+        }
+
         // Custom RSVP options + the attending-option limit/role shorthands (defaults apply when
         // unspecified) and the optional RSVP cutoff — relative text becomes minutes-before (tracks
         // time edits), absolute text parses in the same zone as the start time.
@@ -986,6 +992,12 @@ public static class EventEndpoints
         var roleShorthand = request.ClearAttendeeRole ? null : request.AttendeeRoleId;
         if (request.RsvpOptions is not null)
         {
+            // The first check of the options: a list with an entry missing altogether gets their own sentence.
+            if (RsvpPolicy.HasMissingEntry(request.RsvpOptions))
+            {
+                return Results.BadRequest(new ErrorResponse(RsvpPolicy.IncompleteOptionError));
+            }
+
             // A full replacement defines every option's role; AttendeeRoleId is just the shorthand
             // for the attending one. ClearAttendeeRole names the role the caller was LOOKING at —
             // the option attending BEFORE this edit — so it is matched by that option's label, not
