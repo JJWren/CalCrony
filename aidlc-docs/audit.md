@@ -2275,3 +2275,17 @@ Availability for @GM
 **Context**: Construction — build and test, in the repository's collapsed form: `master` taken in before the push (step 7.1).
 
 ---
+## Construction — date text gaps: pushed, and pull request #199 opened
+**Timestamp**: 2026-11-18T04:18:22Z
+**User Input**: (none — no input from Joshua in this session since 03:43:51Z)
+**AI Response**: Both review agents read the merge of `master`, its record and the pull request's text. They found the merge right and had points on the wording only. The record's User Input now says "in this session", since the entries of #191 and #194 above it quote Joshua's answers in other sessions; that commit was amended before any push (a0739a0). The pull request's text was worded more narrowly in four places: its summary, what it says reads worse, the numbers for repeats set against `master`'s, and where the reviews' notes are. Both confirmed the amended commit and the text. A fetch at 04:16:54Z found `master` at 47209ab, as taken in, and the branch was pushed by name at a0739a0. Pull request #199 was opened at 04:17Z, titled "fix: read deadlines, a time apart from its day and a weekday on its own day in date text". Its first checks passed (pr-title, lint-workflows, GitGuardian), and build-test and CodeQL were running. The app reports Auto-fix on for it. No auto-merge; the merge, the release and the prod rollout are each asked on their own.
+**Context**: Construction — build and test, in the repository's collapsed form: the pull request and its checks (step 7.1 done; 7.2 next).
+
+---
+## Construction — date text gaps: the order of the merges, put to Joshua
+**Timestamp**: 2026-11-18T04:20:35Z
+**User Input**: (none — a question put to Joshua)
+**AI Response**: Asked, with A recommended, the order in which pull request #199 and another open pull request are merged: A) the other first, after which #199 takes `master` in and both review agents read that before it is pushed; B) #199 first, once its checks are green. Either way, #199's own merge is asked on its own. Joshua is also told two corrections to what the gate said: the comparison's result holds for texts that are not a repeat, and the list at the end of section 8 holds some readings this change moves.
+**Context**: Construction — build and test: pull request #199 open, its checks running.
+
+---

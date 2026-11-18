@@ -501,8 +501,8 @@ row says otherwise
 Approving this plan covers the changes above and committing them locally. Everything that leaves
 this machine waits for its own go-ahead.
 
-- [ ] 7.1 *Go-ahead:* push the branch and open the pull request, after taking `master` in if it
-      has moved (the audit entries then go in by timestamp).
+- [x] 7.1 *Go-ahead:* push the branch and open the pull request, after taking `master` in if it
+      has moved (the audit entries then go in by timestamp). Pull request #199, 2026-11-18.
 - [ ] 7.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
       `:main`.
 - [ ] 7.3 *Go-ahead:* the release that carries it — the release PR that release-please opens or
