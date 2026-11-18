@@ -371,6 +371,11 @@ apart.
       `SeriesProjection`, with their tests, none of which this change touches. Result on the merged
       tree, built from scratch: 0 errors and 22 warnings; 2,533 tests green — 1,540 API, 490 bot,
       154 web and 349 for the release-notes tool — and 17 of the tool's skipped.
+- [x] 5.13 `master` merged in again at `c97c15e` (pull request #201, records only,
+      2026-11-18T20:50:59Z). Only `aidlc-docs/audit.md` conflicts: it is `master`'s entries with
+      this change's put in by their timestamps, the two entries this branch made exact keeping its
+      wording; git merges the state file by itself. Nothing outside `aidlc-docs` differs from the
+      tree of step 5.12, so its result stands for this one.
 
 ## 6. Delivery
 
@@ -650,3 +655,5 @@ line to `docs/release-notes/0.37.2.md`. It is merged in the same way. With every
 summary ran over its 1,800 characters, so this change's two lines are made one and its step is left
 out; the other changes' lines are as they wrote them. The code merges without a conflict, and the
 whole suite is run on the merged tree. Step 5.12 has the result.
+
+#201 (records) then reached `master`, and is merged in the same way. Step 5.13 has it.
