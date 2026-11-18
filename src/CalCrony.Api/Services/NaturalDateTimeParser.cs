@@ -71,6 +71,34 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     private static readonly string TooLongError =
         $"The date/time text must be at most {DateTextLimits.MaxLength} characters.";
 
+    /// <summary>The refusal for a time more than <see cref="DateTextLimits.MaxYearsAhead"/> years
+    /// ahead, whatever names it: text as it was read, in quotes, or a time that was stored.</summary>
+    /// <param name="what">What lies too far ahead, as the subject of the sentence.</param>
+    /// <returns>The user-facing error text.</returns>
+    public static string TooFarAheadError(string what) =>
+        $"{what} is more than {DateTextLimits.MaxYearsAhead} years away; dates can be set up to {DateTextLimits.MaxYearsAhead} years ahead.";
+
+    /// <summary>The last day a date may name: <see cref="DateTextLimits.MaxYearsAhead"/> years
+    /// from today.</summary>
+    /// <param name="today">Today's date in the zone the date is judged in.</param>
+    /// <returns>The last day allowed.</returns>
+    private static LocalDate LastDayAllowed(LocalDate today) => today.PlusYears(DateTextLimits.MaxYearsAhead);
+
+    /// <summary>Whether an instant lies inside the limit that a date typed in words has: on or
+    /// before the last day allowed, in the given zone. For a time that was stored earlier and is
+    /// used again without being read from text, so that the same limit holds for it.</summary>
+    /// <param name="instant">The instant to judge.</param>
+    /// <param name="zone">The zone whose days are meant.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>True when the instant is on or before the last day allowed.</returns>
+    public static bool IsWithinAheadLimit(Instant instant, DateTimeZone zone, Instant now)
+    {
+        // The last day allowed ends where the next day begins. Read leniently, like every other
+        // local time here: a zone can skip a whole day, and that day then begins where it ends.
+        var nextDay = LastDayAllowed(now.InZone(zone).Date).PlusDays(1).AtMidnight().InZoneLeniently(zone).ToInstant();
+        return instant < nextDay;
+    }
+
     private readonly DateTimeModel model =
         new DateTimeRecognizer(Culture.English).GetDateTimeModel();
 
@@ -98,7 +126,8 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     // with a TryParse method as a bindable route/query primitive, which breaks DI injection.
     /// <summary>Resolves text to the nearest future instant in the given zone (or the zone a
     /// contained abbreviation selects). False with a user-facing error on over-long, unparseable
-    /// or past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse types
+    /// or past-only input, and on a date more than <see cref="DateTextLimits.MaxYearsAhead"/>
+    /// years ahead. Named TryResolve, not TryParse — minimal APIs treat TryParse types
     /// as bindable primitives, which breaks DI injection.</summary>
     /// <param name="text">The text to parse. Text that is missing (null) is refused.</param>
     /// <param name="zone">The IANA zone to resolve in.</param>
@@ -154,6 +183,10 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
 
         var now = referenceInstant ?? clock.GetCurrentInstant();
         var localNow = now.InZone(zone).LocalDateTime;
+        // The last day a date may name, counted from today in the zone the text is read in, and
+        // whether the text named a day after it.
+        var lastDay = LastDayAllowed(localNow.Date);
+        var namedDayAfterLast = false;
         var reference = localNow.ToDateTimeUnspecified();
 
         var candidates = new List<Instant>();
@@ -168,13 +201,25 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
 
             foreach (var value in values)
             {
-                candidates.AddRange(ResolveValue(value, zone, localNow.Date));
+                foreach (var local in ResolveValue(value, localNow.Date))
+                {
+                    // Judged by its local date, before it is turned into an instant.
+                    if (local.Date > lastDay)
+                    {
+                        namedDayAfterLast = true;
+                        continue;
+                    }
+
+                    candidates.Add(local.InZoneLeniently(zone).ToInstant());
+                }
             }
         }
 
         if (candidates.Count == 0)
         {
-            error = $"Could not understand \"{text}\" as a date/time.";
+            error = namedDayAfterLast
+                ? TooFarAheadError($"\"{text}\"")
+                : $"Could not understand \"{text}\" as a date/time.";
             return false;
         }
 
@@ -184,7 +229,11 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         var future = candidates.Where(c => c > graceFloor).OrderBy(c => c).ToList();
         if (future.Count == 0)
         {
-            error = $"\"{text}\" resolves to a time in the past.";
+            // Nothing left that is still ahead: a day after the last one is why, where one was
+            // named, rather than whatever else in the text has passed.
+            error = namedDayAfterLast
+                ? TooFarAheadError($"\"{text}\"")
+                : $"\"{text}\" resolves to a time in the past.";
             return false;
         }
 
@@ -192,13 +241,13 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         return true;
     }
 
-    /// <summary>Turns one recognizer resolution into candidate instants (range starts, 9:00 for bare dates, today+tomorrow for bare times).</summary>
+    /// <summary>Turns one recognizer resolution into candidate local date-times (range starts, 9:00
+    /// for bare dates, today+tomorrow for bare times). They stay local so the caller can judge
+    /// each by its date before turning it into an instant.</summary>
     /// <param name="value">One recognizer resolution value.</param>
-    /// <param name="zone">The IANA zone to resolve in.</param>
     /// <param name="today">Today's local date in the target zone.</param>
-    /// <returns>Candidate instants for the resolution.</returns>
-    private static IEnumerable<Instant> ResolveValue(
-        Dictionary<string, string> value, DateTimeZone zone, LocalDate today)
+    /// <returns>Candidate local date-times for the resolution.</returns>
+    private static IEnumerable<LocalDateTime> ResolveValue(Dictionary<string, string> value, LocalDate today)
     {
         if (!value.TryGetValue("type", out var type))
         {
@@ -215,14 +264,14 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         var full = LocalPattern.Parse(raw);
         if (full.Success)
         {
-            yield return full.Value.InZoneLeniently(zone).ToInstant();
+            yield return full.Value;
             yield break;
         }
 
         if (DateTime.TryParseExact(raw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateOnly))
         {
             // Bare dates ("next friday") default to 9:00 local rather than midnight.
-            yield return LocalDateTime.FromDateTime(dateOnly).PlusHours(9).InZoneLeniently(zone).ToInstant();
+            yield return LocalDateTime.FromDateTime(dateOnly).PlusHours(9);
             yield break;
         }
 
@@ -231,8 +280,8 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
             // Bare times ("6pm") anchor to today; also offer tomorrow so the
             // future-preference filter picks the next occurrence when today's has passed.
             var time = LocalTime.FromTicksSinceMidnight(timeOnly.TimeOfDay.Ticks);
-            yield return (today + time).InZoneLeniently(zone).ToInstant();
-            yield return (today.PlusDays(1) + time).InZoneLeniently(zone).ToInstant();
+            yield return today + time;
+            yield return today.PlusDays(1) + time;
         }
     }
 

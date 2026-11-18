@@ -157,6 +157,84 @@ public class RecurrenceCalculatorTests
         Assert.Null(next); // next slot (Jul 8) is past the inclusive until date
     }
 
+    // The calendar ends with the year 9999. A schedule whose next date would lie past its last
+    // day has no next occurrence — the same answer as an end date that has been reached — for
+    // every kind of rule.
+    [Theory]
+    [InlineData(RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None)]
+    [InlineData(RecurrenceUnit.Day, 12, MonthlyMode.DayOfMonth, RecurrenceDays.None)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Weekdays)]
+    [InlineData(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Friday)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.NthWeekday, RecurrenceDays.None)]
+    [InlineData(RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None)]
+    [InlineData(RecurrenceUnit.Year, 12, MonthlyMode.DayOfMonth, RecurrenceDays.None)]
+    public void A_schedule_that_has_reached_the_calendars_last_day_has_no_next_occurrence(
+        RecurrenceUnit unit, int interval, MonthlyMode mode, RecurrenceDays days)
+    {
+        var lastDay = LocalDate.MaxIsoValue; // Friday 9999-12-31
+
+        var next = RecurrenceCalculator.NextOccurrence(
+            unit, interval, mode, lastDay, new LocalTime(18, 0),
+            DateTimeZone.Utc, lastDay, null, Instant.FromUtc(2026, 7, 2, 0, 0), days);
+
+        Assert.Null(next);
+    }
+
+    [Fact]
+    public void A_schedule_within_a_step_of_the_calendars_last_day_has_no_next_occurrence()
+    {
+        // The next date is the first one past the calendar, not the day after an anchor that sits
+        // on its last day: every 12 years from 9990 would next fall in 10002.
+        var anchor = new LocalDate(9990, 6, 1);
+
+        var next = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Year, 12, MonthlyMode.DayOfMonth, anchor, new LocalTime(18, 0),
+            DateTimeZone.Utc, anchor, null, Instant.FromUtc(2026, 7, 2, 0, 0));
+
+        Assert.Null(next);
+    }
+
+    [Fact]
+    public void A_start_on_the_calendars_last_day_is_an_occurrence_only_where_its_zone_has_that_instant()
+    {
+        // 23:00 on the last day: in UTC that is an instant like any other, and it is the next
+        // occurrence. In New York the same wall time falls after the calendar's last instant, so
+        // there is none.
+        var lastDay = LocalDate.MaxIsoValue;
+        var now = Instant.FromUtc(2026, 7, 2, 0, 0);
+
+        var inUtc = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, lastDay, new LocalTime(23, 0),
+            DateTimeZone.Utc, lastDay.PlusDays(-1), null, now);
+        Assert.NotNull(inUtc);
+        Assert.Equal(lastDay, inUtc.Value.Date);
+        Assert.Equal(Instant.FromUtc(9999, 12, 31, 23, 0), inUtc.Value.Instant);
+
+        var inNewYork = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, lastDay, new LocalTime(23, 0),
+            NewYork, lastDay.PlusDays(-1), null, now);
+        Assert.Null(inNewYork);
+    }
+
+    [Theory]
+    [InlineData("UTC")]
+    [InlineData("America/New_York")]
+    [InlineData("Asia/Tokyo")]
+    public void Asked_from_the_calendars_last_instant_there_is_no_next_occurrence(string zoneId)
+    {
+        // "Now" can be any instant a caller holds, the last one included. Nothing comes after
+        // it, in any zone.
+        var anchor = new LocalDate(2026, 7, 1);
+
+        var next = RecurrenceCalculator.NextOccurrence(
+            RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, anchor, new LocalTime(18, 0),
+            DateTimeZoneProviders.Tzdb[zoneId], anchor, null, Instant.MaxValue);
+
+        Assert.Null(next);
+    }
+
     [Theory]
     [InlineData(RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, "Repeats daily")]
     [InlineData(RecurrenceUnit.Day, 3, MonthlyMode.DayOfMonth, "Repeats every 3 days")]

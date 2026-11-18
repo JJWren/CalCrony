@@ -31,6 +31,18 @@ public class EventAvailabilityTests(WebAuthFixture fixture) : IClassFixture<WebA
     }
 
     [Fact]
+    public async Task The_window_ends_the_events_own_length_after_its_start()
+    {
+        var ev = await CreateEventAsync("Ninety-minute window", durationMinutes: 90);
+        var (member, _) = await fixture.LoginAsync(7604, (GuildId, "Avail", false));
+
+        var response = await member.GetFromJsonAsync<AvailabilityResponse>($"/events/{ev.Id}/availability");
+
+        Assert.Equal(ev.StartsAtUtc, response!.StartsAtUtc);
+        Assert.Equal(ev.StartsAtUtc.AddMinutes(90), response.EndsAtUtc);
+    }
+
+    [Fact]
     public async Task Non_member_gets_404()
     {
         var ev = await CreateEventAsync("Hidden Availability");
@@ -52,11 +64,12 @@ public class EventAvailabilityTests(WebAuthFixture fixture) : IClassFixture<WebA
         Assert.Empty(response!.Results);
     }
 
-    private async Task<EventDto> CreateEventAsync(string title)
+    private async Task<EventDto> CreateEventAsync(string title, int? durationMinutes = null)
     {
         await fixture.Client.PutAsJsonAsync($"/guilds/{GuildId}/settings", new GuildSettingsDto("UTC", null));
         var response = await fixture.Client.PostAsJsonAsync(
-            $"/guilds/{GuildId}/events", new CreateEventRequest(300, title, "in 3 hours", ChannelId));
+            $"/guilds/{GuildId}/events",
+            new CreateEventRequest(300, title, "in 3 hours", ChannelId, DurationMinutes: durationMinutes));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<EventDto>())!;
     }
