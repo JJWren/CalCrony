@@ -2142,3 +2142,10 @@ Availability for @GM
 **Context**: Build and test — push and open, on Joshua's go-ahead.
 
 ---
+## Code of Conduct — pull request #193 opened; its merge asked
+**Timestamp**: 2026-11-18T03:49:55Z
+**User Input**: (none — continuation of "Push and open")
+**AI Response**: The branch `docs/code-of-conduct` was pushed with the keyring login after a scan of everything it adds for a local path, anything shaped like a token and a mention outside backticks; the only hit was the report address in `CODE_OF_CONDUCT.md`, as Joshua chose (Q2 A). Pull request #193, `docs: add a code of conduct`, was opened against `master` at 2026-11-18T03:49:44Z. "Auto-fix pull requests" is on for it; auto-merge is off. This entry goes out as its second push, records only. Asked of Joshua: "Squash-merge pull request #193 once its checks are green?", answers "Merge when green" and "Not yet". After the merge, the community profile is read to confirm it lists the code of conduct (plan step 4.4).
+**Context**: Build and test — pull request #193 open; its merge waits for Joshua's go-ahead.
+
+---
