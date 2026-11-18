@@ -23,6 +23,7 @@ public class AvailabilityCommandShapeTests : IAsyncLifetime
         interactions = new InteractionService(client);
         var services = new ServiceCollection()
             .AddSingleton(new CalCronyApiClient(new HttpClient { BaseAddress = new Uri("http://localhost") }))
+            .AddSingleton(ServerMembersIntent.Decide(ServerMembersIntentMode.Off, null))
             .BuildServiceProvider();
         await interactions.AddModuleAsync(typeof(AvailabilityModule), services);
     }
@@ -114,6 +115,19 @@ public class AvailabilityCommandShapeTests : IAsyncLifetime
             Assert.All(command.Parameters, parameter =>
                 Assert.InRange(parameter.Description.Length, 1, DiscordDescriptionLimit));
         });
+    }
+
+    [Fact]
+    public void Without_the_server_members_intent_role_lists_answer_with_a_sentence_naming_only_commands_that_exist()
+    {
+        Assert.Equal(
+            "Listing who holds a role needs Discord's Server Members access, which CalCrony doesn't have right now. "
+            + "`/availability event`, and `/availability slots` for yourself or a member, still work.",
+            ServerMembersIntent.RoleListOff);
+
+        // The two commands it points to are this group's, and slots still takes a member.
+        Assert.Equal("availability", Command("event").Module.SlashGroupName);
+        Assert.Equal(ApplicationCommandOptionType.Mentionable, Command("slots").Parameters[0].DiscordOptionType);
     }
 
     private SlashCommandInfo Command(string name) => interactions.SlashCommands.Single(c => c.Name == name);

@@ -47,9 +47,11 @@ public sealed class RetentionService(
 
         // Role snapshots, one guild at a time under that guild's row lock — the same lock the
         // snapshot writes take — with the watch set re-read inside it, so a restriction created
-        // and synced after this sweep started is never mistaken for a stale one and dropped.
+        // and synced after this sweep started is never mistaken for a stale one and dropped. Role
+        // names kept without members (a bot without the Server Members intent) carry no sync
+        // marker, so a guild holding any role row is swept as well.
         var syncedGuilds = await db.Guilds
-            .Where(g => g.RolesSyncedAt != null)
+            .Where(g => g.RolesSyncedAt != null || db.GuildRoles.Any(r => r.GuildId == g.Id))
             .Select(g => g.Id)
             .ToListAsync(cancellationToken);
         var roleSnapshots = 0;

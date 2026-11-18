@@ -16,6 +16,8 @@ namespace CalCrony.Bot;
 /// <param name="logger">The host logger.</param>
 /// <param name="liveLists">The live-list manager.</param>
 /// <param name="roleSnapshots">The role-snapshot pusher.</param>
+/// <param name="membersIntent">Whether the bot asks for the Server Members intent.</param>
+/// <param name="lifetime">The host lifetime, stopped when Discord refuses the intent in auto.</param>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
@@ -24,13 +26,25 @@ public sealed class DiscordBotService(
     IConfiguration configuration,
     ILogger<DiscordBotService> logger,
     LiveListManager liveLists,
-    RoleSnapshotService roleSnapshots) : IHostedService
+    RoleSnapshotService roleSnapshots,
+    ServerMembersIntent membersIntent,
+    IHostApplicationLifetime lifetime) : IHostedService
 {
     /// <summary>Wires events, loads interaction modules, and logs the bot in.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        if (membersIntent.LookupError is not null)
+        {
+            logger.LogWarning("{Decision}", membersIntent.Describe());
+        }
+        else
+        {
+            logger.LogInformation("{Decision}", membersIntent.Describe());
+        }
+
         client.Log += OnLogAsync;
+        client.Disconnected += OnDisconnectedAsync;
         interactions.Log += OnLogAsync;
         interactions.InteractionExecuted += OnInteractionExecutedAsync;
         client.Ready += OnReadyAsync;
@@ -296,6 +310,28 @@ public sealed class DiscordBotService(
         {
             logger.LogWarning(ex, "Could not report the failure of {Command} to the caller.", label);
         }
+    }
+
+    /// <summary>Discord refusing an intent (gateway close code 4014) is logged as critical, saying
+    /// what happens next. In auto, with the intent asked for, the bot then stops with a non-zero
+    /// exit code, so its container restarts and decides again from the application's flags; set
+    /// to on, it keeps going as Discord.Net does. Any other disconnect is Discord.Net's to handle.</summary>
+    /// <param name="exception">What the disconnect carried.</param>
+    private Task OnDisconnectedAsync(Exception? exception)
+    {
+        if (!ServerMembersIntent.IsRefusal(exception))
+        {
+            return Task.CompletedTask;
+        }
+
+        logger.LogCritical("{Refusal}", membersIntent.RefusalMessage);
+        if (membersIntent.RestartsOnRefusal)
+        {
+            Environment.ExitCode = 1;
+            lifetime.StopApplication();
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>Bridges Discord.Net logs into the host logger.</summary>

@@ -6,11 +6,15 @@ using Discord.WebSocket;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// GuildMembers is a privileged intent: Discord refuses a connection that asks for it when the
+// application does not have it. Discord:ServerMembersIntent decides whether to ask (auto by
+// default: only when the application has it), before the client exists — its intents are fixed
+// when it is built. An unknown value stops the bot here.
+var membersIntent = await ServerMembersIntent.ResolveAsync(builder.Configuration);
+builder.Services.AddSingleton(membersIntent);
 builder.Services.AddSingleton(new DiscordSocketConfig
 {
-    // GuildMembers is a privileged intent — must also be enabled for the bot application in the
-    // Discord Developer Portal (Bot settings → "Server Members Intent"), or gateway login fails.
-    GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers,
+    GatewayIntents = membersIntent.GatewayIntents,
 });
 builder.Services.AddSingleton<DiscordSocketClient>();
 builder.Services.AddSingleton(sp => new InteractionService(

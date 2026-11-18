@@ -8,11 +8,14 @@ namespace CalCrony.Bot.Modules;
 /// <summary>/availability — free/busy grids for a role's members or an event's attending list,
 /// and free slots for a member or a role over one or more days.</summary>
 /// <param name="api">The CalCrony API client.</param>
+/// <param name="membersIntent">Whether the bot has the Server Members intent, without which a
+/// role's members cannot be listed.</param>
 [CommandContextType(InteractionContextType.Guild)]
 [IntegrationType(ApplicationIntegrationType.GuildInstall)]
 [RequireBotInGuild]
 [Group("availability", "Check group calendar availability")]
-public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
+public class AvailabilityModule(CalCronyApiClient api, ServerMembersIntent membersIntent)
+    : InteractionModuleBase<SocketInteractionContext>
 {
     private const int MaxUsersPerQuery = 50;
 
@@ -28,8 +31,14 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
     {
         await DeferAsync(ephemeral: true);
 
-        // Enumerating role members needs the guild's member list downloaded (requires the
-        // privileged GUILD_MEMBERS intent to be enabled for the bot application).
+        // Enumerating role members needs the guild's member list downloaded, which needs the
+        // privileged Server Members intent; without it the caller is told what still works.
+        if (!membersIntent.Enabled)
+        {
+            await FollowupAsync(ServerMembersIntent.RoleListOff, ephemeral: true);
+            return;
+        }
+
         await Context.Guild.DownloadUsersAsync();
         var memberIds = Context.Guild.Users
             .Where(u => u.Roles.Any(r => r.Id == role.Id))
@@ -128,6 +137,11 @@ public class AvailabilityModule(CalCronyApiClient api) : InteractionModuleBase<S
         FreeSlotTarget target;
         switch (who)
         {
+            case IRole when !membersIntent.Enabled:
+                // Enumerating role members needs the Server Members intent, as in RoleAsync.
+                target = FreeSlotTarget.Refused(ServerMembersIntent.RoleListOff);
+                break;
+
             case IRole role:
                 // Enumerating role members needs the member list downloaded, as in RoleAsync.
                 await Context.Guild.DownloadUsersAsync();

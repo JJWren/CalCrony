@@ -102,6 +102,10 @@ public static class GuildPresenceEndpoints
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlAsync($"""SELECT "Id" FROM "Guilds" FOR UPDATE""", cancellationToken);
         var known = await db.Guilds.ToListAsync(cancellationToken);
+        // Role names kept without members (a bot without the Server Members intent) carry no sync
+        // marker, so the guilds holding any role row are looked up as well.
+        var holdingRoles = (await db.GuildRoles.Select(r => r.GuildId).Distinct().ToListAsync(cancellationToken))
+            .ToHashSet();
         var departed = new List<long>();
         foreach (var guild in known)
         {
@@ -111,7 +115,7 @@ public static class GuildPresenceEndpoints
                 guild.Name = name;
             }
 
-            if (!guild.BotPresent && guild.RolesSyncedAt is not null)
+            if (!guild.BotPresent && (guild.RolesSyncedAt is not null || holdingRoles.Contains(guild.Id)))
             {
                 // Same as a single leave: no bot, no role snapshot.
                 guild.RolesSyncedAt = null;

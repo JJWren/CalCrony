@@ -102,3 +102,31 @@ wholesale, so a pre-existing, widely held role chosen as an attendee role adds r
 to its holders and rewrites them each cycle — the same cost a restriction naming that role has
 always carried. A role CalCrony creates for the purpose stays proportional to the event's RSVPs,
 and each grant the bot makes is the existing per-member push.
+
+## Without the Server Members intent (2026-11-18)
+
+Since 2026-06-10 Discord reviews privileged intents once an application's servers give more than
+10,000 users access to it, and an application that does not apply, or is turned down, loses them.
+The bot asked for `GuildMembers` unconditionally, and Discord refuses a connection that asks for an
+intent the application does not have (close code 4014), so losing it would have taken every
+feature offline. The bot now decides at start whether to ask (`Discord:ServerMembersIntent`:
+`auto`, the default, asks only when the application has it; `on`; `off`).
+
+**Without the intent the bot cannot see who holds what**, so it never downloads a member list or
+pushes a member, and its syncs carry the watched roles' names and tombstones alone, with
+`MembersKnown: false`. The API stores the names (still filtered to its own watch list), deletes
+every member row of the guild and clears `RolesSyncedAt`. With no marker the web fails closed
+exactly as it does for a guild that was never synced — "RSVP from Discord", where the bot checks
+the member from the interaction itself, which needs no intent — while restricted and granted roles
+keep their names on the web.
+
+- **Names-only rather than nothing.** Sending nothing would have needed no API change, but the web
+  would have lost every role name, and member rows written before the loss would have stayed,
+  frozen, until their restriction ended: member data the bot could no longer keep current.
+- **Names-only rather than an empty member list.** A sync with no members under a fresh marker
+  reads as "nobody holds the role", which would refuse every web member by name (403) instead of
+  sending them to Discord (409). A sync that says its members are unknown and lists some is refused.
+- **Name rows without a marker are still cleaned up.** Retention and the presence sync looked only
+  at guilds with a marker; they now also take a guild that holds any role row, so names are trimmed
+  to the roles still watched and dropped when the bot leaves, as before.
+- A bot older than the field sends none, which reads as `MembersKnown: true`: nothing changes for it.

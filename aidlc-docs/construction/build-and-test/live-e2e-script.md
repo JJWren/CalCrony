@@ -344,6 +344,29 @@ the prerequisites above:
 - [ ] `docker compose restart api` → boot logs clean; `/health/ready` 200 again; a Retention line
       appears at startup when anything qualified for purge.
 
+### 15. Running without the Server Members intent
+
+Needs the test application's **Server Members Intent** switched off in the Discord Developer
+Portal (Bot page, Privileged Gateway Intents) for its first items, and on again for the last. The
+test bot runs with `Discord__ServerMembersIntent` unset, so `auto`. Before starting, an event in
+the test server with an RSVP option limited to a role (`restrict-to:`) and an attendee role, and
+two accounts: one holding the role, one not.
+
+- [ ] Intent off, test bot restarted → its log has `Server Members intent: off (auto: the
+      application does not have it)`; it connects, and `/list`, `/create` and a reminder work.
+- [ ] **Must pass**, both ways. In Discord, the account without the role clicks the restricted
+      option → refused with "is limited to @role"; the account with the role → seated. The check
+      reads the member from the click itself, which needs no intent; this item shows that it holds.
+- [ ] `/availability role role:<any>` and `/availability slots who:<a role>` → "Listing who holds a
+      role needs Discord's Server Members access…"; `/availability slots who:<yourself>` still lists.
+- [ ] On the website, the account with the role picks the restricted option → "We can't confirm
+      your roles right now — RSVP from Discord."; the event shows the restricted and granted roles
+      by name, not `role #…`.
+- [ ] Intent switched on again, test bot restarted → `Server Members intent: on (auto: the
+      application has it)`; within one reconcile the website seats the account with the role.
+- [ ] To look at, not to pass: with the test bot running, the intent switched off → whether Discord
+      closes the connection (code 4014 in the log, then a restart) or only refuses the next one.
+
 ---
 
 ## Part C — Recording results & the v1.0.0 gate
