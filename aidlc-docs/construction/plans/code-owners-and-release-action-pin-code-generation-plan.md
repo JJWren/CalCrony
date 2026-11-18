@@ -23,8 +23,8 @@ in two rounds (section 7); the findings of both rounds are answered. Joshua answ
 gate B the same day ("B, continue"), so `master` was taken in again and the branch pushed and opened
 as a pull request (step 4.1). On his "Hand run, then merge" the workflow was run once by hand from
 the branch (step 4.2) and pull request #187 was squash-merged as `162fd42` (step 4.3). Step 5.1 is
-done but for what GitHub lists as required on the next release pull request; on one the owner
-opened it was read on 2026-11-18, and `protect-master` gained "Restrict updates" the same day.
+done: on 2026-11-18 the release pull request #200 listed a code owner's review as required, one
+the owner opened did not, and `protect-master` gained "Restrict updates" the same day. Complete.
 
 ## 1. What exists today (verified 2026-11-17)
 
@@ -288,7 +288,7 @@ Each is a change or a decision of its own.
 - [x] 4.3 On his go-ahead: the squash merge. Approved 2026-11-17 ("Hand run, then merge"). #185 and
       #188 were merged first, so `master` was taken in a third time; then, every check on the head
       `09d6cd1` green, the REST call with that head named merged it at 23:38:12Z as `162fd42`.
-- [ ] 5.1 After the merge: the run the merge starts read for the action's commit; the code owners
+- [x] 5.1 After the merge: the run the merge starts read for the action's commit; the code owners
       question asked again about `master`; what GitHub lists as required on the release pull request
       and on one the owner opened. Read on 2026-11-17: the merge's run (44201104260) fetched the
       action by `5c625bf…` from `master`, found no user-facing commit and wrote nothing; GitHub's
@@ -297,7 +297,8 @@ Each is a change or a decision of its own.
       2026-11-18, by Joshua, signed in: the merge box of #189, which he opened, does not list
       "Code owner review required". The same day `protect-master` gained "Restrict updates", so
       only those who may bypass the ruleset, the admins, can update `master` (`CONTRIBUTING.md`).
-      The release pull request's part waits for the next one.
+      Read on 2026-11-18, by Joshua, signed in: the merge box of #200, the release pull request
+      for 0.37.2, lists "Code owner review required".
 
 ## 7. Review (2026-11-17)
 
