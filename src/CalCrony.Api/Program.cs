@@ -18,7 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 CalCrony.Api.StartupConfigValidation.Validate(builder.Configuration);
 
 builder.Services.ConfigureHttpJsonOptions(o =>
-    o.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
+{
+    o.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+    o.SerializerOptions.Converters.Add(new StorableTextConverter());
+});
 
 builder.Services.AddDbContext<CalCronyDbContext>(o =>
     o.UseNpgsql(
@@ -138,6 +141,7 @@ app.UseForwardedHeaders();
 app.UseCors("Web");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseStorableText();
 
 var version = typeof(Program).Assembly
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?

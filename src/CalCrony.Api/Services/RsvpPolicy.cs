@@ -18,6 +18,9 @@ public static partial class RsvpPolicy
     /// <summary>Column cap for option emotes and labels (mirrors the DbContext config).</summary>
     public const int MaxOptionTextLength = 64;
 
+    /// <summary>The refusal of an option without an emoji or a label, or missing altogether.</summary>
+    public const string IncompleteOptionError = "Every RSVP option needs an emoji and a label.";
+
     /// <summary>Cap on the roles one signup restriction may name. Sized so a series' option
     /// template — ten options, each carrying its restriction — stays inside the RsvpOptionsJson
     /// column bound; a wider restriction wants one umbrella role.</summary>
@@ -177,6 +180,12 @@ public static partial class RsvpPolicy
             return null;
         }
 
+        if (HasMissingEntry(specs))
+        {
+            error = IncompleteOptionError;
+            return null;
+        }
+
         if (specs.Count(s => s.IsAttending) > 1)
         {
             error = "Only one RSVP option can be the attending option.";
@@ -188,7 +197,7 @@ public static partial class RsvpPolicy
         {
             if (string.IsNullOrWhiteSpace(spec.Label) || string.IsNullOrWhiteSpace(spec.Emote))
             {
-                error = "Every RSVP option needs an emoji and a label.";
+                error = IncompleteOptionError;
                 return null;
             }
 
@@ -278,6 +287,12 @@ public static partial class RsvpPolicy
             AllowedRoleIds = allowedRoleIds is not null ? eventRestriction : [.. (spec.AllowedRoleIds ?? []).Distinct()],
         })];
     }
+
+    /// <summary>Whether a submitted option list has an entry that is missing altogether.</summary>
+    /// <param name="specs">The submitted option specs, or null.</param>
+    /// <returns>True when an entry is missing.</returns>
+    public static bool HasMissingEntry(IReadOnlyList<RsvpOptionSpec>? specs) =>
+        specs is not null && specs.Any(spec => spec is null);
 
     /// <summary>Storage-only JSON (never emitted into a page), so BMP non-ASCII stays raw instead
     /// of exploding into \uXXXX escapes. Astral-plane chars (emoji) still escape six-to-one per
