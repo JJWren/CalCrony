@@ -723,8 +723,9 @@ says that whoever created an event stays blocked whatever they answer (R30).
 The completion gate was answered "Continue", and the tracking issue was filed as #192. Asked how
 the branch's local history goes out, Joshua answered "Rebuild first": the branch was rebuilt as
 one commit on `master`, with `master` taken in twice more on the way (#191 and #194, records
-only; the audit trail merged by its stamps as before). The commits this section names stay on
-the local branch `feature/free-slots-calcrony-events-history`, which is never pushed.
+only; the audit trail merged by its stamps as before). The commits this section names up to
+here stay on the local branch `feature/free-slots-calcrony-events-history`, which is never
+pushed.
 
 Round 5, both agents on the first rebuild, `56e381f`: its code, tests and docs byte-identical to
 `0139ee8`, and the merge exact. Security and privacy: no finding above information. Code
@@ -733,6 +734,25 @@ file and this plan still described the time before the gate's answer — and fiv
 pull request's text. All answered before the push: `master` taken in again, the state file and
 this plan brought up to date, and the pull request's text made exact and given the template's
 sections. Both agents read the difference before the push.
+
+### After the push (2026-11-18)
+
+Pushed as `8fc7105` and opened as pull request #197; every check passed on it. Another open pull
+request changes the same lines of `DeliveryScheduler.cs`. Asked which of the two merges first,
+Joshua answered "Go ahead" to the recommendation: that one first; this branch then takes in
+`master`, resolves the overlap and goes out again after both agents' read, and its merge is asked
+after that.
+
+`master` then moved to `5fc9239` (#198, #193 and #195), and the app's Auto-fix reported a
+conflict. `master` is merged in as `3fd509f`, and only the audit trail and the state file
+conflicted. The audit trail is merged as a set in the order of its stamps, and taking either
+side's entries out gives the other side's file exactly; the state file keeps `master`'s lines and
+sections, with this change's section after them. `Program.cs`, `RsvpPolicy.cs` and the README
+merged by themselves, and the lines this change adds and removes under `src`, `tests` and the
+documents are the same against `5fc9239` as against `47209ab`. On the merged tree the Release
+build has no error and 22 warnings, as before, and 2,102 tests pass with none failing (1,173
+API, 427 bot, 153 web, 349 for the release-summary tool; 17 of the tool's tests skipped on
+Windows).
 
 ## 10. Plan checklist
 
