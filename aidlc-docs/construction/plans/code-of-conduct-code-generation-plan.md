@@ -34,5 +34,5 @@
 ### 4. Records and pull request
 - [x] 4.1 `aidlc-state.md` line, audit entries, this plan ticked.
 - [x] 4.2 One commit, `docs: add a code of conduct`, no attribution lines.
-- [ ] 4.3 Push and open the pull request — on Joshua's go-ahead.
+- [x] 4.3 Push and open the pull request — on Joshua's go-ahead.
 - [ ] 4.4 After merge: the community profile lists the code of conduct.

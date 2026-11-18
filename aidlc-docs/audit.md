@@ -2093,3 +2093,10 @@ Availability for @GM
 **Context**: Build and test — committed locally; the push waits for Joshua's go-ahead.
 
 ---
+## Code of Conduct — go-ahead to push and open the pull request
+**Timestamp**: 2026-11-18T03:48:59Z
+**User Input**: "Push and open"
+**AI Response**: Joshua's answer to the question asked at 2026-11-18T03:44:33Z, "Push the branch and open the pull request?"; the other answer was "Not yet". The branch `docs/code-of-conduct` is pushed with the keyring login and the pull request `docs: add a code of conduct` is opened against `master`. It cuts no release. Its merge is asked separately.
+**Context**: Build and test — push and open, on Joshua's go-ahead.
+
+---
