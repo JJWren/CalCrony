@@ -4,7 +4,8 @@
 with an entry missing is refused with the sentence the options already have. Handed over on
 2026-11-17 from another session.
 **Baseline**: `master` eb6afb8 — the application code of v0.37.1. Run as step 0.1. After the
-review the branch was rebuilt on `master` `162fd42` (section 7).
+review the branch was rebuilt on `master` `162fd42` (section 7), and `master` `47209ab` was
+merged into it before the push (step 6.1).
 **Branch**: `fix/unstorable-text` (local) → PR `fix: refuse text that cannot be stored and lists
 with an entry missing`.
 **Status**: written 2026-11-17 and approved by Joshua the same day, with Q1, Q2 and Q3 answered A
@@ -304,12 +305,11 @@ this machine waits for its own go-ahead.
   (2.4 rule 3), each with a test. Both are changes of substance to the plan as approved, put to
   Joshua at the completion gate.
 - **Review (3.4), second reads.** Both agents read the branch rebuilt on `162fd42`. Answered: a test
-  that could not fail now can — the 403 of a route only the bot may use, with the text in the
-  query string — and a missing pin is added: an event that does not exist, a 404 before and this
-  400 now; rule 3 of 2.4
-  says that a space is dropped too, as the code always did; every rule worded otherwise than when
-  it was approved carries a marker; two more rule removals; and wording in two comments, a test
-  name, the test class's summary and the records.
+  that could not fail now can — the 403 of a route only the bot may use, with the text in the query
+  string — and a missing pin is added: an event that does not exist, a 404 before and this 400 now;
+  rule 3 of 2.4 says that a space is dropped too, as the code always did; every rule worded
+  otherwise than when it was approved carries a marker; two more rule removals; and wording in three
+  comments in two files, a test name, the test class's summary and the records.
 - **As it stands.** `master` had moved to `162fd42` (pull requests #188 and #187); nothing had
   been pushed, so the branch is rebuilt there as two commits: `0c56280` (the source and the tests)
   and the records on top. On it: `dotnet build CalCrony.slnx -c Release` without incremental
@@ -345,3 +345,12 @@ this machine waits for its own go-ahead.
 
 - **Review (3.4), confirmation.** Both agents read the two commits as they stand and confirmed
   them, with nothing left to fix; their last notes, on the wording of these records, are taken in.
+- **`master` taken in before the push (6.1).** After the completion gate, pull requests #191 and
+  #194 were merged, both records only. `master` `47209ab` is merged into the branch (`843be27`), so
+  `0c56280`, named above for the source and the tests, stays in its history: the audit entries of
+  both sides are kept whole, in timestamp order, and the state file merged by itself, every
+  section kept. Nothing outside `aidlc-docs` changes, so the source and the tests are those of
+  `0c56280`. On the merge, `dotnet build CalCrony.slnx -c Release` without incremental state gives
+  0 errors and the baseline's 22 warnings, and `dotnet test CalCrony.slnx -c Release`, 2026-11-18
+  from 03:59Z to 04:01Z, passes 2,037 tests and fails none (1,118 API, 418 bot, 153 web, 348
+  release notes), with 17 release-notes tests skipped on this machine.
