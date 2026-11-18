@@ -2128,3 +2128,10 @@ Availability for @GM
 **Context**: Operations — the last part of #187's step 5.1 waits for that read.
 
 ---
+## Operations — the read of #189's merge box: what it lists
+**Timestamp**: 2026-11-18T19:24:37Z
+**User Input**: "Not listed"
+**AI Response**: Recorded: the merge box of #189, a pull request the owner opened into `master`, does not list "Code owner review required". The `protect-master` ruleset and the repository's Actions setting were read again (19:23Z). A follow-up change to the ruleset was put to Joshua, with a recommendation, to be recorded once he decides.
+**Context**: Operations — #187's step 5.1 is read for a pull request the owner opened; the release pull request's half waits for the next release.
+
+---
