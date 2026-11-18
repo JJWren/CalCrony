@@ -3199,3 +3199,10 @@ Availability for @GM
 **Context**: Operations — #187's plan is complete.
 
 ---
+## Operations — the last records of the code owners unit: their push and pull request asked
+**Timestamp**: 2026-11-18T22:59:52Z
+**User Input**: (none — question put to Joshua)
+**AI Response**: Asked of Joshua, with a recommendation: push the local branch `docs/log-records-pr-205-merge` (the record of #205's merge, the read of the release pull request's merge box, and #187's step 5.1 ticked) and open its pull request, `docs: log the code owners unit through its last step` — A) push, open it, and squash-merge it once its checks are green (recommended); B) push and open it only, the merge asked separately. Its own merge ends the unit's records: it is noted outside the repository, not in a further pull request.
+**Context**: Operations — the unit's last records wait for Joshua's go-ahead.
+
+---
