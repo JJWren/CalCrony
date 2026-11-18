@@ -800,6 +800,11 @@ On the tree of `a8ad00e` the Release build has no error and 22 warnings, as befo
 tests pass with none failing (1,238 API, 427 bot, 153 web, 349 for the release-summary tool; 17
 of the tool's tests skipped on Windows); and the release-summary tool's check finds no problem.
 
+While both agents read those commits, `master` moved to `6b85491` (#202, records only) and is
+merged in as `ee820c4`, so that the branch goes out once: only the audit trail conflicted, merged
+by its stamps as before. Nothing outside `aidlc-docs` differs from `406dd24`, so the results above
+stand.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan, design document and the two earlier plans loaded
