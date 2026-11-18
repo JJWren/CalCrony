@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.37.2](https://github.com/JJWren/CalCrony/compare/v0.37.1...v0.37.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* drop the dates a moved or long occurrence passes from the public calendar ([#196](https://github.com/JJWren/CalCrony/issues/196)) ([1fce915](https://github.com/JJWren/CalCrony/commit/1fce915ef0249b9dd5f37be6ca2846bd3a5b44d4))
+* limit how far ahead a date can be set ([#189](https://github.com/JJWren/CalCrony/issues/189)) ([3e35071](https://github.com/JJWren/CalCrony/commit/3e3507112b23ab25b853e4ce6ad1d3ecac416139))
+* post only in a delivery's own server, and ping only whom a post is for ([#190](https://github.com/JJWren/CalCrony/issues/190)) ([aeff22d](https://github.com/JJWren/CalCrony/commit/aeff22dea50f440018ea4ea73523940bace0e5e4))
+* read deadlines, a time apart from its day and a weekday on its own day in date text ([#199](https://github.com/JJWren/CalCrony/issues/199)) ([6cb41c8](https://github.com/JJWren/CalCrony/commit/6cb41c8fb97b9e5f31757a1ee9f897e34337fbc9))
+* refuse text that cannot be stored and lists with an entry missing ([#198](https://github.com/JJWren/CalCrony/issues/198)) ([67baa24](https://github.com/JJWren/CalCrony/commit/67baa241191cd8b12cadacba2f8d231b1c031666))
+* refuse unreadable or oversized request bodies and snapshot lists with an entry missing ([#204](https://github.com/JJWren/CalCrony/issues/204)) ([384ea0d](https://github.com/JJWren/CalCrony/commit/384ea0d9f0a85281311ed2c460cfd062681f2f4a))
+
 ## [0.37.1](https://github.com/JJWren/CalCrony/compare/v0.37.0...v0.37.1) (2026-11-17)
 
 
