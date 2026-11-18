@@ -250,7 +250,12 @@ the recognizer and from the class summary, and its parser tests are in a file of
       pull request #200 merged at 23:08:43Z as `6e0d8b2`, the tag and the GitHub release at
       23:08:57Z with the release summary on top of its notes, the three images by 23:13:02Z and the
       announcement at 23:13:06Z; every job of the run passed.
-- [ ] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only.
+- [x] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only. Rolled out on
+      2026-11-18, with delivery posts, on Joshua's go-ahead ("Yes, roll out now"): no delivery was
+      pending; the database was backed up first; the tag was pinned to 0.37.2 and the API, the bot
+      and the web were restarted on it, the database container left as it was. The API started at
+      23:17:25Z and applied the migration `WidenDeliveryPayload`; `/health` and `/health/ready`
+      report 0.37.2, and the logs since show only the known start-up notices.
 
 ## 7. Notes from generation
 

@@ -3066,3 +3066,10 @@ Availability for @GM
 **Context**: Operations — release 0.37.2, on Joshua's go-ahead.
 
 ---
+## Date limit and delivery posts — prod rollout of 0.37.2
+**Timestamp**: 2026-11-18T23:16:27Z
+**User Input**: "Yes, roll out now"
+**AI Response**: His answer to "Roll out 0.37.2 to prod now?", asked after the release, with yes as the recommendation. Prod ran 0.37.1 with no delivery pending, so no row queued before the upgrade was waiting. The database was backed up first. The tag was pinned to 0.37.2 and a dry run showed that only the API, the bot and the web would be recreated; they were pulled and restarted on it, the database container left as it was. The API started at 23:17:25Z and applied the migration `WidenDeliveryPayload`, which makes the payload column `text`; `/health` and `/health/ready` report 0.37.2; the bot connected and was ready; the logs since the start show only the known start-up notices, and no error. Both changes are live on prod.
+**Context**: Operations — prod rollout of 0.37.2, on Joshua's go-ahead.
+
+---
