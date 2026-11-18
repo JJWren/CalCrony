@@ -406,9 +406,9 @@ apart.
       tests hold it.
 - [x] 6.4 *Go-ahead:* the release (a patch release, opened by release-please). Released on
       2026-11-18 as v0.37.2, with the date limit, on Joshua's go-ahead ("Yes, release now"): release
-      pull request #200 merged at 23:08:43Z as `6e0d8b2`, the tag and the GitHub release at
+      pull request #200 merged at 23:08:45Z as `6e0d8b2`, the tag and the GitHub release at
       23:08:57Z with the release summary on top of its notes, the three images by 23:13:02Z and the
-      announcement at 23:13:06Z; every job of the run passed.
+      announcement at 23:13:06Z; every job that ran passed.
 - [x] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only. The API applies
       the migration when it starts. Rolled out on 2026-11-18, with the date limit, on Joshua's
       go-ahead ("Yes, roll out now"): no delivery was pending; the database was backed up first; the

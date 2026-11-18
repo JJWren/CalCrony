@@ -332,8 +332,9 @@ public class AvailableHoursTextTests
             "🕒 Your available hours: **Mon–Fri 6 PM–11 PM · Sat, Sun off**\n" +
             "Read in your timezone, **America/Chicago**.\n" +
             "Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots " +
-            "with `/availability slots`, which shows roughly the hours you keep and, if your calendar is linked, " +
-            "when you're busy inside them. `/settings available-hours reset` takes that back.",
+            "with `/availability slots`, which shows roughly the hours you keep and when you're busy inside them: " +
+            "with your CalCrony events in that server and, if your calendar is linked, with what's on your calendar. " +
+            "`/settings available-hours reset` takes that back.",
             AvailableHoursText.SavedReply(week, "America/Chicago", "Europe/Berlin"));
     }
 

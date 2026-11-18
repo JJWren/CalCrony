@@ -17,6 +17,25 @@ internal static class Validation
             ? Results.BadRequest(new ErrorResponse($"The {field} must be at most {max} characters."))
             : null;
 
+    /// <summary>The longest part of a submitted value that a refusal quotes back.</summary>
+    public const int MaxQuoted = 64;
+
+    /// <summary>The part of a submitted value that a refusal quotes back: the whole value up to
+    /// <see cref="MaxQuoted"/> characters; a longer one cut there, without splitting a character,
+    /// and marked with "…".</summary>
+    /// <param name="value">The submitted value.</param>
+    /// <returns>The text to quote; empty for a missing value.</returns>
+    public static string Quotable(string? value)
+    {
+        if (value is null || value.Length <= MaxQuoted)
+        {
+            return value ?? string.Empty;
+        }
+
+        var cut = char.IsHighSurrogate(value[MaxQuoted - 1]) ? MaxQuoted - 1 : MaxQuoted;
+        return string.Concat(value.AsSpan(0, cut), "…");
+    }
+
     /// <summary>Range check for a duration in minutes (1 to four weeks); null passes.</summary>
     /// <param name="minutes">The submitted duration.</param>
     /// <returns>A 400 result when out of range, else null.</returns>
