@@ -13,7 +13,8 @@ calendar has the same gap.
 approved by Joshua the same day as written, with Q1–Q4 all answered A ("Approve, all A"). Code
 generated and checked the same day (sections 8 and 9); read by two review agents until neither
 had a finding (section 9); `master` taken in. Approved at the completion gate on 2026-11-18
-("B) Continue"). Nothing pushed: the push and the pull request wait for Joshua's own go-ahead.
+("B) Continue"), and the push and the pull request given their go-ahead the same day
+("Push and open"); the merge, the release and the rollout each wait for their own.
 
 A contained fix, so the workflow runs at minimal depth: the task is the requirement; no user
 stories, application design, units, NFR or infrastructure stages; one unit, and this file is both
@@ -471,16 +472,17 @@ the route does (`LiveOf`), and the direct calls of `Build` pass it.
 1. *Two live occurrences of one series.* The database keeps a series to one. Were the builder ever
    handed two, it takes the later end, as the feed does; the plan did not say, and the trial took
    the later start.
-2. *`master` taken in before the review, and again after it.* It had moved to `916ecd1` (pull
-   request #186, records only) before the approval, and to `723696d` (pull request #184, the
-   date reader) while the code was being written; both were merged in before the review. 0.37.1
-   was released (pull request #185) minutes before the commit the reviewers first read was made,
-   and while they read `master` moved on to `162fd42` (pull requests #188 and #187: records, a
-   code owners file and the release workflow), so it was merged in again, and the reviewers'
-   second read is of that tree. The
-   audit file keeps master's text as it is, with each of this branch's entries placed among
-   master's in the order of their timestamps; the state file keeps master's sections, with this
-   one after them, in the order they started.
+2. *`master` taken in before the review, again after it, and once more before the push.* It had
+   moved to `916ecd1` (pull request #186, records only) before the approval, and to `723696d`
+   (pull request #184, the date reader) while the code was being written; both were merged in
+   before the review. 0.37.1 was released (pull request #185) minutes before the commit the
+   reviewers first read was made, and while they read `master` moved on to `162fd42` (pull
+   requests #188 and #187: records, a code owners file and the release workflow), so it was
+   merged in again, and the reviewers' second read is of that tree. After the completion gate it
+   had moved to `04beae8` (pull request #191, records only), and it was merged in once more
+   before the push. The audit file keeps master's text as it is, with each of this branch's
+   entries placed among master's in the order of their timestamps; the state file keeps
+   master's sections, with this one after them, in the order they started.
 3. *The release summary's file* is `docs/release-notes/0.37.2.md`, not `0.37.1.md`: 0.37.1 went
    out without this fix (step 4.1).
 4. *What the review changed*, listed under "Review" below: the step limit is now an argument of
