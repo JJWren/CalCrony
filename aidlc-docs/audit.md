@@ -3045,3 +3045,17 @@ Availability for @GM
 **Context**: Construction — delivery posts: squash merge, on Joshua's go-ahead.
 
 ---
+## Delivery posts — the look on the test stack: go-ahead
+**Timestamp**: 2026-11-18T22:44:31Z
+**User Input**: "Yes, look now"
+**AI Response**: His answer to "Run the test-stack look at whom delivery posts notify before the release?", asked after the squash merge, with yes as the recommendation. Once `master`'s CI had published `:main` from `5b30e5b`, the test stack's app services were pulled and restarted on it at 22:46:37Z, the database container left as it was; its `/health` reported `0.0.0-main.5b30e5b`, and the migration `WidenDeliveryPayload` applied at the API's start. He was asked to make three posts in the test server: an event a few minutes ahead, a scheduled ping for it with himself in the mention option, and a reminder.
+**Context**: Construction — delivery posts: the look of the plan's step 6.3, on Joshua's go-ahead.
+
+---
+## Delivery posts — the look on the test stack: result
+**Timestamp**: 2026-11-18T23:02:08Z
+**User Input**: "Done" (2026-11-18T22:56:39Z, when the three were made)
+**AI Response**: Read from Discord's own record of each post in the test server's channel: the scheduled ping (22:58:17Z) and the reminder (22:58:34Z) each mentioned him alone, and the start announcement (23:01:04Z) mentioned nobody; none mentioned a role or everyone. The text he typed into the title, the message and the reminder held no mention, so the rule that such a mention is shown as text was not seen on Discord's side; the tests hold it. The plan's step 6.3 and the state file have it. The release and the rollout each wait for his go-ahead.
+**Context**: Construction — delivery posts: the look of the plan's step 6.3 done.
+
+---

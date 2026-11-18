@@ -390,14 +390,20 @@ apart.
       `master` is then merged in, rather than the branch being put onto the new `master`, since the
       branch is on GitHub: the date limit's own lines are the same on both sides, and only records
       added since can conflict. The agents read that merge before it is pushed.
-- [ ] 6.3 *Go-ahead:* squash merge. Squash-merged on 2026-11-18 at 22:38:40Z, on Joshua's go-ahead
+- [x] 6.3 *Go-ahead:* squash merge. Squash-merged on 2026-11-18 at 22:38:40Z, on Joshua's go-ahead
       ("Yes, merge #190"), at the head both agents read (`a84a97f`), as `aeff22d`; its tree is that
       head's. Before the merge, three parts of the pull request's text, which became the commit's
       message, were brought up to date: that it stood on the date limit's branch, the test count,
       and its release summary, now one line. The test stack picks up `:main`. One thing is looked at
       there before the release, since no test here can see Discord's side of it: whom a start
-      announcement, a reminder and a scheduled ping notify. That look is still to come, on its own
-      go-ahead.
+      announcement, a reminder and a scheduled ping notify. Looked at on 2026-11-18, on his go-ahead
+      ("Yes, look now"), with the test stack's app services on `0.0.0-main.5b30e5b` (the database
+      left as it was; the migration applied at the API's start): in the test server he made an
+      event, a scheduled ping with himself in its mention option, and a reminder, and Discord's own
+      record of each post shows that the ping and the reminder mentioned him alone and the start
+      announcement nobody, with no role and not everyone. The text he typed into the title, the
+      message and the reminder held no mention, so that rule was not seen on Discord's side; the
+      tests hold it.
 - [ ] 6.4 *Go-ahead:* the release (a patch release, opened by release-please).
 - [ ] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only. The API
       applies the migration when it starts.
