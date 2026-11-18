@@ -1,7 +1,10 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using CalCrony.Api.Services;
 using CalCrony.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
@@ -242,6 +245,227 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
     }
 
+    // A series posts its next occurrence only once the posted one has ended, and then takes the
+    // first of its dates that starts after that moment. The tests below compare what the calendar
+    // shows with what the series really posts when each occurrence runs its length. All but the
+    // last move the posted occurrence, or change its length, by an edit of that occurrence alone,
+    // and compare what the ICS feed lists as well; the last, a series whose own length reaches its
+    // next date, leaves the feed out and says why.
+
+    [Fact]
+    public async Task A_posted_occurrence_moved_past_a_date_shows_what_the_feed_lists_and_the_series_goes_on_to_post()
+    {
+        const long guildId = 12220;
+        const string title = "Daily moved past a date";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day), RepeatCount: 4));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        // Monday 18:00 becomes Tuesday 20:00, for this occurrence alone.
+        var tuesdayLate = monday.AddDays(1).AddHours(2);
+        await EditOccurrenceAsync(live.Id, new UpdateEventRequest(
+            CreatorId, WhenText: WhenText(tuesdayLate), Scope: EditScope.Occurrence));
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // Four in all: the moved occurrence, then Wednesday, Thursday and Friday at 18:00.
+        // Tuesday's own 18:00 is never posted, and it uses up none of the four.
+        DateTimeOffset[] expected = [tuesdayLate, monday.AddDays(2), monday.AddDays(3), monday.AddDays(4)];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+        Assert.False(shown[0].Projected);
+        Assert.All(shown.Skip(1), e => Assert.True(e.Projected));
+    }
+
+    [Fact]
+    public async Task A_day_set_occurrence_moved_onto_its_next_day_shows_what_the_feed_lists_and_the_series_goes_on_to_post()
+    {
+        const long guildId = 12230;
+        const string title = "Mon Wed Fri moved onto Wednesday";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, DaysOfWeek: MonWedFri), RepeatCount: 6));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        // Monday's occurrence moves onto Wednesday 18:00, the series' next day and time.
+        var wednesday = monday.AddDays(2);
+        await EditOccurrenceAsync(live.Id, new UpdateEventRequest(
+            CreatorId, WhenText: WhenText(wednesday), Scope: EditScope.Occurrence));
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // Six in all: the moved occurrence on Wednesday — shown once — then Fri, Mon, Wed, Fri
+        // and the Monday two weeks on. Wednesday's own occurrence uses up none of the six.
+        DateTimeOffset[] expected = [.. new[] { 2, 4, 7, 9, 11, 14 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+        Assert.False(shown[0].Projected);
+        Assert.All(shown.Skip(1), e => Assert.True(e.Projected));
+    }
+
+    [Fact]
+    public async Task A_day_set_occurrence_moved_past_several_days_stops_on_its_until_date_as_the_feed_and_the_series_do()
+    {
+        const long guildId = 12240;
+        const string title = "Mon Wed Fri moved a week on";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week, DaysOfWeek: MonWedFri),
+            RepeatUntilText: monday.AddDays(16).ToString("M/d/yyyy", CultureInfo.InvariantCulture)));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        // Monday's occurrence moves to the next Monday, 20:00 — past Wednesday's, Friday's and
+        // that Monday's own 18:00.
+        var nextMondayLate = monday.AddDays(7).AddHours(2);
+        await EditOccurrenceAsync(live.Id, new UpdateEventRequest(
+            CreatorId, WhenText: WhenText(nextMondayLate), Scope: EditScope.Occurrence));
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // The moved occurrence, then Wednesday, Friday, Monday and the until date, a Wednesday.
+        DateTimeOffset[] expected =
+            [nextMondayLate, .. new[] { 9, 11, 14, 16 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+    }
+
+    [Fact]
+    public async Task A_posted_occurrence_that_runs_long_shows_what_the_feed_lists_and_the_series_goes_on_to_post()
+    {
+        const long guildId = 12250;
+        const string title = "Daily with a long first one";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day),
+            RepeatUntilText: monday.AddDays(6).ToString("M/d/yyyy", CultureInfo.InvariantCulture)));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        // This occurrence alone lasts three days: Monday 18:00 to Thursday 18:00.
+        await EditOccurrenceAsync(live.Id, new UpdateEventRequest(
+            CreatorId, DurationMinutes: 3 * 24 * 60, Scope: EditScope.Occurrence));
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // Monday's, then Friday, Saturday and Sunday, the until date. Tuesday's and Wednesday's
+        // 18:00 pass while it runs, and Thursday's starts at the moment it ends.
+        DateTimeOffset[] expected = [.. new[] { 0, 4, 5, 6 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+    }
+
+    [Fact]
+    public async Task A_posted_occurrence_moved_into_the_next_month_leaves_no_upcoming_date_behind_it()
+    {
+        const long guildId = 12260;
+        const string title = "Daily moved over the month's end";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var lastDay = LastEveningOfNextMonth();
+        var first = lastDay.AddDays(-1);
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(first), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day), RepeatCount: 5));
+        Assert.Equal(first, live.StartsAtUtc);
+
+        // The occurrence on the month's last day but one moves to the 2nd of the month after, 20:00.
+        var moved = lastDay.AddDays(2).AddHours(2);
+        await EditOccurrenceAsync(live.Id, new UpdateEventRequest(
+            CreatorId, WhenText: WhenText(moved), Scope: EditScope.Occurrence));
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, first);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, first);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // Five in all: the moved occurrence on the 2nd, then the 3rd to the 6th. The month it
+        // left, the first of the views read, shows nothing of the series: the last day's own
+        // 18:00 will not be posted.
+        DateTimeOffset[] expected = [moved, .. Enumerable.Range(3, 4).Select(day => lastDay.AddDays(day))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+    }
+
+    [Fact]
+    public async Task A_count_seen_from_the_month_after_the_posted_occurrence_allows_for_the_date_it_passed()
+    {
+        const long guildId = 12270;
+        const string title = "Daily counted over the month's end";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var lastDay = LastEveningOfNextMonth();
+        var first = lastDay.AddDays(-3);
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(first), ChannelId,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day), RepeatCount: 6));
+        Assert.Equal(first, live.StartsAtUtc);
+
+        // The occurrence moves a day on, to 20:00 — still inside the month.
+        var moved = first.AddDays(1).AddHours(2);
+        await EditOccurrenceAsync(live.Id, new UpdateEventRequest(
+            CreatorId, WhenText: WhenText(moved), Scope: EditScope.Occurrence));
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, first);
+        var feed = await FeedStartsAsync(anonymous, guildId, title, first);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // Six in all: the moved occurrence, the month's last two days, then the 1st, 2nd and 3rd.
+        // The month after is a view of its own, without the posted occurrence in it, and the
+        // count still reaches the 3rd there.
+        DateTimeOffset[] expected = [moved, .. Enumerable.Range(-1, 5).Select(day => lastDay.AddDays(day))];
+        Assert.Equal(expected, feed);
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+    }
+
+    [Fact]
+    public async Task A_series_whose_own_length_reaches_its_next_date_shows_what_the_series_goes_on_to_post()
+    {
+        const long guildId = 12280;
+        const string title = "Daily, a day and a half long";
+        var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
+        var monday = AMondayEvening();
+        var live = await CreateAsync(guildId, new CreateEventRequest(
+            CreatorId, title, WhenText(monday), ChannelId, DurationMinutes: 36 * 60,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day), RepeatCount: 4));
+        Assert.Equal(monday, live.StartsAtUtc);
+
+        using var anonymous = fixture.Factory.CreateClient();
+        var shown = await ShownAsync(anonymous, slug, title, monday);
+        var posted = await PostedByRunningAsync(live.SeriesId!.Value);
+
+        // Every occurrence ends at 06:00 two days after it starts, so the series posts every
+        // second date: Monday, Wednesday, Friday, Sunday. (The feed's repeat rule has no way to
+        // say this, so the feed is not compared here.)
+        DateTimeOffset[] expected = [.. new[] { 0, 2, 4, 6 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected[1..], posted);
+        Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
+    }
+
     [Fact]
     public async Task Months_far_from_today_are_rejected()
     {
@@ -269,6 +493,14 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         var today = DateTimeOffset.UtcNow.Date;
         var monday = today.AddDays(((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7 + 7);
         return new DateTimeOffset(monday.AddHours(18), TimeSpan.Zero);
+    }
+
+    /// <summary>18:00 UTC on the last day of next month, so that the days on either side of a
+    /// month's end are all still to come whatever day a test runs on.</summary>
+    private static DateTimeOffset LastEveningOfNextMonth()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new DateTimeOffset(now.Year, now.Month, 1, 18, 0, 0, TimeSpan.Zero).AddMonths(2).AddDays(-1);
     }
 
     private static string WhenText(DateTimeOffset at) =>
@@ -328,6 +560,46 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         Assert.Null(id); // the series ended inside the guard
         return posted;
     }
+
+    /// <summary>What the series really posts after its posted occurrence when each occurrence
+    /// runs its length: runs the scheduler at the moment the posted occurrence ends and collects
+    /// the start of the occurrence it posts next, until the series ends.</summary>
+    private async Task<List<DateTimeOffset>> PostedByRunningAsync(Guid seriesId)
+    {
+        var posted = new List<DateTimeOffset>();
+        var series = await ReadAsync<SeriesDto>(await Client.GetAsync($"/series/{seriesId}"));
+        for (var guard = 0; series.LiveEventId is { } liveId && guard < 30; guard++)
+        {
+            var live = await ReadAsync<EventDto>(await Client.GetAsync($"/events/{liveId}"));
+            var end = Instant.FromDateTimeOffset(live.StartsAtUtc) + Duration.FromMinutes(live.DurationMinutes ?? 60);
+
+            // One pass starts the occurrence; the next ends it and posts the one that follows.
+            await SweepAsync(end);
+            await SweepAsync(end);
+
+            series = await ReadAsync<SeriesDto>(await Client.GetAsync($"/series/{seriesId}"));
+            if (series.LiveEventId is { } nextId)
+            {
+                Assert.NotEqual(liveId, nextId);
+                posted.Add((await ReadAsync<EventDto>(await Client.GetAsync($"/events/{nextId}"))).StartsAtUtc);
+            }
+        }
+
+        Assert.True(series.Ended); // the series ended inside the guard
+        return posted;
+    }
+
+    /// <summary>One pass of the scheduler, as of <paramref name="now"/>.</summary>
+    private async Task SweepAsync(Instant now)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var scheduler = scope.ServiceProvider.GetRequiredService<DeliveryScheduler>();
+        await scheduler.SweepAsync(now, CancellationToken.None);
+    }
+
+    /// <summary>Changes one occurrence through the edit route.</summary>
+    private async Task EditOccurrenceAsync(Guid eventId, UpdateEventRequest request) =>
+        (await Client.PatchAsJsonAsync($"/events/{eventId}", request)).EnsureSuccessStatusCode();
 
     private async Task<PublicCalendarSettingsDto> PutAsync(long guildId, PublicCalendarRequest request) =>
         await ReadAsync<PublicCalendarSettingsDto>(
