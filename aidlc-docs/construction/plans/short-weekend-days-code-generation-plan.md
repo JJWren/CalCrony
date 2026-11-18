@@ -435,7 +435,7 @@ measured again on the parser and put to Joshua, who decided each
 - `by friday`, `until saturday` and `before saturday 6pm` are read by the date-and-time reader as
   the date and time they name. The day reader keeps its refusal, because a deadline does not
   name a first day. `every saturday 8pm` is still refused by both readers, now in words that say
-  the text repeats, and the date-and-time reader's point to the repeat option.
+  the text repeats, and the date-and-time reader's refusal points to the repeat option.
 - A weekday typed on its own day is next week's once its time is behind: `wed` on a Wednesday at
   10:00 is the Wednesday after, from the date-and-time reader. The day reader gave today and
   still does.

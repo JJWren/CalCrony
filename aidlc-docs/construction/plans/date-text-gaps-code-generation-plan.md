@@ -7,8 +7,9 @@ whether to fix it, give a better refusal or leave it; and put the decision to Jo
 anything is built. Handed over on 2026-11-16 from the session that wrote that fix.
 **Baseline**: `master` 4af1305, whose code is v0.37.0, which the hosted instance runs. The parser
 was run as it stands on pull request #180, open and not merged, because the five were found on
-that code and `sat` and `sun` must go on reading exactly as their full names do. The change is
-built on `master` b582c2b, which has that pull request.
+that code and `sat` and `sun` must go on reading exactly as their full names do. The change was
+built on `master` b582c2b, which has that pull request, and `master` has been taken in since,
+last at 162fd42.
 **Branch**: `fix/date-text-gaps` → one pull request, a `fix:`, titled once the scope is decided.
 **Status**: written 2026-11-16 and approved by Joshua the same day, as written, with Q1–Q5 each
 answered A (section 4). Q6, which preparing the change turned up, was asked on 2026-11-17 and
@@ -514,10 +515,10 @@ this machine waits for its own go-ahead.
 Generated on 2026-11-17, the day pull request #180 was merged (16:36Z, as `b582c2b`). `master`
 was taken into the branch first, with this branch's audit entries put in by their timestamps, and
 step 0.1 was run on that tree. The change itself had been prepared on 2026-11-16, after the plan
-was approved, in a scratch copy of that pull request's tree, outside the repository. It was
-applied to the branch by script, and the parser and its tests on the branch are the prepared
-files, line for line. Two agents read the branch before any push (step 4.4). The numbers below
-are those of the branch.
+was approved, in a scratch copy of that pull request's tree, outside the repository, and was
+applied to the branch by script. Two agents then read the branch, three times (step 4.4), and
+their findings changed the code, each change set out below. The numbers here are those of the code after
+those answers unless a paragraph says otherwise.
 
 **As built.** One file under `src` changed, `NaturalDateTimeParser.cs`.
 
@@ -525,35 +526,46 @@ are those of the branch.
   `ReadValue`: one value read as a day, a time of day or both, with no zone in the reading.
   `ReadPhrase` reads the values of one phrase and, for a weekday whose week is left open, adds
   next week's (2.3).
-- `TryResolve` sorts the readings into days that have their own time, days alone, kept phrase by
-  phrase, and times alone. It puts them together by the rule of 2.4 and only then turns them into
-  instants. From there it is as it was: nothing read is "could not understand", nothing ahead is
-  "in the past", and the earliest that is ahead is the answer, with the minute's grace.
+- `TryResolve` sorts the readings into days that have their own time; the days each phrase names,
+  kept phrase by phrase as `NamedDay`, with its start for a part of the day; times alone; and the
+  first days of phrases that name no single day. It puts them together by the rule of 2.4 and
+  only then turns them into instants. From there it is as it was: nothing read is "could not
+  understand", nothing ahead is "in the past", and the earliest that is ahead is the answer, with
+  the minute's grace.
 - 2.1 is one branch in `ReadValue`, which takes a range's end where it has no start.
-  `IsEndOfADateOrTime` holds the limit at the edge of a period, and `readEnds` the limit beside a
+  `IsReadByItsEnd` holds its limits: `IsEndOfADateOrTime` the edge of a period, and `readEnds` a
   length of time.
 - 2.2 is `IsRepeat` and two sentences, `RepeatError` and `RepeatDayError`, asked by both readers
   as soon as the recognizer has answered. It is the only change to `TryResolveDay`.
-- `IsUnderWay`, `EndOfDayTimex` and `DaysForATime` are for the points under "Where it differs",
-  below.
+- `TodayWhereNamed` keeps today where a phrase can mean today: when a time is read on it (2.4,
+  case 1: `nov 12 (9am)` typed on November 12 is that morning) and when it is a deadline.
+- `IsUnderWay`, `IsWholePeriod`, `IsPartOfDay` and `EndOfDayTimex` are for the points under
+  "Where it differs", below.
 - The class summary and the summaries of both methods say what is read.
 
-The length check is still the first thing both readers do. In `TryResolve` the zone abbreviation
-is still taken out next, and `sat` and `sun` are still spelled out before the recognizer is given
-the text. Each reader still asks the recognizer once.
+In both readers a missing text and then the length are still checked before anything else — the
+first of the two since pull request #184 — and in `TryResolve` the zone abbreviation is still
+taken out next. `sat` and `sun` are still spelled out before the recognizer is given the text, and
+each reader still asks the recognizer once.
 
-**Where it differs from the plan as approved.** In the rules, two kinds of text that the rules as
-section 2 words them would have read worse than `master` reads them. Both were found while the
-change was being prepared. In the change as built each keeps the right day, and the rules are
-otherwise as approved.
+**Where it differs from the plan as approved.** Six points, each keeping a text on the day it was
+read on, or putting it on the day it means, where the rules as section 2 words them would not.
+The first two were found while the change was being prepared, the others by the review of
+correctness in its reads (step 4.4), which also added to the first, the third and the fifth.
+The rules are otherwise as approved.
 
 1. **A time beside a range that is under way.** `this week 6pm`, `this month 6pm` and
-   `mon to sat 6pm`, typed on the Wednesday, are today at 6 PM; so is `this weekend 6pm` typed on
-   the Sunday; and `tonight (9pm)` typed at 8:30 PM, when the night has begun, is today at 9 PM.
-   By 2.4 the time would have been read on the day the range began, which has passed, and the
-   text refused as past. The day reader already has the answer: a range that has begun and not
-   ended means the rest of it, and names no day. So a time beside such a range stays a time
-   alone, today's or tomorrow's, as before. A range that has not begun names its first day —
+   `mon to sat 6pm`, typed on the Wednesday, are today at 6 PM; so are `this weekend 6pm` typed
+   on the Sunday and `tonight (9pm)` typed at 8:30 PM, when the night has begun. By 2.4 the time
+   would have been read on the day the range began, which has passed, and the text refused as
+   past. The day reader already has the answer: a range that has begun and not ended means the
+   rest of it, and names no day. So a time beside such a range stays a time alone, today's or
+   tomorrow's, as before. A range of days has begun on its first day too: `this weekend 6pm`,
+   typed on the Saturday at 7 PM, is Sunday at 6 PM, and `this week 6pm`, typed on the Monday at
+   7 PM, Tuesday at 6 PM, as before. And beside a time, such a phrase no longer offers its first
+   day at 9 AM, as `master` does, so the time is meant even before 9 AM on that day:
+   `this weekend 6pm`, typed on the Saturday at 00:30, is that day at 6 PM, where it was 9 AM.
+   A range that has not begun names its first day —
    `this weekend 6pm` on a Wednesday is Saturday at 6 PM, where it was today — and one that is
    over is refused as past: `last week (6pm)`, which was today at 6 PM.
 2. **"End of day" beside a day.** `by end of day friday` and `by eod friday` were Friday at 9 AM:
@@ -562,27 +574,70 @@ otherwise as approved.
    "End of day" is a time with no day of its own, which is what 2.4 is about, so beside a day it
    is that day's last second: `by end of day friday` is Friday at 11:59 PM. **That also changes
    text that was read**: `eod friday`, `friday eod` and `friday end of day` were today at
-   11:59 PM and are Friday at 11:59 PM. Alone, `eod` and `by end of day` are today's, as before.
-   The day reader is not changed and still gives today for `eod friday`. This was put to Joshua
-   as Q6 and answered A on 2026-11-17 (section 4).
+   11:59 PM and are Friday at 11:59 PM. Alone, `eod` is today's, as before, and `by end of day`,
+   which was not understood, is today's too. The day reader is not changed and still gives today
+   for `eod friday`. This was put to Joshua as Q6 and answered A on 2026-11-17 (section 4).
+3. **A part of the day with a time beside it.** As prepared, a part of the day (`friday night`,
+   `tonight`, `tomorrow morning`) counted as the day's own time, so a time written beside it was
+   not read (2.4, case 2): `tonight (7pm)` became today at 8 PM, where the night begins, though it
+   was read as 7 PM, and `friday night (9pm)` became Friday at 8 PM. A part of the day now takes a
+   time written beside it as its own, as the two written together are read (2.4, case 1):
+   `tonight (7pm)` is today at 7 PM, as before; `friday night (9pm)` is Friday at 9 PM and
+   `tomorrow evening (7pm)` tomorrow at 7 PM, where both were today; and `game night friday 7pm`,
+   in which the recognizer reads `night friday` as Friday night, is Friday at 7 PM, where 2.4 said
+   Friday at 8 PM. With no time beside it, a part of the day begins at its start: `friday night`
+   is Friday at 8 PM. An end (`by 6pm`, `until 2am`) is not such a time. An end is the time only
+   where the text has no other time and no part of the day, as `friday, by 6pm` is Friday at 6 PM
+   by 2.1. Beside a time of its own it is an end and not read: `friday (9pm) till 2am` and
+   `friday night (9pm) till 2am` are Friday at 9 PM, where both were today. Beside a part of the
+   day it ends the part, which begins at its start, whether the part has begun or not and on
+   whichever day the text names: `friday night till 2am` is Friday at 8 PM,
+   `this evening until 9pm` today at 4 PM and `friday or saturday night until midnight` Friday at
+   9 AM, as before; `tonight until 2am`, typed at 9 PM, is refused as past, as before; and typed
+   during that Friday night, `friday night till 2am` is the next Friday at 8 PM, as
+   `friday night` is then (2.3). A part of the day that is itself the deadline is read by its
+   end, as any deadline is: `by night` is tonight at 8 PM, as `night` is; and an end beside such a
+   part is not read either: `by friday night (until 2am)` is Friday at 8 PM. Two kinds of text
+   read worse: an end written as a plain time
+   beside a part of the day that has no start time, `tonight, ends 11pm`, is today at 11 PM,
+   where it was today at 8 PM; and a deadline beside a time meant for something else,
+   `friday, by 6pm (party 8pm)`, is Friday at 8 PM, and `by 6pm, ends 9pm` is 9 PM, as `master`
+   reads it.
+4. **A span from one weekday to another.** `fri 6pm to sun 6pm`, typed on that Friday after
+   6 PM, would have been read as the Friday after, because the recognizer writes such a span, as
+   it writes a weekday, with the week left open. 2.3 leaves a span of days alone, and the code now
+   does too: such text is refused as past, as before. A span of times on one day
+   (`friday 6pm-8pm`) is still moved, as 2.3 says.
+5. **A deadline on today's date.** `by jul 15`, typed on July 15 after 9 AM, would have been read
+   as July 15 of next year, because `jul 15` alone is: the recognizer offers this year's and next
+   year's. A deadline that can mean today means today, so it is refused as past, as `by today`
+   is, and so is one written with a part of the day: `by jul 15 evening`, typed that evening, is
+   refused as past, and `by jul 15 night`, typed at 5 PM, is that night. `jul 15` alone is not
+   changed.
+6. **A whole period beside a time.** `6pm (may change)` would have been read as May 1 of next year
+   at 6 PM, `6pm room 2027` as January 1, 2027, and `next month (6pm)` as August 1: the time read
+   on the first day of the month or the year. A month, a season or a year is not a day, so a time
+   beside a whole period longer than a week stays a time alone: each of these is today at 6 PM,
+   as before. With the first day no longer offered beside a time (point 1), `next month (6pm)`,
+   typed on December 31 at 11:30 PM, is January 1 at 6 PM, where it was 9 AM. A week names its first day, as 2.4 has it (`next week (6pm)`), and so does a span
+   the text spells out (`jul 20 to jul 31 (6pm)`).
 
 Smaller points, each inside what was approved:
 
 - `by late friday` and `by early friday` stay not understood, with the whole periods of 2.1: the
   recognizer gives their end as the midnight after the day, or before it. `by the end of friday`
-  is read, as Friday at 11:59 PM.
+  is read, as Friday at 11:59 PM, and `on or before friday`, which the recognizer marks
+  differently from `by`, as Friday at 9 AM.
 - A deadline follows 2.3 as any weekday does: `by friday 6pm`, typed on that Friday at 19:00, is
   the Friday after at 6 PM, as `friday 6pm` is.
 - A span of days that begins today is left as it is, as 2.3 says of `mon to sat`: `fri-sun` typed
   on that Friday at 10:00 is refused as past, and is today from the day reader.
-- A part of the day is the day's own time: `friday night (9pm)`, typed before the Friday, is
-  Friday at 8 PM, where the night begins, and the further time is not read (2.4, case 2). It was
-  today at 9 PM.
 - One check in the rule of 2.3 is reached by no text that was found. Next week's is added only
-  where the recognizer's two values are a week apart. `fri 17`, Friday the 17th, is written by
-  the recognizer as `fri` is and has values months apart, but it never has two that have both
-  passed, so adding a week to it would change no answer. The check stays, as the rule's own
-  premise, and no test can fail without it (step 4.2).
+  where the recognizer's two values are a week apart. Some text has the timex of a weekday and
+  values months apart: `fri 17`, Friday the 17th, on any day but that Friday. But its later value
+  is always ahead, and on that Friday the recognizer writes it as that date, so adding a week to
+  it would change no answer. The check stays, as the rule's own premise, and no test can fail
+  without it (step 4.2).
 
 In how it was built: the steps of 1 were not taken one after another on the branch. They were
 taken that way while the change was prepared, and step 1.1 was checked there: with every rule
@@ -590,18 +645,19 @@ switched off, the scratch copy answered as the parser of pull request #180 does,
 of probes and the generated texts of section 3. On the branch the change arrived whole. What
 holds 1.1 there is the test of 2.6, the suite, and the comparison of step 4.3.
 
-In the tests: 216 more cases, so that `NaturalDateTimeParserTests` has 366 where it had 150.
+In the tests: 259 more cases than `master` has, so that `NaturalDateTimeParserTests` has 435
+where `master` has 176 (150 before pull request #184, whose tests are among the 176).
 
 | Step | Tests |
 |---|---|
-| 2.1 | `A_deadline_reads_as_the_date_and_time_it_names` (21 texts); `A_deadline_at_the_end_of_a_day_is_that_days_last_second`; `The_word_in_front_of_a_deadline_changes_nothing` (18 dates, each with `by`, `until` and `before`, at five moments); `A_deadline_at_the_edge_of_a_period_is_still_not_understood` (7); `A_deadline_beside_a_length_of_time_is_still_not_understood` (3); `A_length_of_time_beside_a_date_that_is_not_a_deadline_changes_nothing`; `A_deadline_that_has_passed_is_refused_as_past` (3); `The_day_reader_does_not_take_a_deadline_for_a_first_day` (6) |
+| 2.1 | `A_deadline_reads_as_the_date_and_time_it_names` (23 texts); `A_deadline_at_the_end_of_a_day_is_that_days_last_second`; `The_word_in_front_of_a_deadline_changes_nothing` (18 dates, each with `by`, `until` and `before`, at five moments); `A_deadline_at_the_edge_of_a_period_is_still_not_understood` (7); `A_deadline_beside_a_length_of_time_is_still_not_understood` (3); `A_length_of_time_beside_a_date_that_is_not_a_deadline_changes_nothing`; `A_deadline_that_has_passed_is_refused_as_past` (5, today's date among them); `A_deadline_on_todays_date_is_todays_with_a_part_of_the_day_too`, with a date alone beside it; `The_day_reader_does_not_take_a_deadline_for_a_first_day` (6) |
 | 2.2 | `Text_that_repeats_is_refused_in_words_that_say_so` (16 texts, both refusals word for word); `The_refusal_for_a_repeat_quotes_what_the_other_refusals_quote` |
-| 2.3 | `A_weekday_typed_on_its_own_day_is_next_weeks_once_its_time_is_behind` (19 rows, at 00:30, 08:59, 10:00 and 23:30); `What_names_today_or_a_span_of_days_is_still_refused_as_past` (5); `A_weekday_with_a_day_of_the_month_is_not_moved_a_week`; `A_span_of_days_that_begins_today_is_not_moved_a_week`; `For_the_day_reader_a_weekday_typed_on_its_own_day_is_today_at_any_hour` (4 moments); `A_weekday_named_beside_a_later_date_is_the_earlier_of_the_two_on_its_own_day_too`; and, for a Saturday with `sat`, the older `On_the_day_itself_the_short_form_reads_as_the_full_name_does` |
-| 2.4 | `A_time_written_apart_from_its_day_is_read_on_that_day` (21); `A_time_apart_is_read_on_a_date_in_another_month_and_on_a_holiday`; `The_end_of_day_is_read_on_the_day_the_text_names` (8); `A_further_time_beside_a_day_that_has_its_own_is_not_read` (9); `A_further_time_in_another_zone_is_not_read_either`; `Two_times_and_a_day_apart_from_both_are_the_earlier_time_on_that_day`; `Two_times_offered_as_a_choice_on_the_day_itself_are_the_first_of_them`; `A_time_beside_a_range_that_is_under_way_is_a_time_alone_as_before` (8); `A_range_names_its_first_day_until_it_has_begun_and_no_day_once_it_has` |
-| 2.5 | `A_day_and_a_time_written_apart_read_as_the_same_two_written_together` (17 pairs, at six moments); `The_two_readers_give_the_same_day_for_a_day_and_a_time_apart` (11) |
+| 2.3 | `A_weekday_typed_on_its_own_day_is_next_weeks_once_its_time_is_behind` (19 rows, at 00:30, 08:59, 10:00 and 23:30); `What_names_today_or_a_span_of_days_is_still_refused_as_past` (5); `A_weekday_with_a_day_of_the_month_is_not_moved_a_week`; `A_span_of_days_that_begins_today_is_not_moved_a_week` (with two spans written with times); `For_the_day_reader_a_weekday_typed_on_its_own_day_is_today_at_any_hour` (4 moments); `A_weekday_named_beside_a_later_date_is_the_earlier_of_the_two_on_its_own_day_too`; and, for a Saturday with `sat`, the older `On_the_day_itself_the_short_form_reads_as_the_full_name_does` |
+| 2.4 | `A_time_written_apart_from_its_day_is_read_on_that_day` (22); `A_time_apart_is_read_on_a_date_in_another_month_and_on_a_holiday`; `The_end_of_day_is_read_on_the_day_the_text_names` (8); `A_further_time_beside_a_day_that_has_its_own_is_not_read` (6); `A_part_of_the_day_takes_a_time_written_beside_it_as_its_own` (10); `An_end_beside_a_part_of_the_day_ends_it_and_is_not_its_time` (8); `An_end_beside_a_part_of_the_day_that_has_begun_is_not_read_either`; `An_end_is_the_time_only_where_the_text_has_no_other` (6); `A_part_of_the_day_with_no_time_beside_it_begins_at_its_start` (4); `A_further_time_in_another_zone_is_not_read_either`; `Two_times_and_a_day_apart_from_both_are_the_earlier_time_on_that_day`; `Two_times_offered_as_a_choice_on_the_day_itself_are_the_first_of_them`; `A_time_beside_a_range_that_is_under_way_is_a_time_alone_as_before` (9); `A_range_names_its_first_day_until_it_has_begun_and_no_day_once_it_has`; `A_time_beside_a_whole_period_is_a_time_alone_as_before` (6); `A_time_beside_a_phrase_that_names_no_day_is_meant_before_9am_too` |
+| 2.5 | `A_day_and_a_time_written_apart_read_as_the_same_two_written_together` (20 pairs, at six moments); `The_two_readers_give_the_same_day_for_a_day_and_a_time_apart` (11) |
 | 2.6 | `Dates_that_were_read_before_are_read_as_before` (20) |
-| 2.7 | `Text_over_the_length_limit_is_refused_before_any_of_it_is_read` (3); `A_deadline_and_a_repeat_at_the_length_limit_are_read_and_refused_as_shorter_ones_are` |
-| 2.8 | Seven rows more in `A_short_weekend_day_reads_exactly_as_its_full_name`: a deadline, three ways; a length of time before one; a repeat behind a date; and a time apart, two ways and beside a further time |
+| 2.7 | `Text_over_the_length_limit_is_refused_in_the_limits_words_whatever_it_holds` (3); `A_deadline_and_a_repeat_at_the_length_limit_are_read_and_refused_as_shorter_ones_are`. That nothing reads the text before the length is checked is in the code; a test cannot see it. |
+| 2.8 | Seven rows more in `A_short_weekend_day_reads_exactly_as_its_full_name`: a deadline, two more ways; a length of time before a deadline; a repeat behind a date; and a time apart, two ways and beside a further time |
 
 Two older tests pinned an answer that changes, and moved with it. Both belong to the fix for
 `sat` and `sun`:
@@ -614,27 +670,35 @@ Two older tests pinned an answer that changes, and moved with it. Both belong to
   the Saturday at 10:00, refused as past. They are the Saturday after at 9 AM, and `sat 6pm` late
   that evening, the Saturday after at 6 PM, is added.
 
-**Step 0.1.** On the branch with `master` taken in: `dotnet build CalCrony.slnx -c Release` with
-no error and 22 warnings, and `dotnet test CalCrony.slnx -c Release` with 1,729 tests green —
-813 API, 418 bot, 153 web and 345 for the release-notes tool, with 17 more of the tool's skipped
-on Windows, which CI runs.
+**Step 0.1.** On the branch with `master` taken in at `b582c2b`: `dotnet build CalCrony.slnx
+-c Release` with no error and 22 warnings, and `dotnet test CalCrony.slnx -c Release` with 1,729
+tests green — 813 API, 418 bot, 153 web and 345 for the release-notes tool, with 17 more of the
+tool's skipped on Windows, which CI runs.
 
-**Step 4.1.** `dotnet build CalCrony.slnx -c Release --no-incremental`: no error and 22 warnings,
-in the same files and with the same codes as at 0.1, none of them in the parser or its tests.
-`dotnet test CalCrony.slnx -c Release`: 1,945 tests green — 1,029 API, 418 bot, 153 web and 345
-for the tool, with the same 17 skipped. The 216 more are all in `NaturalDateTimeParserTests`.
+**Step 4.1.** On the branch as it stands at the end, with `master` taken in at `162fd42` and every
+read of the reviews answered: `dotnet build CalCrony.slnx -c Release --no-incremental` with no
+error and 22 warnings, in the same files and with the same codes as at 0.1, none of them in the
+parser or its tests; and `dotnet test CalCrony.slnx -c Release` with 2,044 tests green — 1,124
+API, 418 bot, 153 web and 349 for the tool, with the same 17 skipped. Of the API's, 259 are this
+change's, all in `NaturalDateTimeParserTests`; the rest of the growth since 0.1 came with
+`master`. Before the reviews, on the tree of 0.1, the same two commands gave 1,945 tests green.
 
-**Step 4.2 — each rule and each limit taken out, in a scratch copy of the tree.** Thirty-two
-changes, one at a time, each run against the parser's 366 tests. Thirty-one failed tests, the
-tests meant for them among them. One failed none: the check named above, which no text reaches.
+**Step 4.2 — each rule and each limit taken out, in a scratch copy of the tree.** Fifty-two
+changes, one at a time, each run against the parser's 435 tests: the 32 of the change as first
+built, kept or brought up to date, and twenty for what the reads of the reviews added. Fifty-one
+failed tests, the tests meant for them among them. One failed none: the check named above, which
+no text reaches.
 
 | Taken out or changed | Failed | The tests meant for it |
 |---|---|---|
-| 2.1 — a range with an end and no start is never read | 47 | the table of deadlines; the rule, with and without the word in front; the end of a day; a deadline at the length limit |
+| 2.1 — a range with an end and no start is never read | 58 | the table of deadlines; the rule, with and without the word in front; the end of a day; parts of the day as deadlines; deadlines that have passed; an end as the time; a deadline at the length limit |
 | 2.1 — the limit at the edge of a whole period, removed | 4 | `by the weekend`, `before next month`, `until next week`, `until 2027` |
 | 2.1 — the limit to a plain `before` or `until`, removed | 2 | `by late friday`, `by early friday` |
 | 2.1 — the limit beside a length of time, removed | 5 | its table of three; the two rows with `sat` and `sun` |
 | 2.1 — the day reader takes a deadline's day | 18 | the day reader's table of six, and its half of the tables for an edge, a length of time and the short forms |
+| 2.1 — a deadline on today's date keeps next year's (point 5) | 3 | `by jul 15`, `until jul 15`, `by jul 15 evening` |
+| 2.1 — every phrase that can mean today kept to today, a date alone too | 1 | `jul 15` alone on its own day |
+| 2.1 — `on or before` not read | 1 | `on or before friday` |
 | 2.2 — `TryResolve` does not refuse a repeat | 18 | the table of repeats; what the refusal quotes; a repeat at the length limit |
 | 2.2 — `TryResolveDay` does not refuse a repeat | 17 | the table of repeats; what the refusal quotes |
 | 2.2 — `TryResolve` refuses a repeat only where nothing else is read | 4 | the four rows with a date beside the repeat |
@@ -642,45 +706,189 @@ tests meant for them among them. One failed none: the check named above, which n
 | 2.2 — the two sentences swapped, in `TryResolve` | 16 | the table of repeats |
 | 2.2 — the two sentences swapped, in `TryResolveDay` | 16 | the table of repeats |
 | 2.2 — `TryResolve` quoting the spelled-out text | 13 | `every sat 8pm`; the older tests for what a refusal quotes |
-| 2.3 — next week's is never added | 14 | the table of the day itself; the Saturday with `sat`; a weekday beside a later date; two times offered as a choice |
+| 2.3 — next week's is never added | 15 | the table of the day itself; the Saturday with `sat`; a weekday beside a later date; two times offered as a choice; a Friday night begun |
 | 2.3 — the check for values a week apart, removed | 0 | none: no text reaches it |
-| 2.3 — a span of days is moved a week too | 1 | `fri-sun` on the Friday |
+| 2.3 — a span from one weekday to another is moved a week too (point 4) | 1 | the test of spans that begin today |
 | 2.3 — a span of times on the day is not moved | 1 | `wed 6pm-8pm` at 23:30 |
-| 2.3 — two weeks on, not one | 14 | as the first of 2.3 |
-| 2.4 — a time apart is never read on the day | 57 | the table of times apart; the rule, apart and together; the two readers; the end of day |
-| 2.4 — a time apart is read today as well, and the day keeps its 9 AM | 57 | the same |
-| 2.4 — a further time beside a day that has its own is read, today | 12 | the table of further times; a further time in another zone; the two readers; two times offered as a choice |
-| 2.4 — a phrase that can mean today keeps its later readings for a time | 3 | the rule: `jul 15 (9am)` and the like, typed on the day |
-| 2.4 — next week's weekday is dropped where the phrase can mean today | 4 | the rule: `wed (9am)` and the like, typed on the day |
-| 2.4 — a range under way counts as a day that is named | 10 | the table of ranges under way; `this weekend 6pm` on the Sunday; `this week (6pm)` from both readers |
-| 2.4 — a range of days under way is not seen as one | 7 | the ranges of days in those tests |
-| 2.4 — a range of times under way is not seen as one | 3 | `tonight (9pm)`, `this afternoon (3pm)`, `this morning (11am)` |
-| 2.4 — a range of times that has ended still counts as under way | 2 | `friday night (9pm)`, `game night friday 7pm` |
-| 2.4 — a range of times that has not begun counts as under way | 2 | the same two |
-| 2.4 — a part of the day under way still counts as a day with its time | 3 | the three parts of the day under way |
-| 2.4 — a range of days under way loses its first day at 9 AM | 2 | `mon to sat` on the Wednesday, refused as past and not as not understood |
+| 2.3 — two weeks on, not one | 15 | as the first of 2.3 |
+| 2.4 — a time apart is never read on the day | 72 | the table of times apart; the rule, apart and together; the two readers; the end of day; parts of the day |
+| 2.4 — a time apart is read today as well, and the day keeps its 9 AM | 72 | the same |
+| 2.4 — a further time beside a day that has its own is read, today | 13 | the table of further times; a further time in another zone; ends beside a part of the day that is itself a deadline; the two readers; two times offered as a choice |
+| 2.4 — a phrase that can mean today keeps its other days | 6 | the rule: `jul 15 (9am)` and the like, typed on the day; deadlines on today's date |
+| 2.4 — next week's weekday is dropped where the phrase can mean today | 6 | the rule: `wed (9am)` and the like, typed on the day; `by wednesday` on the Wednesday |
+| 2.4 — a range under way names a day | 7 | the table of ranges under way; ranges on their first day; `this week (6pm)` from both readers |
+| 2.4 — a range of days that began before today is not seen as under way | 6 | the ranges of days in those tests |
+| 2.4 — a range of times under way is not seen as one | 1 | `wednesday night (9pm)` at 10 PM |
+| 2.4 — a range of times that has ended still counts as under way | 7 | parts of the day with a time or an end beside them, on days whose part of the day has ended |
+| 2.4 — a range of times that has not begun counts as under way | 12 | parts of the day with a time or an end beside them |
+| 2.4 — a range under way with its time counts as a day with its time | 4 | the table of ranges under way |
+| 2.4 — a range of days that names no day loses its first day at 9 AM | 3 | `mon to sat` and `fri-sun` on a day of the range, refused as past and not as not understood |
 | Q6 — "end of day" keeps today for its day | 6 | the table for the end of day |
-| As before — a bare day is 8 AM, not 9 AM | 40 | every table with a bare day |
-| As before — a time alone is today's only, never tomorrow's | 4 | `9am`, `by 9am`, `this week 6pm` late in the day, and the older test for a time that has passed |
+| Point 1 — a range of days that begins today is not under way | 1 | ranges on their first day |
+| Point 1 — a phrase that names no day offers its first day at 9 AM beside a time too | 1 | a time beside such a phrase before 9 AM |
+| Point 6 — a whole period names a day | 6 | the table of whole periods |
+| Point 6 — a week counts as a whole period | 3 | `next week (6pm)`, from one reader and from both |
+| Point 6 — a whole period is one longer than two weeks | 1 | `next 2 weeks (6pm)` |
+| Point 6 — a span the text spells out counts as a whole period | 1 | `jul 20 to jul 31 (6pm)` |
+| Point 3 — a part of the day never takes the time beside it | 15 | the table of parts of the day; three pairs in the rule, apart and together; an end beside a part with a time |
+| Point 3 — a part of the day with no time beside it is a day at 9 AM | 17 | the tables of parts of the day with no time and with an end; `by friday night`; `sat night` and `sun night` |
+| Point 3 — an end read beside a part of the day | 2 | an end beside a part of the day that has begun; an end beside a part on another day |
+| Point 3 — an end read beside a time of its own | 2 | `friday (9pm) till 2am`, `friday, by 6pm (party 8pm)` |
+| Point 3 — an end never the time | 11 | deadline times alone (`by 6pm`, `by end of day`); `friday, by 6pm` |
+| Point 3 — a part of the day that has begun does not keep an end from being read | 1 | an end beside a part of the day that has begun |
+| Point 3 — a part of the day that is itself the deadline keeps its end from being read | 1 | `by night` |
+| Point 3 — an end beside a part of the day that keeps its start read on its own | 3 | the deadline parts of the day with an end beside them, begun or not |
+| Point 3 — an end read as a time like any other | 14 | the three tables of ends |
+| Point 3 — an afternoon is not a part of the day | 1 | `friday afternoon (3pm)` |
+| Point 3 — a part of the day not told apart | 18 | the table of parts of the day; three pairs in the rule; ends beside parts; a deadline at night on today's date |
+| As before — a bare day is 8 AM, not 9 AM | 43 | every table with a bare day |
+| As before — a time alone is today's only, never tomorrow's | 7 | `9am`, `by 9am`, ranges late in the day, a time beside a phrase that names no day, and the older test for a time that has passed |
 
 **Step 4.3 — the comparison of section 3 again, through the parser as built.** `master`'s parser,
 copied under another name, and the parser on the branch read the same texts side by side in a
 scratch harness, at the nine moments of section 3. The texts are those of section 3 with the
-texts of the tests as built added: 25,707 texts, 231,363 cases. Text by text, the kinds of change
-are the same as in the run made on the prepared copy the day before.
+texts of the tests as built added: 25,707 texts, 231,363 cases. These are the numbers of the code
+after every read of the reviews, against the parser of `master` at `162fd42`.
 
 - **One phrase to the recognizer, and not a repeat: 2,291 texts. None that `master` reads is read
   differently, and none is refused.** 1,046 go from not understood to read, the deadlines of 2.1;
-  189 from not understood to refused as past, deadlines whose date has gone by; 454 from refused
-  as past to read, the weekday on its own day (2.3); and 786 answer the same at every moment.
-  184 of them are in two of those groups, at different moments.
+  218 from not understood to refused as past, deadlines whose date has gone by, and deadlines on
+  today's date once their time is behind (point 5 above); 454 from refused as past to read, the
+  weekday on its own day (2.3); and 786 answer the same at every moment. 213 of them are in two of
+  those groups, at different moments.
 - **A repeat among the phrases: 8,682 texts**, every one refused in the words of 2.2 by both
   readers. `master` reads 6,809 of them at some moment, as one date with the repeat dropped.
 - **Several phrases and no repeat: 14,708 texts**, 2,370 of them with a length of time. Of the
-  12,338 others, 103 answer the same at every moment; the rest change as 2.1, 2.3 and 2.4 mean
-  them to.
+  12,338 others, 137 answer the same at every moment; the rest change as 2.1, 2.3 and 2.4 and the
+  points above mean them to.
 - 26 texts in which the recognizer finds nothing are refused as before.
 - The day reader answers the same for every text but the 8,682 repeats.
+
+The same comparison was run after each read of the reviews. Against the run before the first,
+590 texts changed in how they change: 453 begin with `after`, whose range of days begins on the
+day it names, so on that day a time beside it stays a time alone (point 1); 107 have a further
+time beside a part of the day, which the part now takes as its time (point 3); and of the other
+30, 17 are deadlines on a date that is today at one of the moments (point 5), eight are parts of
+the day with a time beside them (point 3), four are ranges on their first day (point 1), and one
+is a whole period, `july (6pm)` (point 6). Against the run after the first read, 178 more changed:
+165 begin with `after`, a phrase that names no single day, so the time beside it is now meant
+before 9 AM too (point 1); 12 are deadlines with a part of the day on a date that is today at one
+of the moments (point 5); and one is `this evening until 9pm`, whose end the evening no longer
+takes as its time (point 3). The generated texts have no end beside a part of the day; of the
+texts from the tests, `this evening until 9pm` and `tonight, ends 11pm` have one, and point 3's
+tests hold the rest. Against the run after the second read, 465 more changed, every one an end
+beside a time of its own (`by 6pm, ends 9pm`, `by 6pm or 8pm`): each now reads that time, as
+`master` does where no day is named. That is the cost point 3 names. Run once more on the final
+code, with the line the last look restored, it gave the same, text by text. The run made before the
+merge of pull request #184, on the code before the reviews, was the same text by text against that
+`master`'s parser as against the one before it.
+
+**Step 4.4 — the two reviews.** Two agents read the branch before any push: one for correctness,
+and one for security and what the public text says. A first attempt at both stopped before either
+reported; both were started again from the beginning on the branch with `master` at `723696d`.
+
+The review of correctness ran the change: the parser's tests in a scratch copy, the comparison
+harness over about 400 texts at about 30 moments in six zones, nine mutations of its own, and the
+short and full weekday names over 138 pairs at 21 moments in three zones. It found the merge with
+pull request #184 right and both of the task's constraints holding, and:
+
+| Finding | Answer |
+|---|---|
+| C1, must fix — a part of the day with a time written beside it lost the time: `tonight (7pm)` was today at 8 PM, where `master` reads 7 PM, and `friday night (9pm)` Friday at 8 PM, where the same two written together are 9 PM. | Point 3 above. A table of nine and one of four, and three pairs in the test that a day and a time written apart read as the two written together. |
+| C2, should fix — a range of days was not under way on its first day: `this weekend 6pm`, typed on the Saturday after 6 PM, was refused, where `master` reads Sunday at 6 PM. | Point 1 above. Three cases in the test of ranges. |
+| C3, should fix — a span from one weekday to another, written with times (`fri 6pm to sun 6pm`), was moved a week on its first day. | Point 4 above. Two cases in the test of spans. |
+| C4, should fix — a deadline on today's date (`by jul 15` on July 15) became that date of next year. | Point 5 above. Two rows in the test of deadlines that have passed, and a sentence in the test of the word in front. |
+| C5, needs a decision — `by friday midnight` is Friday at 00:00, the night before; `by friday at 5` is Friday at 5 AM. | Not changed: each reads as the same text without the word in front, and `friday midnight` is Friday at 00:00 on `master`. Listed at the end of this section. |
+| C6, should fix — a time beside words that are not a date moved to the day the recognizer found in them: `6pm (may change)` to May 1, 2027; `6pm, table 1999` refused as past. | Point 6 above, for months, seasons and years: a test of five rows. `8pm (week 2)` and `6pm in the sun` still move; they are listed at the end of this section. |
+| C7, nit — four things no test held: a phrase that is under way only in part, `on or before`, the place of the length check, and what the comment of the test of `fri 17` claims. | A row for each of the first two. The length test is renamed to say what it shows. The comment is corrected, and so is this section's sentence on the same point. |
+| C8, nit — words that the recognizer reads as a repeat, though they describe (`friday 6pm (annual party)`), refuse the text with the hint. | Not changed: by Q2 A a repeat is refused wherever it stands. Listed at the end of this section. |
+| C9, nit — comments made untrue by C2 and C3, a summary that left out a case, and a comparison that did nothing (`<= today` where only today could be). | Corrected; `DaysForATime` became `TodayWhereNamed`, which keeps today and next week's weekday only. |
+
+The review of security and of what the public text says checked that a missing text and the
+length are still checked first in both readers, that the recognizer is never given more than the
+limit and is asked once by each reader, that the new refusals quote what the existing ones quote
+and are shown as those are, and that no caller's own check is passed by text it refused before.
+It recounted every number in this section that comes from the runs of steps 4.1 to 4.3 and from
+the tests. It found:
+
+| Finding | Answer |
+|---|---|
+| S1, must fix — 0.37.1 was released while the branch was being reviewed, without this change, so its summary belongs in `0.37.2.md`. | Moved; `0.37.1.md` is as released. |
+| S2, must fix — the summary said `by end of day friday` was not understood before; it was Friday at 9 AM. | Taken out of the summary. |
+| S3, should fix — point 2 above said `by end of day` was today's "as before"; it was not understood. | Corrected. |
+| S4, should fix — the state file said the two points beyond the plan keep text on the day it had; Q6 moves `eod friday`. | Corrected. |
+| S5, should fix — the summary's bullet on repeats did not say that text read before is now refused. | Reworded, with `friday 8pm every week`. |
+| S6, should fix — the live script's item for `fri (6pm)` gave the wrong answer of a build without the fix on a Thursday evening. | Reworded: before 6 PM, on any day but a Friday. |
+| S7, should fix — statements made stale by the merge of pull request #184: the count of the parser's tests, the length check as the first, and the commit the change is built on. | Brought up to date. |
+| S8, should fix — the state file and this plan's status line spoke of the reviews in the past while they ran. | Reworded. |
+| S9, nits — `DaysForATime` was listed as a point beyond the plan, where it is case 1 of 2.4; the count of rows in 2.8's table; a missing word in the note at the end of the plan for `sat` and `sun`; "before, they came back as today" in the summary; the comments of `RepeatError` and `ReadValue`, and the class summary. | Each corrected. |
+| S10, nits left as they are — the refusal of a repeat points to the repeat option where an option has none (`/remind`, `/timestamp`); step 1 of the how-to is refused on a Friday evening and on a Saturday before 6 PM, when the close it names comes after the start; the audit log quotes a remark of Joshua's about the session. | The refusal is the wording approved in 2.2, which says "to make an event repeat"; a close after the start is refused with any wording; and the audit log keeps every input of Joshua's word for word. |
+
+Both agents then read the answers.
+
+The review of correctness confirmed C1 to C9 at about 40 moments in four zones, the merge with pull
+request #184, and `sat` and `sun` reading as their full names over 138 pairs at 21 moments in
+three zones, and found three more:
+
+| Finding | Answer |
+|---|---|
+| C10, should fix — C1 made an end beside a part of the day its time: `friday night till 2am` became Friday at 2 AM, before the night begins, where `master` reads 8 PM, and `tonight until 2am` was refused. | Point 3 above: an end ends a part of the day and is not its time. A table of six, each as before. |
+| C11, should fix — beside a time, a phrase that names no day still offered its first day at 9 AM, and the earlier of the two won: `this weekend 6pm`, typed on the Saturday at 00:30, was 9 AM, as on `master`, where point 1 says the time is meant. | Point 1 above: the first day is offered only where the text has no time. A test at three moments. |
+| C12, should fix — C4 did not reach a deadline written with a part of the day: `by jul 15 evening`, typed that evening, was July 15 of next year. | Point 5 above. A test, with `jul 15` alone beside it, which stays next year's. |
+| C13, nits — no test held an afternoon with a time, a period of between eight and fourteen days, or a date alone on its own day; `next 8 days (6pm)` names tomorrow; and a time after midnight beside a night is read on the night's own date. | Rows for the first three. The other two are listed at the end of this section. |
+
+The review of security and of what the public text says confirmed S1 to S9 and the code: the
+checks come first, and each reader asks the recognizer once. It found four points of counting and
+wording in this section, each corrected.
+
+Both agents read these answers last. The review of security and of what the public text says
+confirmed the code again, and the review of correctness confirmed that the answers to its second
+read do what it had asked, each held by a test. Between them they found:
+
+| Finding | Answer |
+|---|---|
+| S11, should fix — an end beside a part of the day that has begun was read on its own: `tonight until 2am`, typed at 9 PM, was 2 AM, where `master` refuses it as past. | One rule for ends, with C14 and C15: an end is the time only where the text has no other time and no part of the day (point 3). A test at three moments. |
+| C14, should fix — an end beside a part of the day or a day that has its own time was read on that day as if it were a start: `friday night (9pm) till 2am` and `friday (9pm) till 2am` were Friday at 2 AM. | The same rule. A table of six, with its one cost, `friday, by 6pm (party 8pm)`, which is Friday at 8 PM. |
+| C15, should fix — an end beside a part of the day was read on another day the text names: `friday or saturday night until midnight` was Friday at 00:00. | The same rule: it is Friday at 9 AM, as before. |
+| C16, should fix — a range that names no day still offers its first day at 9 AM beside a day inside it that has its own time: `this week, friday 6pm`, typed on the Monday before 9 AM, is Monday at 9 AM. | Not changed: it reads as on `master`, and a fix would weigh a range against the days the other phrases name, a rule of its own. Listed at the end of this section. |
+| S12, should fix — the account of the second comparison under step 4.3 had its breakdown wrong. | Corrected: 165, 12 and one. |
+| S13, should fix — wording in this section that drew attention where it need not. | Reworded. |
+
+The comparison of step 4.3, run on the rule for ends, found one more in that rule itself: `by
+night`, `until night` and `before night` were not understood, as on `master`, because the
+deadline was itself a part of the day and the rule took it for one beside an end. A part of the
+day that is itself the deadline does not count: `by night` is tonight at 8 PM, as `night` is. A
+row in the table of deadlines holds it.
+
+Both agents then took a last look at the commits as rebuilt. The review of security and of what
+the public text says confirmed them, with one nit of wording in the audit log, corrected. The
+review of correctness confirmed the rule for ends everywhere but one shape, which the rule itself
+had broken: an end beside a part of the day that is itself a deadline (`by friday night (until
+2am)`) was read on its own, today or tomorrow, where the round before had read Friday at 8 PM. The
+line that keeps such an end from being read, which the rule had taken out, is back, as the review
+tried it, with three tests. It also noted that an end beside a whole period is read as a time alone
+(`next month, by 6pm` is today at 6 PM), as `6pm (may change)` is; that is listed at the end of
+this section.
+
+**`master` taken in three more times.** `master` moved while the branch was being reviewed, and
+was taken in each time: this branch's audit entries by their timestamps, and its section of the
+state file after the others.
+
+- Pull requests #183, #182 and #186 (`916ecd1`). None of them touches the parser or its tests. On
+  that tree the Release build had no error and the same 22 warnings, and 1,959 tests were green:
+  1,043 API, the 14 more being those of #182; 418 bot; 153 web; and 345 for the tool, with the
+  same 17 skipped.
+- Pull request #184 (`723696d`), which changes the same file in other lines, near the start of
+  both readers. The two changes met only in the comments that sum up the two methods, and both
+  are kept. This change still begins below #184's lines in both readers. On that tree the Release
+  build had no error and the same 22 warnings, and 1,997 tests were green: 1,081 API, the 38 more
+  being those of #184; 418 bot; 153 web; and 345 for the tool. The rule removals of step 4.2 and
+  the comparison of step 4.3, run again there against the parser's 392 tests and that `master`'s
+  parser, gave what they had given before the merge, change by change and text by text.
+- The release of 0.37.1 (`eb6afb8`), and pull requests #188 and #187 (`162fd42`). The release went
+  out without this change, so its summary is in `docs/release-notes/0.37.2.md`, the next version
+  after 0.37.1 for a `fix:`, and `0.37.1.md` is as released. The parser and its tests are as they
+  were.
 
 **Noticed while probing, not part of this.** Each is listed for Joshua to take up or leave:
 
@@ -690,6 +898,37 @@ are the same as in the run made on the prepared copy the day before.
   the length lost, because `after …` is a range with a start and has always been read.
 - `by the weekend`, `by end of month`, `before next month`: deadlines at the edge of a period
   (2.1). They stay refused.
+- `by friday midnight`, `friday by midnight` and `by midnight friday` are Friday at 00:00, the
+  start of the day, as `friday midnight` is: the recognizer reads midnight as the start of the day
+  it names. As a deadline that is a day early. `by friday at 5` is Friday at 5 AM, as
+  `friday at 5` is.
+- Words that the recognizer reads as a repeat refuse the text even where they describe:
+  `friday 6pm (annual party)`, `friday 6pm, every minute counts` (Q2).
+- The refusal of a repeat from the date-and-time reader says "to make an event repeat, use its
+  repeat option" wherever a date and time is typed, `/remind` and `/timestamp` among them, which
+  have no repeat option.
+- `8pm (week 2)` is refused as past: the recognizer reads `week 2` as the second week of the year,
+  a week names its first day, and that has passed. It was today at 8 PM.
+- `6pm in the sun` is Sunday at 6 PM: `sun` is read as Sunday, by the fix for `sat` and `sun`, and
+  the time is read on that day. It was today at 6 PM.
+- `next 8 days (6pm)` and `next 30 days (6pm)` are tomorrow at 6 PM, where they were today: the
+  recognizer writes "next N days" as it writes a span the text spells out, which names its first
+  day. `next 2 weeks (6pm)` is a whole period, and today's.
+- A time after midnight beside a night is read on the night's own date, before the night begins:
+  `friday night (1am)` is Friday at 1 AM, and `tonight (1am)` is refused as past. It was wrong
+  before too, and the same two written together are no better: `friday night at 1am` is Friday at
+  1 PM.
+- A range that names no day offers its first day at 9 AM beside a day inside it that has its own
+  time, and before 9 AM on that first day it is the earlier: `this week, friday 6pm`, typed on the
+  Monday at 8 AM, is Monday at 9 AM, as on `master`; so is `this weekend, saturday 2pm`, typed on
+  the Saturday at 00:30, and `this weekend (sat 2pm)`, typed on the Wednesday, is Saturday at
+  9 AM.
+- An end beside a whole period is read as a time alone, as any time beside one is (point 6):
+  `next month, by 6pm` and `may, until 6pm` are today at 6 PM, where they were the period's first
+  day at 9 AM.
+- An end written as a plain time is read as a time: `friday (9pm), ends 2am` is Friday at 2 AM,
+  the earlier of the two on that day. Only an end written with `by`, `until` or `before` is known
+  to be an end.
 - From the day reader, `by friday (6pm)` is today, as before: the deadline is not read there, and
   the time alone means today.
 - A short weekday in a holiday's name is read as the plain weekday: `easter mon` is next Monday,
@@ -705,6 +944,13 @@ are the same as in the run made on the prepared copy the day before.
   recognizer offers both halves of the day for an hour with no `am` or `pm`.
 - `july 15 6pm` typed on July 15 after 6 PM is refused as past, and from midnight on reads as
   July 15 of next year; `jul 15`, with no time, reads as next year's from 9 AM on the day (1.3).
+  A deadline on a date that has passed this year is next year's too, as the date alone is:
+  `by jul 14`, typed on July 18, is July 14, 2027. Only a deadline on today's date is kept to
+  today (point 5).
+- `nov 12 noon` is November 12 at 9 AM, and so is `by nov 12 noon`: the recognizer does not read
+  `noon` after a date written that way.
+- `wednesday morning (9am)`, typed on the Wednesday at 10:00, while the morning is under way, is
+  Thursday at 9 AM, as before.
 - `tuesday, next week` gives Monday, the earlier of the two days named; the free-slots plan
   records it.
 - `the 15th` and `15th` alone are not understood; `on the 15th at 6pm` is read.

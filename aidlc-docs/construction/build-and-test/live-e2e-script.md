@@ -96,8 +96,11 @@ production id (correct for the prod stack, which needs no new variables).
       gives. Run it between Sunday and Thursday, or on a Friday before 6 PM: a build without
       the fix then gives today at 6 PM, or tomorrow once that has passed, which is not Saturday.
 - [ ] `/create` with `when:"fri (6pm)"` → Friday at 6 PM, as `when:"fri 6pm"` gives: a time
-      written apart from its day is read on that day. Run it on any day but a Friday: a build
-      without the fix then gives today at 6 PM, or tomorrow once that has passed.
+      written apart from its day is read on that day. Run it before 6 PM on any day but a
+      Friday: a build without the fix then gives today at 6 PM.
+- [ ] `/create` with `when:"friday night (9pm)"` → Friday at 9 PM, as `when:"friday night 9pm"`
+      gives: a part of the day takes the time beside it. Run it before 9 PM on any day but a
+      Friday: a build without the fix then gives today at 9 PM.
 - [ ] `/create` with `when:` today's weekday and an hour that has passed (`when:"wed 9am"` on a
       Wednesday after 9 AM) → next week's. A build without the fix refuses it as a time in the
       past.
