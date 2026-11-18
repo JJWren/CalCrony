@@ -155,7 +155,8 @@ public static class CalendarEndpoints
         return Results.NoContent();
     }
 
-    /// <summary>Runs a live free/busy check for the requested users and window (BotOnly — prevents member probing).</summary>
+    /// <summary>Runs a live free/busy check for the requested users and window (BotOnly — prevents member probing).
+    /// A request without <c>userIds</c> is refused as one with an empty list is.</summary>
     /// <param name="request">The request body.</param>
     /// <param name="availability">The availability service.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -167,7 +168,7 @@ public static class CalendarEndpoints
     {
         // De-duplicate first: repeated IDs would otherwise create duplicate pipeline entries and
         // crash the per-user result keying downstream.
-        var userIds = request.UserIds.Distinct().ToList();
+        var userIds = (request.UserIds ?? []).Distinct().ToList();
         if (userIds.Count is 0 or > MaxUsersPerQuery)
         {
             return Results.BadRequest(new ErrorResponse($"userIds must have between 1 and {MaxUsersPerQuery} distinct entries."));

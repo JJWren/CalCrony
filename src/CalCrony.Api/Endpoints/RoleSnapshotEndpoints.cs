@@ -65,7 +65,8 @@ public static class RoleSnapshotEndpoints
     /// gets no row, so after this call a missing member row means exactly that. The API's own
     /// watch list, read in the same transaction, decides what may be stored at all: a payload the
     /// bot captured before a restriction was removed (a web clear, an event ending) is filtered
-    /// to the roles still watched, so a sync can never re-add rows for a role nothing names.</summary>
+    /// to the roles still watched, so a sync can never re-add rows for a role nothing names. A list
+    /// with an entry missing altogether is refused before the snapshot is touched.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
@@ -78,6 +79,11 @@ public static class RoleSnapshotEndpoints
         if (request.Roles is null || request.Members is null)
         {
             return Results.BadRequest(new ErrorResponse("Roles and Members are required (empty lists clear the snapshot)."));
+        }
+
+        if (request.Roles.Any(r => r is null) || request.Members.Any(m => m is null))
+        {
+            return Results.BadRequest(new ErrorResponse("Roles and Members can't have an entry missing."));
         }
 
         var now = clock.GetCurrentInstant();
