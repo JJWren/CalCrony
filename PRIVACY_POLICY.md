@@ -1,6 +1,6 @@
 # CalCrony — Privacy Policy
 
-**Last updated: 2026-11-13** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
+**Last updated: 2026-11-17** · Hosted copy: [calcrony.app/privacy](https://calcrony.app/privacy)
 
 This policy describes what the **CalCrony** instance operated by this repository's maintainer
 stores and why. CalCrony is open-source and self-hostable; a self-hosted instance is governed by
@@ -26,13 +26,16 @@ needed to make that work. It has no analytics, no ads, no tracking, and sells no
   repeating event grants, or for members holding none of them. This is the one fact about you that the bot writes
   rather than you handing it over yourself, which is why it is scoped this narrowly.
 - Content you create: event titles/descriptions/locations, poll questions and options, RSVP
-  choices, reminders, notification messages, and templates.
+  choices, reminders, notification messages, and templates. In a server's free-slot lists, the
+  times of that server's events you created, or hold a seat in on their attending option (Going
+  by default), count as busy time for you; a list shows no title, channel or attendee.
 - Preferences: per-user and per-server timezone, DM-confirmation and DM-reminder settings
   (reminders by DM are off unless you turn them on yourself — no server or event creator can),
   your available hours if you save them (the weekly hours you say you are usually available;
   saving them lets members of the servers you share with CalCrony list your free slots by name,
-  which shows roughly the hours you keep and, if your calendar is linked, when you are busy
-  inside them, and resetting them takes that back),
+  which shows roughly the hours you keep and when you are busy inside them — with the CalCrony
+  events of that server that you created or hold a seat in on their attending option and, if
+  your calendar is linked, with what is on your calendar — and resetting them takes that back),
   interface theme, server settings.
 - Web sign-in (optional, Discord OAuth with `identify` + `guilds` scopes only): your username,
   display name, avatar hash, and a snapshot of which servers you're in (used to scope what the

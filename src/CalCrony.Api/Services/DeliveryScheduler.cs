@@ -17,7 +17,16 @@ namespace CalCrony.Api.Services;
 public sealed class DeliveryScheduler(
     CalCronyDbContext db, SeriesMaterializer materializer, ILogger<DeliveryScheduler> logger)
 {
-    private const int DefaultEventLengthMinutes = 60;
+    /// <summary>How long an event with no length set is taken to last, in minutes: the sweep
+    /// ends it this long after its start, and a free-slots lookup counts it as busy for as long.</summary>
+    internal const int DefaultEventLengthMinutes = 60;
+
+    /// <summary>How long an event or a series' occurrence lasts for a free-slots lookup: its own
+    /// length, or <see cref="DefaultEventLengthMinutes"/> when it has none.</summary>
+    /// <param name="durationMinutes">The length set, if any.</param>
+    /// <returns>The length.</returns>
+    internal static Duration EventLength(int? durationMinutes) =>
+        Duration.FromMinutes(durationMinutes ?? DefaultEventLengthMinutes);
 
     /// <summary>Runs one sweep: matures notifications, transitions event statuses, materializes freed series slots, and auto-closes due polls.</summary>
     /// <param name="now">The current instant.</param>

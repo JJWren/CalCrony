@@ -4,6 +4,10 @@
 and the approved workflow plan. **Baseline**: `master` 4911a1f (v0.36.3).
 **Status**: approved by Joshua 2026-11-11, as written. **Amended 2026-11-12** with D11 (section 2),
 on his decision after the review of unit 1; 5.1, 5.2, section 7 and section 8 are brought in line.
+**Amended 2026-11-17** with D12–D19 (section 2) and section 11, for free slots counting CalCrony
+events (FR20–FR31): approved by Joshua that day with the code-generation plan of that change
+(`construction/plans/free-slots-calcrony-events-code-generation-plan.md`, "Continue"). The review
+of that change brought section 4.5, D16 and section 11 in line with the code.
 
 This document covers both units of work so the seam between them is drawn once. It fixes components,
 contracts, routes, storage and command shapes; the detailed rules of each unit (validation messages,
@@ -73,6 +77,14 @@ overruled.
 | D9 | The member-zone rule (their timezone, else the server's, else UTC) is a small pure helper used by the new code. The datetime route keeps its own inline copy, and a test pins that both give the same answer. | Refactoring the datetime route onto the helper | No behaviour risk to every command that parses `when:`. |
 | D10 | Saving hours writes no activity-log entry. | Logging it | The log records server management actions; personal settings are not logged today. |
 | D11 | *Added 2026-11-12 (FR19).* A single target other than the caller is listed only when that member has saved their own hours. Unit 1 has no saved hours, so there `who:` takes the caller or a role, and the bot refuses anyone else before any lookup. Unit 2 lifts the refusal for a member with saved hours, and every place where hours are saved or shown says that saving them lets other members list one's slots by name, and that such a list shows roughly the hours one keeps (FR10). How the bot learns that hours are saved is for unit 2's plan; the hours `GET` route already answers it (`IsSet`). | The design as approved, where any member of the server could be named; or a separate per-member switch, on or off by default | Naming any linked member reaches further than `/availability role`, which gets to a member only through a role of 50 or fewer. Saving hours is already the act of saying when one is available, so no second setting is needed, and reset is the way back. A role is left as it is: it reaches what the grid reaches, with one difference — bots are left out before the 50-member limit here and counted toward it there. |
+| D12 | *Added 2026-11-17 (FR20–FR31), as are D13–D19.* A new service in the API, `EventBusyTimes`, gives the busy intervals of CalCrony events per member. `FreeSlotsService` asks it once per lookup, for the members it counts, and adds the intervals to each member's calendar blocks before the calculation. | Reading events inside `CalendarAvailabilityService`, or inside the calculation | That service also answers `/availability role`, `/availability event` and the web grid, which stay as they are; the calculation is pure and already takes busy intervals in any order, overlapping or reaching outside the window. |
+| D13 | At most five database reads are added to a lookup, none of them per member, per day or per event: the server's live events that can reach into the days looked at; the counted members' seats on those events; the options of the events that have such a seat; the running series created by a counted member; and those series' live occurrences. Only ids, times, lengths, statuses and schedule fields are selected — no title, description, location or channel. | One joined query, or reading every live event of the server | A joined query multiplies rows (events × options × seats). Every live event would be a year of events for a lookup that starts a year ahead. |
+| D14 | No new index and no migration. The reads use the indexes that exist: events by server and start, RSVPs by event, options by event, series by server, and the live occurrence of a series. | An index on a series' or an event's creator | The reads are already bounded by the server and the range; the creator is checked on the rows that come back. |
+| D15 | An event can reach into the days looked at only if it starts before they end and no earlier than four weeks before they begin — the longest length an event can be given (`FieldLimits.MaxMinutes`). | Computing each event's end in SQL | The start has an index, the end does not; four weeks back is a bounded range. |
+| D16 | Who an event counts for is decided on the rows read: its creator, and a member with a non-waitlisted RSVP on the option `RsvpPolicy.AttendingOption` names. The read selects an option's flag and sort order only, so the rule is applied to those two through `RsvpPolicy.AttendingOf`, which `AttendingOption` itself calls. | Filtering on the option's flag in SQL | `AttendingOption` is the one rule every other "who is going" use follows; a second rule in SQL could drift from it. |
+| D17 | A running series' later occurrences come from a new pure function, `SeriesProjection.LaterOccurrences`. It steps the schedule with `RecurrenceCalculator.NextOccurrence`, day set included, from the series' slot cursor: the first occurrence after the end of the live one, each later one after the end of the one before it — what the scheduler does when an occurrence ends. It honours the until date and the count that is left, takes the series' own length, and stops at the end of the days looked at, or after 1,000 steps. | Reusing or changing `PublicCalendarBuilder.ProjectOccurrences` | That function steps from the present only, leaves out the day set, yields starts without ends, and was being changed by other work at the time. One projection for the feed, the public calendar and free slots is a candidate for a follow-up. |
+| D18 | The answer carries one more defaulted field, `EventsCounted`. The API sets it on every answer; an answer without it reads as false. The bot's sentences name CalCrony events only when it is set. | A version check, or always naming events | The same pattern as `ByName` and `LookedUntilUtc`: a bot and an API of different versions understand each other, and the reply claims only what the API says it did. |
+| D19 | Nothing is cached and nothing is stored: every lookup reads the events as they are. | A cache of busy time per member | An event that is moved, cancelled or deleted must show in the next lookup. |
 
 ## 3. Contracts (`CalCrony.Contracts`)
 
@@ -210,7 +222,7 @@ arbitrary user ids, and a web caller could probe any member with it.
 |---|---|---|---|---|
 | read | yes | `Counted` | yes | their own |
 | read | no | `DefaultHours` | yes | 8 AM–11 PM every day |
-| none | yes | `HoursOnly` | yes | their own; no busy blocks |
+| none | yes | `HoursOnly` | yes | their own; no calendar blocks, though their CalCrony events still cut them (section 11) |
 | none | no | `NotCounted` | no | — |
 | needs to reconnect | either | `ReconnectRequired` | no | — |
 | couldn't be read | either | `Error` | no | — |
@@ -321,3 +333,35 @@ real Google account; the reply at phone width.
 - [x] Diagram's syntax checked; text alternative provided
 - [x] Approved by Joshua — 2026-11-11, as written ("Continue")
 - [x] D11 added 2026-11-12 on Joshua's decision (option A, "I agree with your recommendations")
+- [x] D12–D19 and section 11 added 2026-11-17, approved with the code-generation plan of
+      `free-slots-calcrony-events` ("Continue")
+
+## 11. Amendment of 2026-11-17 — CalCrony events count as busy time
+
+A later change (`inception/requirements/free-slots-calcrony-events-requirements.md`, FR20–FR31)
+adds a second source of busy time to the lookup of section 4: the CalCrony events of the server
+the command runs in. Its rules are in section 4 of its code-generation plan; this section records
+where it sits in the design above.
+
+| Component | Kind | Responsibility |
+|---|---|---|
+| `EventBusyTimes` | new scoped service, `Services/` | For the members a lookup counts: the intervals of the server's live events each one created or holds a seat in on the attending option, and of the later occurrences of the running series each one created (D12–D16). |
+| `SeriesProjection` | new static class, pure | The occurrences a running series will have after the one that exists, inside a window (D17). |
+| `FreeSlotsService` | changed | After the by-name rule and once it knows who is counted, asks `EventBusyTimes` for those members and hands the calculation both kinds of busy interval; sets `EventsCounted` (D18). |
+| `FreeSlotsResponse` | changed | One more defaulted field, `EventsCounted`. |
+| `FreeSlotsEmbedBuilder` | changed | The sentence on what the slots rest on names CalCrony events when the answer says they were counted. |
+| `RsvpPolicy.AttendingOf` | new method | The attending-option rule for rows that carry an option's flag and sort order only (D16); `AttendingOption` calls it. |
+| `DeliveryScheduler.DefaultEventLengthMinutes` | changed | From private to internal, so that the 60 minutes of an event with no length set is written once. |
+| `FreeSlotCalculator`, `CalendarAvailabilityService`, the route, the command | unchanged | The calculation already takes busy intervals from any source (D4). |
+
+Section 4.4 holds as written: an event's interval is one more busy block of step 2. In 4.5, events
+never change a member's state, and the row for `HoursOnly` now says that a member counted on hours
+alone is cut by their events. Section 9 holds as well: `/availability role`, `/availability event`
+and the event page's grid are not touched.
+
+D11 allowed a role, as it was, because it reaches what the grid reaches. A role lookup in
+`/availability slots` now reaches a little further: for each counted member it also leaves out
+that member's CalCrony events of the server, also for a member who saved no hours, so a role one
+member holds shows that member's event times. Those events, with their creators and RSVPs, are
+already open to every member of the server on the web, so nothing new in kind is shown; the
+requirements record it among the risks of the change (section 7 there).

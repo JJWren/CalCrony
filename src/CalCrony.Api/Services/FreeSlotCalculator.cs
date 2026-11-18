@@ -14,8 +14,9 @@ public sealed record FreeSlotQuery(Instant Now, DateTimeZone CallerZone, LocalDa
 /// <summary>One counted member's side of the calculation.</summary>
 /// <param name="Zone">The zone the member's hours are read in.</param>
 /// <param name="Hours">The member's available hours.</param>
-/// <param name="Busy">Busy intervals from the member's linked calendar, in any order; they may
-/// overlap, touch, or reach outside the window. Empty when the member has no calendar.</param>
+/// <param name="Busy">The member's busy intervals — from their linked calendar and from the
+/// CalCrony events that count for them — in any order; they may overlap, touch, or reach outside
+/// the window. Empty when nothing of either kind keeps the member busy.</param>
 public sealed record MemberAvailability(
     DateTimeZone Zone, WeeklyHours Hours, IReadOnlyList<(Instant Start, Instant End)> Busy);
 

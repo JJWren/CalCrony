@@ -241,6 +241,11 @@ public record FreeSlotDayDto(DateOnly Date, IReadOnlyList<FreeSlotDto> Slots, Da
 /// <param name="LookedUntilUtc">Where the lookup stopped looking: the midnight one day after the
 /// last day listed. A slot that ends here was still open when the lookup stopped, so its real end
 /// is this instant or later; the reply says so. Null when the API did not say.</param>
+/// <param name="EventsCounted">True when the lookup counted CalCrony events as busy time: for each
+/// counted member, the events of the server the command ran in that the member created or holds a
+/// seat in on their attending option, and the later dates of a repeating event the member created.
+/// False from an API that does not count them; the reply names CalCrony events only when this is
+/// set, so it never claims more than was counted.</param>
 public record FreeSlotsResponse(
     string TimeZone,
     DateOnly FirstDay,
@@ -249,4 +254,5 @@ public record FreeSlotsResponse(
     IReadOnlyList<FreeSlotDayDto> Days,
     IReadOnlyList<FreeSlotMemberDto> Members,
     bool ByName = false,
-    DateTimeOffset? LookedUntilUtc = null);
+    DateTimeOffset? LookedUntilUtc = null,
+    bool EventsCounted = false);
