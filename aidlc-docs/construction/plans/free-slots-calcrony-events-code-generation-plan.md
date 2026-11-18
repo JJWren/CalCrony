@@ -866,21 +866,28 @@ what `05476a2` did, where they changed in `7a55431` (security); and the nits ask
 on the nullable values in `EventBusyTimes`, exact wording for the public calendar's entry point,
 two sentences in the right tense, one subject made clear, the summary limit in step 5.4,
 `5935891` named for two answers, and the pull request's text checked now that this change edits
-`SeriesProjection.cs` rather than adding it. All are answered in `5e5af40`, comments and records
-only: the paragraph above reads D17 and 4.4 again, and the entry of 20:11:31Z stays as written,
-corrected here and in the audit trail; the pull request's text still holds, as it says only that
-a pure `SeriesProjection` steps a series' rule. No code line changed, so the results of
-`05476a2` stand; a full rebuild has no error and 22 warnings. One projection for the feed, the
-public calendar and free slots, with one way to work out an end, stays the follow-up D17 names.
+`SeriesProjection.cs` rather than adding it. All but the last are answered in `5e5af40`, comments
+and records only: the paragraph above reads D17 and 4.4 again, and the entry of 20:11:31Z stays
+as written, corrected here and in the audit trail. The pull request's text was checked and still
+holds, as it says only that a pure `SeriesProjection` steps a series' rule. No code line changed,
+so the results of `05476a2` stand; a full rebuild has no error and 22 warnings. One projection for
+the feed, the public calendar and free slots, with one way to work out an end, stays the
+follow-up D17 names.
 
 Both agents confirmed `5e5af40` and `96db72a`, with a few words left: the comment on the nullable
 values now says "a default one", and this paragraph names every nit and the source of each
 point. The branch was pushed by its name at 20:36:53Z (`a3b30a5..96db72a`).
 
-Asked which goes first, the release of 0.37.2 or this change's merge, Joshua answered "A" the same
-day: 0.37.2 first. So `0.37.2.md` stays where it is and step 5.4's fold does not apply; this
+Asked which goes first, the release of 0.37.2 or this change's merge, Joshua answered "A" the
+same day: 0.37.2 first. So `0.37.2.md` stays where it is and step 5.4's fold does not apply; this
 change goes out as 0.38.0 with `0.38.0.md` as it stands, and its merge is asked once 0.37.2 is
 released and rolled out.
+
+`master` then moved to `c97c15e` (#201, records only) and is merged in as `e0b2337`: only the
+audit trail conflicted, merged by its stamps as before. Outside `aidlc-docs` the branch differs
+from `96db72a` only by the one comment, so the results of `05476a2` stand. Both agents read the
+four commits after `96db72a` and confirmed them, with wording left for this paragraph and the
+state line, and the branch was pushed by its name at 20:56:14Z (`96db72a..ebaa7c6`).
 
 ## 10. Plan checklist
 
