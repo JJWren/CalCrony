@@ -125,6 +125,14 @@ before the recognizer is given the text, so each reads as its full name does in 
 in words: `sat` is the coming Saturday, or today on a Saturday, and `sat 6pm` is that Saturday at
 6 PM. The other two stand.
 
+Added on 2026-11-17, with the table and the paragraphs above left as they were: the date-and-time
+reader, `TryResolve`, now follows this reader's rule for a time written apart from its day
+(`date-text-gaps-code-generation-plan.md`), from the release that carries it. Where the table says
+of `friday at night`, `friday (6pm)` and `tomorrow, after 6pm` that the time alone would be today,
+`TryResolve` gave today at that time. It now gives the named day at that time, the day this reader
+gives. `yesterday (6pm)`, which it read as today at 6 PM, it now refuses as past, as this reader
+does. `tuesday, next week` still gives the earlier of the two days named, from both.
+
 ### 4.2 The route
 
 `POST /calendar/free-slots`, bot-only for the reason `/calendar/availability` is: it accepts
