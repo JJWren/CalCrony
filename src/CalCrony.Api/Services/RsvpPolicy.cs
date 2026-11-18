@@ -636,7 +636,7 @@ public static partial class RsvpPolicy
                 ChannelId = ev.ChannelId,
                 PayloadJson = JsonSerializer.Serialize(new WaitlistPromotionPayload(
                     ev.Id, rsvp.UserId, ev.Title, ev.StartsAt.ToUnixTimeSeconds(),
-                    attending.Emote, attending.Label)),
+                    attending.Emote, attending.Label, ev.GuildId)),
                 DueAt = now,
                 Status = DeliveryStatus.Pending,
                 CreatedAt = now,

@@ -67,7 +67,9 @@ public record DeliveryDto(Guid Id, DeliveryType Type, long ChannelId, string Pay
 /// <summary>Payload for a one-off /remind ping.</summary>
 /// <param name="UserId">The Discord user id.</param>
 /// <param name="Text">The reminder text.</param>
-public record ReminderPayload(long UserId, string Text);
+/// <param name="GuildId">The server the reminder was made in: the bot posts only in one of that
+/// server's channels.</param>
+public record ReminderPayload(long UserId, string Text, long? GuildId = null);
 
 /// <summary>Payload for the automatic event-start announcement. Guild/native ids are captured at
 /// enqueue so the handler can also flip the mirrored scheduled event to active without a refetch.</summary>
@@ -75,7 +77,8 @@ public record ReminderPayload(long UserId, string Text);
 /// <param name="Title">The event title.</param>
 /// <param name="StartsAtUnix">Start time in Unix seconds.</param>
 /// <param name="MessageId">The Discord message id.</param>
-/// <param name="GuildId">The Discord guild id, when mirrored.</param>
+/// <param name="GuildId">The event's server: the bot posts only in one of that server's channels,
+/// and flips the mirrored scheduled event there.</param>
 /// <param name="NativeEventId">The mirrored scheduled-event id, when mirrored.</param>
 public record EventStartPayload(
     Guid EventId, string Title, long StartsAtUnix, long? MessageId,
@@ -87,7 +90,10 @@ public record EventStartPayload(
 /// <param name="StartsAtUnix">Start time in Unix seconds.</param>
 /// <param name="Message">Optional message text.</param>
 /// <param name="Mentions">Optional mention text included in the ping.</param>
-public record EventNotificationPayload(Guid EventId, string Title, long StartsAtUnix, string? Message, string? Mentions);
+/// <param name="GuildId">The event's server: the bot posts only in one of that server's
+/// channels.</param>
+public record EventNotificationPayload(
+    Guid EventId, string Title, long StartsAtUnix, string? Message, string? Mentions, long? GuildId = null);
 
 /// <summary>Payload asking the bot to re-render an event's posted embed after a web-side change.</summary>
 /// <param name="EventId">The event id.</param>
@@ -149,8 +155,11 @@ public record SyncLiveListPayload(Guid LiveListId);
 /// <param name="StartsAtUnix">Start time in Unix seconds.</param>
 /// <param name="OptionEmote">The attending option's emoji.</param>
 /// <param name="OptionLabel">The attending option's label.</param>
+/// <param name="GuildId">The event's server: the bot posts only in one of that server's
+/// channels.</param>
 public record WaitlistPromotionPayload(
-    Guid EventId, long UserId, string Title, long StartsAtUnix, string OptionEmote, string OptionLabel);
+    Guid EventId, long UserId, string Title, long StartsAtUnix, string OptionEmote, string OptionLabel,
+    long? GuildId = null);
 
 /// <summary>Payload for an opt-in DM reminder. Self-contained (title, time, guild/channel/message
 /// ids, the server-name snapshot) so the DM renders even if the event row changes or dies first.</summary>
@@ -211,8 +220,8 @@ public record ReminderDto(Guid Id, long ChannelId, string Text, DateTimeOffset F
 /// Series also records the notification on the series template so future occurrences get it.</summary>
 /// <param name="MinutesBefore">How many minutes before start the ping fires.</param>
 /// <param name="Message">Optional message text.</param>
-/// <param name="Mentions">Optional mention text included in the ping.</param>
-/// <param name="ChannelId">The Discord channel id.</param>
+/// <param name="Mentions">Optional mention text included in the ping. Set from Discord; not taken from a web caller.</param>
+/// <param name="ChannelId">The Discord channel id; null means the event's channel. Set from Discord; not taken from a web caller.</param>
 /// <param name="Scope">Whether the change applies to this occurrence or the whole series.</param>
 public record CreateEventNotificationRequest(
     int MinutesBefore, string? Message = null, string? Mentions = null, long? ChannelId = null,

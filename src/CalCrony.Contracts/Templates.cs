@@ -56,7 +56,9 @@ public record SaveTemplateRequest(long CreatorId, string Name, Guid EventId);
 /// <param name="Recurrence">Replaces the repeat rule. Null leaves it unchanged — clear with
 /// ClearRecurrence.</param>
 /// <param name="ClearRecurrence">Removes the repeat rule. Conflicts with Recurrence.</param>
-/// <param name="Notifications">Non-null replaces the whole notification-spec set (max 5).</param>
+/// <param name="Notifications">Non-null replaces the whole notification-spec set (max 5). From
+/// a web caller a spec keeps its channel and mentions only where a spec of the template already
+/// has that pair; both are set from Discord.</param>
 public record UpdateTemplateRequest(
     long EditorId,
     string? Name = null,
