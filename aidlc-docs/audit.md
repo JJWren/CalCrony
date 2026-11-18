@@ -2443,3 +2443,10 @@ Availability for @GM
 **Context**: Delivery — records pull request kept up to date with `master`. Next: its merge, on its own go-ahead.
 
 ---
+## Delivery — short weekend days: go-ahead to merge records pull request #201
+**Timestamp**: 2026-11-18T19:20:28Z
+**User Input**: "Yes, merge when green"
+**AI Response**: Read as A, the recommended answer to "Squash-merge pull request #201 once its checks pass?", asked at 18:38:17Z. At 19:20Z every check on the head `d9e776c` had passed (`build-test`, `pr-title`, `lint-workflows`, the two CodeQL analyses, CodeQL and GitGuardian; `publish-main` skipped), and `master` (`5fc9239`) was already in it. It is squash-merged through the REST call, pinned to a head whose checks have all passed, with the pull request's title and description as the commit message. The merge's own record goes to a later records pull request.
+**Context**: Delivery — records pull request #201, merge go-ahead given. Next: the merge.
+
+---
