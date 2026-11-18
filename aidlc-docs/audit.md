@@ -2219,3 +2219,10 @@ Availability for @GM
 **Context**: Build and test — pull request #193 brought up to date with `master`.
 
 ---
+## Code of Conduct — go-ahead to merge pull request #193
+**Timestamp**: 2026-11-18T18:33:39Z
+**User Input**: "Yes merge"
+**AI Response**: Joshua's answer to "Squash-merge pull request #193 once its checks are green?"; the other answer was "Not yet". Checked first, read-only: head `dc6b89c`, mergeable, blocked only on the required review; `build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses and the secret scan passed on it. No Copilot review was requested (no `review_requested` event), as on the records pull requests #188, #191 and #194, which were merged without one. This entry goes out as a records-only push; the merge is the REST call with `sha` set to the head that carries it, once its checks are green: squash, title `docs: add a code of conduct (#193)`. It cuts no release.
+**Context**: Build and test — the merge of #193, on Joshua's go-ahead.
+
+---
