@@ -2303,3 +2303,10 @@ Availability for @GM
 **Context**: Build and test — merged; records local; the "Other" label put to Joshua.
 
 ---
+## Code of Conduct — the "Other" label kept
+**Timestamp**: 2026-11-18T18:41:52Z
+**User Input**: "Keep as is"
+**AI Response**: Joshua's answer to "Should I leave the Code of Conduct as it is, with GitHub's 'Other' label?" (A, recommended); the other answer was "Switch to GitHub's 2.0 template". `CODE_OF_CONDUCT.md` stays the Covenant 2.1 with its two CalCrony lines; the community profile stays at 100 percent with the file listed as "Other". The work is done. Committed on the local records branch `docs/log-code-of-conduct-merge`; nothing pushed. Asked of Joshua: "Push the records branch and open its pull request?", answers "Push and open" and "Not yet".
+**Context**: Build and test — complete; the records branch waits for Joshua's go-ahead.
+
+---
