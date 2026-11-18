@@ -2114,3 +2114,10 @@ Availability for @GM
 **Context**: Construction — code generation complete; the completion gate asked.
 
 ---
+## Code generation, part 2 — the moved occurrence: the completion gate answered B; the push asked on its own
+**Timestamp**: 2026-11-18T03:44:58Z
+**User Input**: "B) Continue"
+**AI Response**: His answer to "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", where the recommendation was B: the code generation stage is complete, and the fix stands as the review agents last read it. The push and the pull request were put beside the gate as a go-ahead of their own, to be given as "B, push", and the plan's section 8 has them after the gate on Joshua's own go-ahead; this answer gives B alone, so nothing is pushed and that go-ahead is asked again, with the recommendation yes. Checked first (03:43Z): `master` on GitHub is still at `162fd42`, so there is nothing to take in; pull requests #189 and #190 are still open, so `docs/release-notes/0.37.2.md` is still a new file against `master`; no release pull request is open; and the branch is not on GitHub. Build and test, in the repository's collapsed form, is the checks of the pull request once it is opened. The merge, the release and the rollout are each asked separately.
+**Context**: Construction — code generation approved at the completion gate; the push and the pull request wait for their own go-ahead.
+
+---

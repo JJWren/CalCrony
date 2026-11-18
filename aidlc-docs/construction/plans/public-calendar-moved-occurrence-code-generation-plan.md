@@ -12,7 +12,8 @@ calendar has the same gap.
 **Status**: written 2026-11-17 with the gap confirmed by runs at both levels (section 1), and
 approved by Joshua the same day as written, with Q1–Q4 all answered A ("Approve, all A"). Code
 generated and checked the same day (sections 8 and 9); read by two review agents until neither
-had a finding (section 9); `master` taken in. Nothing pushed; the completion gate is asked.
+had a finding (section 9); `master` taken in. Approved at the completion gate on 2026-11-18
+("B) Continue"). Nothing pushed: the push and the pull request wait for Joshua's own go-ahead.
 
 A contained fix, so the workflow runs at minimal depth: the task is the requirement; no user
 stories, application design, units, NFR or infrastructure stages; one unit, and this file is both
@@ -432,9 +433,10 @@ month after the one they run in, so that every date is ahead on any day of any m
   the answers at `d9f9abb`, `67a5629` and `2f05400`, until neither had a finding; section 9 has
   each finding and its answer.
 
-Then the completion gate, and after it — each on Joshua's own go-ahead — the push and the pull
-request, the merge, the release and the rollout. Before the push `master` is merged in, with the
-entries of `audit.md` kept in order of their timestamps and master's text unchanged.
+Then the completion gate — answered B on 2026-11-18 ("B) Continue") — and after it, each on
+Joshua's own go-ahead, the push and the pull request, the merge, the release and the rollout.
+Before the push `master` is merged in, with the entries of `audit.md` kept in order of their
+timestamps and master's text unchanged.
 
 ## 9. As built
 
