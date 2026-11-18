@@ -12,7 +12,8 @@ public static class RecurrenceCalculator
 {
     /// <summary>First schedule date strictly after <paramref name="after"/> — except when
     /// <paramref name="after"/> precedes the anchor, where the anchor (the first slot of the
-    /// schedule) is returned as-is.</summary>
+    /// schedule) is returned as-is. Throws where that date would lie past the calendar's last
+    /// day; <see cref="NextOccurrence"/> turns that into "no next occurrence".</summary>
     /// <param name="unit">The recurrence unit.</param>
     /// <param name="interval">Every N units (1-12).</param>
     /// <param name="mode">The monthly mode (ignored for non-month units).</param>
@@ -80,8 +81,42 @@ public static class RecurrenceCalculator
 
     /// <summary>First (date, instant) with instant strictly after <paramref name="now"/> and date
     /// strictly after <paramref name="currentOccurrenceDate"/>; honors <paramref name="untilDate"/>
-    /// (inclusive). Null = end condition exhausted. Skips over downtime-missed slots without
-    /// materializing them.</summary>
+    /// (inclusive). Null = no next occurrence: the end condition is exhausted, or the schedule's
+    /// next date, or the instant of its start in <paramref name="zone"/>, lies past the end of
+    /// the calendar. Skips over downtime-missed slots without materializing them.</summary>
+    /// <param name="unit">The recurrence unit.</param>
+    /// <param name="interval">Every N units (1-12).</param>
+    /// <param name="mode">The monthly mode (ignored for non-month units).</param>
+    /// <param name="anchor">The schedule anchor date (first occurrence).</param>
+    /// <param name="startTime">The local wall-clock start time of every occurrence.</param>
+    /// <param name="zone">The series zone the wall-clock time resolves in.</param>
+    /// <param name="currentOccurrenceDate">The slot cursor: the last-materialized slot date.</param>
+    /// <param name="untilDate">Inclusive last allowed local date, when set.</param>
+    /// <param name="now">The current instant.</param>
+    /// <param name="days">The weekly day set (ignored for non-week units; None = anchor weekday).</param>
+    /// <returns>The next (date, instant), or null when there is none.</returns>
+    public static (LocalDate Date, Instant Instant)? NextOccurrence(
+        RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalTime startTime,
+        DateTimeZone zone, LocalDate currentOccurrenceDate, LocalDate? untilDate, Instant now,
+        RecurrenceDays days = RecurrenceDays.None)
+    {
+        try
+        {
+            return FindNextOccurrence(
+                unit, interval, mode, anchor, startTime, zone, currentOccurrenceDate, untilDate, now, days);
+        }
+        catch (Exception ex) when (ex is OverflowException or ArgumentOutOfRangeException)
+        {
+            // A date or an instant past the end of the calendar means there is no next
+            // occurrence, which is what null already means to every caller. Only these two are
+            // read that way: the scheduler and the skip route end a series on null, so anything
+            // else that goes wrong in the search has to stay an error.
+            return null;
+        }
+    }
+
+    /// <summary>The search behind <see cref="NextOccurrence"/>, which gives the rules. Throws
+    /// where a date or an instant it needs lies outside the calendar.</summary>
     /// <param name="unit">The recurrence unit.</param>
     /// <param name="interval">Every N units (1-12).</param>
     /// <param name="mode">The monthly mode (ignored for non-month units).</param>
@@ -93,10 +128,10 @@ public static class RecurrenceCalculator
     /// <param name="now">The current instant.</param>
     /// <param name="days">The weekly day set (ignored for non-week units; None = anchor weekday).</param>
     /// <returns>The next (date, instant), or null when the end condition is exhausted.</returns>
-    public static (LocalDate Date, Instant Instant)? NextOccurrence(
+    private static (LocalDate Date, Instant Instant)? FindNextOccurrence(
         RecurrenceUnit unit, int interval, MonthlyMode mode, LocalDate anchor, LocalTime startTime,
         DateTimeZone zone, LocalDate currentOccurrenceDate, LocalDate? untilDate, Instant now,
-        RecurrenceDays days = RecurrenceDays.None)
+        RecurrenceDays days)
     {
         var cursor = currentOccurrenceDate;
 
