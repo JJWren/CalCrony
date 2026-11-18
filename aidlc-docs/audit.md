@@ -1778,6 +1778,20 @@ Availability for @GM
 **Context**: Construction — code generation, part 2 (generation) begins.
 
 ---
+## Construction — the merge of pull request #181 has Joshua's go-ahead
+**Timestamp**: 2026-11-16T23:14:51Z
+**User Input**: "Yes, merge"
+**AI Response**: His answer to "Merge #181 now, by squash, with its description as the commit message?", put to him at about 22:54Z with the choices "A) Yes, merge now (recommended)" and "B) Not yet"; the app offered the same question with two buttons, "Yes, merge" and "Not yet", and his answer is the first one's words. The first clock read after it was 2026-11-16T23:14:18Z. Read first, at 23:14Z: pull request #181 open and mergeable at `1a7f16b`, the head whose checks were reported to him as green — `build-test`, `pr-title`, both CodeQL analyses, `CodeQL` and GitGuardian green, `publish-main` skipped as on every pull request — with no review and no comment, and auto-merge off; `master` on GitHub still `4af1305`, and pull request #180 still open, so this change goes in ahead of it, as the review advised. Recorded here because the entry above could not have it: on that head `build-test` ran on GitHub's runner from 22:49:24Z to 22:51:47Z, and the release-notes project ran all 361 of its tests there with none skipped, so the 17 that are skipped on Windows passed, for the first time with the changed helpers; the first head, `b766a2f`, had passed the same checks (CI run 43973472833). The two records commits, `b766a2f` and `1a7f16b`, were checked by me and not read by a review agent, and he was told so. Next: the squash merge through the REST call, at that head and no other, with the pull request's description as the commit message. This entry and the record of the merge cannot go into the pull request they are about: they are written on a local branch cut from `master` after the merge, and go out with a later records pull request.
+**Context**: Construction — the merge of pull request #181 approved; the plan's step 4.3 next.
+
+---
+## Construction — pull request #181 merged; the workflow's first run from `master` with the default at none
+**Timestamp**: 2026-11-16T23:17:37Z
+**User Input**: (none — continuation of "Yes, merge")
+**AI Response**: Step 4.3. Pull request #181 was squash-merged through the REST merge call, with the keyring login, at 2026-11-16T23:15:32Z, as `ab32e96` on `master`. The call named the one head it could merge, `1a7f16b`; the title is the pull request's with its number, and the message is its description as it stood on GitHub, with no attribution line. The merge commit's parent is `4af1305` and its tree is the tree of that head, so `master` holds exactly what was approved. GitHub deleted the branch on merge. `ci:` cuts no release. The merge started the release workflow from `master` (run 43977699270, 23:15:34Z to 23:15:55Z, green), its first run there with the default at none. The log of `release-please` gives its token as `Contents: write`, `Metadata: read`, `PullRequests: write`; it considered the three commits since v0.37.0, found no user-facing one and skipped, so it wrote nothing. `release-summary-preview` ran, as it does on every push to `master`, with the token its own block gives — `Contents: read`, `Metadata: read`, `PullRequests: write`, the same as in the push run before this change (43912177390) — found no open release pull request and did nothing more. `publish-images`, `release-summary` and `announce-release` were skipped. Of the other two runs the merge started, read once at 23:17:37Z: in CI (43977699351) `build-test` was green on `master`, 23:15:36Z to 23:17:38Z, and `publish-main` had just been queued; CodeQL (43977699265) was still going. Neither is read further in this entry. What is still not shown, as before: a write under `release-please`'s own token, and anything of `publish-images`. The first comes when the next `feat:` or `fix:` reaches `master` — pull request #180, if it is merged next, whose run then opens the release pull request under the new token — and both come in full with the next release, the plan's step 5.1. The plan's step 4.3 is ticked, its status line and section 4 have the merge and this run, and the line in `aidlc-state.md` is ticked. This entry and the one above are on the local branch `docs/log-release-permissions-merge`, cut from `master` at `ab32e96`, and are not pushed.
+**Context**: Construction — the change is merged; the plan's step 5.1, the read of the next release's run, stays open.
+
+---
 ## Workflow linter — the job and the `CONTRIBUTING.md` part generated; a review of the commits next
 **Timestamp**: 2026-11-16T23:18:37Z
 **User Input**: (none — continuation of "Approve as recommended")
@@ -2072,6 +2086,27 @@ Availability for @GM
 **Context**: Inception — requirements analysis; waits for Joshua's answers.
 
 ---
+## Operations — the release workflow's least access: its first full run, the release of 0.37.1
+**Timestamp**: 2026-11-17T23:40:55Z
+**User Input**: (none — the read that step 5.1 of #181's plan waited for)
+**AI Response**: #185 was merged at 23:27:30Z, by another session, so 0.37.1 was the first release since #181 was merged, and its run, 44199537457 (23:27:33Z to 23:30:48Z), was the change's first full run. It was green. From its log: `release-please` held `Contents: write`, `Metadata: read` and `PullRequests: write`, fetched the action for the `v4` tag at the commit `5c625bf…`, created the v0.37.1 release (published at 23:27:43Z, on `eb6afb8`) and labelled #185 `autorelease: tagged`; `publish-images` held `Contents: read`, `Metadata: read` and `Packages: write`, and pushed `calcrony-api`, `calcrony-bot` and `calcrony-web` as `0.37.1` and as `latest`; `announce-release`, with `Metadata: read`, ran and succeeded; `release-summary`, added by #179, held `Contents: write` and `Metadata: read`. Nothing failed for want of a permission. #181's plan step 5.1 is ticked, and its status and its line in the state file say so. The records of its merge, two entries of 2026-11-16 kept until now in a local commit, are put in here by their stamps.
+**Context**: Operations — #181 is complete: its last step, the read of the first release after it, is done.
+
+---
+## Construction — code owners and the pinned release action: pull request #187 merged; the run its merge started
+**Timestamp**: 2026-11-17T23:41:25Z
+**User Input**: (none — continuation of "Hand run, then merge")
+**AI Response**: Every check on the head `09d6cd1` was green by 23:37:43Z (`build-test` at 23:37:26Z; `pr-title`, `lint-workflows`, both CodeQL analyses, CodeQL and the secret scan; `publish-main` skipped), with no review, review comment or comment, and `master` still `e792e1a`. The squash merge was made at 23:38:06Z by the REST call with the keyring login, the head `09d6cd1` named and the title `ci: add a code owners file and name the release action by its commit (#187)`. Its message is the pull request's text with five exact, counted replacements, so that no at sign is left in it: the quoted workflow line becomes a sentence, the owner's handle loses the sign, and the tag is written as "the `v4` tag". GitHub merged it at 23:38:12Z as `162fd42`, whose tree is the head's, and deleted the branch. Step 5.1, read after it: the run the merge started (44201104260, 23:38:14Z to 23:38:36Z) was green; on `master` its release job fetched `googleapis/release-please-action` by the commit `5c625bf…`, held `Contents: write`, `Metadata: read` and `PullRequests: write`, found no user-facing commit since `eb6afb8` and wrote nothing, and `release-summary-preview` found no open release pull request and skipped the rest. GitHub's `codeowners/errors` for `master` answered `{"errors":[]}`. No pull request was open after the merge, so what GitHub lists as required on one waits for the next release pull request and for the next one the owner opens. Plan step 4.3 is ticked, step 5.1 says what was read and what waits, and the state line is ticked. These records and #181's are on the local branch `docs/log-release-permissions-and-code-owners-merges`, cut from `162fd42` and not pushed; its push and a records pull request wait for Joshua's go-ahead.
+**Context**: Construction — the unit is merged. Left: the merge boxes of the next pull requests (step 5.1), and the records pull request.
+
+---
+## Operations — the records branch of #181 and #187: its push and pull request asked; the other actions asked again
+**Timestamp**: 2026-11-17T23:42:07Z
+**User Input**: (none — questions put to Joshua)
+**AI Response**: Asked of Joshua, each with a recommendation. First: push the local branch `docs/log-release-permissions-and-code-owners-merges` (three commits on `162fd42`: the records of #181's merge, kept since 2026-11-16 and now put in by their stamps; #181's step 5.1, read on 0.37.1's run; and the records of #187's merge) and open its pull request, `docs: log the release workflow's least access and the code owners file through their merges` — A) push, open it, and squash-merge it once its checks are green (recommended); B) push and open it only, the merge asked separately; or not now. Second, asked again because #187, which it waited for, is now merged: pin the other actions named by tags to their commits the same way, `docker/login-action` first, with Dependabot version updates for actions, as the next pull request from this session — A) yes (recommended), B) not now.
+**Context**: Operations — the change is merged; its records and the next change each wait for Joshua's go-ahead.
+
+---
 ## Code of Conduct — requirements approved; workflow and code generation plan
 **Timestamp**: 2026-11-17T23:43:57Z
 **User Input**: "Recommended. Continue."
@@ -2086,6 +2121,13 @@ Availability for @GM
 **Context**: Construction — code generation, on Joshua's approval.
 
 ---
+## Operations — the records branch of #181 and #187: go-ahead to push it, open its pull request and merge it
+**Timestamp**: 2026-11-18T03:44:24Z
+**User Input**: "Yes, through merge"
+**AI Response**: Read as A to the first question asked at 2026-11-17T23:42:07Z: the local branch `docs/log-release-permissions-and-code-owners-merges` is pushed with the keyring login, its pull request `docs: log the release workflow's least access and the code owners file through their merges` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. `master` was fetched first and had not moved from `162fd42`, so nothing was taken in. The second question, pinning the other actions to their commits with Dependabot version updates for actions, was not answered; it stays open and nothing is started for it.
+**Context**: Operations — the records of the merges of #181 and #187 go out on Joshua's go-ahead; the next change waits for his answer.
+
+---
 ## Code of Conduct — built and tested; committed locally; push asked
 **Timestamp**: 2026-11-18T03:44:33Z
 **User Input**: (none — continuation of "Approve plan")
@@ -2096,7 +2138,7 @@ Availability for @GM
 ## Code of Conduct — go-ahead to push and open the pull request
 **Timestamp**: 2026-11-18T03:48:59Z
 **User Input**: "Push and open"
-**AI Response**: Joshua's answer to the question asked at 2026-11-18T03:44:33Z, "Push the branch and open the pull request?"; the other answer was "Not yet". The branch `docs/code-of-conduct` is pushed with the keyring login and the pull request `docs: add a code of conduct` is opened against `master`. It cuts no release. Its merge is asked separately.
+**AI Response**: Joshua's answer to the question asked at 2026-11-18T03:44:33Z, "Push the branch and open the pull request?"; the other answer was "Not yet". The branch `docs/code-of-conduct` is pushed with the keyring login and the pull request `docs: add a code of conduct` is opened against `master`. Before the push, `master` had moved to `04beae8` (#191) and was merged in; the one conflict, in `audit.md`, was resolved with the entries of both sides in timestamp order, each side's order kept and none dropped. It cuts no release. Its merge is asked separately.
 **Context**: Build and test — push and open, on Joshua's go-ahead.
 
 ---
