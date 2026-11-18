@@ -2107,3 +2107,17 @@ Availability for @GM
 **Context**: Operations — the records of the merges of #181 and #187 go out on Joshua's go-ahead; the next change waits for his answer.
 
 ---
+## Operations — records pull request #191 merged; the run its merge started
+**Timestamp**: 2026-11-18T03:50:52Z
+**User Input**: (none — continuation of "Yes, through merge")
+**AI Response**: The branch `docs/log-release-permissions-and-code-owners-merges` was pushed at 03:45Z with the keyring login, and pull request #191, `docs: log the release workflow's least access and the code owners file through their merges`, was opened at 03:45:32Z. Every check on its head `0b7dee4` was green by 03:48:25Z (`build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses, CodeQL and the secret scan; `publish-main` skipped), with no review, review comment or comment, and `master` still `162fd42`. The squash merge was made at 03:48:43Z by the REST call with the keyring login, the head `0b7dee4` named, the title `docs: log the release workflow's least access and the code owners file through their merges (#191)` and the pull request's text as its message, which has no at sign. GitHub merged it at 03:48:45Z as `04beae8`, whose tree is the head's, and deleted the branch. The run the merge started (44233012058) was green: its release job fetched `googleapis/release-please-action` by the commit `5c625bf…`, held `Contents: write`, `Metadata: read` and `PullRequests: write`, found no user-facing commit since `eb6afb8` and wrote nothing, and `release-summary-preview` found no open release pull request and did nothing more. What GitHub lists as required on a pull request shows only to a signed-in viewer, so it was not read on #191; for #187's step 5.1 it still waits for the next release pull request and for a signed-in look at an open pull request the owner opened.
+**Context**: Operations — the records of #181 and #187 are merged. Left: the last part of #187's step 5.1.
+
+---
+## Operations — after the records merge: the other actions asked again, and a signed-in read of an open pull request's merge box
+**Timestamp**: 2026-11-18T03:50:58Z
+**User Input**: (none — questions put to Joshua)
+**AI Response**: Asked of Joshua, each with a recommendation. First, asked a third time: pin the other actions named by tags to their commits the same way, `docker/login-action` first, with Dependabot version updates for actions, as the next pull request from this session — A) yes (recommended), B) not now. Second, for #187's step 5.1: open #189, a pull request he opened into `master`, signed in, and say whether its merge box lists "Code owner review required" — A) he looks and says (recommended), B) not now, leaving the step to the next release pull request.
+**Context**: Operations — the next change and the last part of #187's step 5.1 each wait for Joshua.
+
+---
