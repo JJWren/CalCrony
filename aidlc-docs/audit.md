@@ -2779,3 +2779,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the pull request's conflict with `master`.
 
 ---
+## Build and test — the moved occurrence: `master` taken in after pull request #199
+**Timestamp**: 2026-11-18T19:49:18Z
+**User Input**: (none — this entry records one more take-in of `master` and the suite on the merged tree)
+**AI Response**: Both review agents read `d45a467`, `1c73ecd` and the squash commit's message and found nothing in them; the quality agent reported that `master` had moved again, to `6cb41c8` (pull request #199, merged at 19:40:26Z, which changes code and tests outside this fix's files, adds records of its own and adds to `docs/release-notes/0.37.2.md`), which conflicted with the pull request's records and its release summary. It is merged in the same way, as `8f95971`: the audit file and the state file keep master's text as it is, with this branch's entries each in timestamp order among master's and this fix's section after master's, and outside them and the release summary the merge is `master` with this branch's own changes. The release summary keeps master's file with this fix's bullet added at the end of the list under its one `### What's new` heading, before the steps that follow it: 1,522 of the 1,800 characters, and the repository's check finds no problem in it; the squash commit's message now gives that figure. The whole suite passes on the merged tree: 2,429 tests pass and none fails (1,509 API, 418 bot, 153 web and 349 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI), and the Release build has the same 22 warnings and no error. Section 9 of the plan and the state file now record this move of `master`. When every check passes on the new head and `master` has not moved, the pull request is squash-merged, pinned to that head.
+**Context**: Build and test, in the repository's collapsed form — the pull request's conflict with `master`.
+
+---
