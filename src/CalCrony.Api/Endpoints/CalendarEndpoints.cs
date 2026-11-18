@@ -278,7 +278,7 @@ public static class CalendarEndpoints
                 .Select(r => r.UserId).Distinct().Take(MaxUsersPerQuery).ToList();
 
         var start = ev.StartsAt;
-        var end = ev.StartsAt + Duration.FromMinutes(ev.DurationMinutes ?? 60);
+        var end = Services.EventTimes.End(ev.StartsAt, ev.DurationMinutes);
         IReadOnlyList<UserAvailabilityDto> results = userIds.Count == 0
             ? []
             : await availability.CheckAsync(userIds, start, end, cancellationToken);

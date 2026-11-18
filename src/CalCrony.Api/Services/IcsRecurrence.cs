@@ -33,9 +33,11 @@ public static class IcsRecurrence
         if (series.UntilDate is { } until)
         {
             // Ical.Net 5.x requires a UTC Until; the inclusive local date becomes its final
-            // instant in the series zone.
+            // instant in the series zone. The calendar's last day is written as the last instant.
             var zone = Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
-            var lastInstant = (until + new LocalTime(23, 59, 59)).InZoneLeniently(zone).ToInstant();
+            var lastInstant = until == LocalDate.MaxIsoValue
+                ? Instant.MaxValue
+                : (until + new LocalTime(23, 59, 59)).InZoneLeniently(zone).ToInstant();
             pattern.Until = new CalDateTime(lastInstant.ToDateTimeUtc());
         }
         else if (series.MaxOccurrences is int max)

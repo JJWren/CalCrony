@@ -1527,11 +1527,25 @@ Availability for @GM
 **Context**: Records — the second commit's review answered; its push and the merge follow the agents' confirmation.
 
 ---
+## Date limit — the request and workspace detection
+**Timestamp**: 2026-11-15T01:37:30Z
+**User Input**: (none in words — this session was started from the session that delivered free slots)
+**AI Response**: Workspace detection: brownfield; the existing state file is resumed; `master` is at `56b61ab`, whose code is release 0.37.0, the release the hosted instance runs. The work: a limit on how far ahead a date typed in words may lie. Reverse engineering is skipped, as on free slots: the codebase was built under this workflow, and the state file, the ADRs and the Docs page are its architecture record. Nothing is pushed, opened, merged, released or rolled out without Joshua's go-ahead, asked at each of those steps. The stamp is the first reading of the clock in this session.
+**Context**: Inception — workspace detection for the date limit. Next: requirements analysis at minimal depth.
+
+---
 ## Fix request — `sat` and `sun` in date text
 **Timestamp**: 2026-11-15T01:37:44Z
 **User Input**: (none typed by Joshua — the task was handed over from another session: make `sat` and `sun` read as Saturday and Sunday wherever CalCrony reads a date typed in words.)
 **AI Response**: Brownfield, aidlc-state resumed; `master` at `56b61ab`, whose code is v0.37.0, the release prod runs. The gap is the one the free-slots plan records as known in its section 4.1. A small fix on a branch cut from `master`, `fix/short-weekend-days`: requirements at minimal depth — the task is the requirement; no user stories, application design or units; one construction unit, code generation only. As the task asks, the approach is put to Joshua before anything is built.
 **Context**: Inception (brownfield) — workspace detection and intent analysis; next, what the recognizer does with the short weekday forms today.
+
+---
+## Date limit — the routes read; a limit proposed to Joshua
+**Timestamp**: 2026-11-15T01:50:47Z
+**User Input**: (none — no input from Joshua in this session yet)
+**AI Response**: The routes that take a date typed in words were read on `master` at `56b61ab` and run under test. A limit on how far ahead such a date may lie was proposed to Joshua in the session, with ten, five and two years offered, and with it the choice of reading a written plan before the change is built or together with the code. Nothing is built, and no branch has been made for the work yet.
+**Context**: Inception — requirements analysis for the date limit, at minimal depth. Waiting for Joshua's answer.
 
 ---
 ## Construction — short weekend days: what the recognizer does today; plan written; approval asked
@@ -1548,6 +1562,13 @@ Availability for @GM
 **Context**: Construction — code generation, part 2 (generation) begins.
 
 ---
+## Date limit — Joshua's answer
+**Timestamp**: 2026-11-16T14:46:53Z
+**User Input**: "Yes, as recommended"
+**AI Response**: His answer to the session's question whether to build the limit as it was recommended. That is: the limit is ten years; it is a change of its own, with its own pull request, release and rollout; and building starts from the proposal, with the written plan shown together with the code at the completion gate, before any push. Next: a branch for the change, `fix/date-ahead-limit`; its plan; the code and its tests; and both review agents' read of each commit before he is asked about a push.
+**Context**: Inception — requirements analysis answered. Construction — code generation for the date limit begins.
+
+---
 ## Release summary — completion gate answered: continue to the push and the pull request
 **Timestamp**: 2026-11-16T14:48:22Z
 **User Input**: "B) Continue"
@@ -1560,6 +1581,13 @@ Availability for @GM
 **User Input**: (none — generation; no input from Joshua since the approval)
 **AI Response**: Built as approved. In `NaturalDateTimeParser`: one pattern, `sat` or `sun` between word boundaries in any letter case; one private helper that spells them out as `saturday` and `sunday` and returns the text as typed when the result would be longer than the limit; and the helper's result handed to the recognizer in `TryResolve` and in `TryResolveDay`. The length check is still first in both, and refusals quote the text as typed. Nothing else under `src` changed. Tests, in `NaturalDateTimeParserTests`: 84 new cases — the date-and-time table, the day table, the forms the recognizer already read, the other short weekdays, the rule itself (23 phrases, each with `sat` and with `sun`, the short form against the full name from both readers at four moments), longer words, `sat down` as decided in Q1, the day itself, and the limit — and the `sat` row left the test of what cannot be read. Run on the working tree: the Release build has no error and the baseline's 22 warnings; 1,375 tests green (804 API, 418 bot, 153 web; 1,292 before). Thirteen mutation checks in a scratch copy of the tree each failed tests, the tests meant for the rule among them. The comparison of the plan's section 2 was run again with the released parser beside the changed one, over 2,640 phrases at 42 moments: in every case the changed parser read the typed text as the released parser reads the same text with the full name; the full-name texts answered identically from both; and against the released parser the answer changed in the same 14 of the 1,327 phrases whose short form the recognizer already read. A further 187 texts with no short form answered identically from both. One consequence is stated on its own in the plan's section 8: on a Saturday, `sat` with a time already behind is refused as past, as `saturday` with that time is, where before the day was dropped and the time rolled on to Sunday. Records: the free-slots plan's section 4.1 amended in place, two items in the live script, and the plan's boxes ticked through 4.3. `master` on GitHub is still at `56b61ab` (14:58Z). Committed locally; nothing is pushed. Next: two review agents read the local commits (step 4.4). (Corrected by the entry of 15:51:05Z: the consequence named here is one of several.)
 **Context**: Construction — code generation, part 2: generated; review before the completion gate.
+
+---
+## Date limit — built
+**Timestamp**: 2026-11-16T15:24:17Z
+**User Input**: (none — no input from Joshua since his answer at 14:46:53Z)
+**AI Response**: Built on `fix/date-ahead-limit`, from the proposal he agreed to. A date and time typed in words may lie at most ten years ahead (`DateTextLimits.MaxYearsAhead`, in Contracts); a later date is refused with its reason at every route that takes such text, since all of them read it through `NaturalDateTimeParser.TryResolve`. The repeat calculation answers "no next occurrence" where a schedule's next date would lie past the last day the calendar has. The scheduler logs and passes over a series it cannot advance. An event's end is worked out in one place (`EventTimes`) and is never past the last moment the calendar has; the calendar feed, the event availability route and the scheduler use it. The change is in the API, with one constant in Contracts and no migration; the bot and the web app are not touched. Two things differ from the proposal: the day-level reader behind `/availability slots` is left as it is, because its one caller already holds the first day to a year ahead in words of its own; and the sum for an event's end, which the proposal named three times, was written in six places, all of which now use the one helper, with the feed's `UNTIL` date handled beside them. The written plan is `construction/plans/date-ahead-limit-code-generation-plan.md`. Checked: `dotnet build CalCrony.slnx -c Release` with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release` with 1,341 tests green (770 API, 418 bot, 153 web; 1,292 on `master`), the 49 new ones all in the API project; and fourteen changes that each take one rule out, made one at a time, each failed tests written for that rule. Next: one local commit; both review agents read it before anything is pushed; then the completion gate, where Joshua reads the plan with the code.
+**Context**: Construction — code generation for the date limit: generated and checked locally; nothing pushed.
 
 ---
 ## Release summary — `master` taken in; pull request #179 opened; the workflow run by hand; a fresh read of the last two commits answered
@@ -1602,6 +1630,13 @@ Availability for @GM
 **User Input**: (none — a question put to Joshua; no input from him since the approval of the plan)
 **AI Response**: Both agents read the rebuilt branch and found nothing more that must or should change; their last points of wording are in. Put to Joshua: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", where B is the push of the branch and the opening of the pull request `fix: read sat and sun as Saturday and Sunday in date text`, with `master` taken in first if it has moved by then. Told to him with the question: what the fix changes; that reading as the full name does also means being refused where the full name is, so that `by sat 6pm`, `every sat 8pm`, a range that has begun and, on the day itself, a time already behind were read before with the short form dropped and are refused now, with the recommendation to keep it so, since a refusal that is seen is better than a wrong date that is not; the counts of the tests and the checks; and the older points noticed on the way, which the plan's section 8 lists as work of their own. `master` on GitHub is still at `56b61ab` (16:19Z). Nothing is pushed.
 **Context**: Construction — code generation: waits for Joshua at the completion gate.
+
+---
+## Date limit — the first review round and its answers
+**Timestamp**: 2026-11-16T16:30:20Z
+**User Input**: (none — review round; no input from Joshua)
+**AI Response**: Both review agents read the change before any push, each in a copy of its own in which it built and ran it. Security found no way left for a date typed in words to be stored past the limit. It asked that a time poll's winning time, which is read when the poll is made, be held to the limit when the poll becomes an event, and suggested a log line where a sweep ends a series. Quality found the code to do what the plan says for every caller, and nothing the plan leaves out; its findings were in the tests and the records. The scheduler test depended on the order in which the two series were read. The step back from a Feb 29, the scheduler's log line, and `EventTimes.End` at its six call sites were not pinned. An RSVP cutoff on edit and a slot added to a poll had no case of their own, and an edited start, a series edit and a poll's closing time and slots had none inside the limit. Results expected years ahead were written as UTC times. And several statements in the plan, the state file and the entries above were not exact: among them which tests were run when a rule was taken out, "API only" for a change with a constant in Contracts, and `56b61ab` given as the release's own commit, where the tag is on `f904e33` and `56b61ab` has the same code. All of it is answered, but for one part, which the plan lists under what no test pins: each call site of `EventTimes.End` now has a test for the event's own length, and none that tells it there from the sum it replaced. Converting a poll applies the limit (`NaturalDateTimeParser.IsWithinAheadLimit`); the scheduler reads the series in id order and names in its log a series that ends; the tests named are added or tightened, and expected results are worked out from the zone; the plan says what each test pins and what none does; and the state file and the entries above are corrected in those places. Checked on the change as it stood then: `dotnet build CalCrony.slnx -c Release` with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release` with 1,353 tests green (782 API, 418 bot, 153 web), 61 of them new; and twenty-five changes that each take one rule out, made one at a time in twenty-seven runs, each failing the tests named for it in the plan. Both agents read the change again before anything is pushed.
+**Context**: Construction — code generation for the date limit: review round 1 answered; round 2 next, then the completion gate.
 
 ---
 ## Fix request — weekly day sets on the public calendar
@@ -1726,6 +1761,13 @@ Availability for @GM
 **Context**: Inception and construction planning, single unit — the plan written; waiting for Joshua's approval before any code is generated.
 
 ---
+## Date limit — the second review round; `master` taken in
+**Timestamp**: 2026-11-16T17:36:40Z
+**User Input**: (none — review round; no input from Joshua)
+**AI Response**: Both agents read the commit that answered round 1. Security found nothing in the new code that should hold up a push. Two things from its read are changed: `IsWithinAheadLimit` reads the end of the last day leniently, because the stricter reading fails for a day that a zone skips whole, and a test covers such a day; and the log line for a series that ends is written once the sweep is saved, not before. Quality found nothing in the code. It ran the scheduler test sixteen times with `break` in place of `continue`, and it failed every time; ran the four test classes whose tests share a database in other orders; checked the id order against the database; and confirmed the counts and the plan's table. From its list: the record of round 1 now says which part of its first finding is as it was; the refusal's sentence is written in one place; the two log assertions match the server's id as the line writes it; the feed test for the length of a live occurrence uses two and a half days; and smaller corrections to the plan. `master` had moved from `56b61ab` to `4af1305` (pull request #179, merged 2026-11-16T16:51:53Z). It is taken in, and the change is one commit on top of it: both sides add to this file and to the state file, so the entries are in the order of their timestamps and both state sections are kept; nothing under `src` or in the three older test projects differs between `56b61ab` and `4af1305`. That pull request brings the release summaries, so this change has one, `docs/release-notes/0.37.1.md`, which the repository's check passes. Checked: on the change's code, twenty-six changes that each take one rule out, made one at a time in twenty-eight runs over the same 129 tests, each failing the tests named for it in the plan; with `master` taken in, `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings, the number `master` had at `56b61ab`, and `dotnet test CalCrony.slnx -c Release` with 1,693 tests green (783 API, 418 bot, 153 web, 339 for the release-notes tool) and 17 of that tool's tests skipped, which this machine cannot run. The change adds 62 tests to the API's 721. Both agents read this commit before anything is pushed.
+**Context**: Construction — code generation for the date limit: review round 2 answered, `master` taken in; the agents' read of this commit next, then the completion gate.
+
+---
 ## Construction — two review agents on the local commit; their findings answered
 **Timestamp**: 2026-11-16T18:16:22Z
 **User Input**: (none — review round; no input from Joshua)
@@ -1733,11 +1775,32 @@ Availability for @GM
 **Context**: Construction — review round 1 answered; a short confirmation next, then Joshua's decision on the push.
 
 ---
+## Date limit — work resumed after a pause
+**Timestamp**: 2026-11-16T18:17:21Z
+**User Input**: "Usage is reset you can continue"
+**AI Response**: Work had stopped when the session's usage limit was reached, with both review agents part-way through their read of the last corrections. Looked at again before going on: `master` is still at `4af1305`, pull request #180 is still open, and nothing of this change is pushed. The agents are asked to finish that read, which now covers this entry too.
+**Context**: Construction — code generation for the date limit: the agents' read of the commit resumes; the completion gate follows.
+
+---
+## Date limit — both agents' read finished; the completion gate asked
+**Timestamp**: 2026-11-16T18:22:15Z
+**User Input**: (none — no input from Joshua since 18:17:21Z)
+**AI Response**: Both agents finished their read. Each had read the whole change once more after `master` was taken in, and then the corrections that followed it. Security: nothing in the code, the records, the release summary or the pull request's text that should hold up a push. Quality: the code and the tests are sound, and every count in the plan and in these entries agreed with its own runs; its last points — wording in the plan and in these entries, and one method given a block body — are answered, and it confirmed that difference. Both confirmed the commit as it then stood; since then one phrase of the entry above is shortened, as quality suggested, and this entry is added. Asked of Joshua now, with the plan and the code to read: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage". The push, the pull request, the merge, the release and the rollout each wait for his go-ahead. Nothing is pushed.
+**Context**: Construction — code generation for the date limit: completion gate asked; waiting for Joshua.
+
+---
 ## Construction — the answers confirmed by both agents; a second round of findings answered; completion gate asked
 **Timestamp**: 2026-11-16T18:51:20Z
 **User Input**: (none — review round; no input from Joshua)
 **AI Response**: Both agents read the answers, as the diff from `a3617ba` to the re-made commit `5cb8686`. Each found its own findings answered and nothing broken by the answers: the workflow differs from the first commit in comment lines only, the three newer jobs are still identical to `4af1305`, the tests #179 wrote give the same results and mean the same, and what the records now say of the labels, of the CodeQL job's wider block and of the action's step matches the sources. Each also found more of the same kind. Correctness, one major by the measure of its earlier ones, though only a deliberate hand writes it: the tests look for a job's keys at four spaces, and YAML takes them wherever the job's first key stands, so a job written with its real keys at three spaces, and the lines the tests look for parked in a block of text under a `name`, passed every test with `write-all`. The helpers' four spaces came with #179. Answered with two tests of the file's form: every job has its keys four spaces in with nothing further out; and only a script is a block of text, with any quoted value closed on its line. Security, on the tests as well: the image job's `env` was held only through the list of expressions, so a variable without one — it would reach every step, the login among them — could be added, which the other agent found too; the release job's `outputs`, which decide whether the image job runs and which tag it checks out, tests and publishes, were free; and the build step's script and the triggers were held by no test, as the plan had said, the script being the one place where free text is within reach of the token after the login. Answered: the `env` block and the `outputs` are pinned line for line, the build script is pinned and in the list of pinned scripts, and a test holds the triggers to a push to `master` and a start by hand — which the entry above had still listed as not taken. So the six new tests now hold every line of the two older jobs that is not a comment. Nits answered: the plan's sentence on merging after #180 has its condition back; and in the entry of 17:19:01Z two more statements are reworded in place — that `publish-main` runs "on every push to `master`", where it runs once `build-test` has passed, and that the release job "has used" its two permissions "all along" and "never used" packages, where the evidence is the four runs read and the source. These last answers were made as the two agents had written them out, and checked by running every one of their bent files again; they were not read again by an agent. Run on the final code: the release-notes project, 361 tests, 344 green and 17 skipped; 139 bends — 36 of my own, the 29 of the security agent's first round, and the 56 and 18 files of the correctness agent's two — every one failing a test but for two harmless comments, which are meant to pass; actionlint, nothing to report; a Release build of the whole solution from scratch, no errors and the baseline's 22 warnings; and the whole suite from 18:49Z to 18:50Z, the 1,292 earlier tests green (721 API, 418 bot, 153 web) with the 361. The plan's section 8 has both rounds, each finding with its answer. The commit is re-made once more; nothing is pushed, and `origin/master` is still `4af1305` with pull request #180 open. Asked Joshua: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", where B is the push of the branch and the pull request `ci: give the two older release jobs only the access each needs`. Asked with it, each a decision of its own: whether to start the release workflow once by hand from the branch after the push, its result going into the pull request's description; whether `release-please` should also get `issues: write`, as the action's README lists (as built: no); and whether to reword, in this pull request, the comment in `announce-release` that still speaks of the workflow's write token (as built: left alone, as the task said). The merge is asked separately, and with it the order against #180.
 **Context**: Construction — code generation complete and reviewed; awaiting Joshua at the completion gate (A: request changes; B: continue to the push and the pull request).
+
+---
+## Date limit — the completion gate answered
+**Timestamp**: 2026-11-16T22:43:57Z
+**User Input**: "1 B" / "2 A" / "3 A" / "4 A" (one message of four lines)
+**AI Response**: The first line is his answer at the completion gate: B, continue to the next stage. Code generation is ticked in the state file. The other three lines answer questions the session asked with the gate, and change nothing in it. By the second of them this branch is not pushed yet: it goes out together with a second change, which is built next on a branch of its own, so that one release carries both. The push, the pull request, the merge, the release and the rollout each still wait for his go-ahead. Nothing is pushed.
+**Context**: Construction — code generation for the date limit approved at the gate. Build and test follows with the pull request's checks; the push waits for the second change and for Joshua's go-ahead.
 
 ---
 ## Construction — completion gate answered: continue to the push, the pull request and the run by hand
@@ -1811,6 +1874,13 @@ Availability for @GM
 **User Input**: (none — generation; no input from Joshua since the approval)
 **AI Response**: Built as approved. `PublicCalendarBuilder.ProjectOccurrences` passes `series.DaysOfWeek` to `RecurrenceCalculator.NextOccurrence`, and its summary names the day set and says what leaving it out does; nothing else under `src` changed. The fourteen tests are as they stood at the approval. `master` had moved twice by then (#179 and #181, at `ab32e96`) and was merged in before the review: only `aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted; in the audit file master's text is unchanged and this branch's entries stand in order of their timestamps, and the state file keeps master's new section and this one. Run on the merged tree: the Release build has no error and the same 22 warnings; 1,651 tests pass and none fails (735 API, 418 bot, 153 web, 345 for the release-notes tool), with seventeen of the tool's tests skipped on this Windows machine and run in CI. With the argument taken out again in a copy of the tree, the thirteen tests fail and nothing else does. A scratch test, not committed, handed the two route tests' date text to the date reader for every day from 2026-11-16 to the end of 2029 at three times of day, 3,423 moments, and each was read as intended. No invisible character is in the 663 lines the branch adds. Two things differ from the plan as approved, both recorded in its section 8: `master` was taken in before the review rather than just before the push; and the branch adds `docs/release-notes/0.37.1.md` with one bullet for this fix, because #179 brought the rule that a pull request users will notice adds to the release summary (`CONTRIBUTING.md`, "Release summary"). The repository's check passes the file. The open pull request #180 adds the same file with its own bullet, so whichever is merged second takes `master` in and keeps both. Committed locally; nothing is pushed. Next: two review agents read the local commits, one for security and privacy and one for code quality and accuracy.
 **Context**: Construction — code generation, part 2: generated; review before the completion gate.
+
+---
+## Date limit — `master` taken in again
+**Timestamp**: 2026-11-16T23:36:24Z
+**User Input**: (none — no input from Joshua since 22:43:57Z)
+**AI Response**: `master` had moved from `4af1305` to `ab32e96` (pull request #181, merged 2026-11-16T23:15:32Z: the release workflow's permissions, six tests for them in the release-notes tool's project, and their records). It is taken in, and the change is again one commit on top of it. Both sides had added to this file and to the state file: the entries are in the order of their timestamps, checked by a script before anything was written — every entry of each side there once and whole, each side's own order kept — and the state file keeps that pull request's line beside this change's section. Nothing under `src` or in the three older test projects differs between `4af1305` and `ab32e96`, so the code both agents confirmed is the code here. On this tree: `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings, and `dotnet test CalCrony.slnx -c Release` with 1,699 tests green (783 API, 418 bot, 153 web, 345 for the release-notes tool) and 17 of that tool's skipped, which this machine cannot run. The plan has the step (5.5). Both agents read this commit's difference from the one they confirmed before anything is pushed. Nothing is pushed.
+**Context**: Construction — the date limit: code generation approved; `master` taken in again; the push waits for the second change and for Joshua's go-ahead.
 
 ---
 ## Unreadable date text — built: the tests first, then the change
@@ -2044,6 +2114,13 @@ Availability for @GM
 **Context**: Construction — delivery: `master` taken in a third time. Step 6.2, the squash merge, waits for the checks and for Joshua's go-ahead.
 
 ---
+## Date limit — `master` taken in a third time
+**Timestamp**: 2026-11-17T17:16:36Z
+**User Input**: (none — Joshua's input of this day is on the second change and is recorded with it)
+**AI Response**: `master` had moved from `ab32e96` to `916ecd1` by four pull requests: #180 (merged 2026-11-17T16:36:36Z: `sat` and `sun` in date text), #183 (16:49:15Z: a job that lints the workflow files) and #182 (17:02:32Z: weekly day sets on the public calendar), each with its tests and records, and #186 (17:08:56Z: records only). It is taken in, and the change is again one commit on top of it. Both sides had added to this file and to the state file: the entries are in the order of their timestamps, checked by a script before anything was written — every entry of each side there once and whole, each side's own order kept — and the state file keeps every section. No release has gone out since the summary file was written, so `docs/release-notes/0.37.1.md` holds every entry, this change's bullet after the two `master` has. Unlike the two times before, code under `src` differs: #180 changes `NaturalDateTimeParser`, where the limit lives, and git merges the two changes without a conflict. The limit stands behind #180's new call as before, and the refusal quotes the text as typed; two test cases are added where the two meet, so the change now adds 64 tests. On this tree: `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings, and `dotnet test CalCrony.slnx -c Release` with 1,807 tests green (891 API, 418 bot, 153 web, 345 for the release-notes tool) and 17 of that tool's skipped, which this machine cannot run. The nine changes of the plan's table that are made in the parser's file were made again on the merged code, and each failed the tests the table names for it. The plan has the step (5.6) and a note. Box 6.1 is ticked in the plan: both agents read this commit's difference from the one they confirmed before anything is pushed. Nothing is pushed.
+**Context**: Construction — the date limit: code generation approved; `master` taken in a third time; the push waits for Joshua's go-ahead.
+
+---
 ## Unreadable date text — the checks green; the read after the pushes; the merge asked
 **Timestamp**: 2026-11-17T17:24:50Z
 **User Input**: (none — continuation of "B) Continue"; his answer to the question of 17:12Z is still open)
@@ -2077,6 +2154,13 @@ Availability for @GM
 **User Input**: "Merge now"
 **AI Response**: His answer to "Merge pull request #184 now, as it is?", with the recommendation put beside it to merge. Checked first: `master` on GitHub was still at `916ecd1`, and the pull request's head was still `740b722`, on which every check was green. Squash-merged through the REST call, pinned to that head, at 23:05:51Z as `723696d`, with the pull request's title and its text as the message; the branch was deleted on merge. The tree of `723696d` is the tree of `740b722`. Release pull request #185 now carries this change together with #180 and #182, and its summary has no line for this change. This entry, the one before it, and the corrections that entry names are on a local branch for the records, `docs/log-unreadable-date-text`, cut from `master` after the merge; that branch is pushed on its own go-ahead. Next: the release, and the prod rollout right after it, each on Joshua's go-ahead.
 **Context**: Construction — delivery, step 6.2 done: merged. Steps 6.3 (the release) and 6.4 (the prod rollout) are next, each on its own go-ahead.
+
+---
+## Date limit and delivery posts — work resumed after a pause; the push asked again
+**Timestamp**: 2026-11-17T23:08:05Z
+**User Input**: "switched models, you can continue"
+**AI Response**: Read as leave to go on, and not as the go-ahead for the push, which is still his to give. It is put to him again with this entry, and with it a question on the release pull request open for 0.37.1 (#185): whether it waits until both changes are on `master`. While work was paused, the security agent read the two commits made on `916ecd1` and found nothing that should hold up a push; the quality agent's read of them stopped before it was done. `master` moved to `723696d` meanwhile (pull request #184, merged 2026-11-17T23:05:51Z), which changes the date parser and `RsvpPolicy`, two files these changes touch. Both commits are made again on it, and both agents read them before anything is pushed. Nothing is pushed.
+**Context**: Construction — the date limit and delivery posts: work resumed; the push, and whether the release waits for both changes, are before Joshua.
 
 ---
 ## Construction — code owners and the pinned release action: completion gate answered B; `master` taken in; pushed as a pull request
@@ -2114,6 +2198,13 @@ Availability for @GM
 **Context**: Operations — delivery, step 6.3: the release. Step 6.4, the prod rollout, is next, on its own go-ahead.
 
 ---
+## Date limit — `master` taken in a fourth time
+**Timestamp**: 2026-11-17T23:24:01Z
+**User Input**: (none — Joshua's input of this hour is recorded in the entry before this one)
+**AI Response**: `master` had moved from `916ecd1` to `723696d` by pull request #184 (merged 2026-11-17T23:05:51Z: date text that is missing or cannot be read), with its tests and records. It is taken in, and the change is again one commit on top of it. Both sides had added to this file and to the state file: the entries are in the order of their timestamps, checked by the same script, and the state file keeps every section. `docs/release-notes/0.37.1.md`, which #184 does not change, keeps this change's bullet after the two there. #184 adds refusals to `TryResolve` and `TryResolveDay` that come before the recognizer reads the text, and so before this change's lines, and git merges it without a conflict; this change's lines in `NaturalDateTimeParser` are as they were. On this tree: `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings, and `dotnet test CalCrony.slnx -c Release` with 1,845 tests green (929 API, 418 bot, 153 web, 345 for the release-notes tool) and 17 of that tool's skipped. The nine changes of the plan's table that are made in the parser's file were made again on this code, and each failed the same tests as before. The plan has the step (5.7) and a note; one verb in the state file's line for the third time is put right. Both agents read this commit's difference from the one they read before anything is pushed. Nothing is pushed.
+**Context**: Construction — the date limit: `master` taken in a fourth time; the push waits for Joshua's go-ahead.
+
+---
 ## Workflow linter — records pull request #188 opened; its merge asked
 **Timestamp**: 2026-11-17T23:24:25Z
 **User Input**: (none — continuation of "Push and open")
@@ -2149,6 +2240,13 @@ Availability for @GM
 **Context**: Construction — code generation: part 1 (the plan) approved; part 2 (generation) begins.
 
 ---
+## Date limit and delivery posts — the go-ahead for the push and the two pull requests
+**Timestamp**: 2026-11-17T23:32:19Z
+**User Input**: "A, push both"
+**AI Response**: His answer to the question put to him at 2026-11-17T23:08:05Z: push both branches and open two pull requests, the date limit's against `master` and delivery posts' on top of it, once both agents' read of the commits made on `723696d` is clean. That read is under way, and nothing is pushed until both agents have reported and `master` is checked once more. This answer does not settle whether the release pull request for 0.37.1 (#185) waits for both changes; that question stays before him.
+**Context**: Construction — the date limit and delivery posts: the push and the two pull requests approved, on both agents' clean read.
+
+---
 ## Operations — public calendar day sets: released in 0.37.1
 **Timestamp**: 2026-11-17T23:33:22Z
 **User Input**: (none in this session — once #184 was merged, at 23:05:51Z, the release was asked of Joshua in the session working on #184; he answered there "Release now", recorded there at 23:23:47Z, and that session ran it)
@@ -2161,6 +2259,13 @@ Availability for @GM
 **User Input**: (none — continuation of "Hand run, then merge")
 **AI Response**: Read before the merge, at 23:31:59Z: GitHub listed #187 as conflicting with `master`. Two pull requests had been merged after the run by hand: #185, the release of 0.37.1, at 23:27:30Z (`eb6afb8`, `CHANGELOG.md` only), and #188, the workflow linter's records, at 23:30:29Z (`e792e1a`: the audit log, the state file, its plan, and the sentence of `CONTRIBUTING.md` that names the required checks, which now names `lint-workflows` too). The conflict was in the audit log only. `e792e1a` was taken in, named by its commit, as `bc4faa2`. Git merged `CONTRIBUTING.md` and the state file by themselves; the code owners note comes after the changed sentence and still agrees with it. The audit log was built from `master`'s file with this branch's eight entries put in by their stamps, which now interleave with #188's, and a script proved that taking them out again gives `master`'s file byte for byte. Against `master` the change is the same ten files. On the merged tree the release-notes project (365 tests, 348 passed, 17 skipped on this machine) and the web project (153 passed) were run again, 23:33Z to 23:34Z; nothing else changed in code. The local records since `e93a9fe` (the questions asked, the go-ahead, the run by hand) go out with this push, so the pull request's records reach the run by hand. 0.37.1's own release run (44199537457, 23:27:33Z to 23:30:48Z) was green and was read before the merge was tried: its release job fetched the action for the `v4` tag at the same commit, `5c625bf…`, and held `Contents: write`, `Metadata: read`, `PullRequests: write`; `publish-images` held `Contents: read`, `Metadata: read`, `Packages: write` and pushed all three images as `0.37.1` and `latest`; `announce-release` ran and succeeded. That is #181's plan step 5.1, and its tick goes with #181's records. The pull request's description now says that 0.37.1 was released before this merge, with the action still named by its tag (edited at 23:31:49Z with the keyring login, read back the same). In the plan: the baseline names the third merge, section 1 notes `lint-workflows` among the required checks, and section 4 says what #185's earlier merge changes. The branch is pushed again with the keyring login, by its name only; the merge waits for the checks on the new head.
 **Context**: Construction — step 4.3, the squash merge, approved. `master` is taken in once more so that the pull request can be merged; the merge follows once the checks on the new head are green.
+
+---
+## Date limit and delivery posts — the answer on the release, which had gone out
+**Timestamp**: 2026-11-17T23:35:33Z
+**User Input**: "A, wait"
+**AI Response**: His answer to the question whether the release pull request open for 0.37.1 (#185) waits until both changes are merged: it waits. #185 had been merged at 23:27:30Z, eight minutes before the answer, and 0.37.1 released with #180, #182 and #184. Both changes now go into the next release, 0.37.2, and their summary lines move to its file. His answer is read as applying to that release: its pull request waits until both changes are merged, so that one release and one rollout carry both, and he is told so. Nothing is pushed yet.
+**Context**: Construction — the date limit and delivery posts: 0.37.1 released without them; the next release waits for both.
 
 ---
 ## Unreadable date text — prod rolled out to 0.37.1
@@ -2212,6 +2317,13 @@ Availability for @GM
 **Context**: Inception — requirements approved; workflow planning and code generation plan await approval.
 
 ---
+## Date limit — 0.37.1 released without it; `master` taken in a fifth time; the summary moves to 0.37.2
+**Timestamp**: 2026-11-17T23:48:21Z
+**User Input**: (none — Joshua's input of this hour is recorded in the entries before this one)
+**AI Response**: `master` had moved from `723696d` to `162fd42`: the release pull request for 0.37.1 (#185) was merged at 23:27:30Z, and 0.37.1 released with #180, #182 and #184; #188 (records and two lines of `CONTRIBUTING.md`) followed at 23:30:30Z, and #187 (a code owners file, the release action named by its commit, a paragraph and a line of `CONTRIBUTING.md`, and tests for them in the release-notes tool's project) at 23:38:12Z. It is taken in, and the change is again one commit on top of it. 0.37.1 went out without this change, so its summary moves to the next version's file, as the plan says for this case: it starts `docs/release-notes/0.37.2.md`, and `0.37.1.md` stays as 0.37.1 shipped it. The commit message names the new file. No code under `src` differs from the commit made on `723696d`, and no test this change adds or changes. The audit entries are in the order of their timestamps, and the state file keeps every section. One sentence about #184 is made exact, in the entry of 23:24:01Z and in the plan: #184 adds refusals that come before the recognizer reads the text. On this tree: `dotnet build CalCrony.slnx -c Release` with 0 errors and 22 warnings, `dotnet test CalCrony.slnx -c Release` with 1,849 tests green (929 API, 418 bot, 153 web, 349 for the release-notes tool) and 17 of that tool's skipped, and the release summary's check passes. The plan has the step (5.8) and a note. Both agents read this commit's difference from the one they read before anything is pushed. Nothing is pushed.
+**Context**: Construction — the date limit: `master` taken in a fifth time, the summary in 0.37.2's file; the push follows on both agents' clean read.
+
+---
 ## Operations — public calendar day sets: the records read by two agents; the docs pull request asked
 **Timestamp**: 2026-11-17T23:54:45Z
 **User Input**: (none — the report of the rollout from the session working on #184, and the two agents' reports)
@@ -2224,6 +2336,20 @@ Availability for @GM
 **User Input**: (none — no input from Joshua since his approval at 23:31:46Z)
 **AI Response**: Built on `fix/unstorable-text`, rebuilt on `eb6afb8`, as the plan he approved says. The baseline on `eb6afb8`: 0 errors and 22 warnings; 1,781 tests passed and none failed (865 API, 418 bot, 153 web, 345 release notes), and 17 release-notes tests skipped on this machine. The tests were written first and run against the unchanged code: 239 new test cases, of which all 132 refusal tests failed there and all 107 that pin what is accepted today passed. The change: a converter on the API's JSON options refuses text that cannot be stored while a body is read, and one check right after authorization does the same for the query string, both answered with a 400 and `The text contains a character that can't be saved.`; an RSVP option list with an entry missing altogether is refused with `Every RSVP option needs an emoji and a label.` on a new event and on an edited one, in both routes and in `RsvpPolicy.TryBuildOptions`; a template's notification list with an entry missing is refused with `Every notification needs minutesBefore.`; a sign-in return address longer than its column is dropped, as the route drops any other it does not keep; and an event made from a poll keeps whole characters where its title is cut. Seven source files in the API, one of them new; no migration; Contracts, the bot and the web app are not touched. Checked: `dotnet build CalCrony.slnx -c Release` without incremental state, with 0 errors and the baseline's 22 warnings; `dotnet test CalCrony.slnx -c Release`, with 2,020 tests passed and none failed (1,104 API, 418 bot, 153 web, 345 release notes) and the same 17 skipped; fifteen changes that each take one rule out, made one at a time in a scratch copy, each of which failed tests written for that rule; and the whole diff read against the plan's section 2, rule by rule. The plan's steps 0.1 to 3.3 are ticked, and its section 7 has the figures. Next: the local commits, then both review agents' read of them before anything is pushed, then the completion gate.
 **Context**: Construction — code generation, part 2: generated and checked locally (plan steps 1.1 to 3.3). The review (step 3.4) is next. Nothing is pushed.
+
+---
+## Date limit and delivery posts — both agents' read of the final pair
+**Timestamp**: 2026-11-17T23:57:43Z
+**User Input**: (none — no input from Joshua since 2026-11-17T23:35:33Z)
+**AI Response**: Both agents read the two commits made on `162fd42` and found nothing in them that should hold up a push. The quality agent asked for the state file's lines on the push to say that the go-ahead is given, and for the plan and the entry of 23:48:21Z to say what #188 and #187 change in `CONTRIBUTING.md`; both are done, here and in delivery posts' commit. Nothing else changes. Both agents read this records-only difference before anything is pushed. Nothing is pushed.
+**Context**: Construction — the date limit and delivery posts: both agents' read clean; the push follows on their read of this difference.
+
+---
+## Date limit and delivery posts — both branches pushed; pull requests #189 and #190
+**Timestamp**: 2026-11-18T00:02:52Z
+**User Input**: (none — the push is on Joshua's go-ahead of 2026-11-17T23:32:19Z, "A, push both")
+**AI Response**: Both agents read the records-only difference of 2026-11-17T23:57:43Z, in `6620517` and `92fd33b`, and found nothing in it that should hold up a push; the quality agent's one optional point, on a word in the entry of 23:48:21Z, is left as it is. Both branches are pushed by name at those commits. `fix/date-ahead-limit` is pull request #189 into `master` (`fix: limit how far ahead a date can be set`), opened at 00:03:05Z, and `fix/delivery-posts` is #190 (`fix: post only in a delivery's own server, and ping only whom a post is for`), opened at 00:03:18Z with the date limit's branch as its base, so that it shows its own change alone. CI and CodeQL run on pull requests into `master`; #190's run comes once it is moved there, after #189's merge. The merge of each waits for Joshua's go-ahead.
+**Context**: Construction — the date limit and delivery posts: pushed and open as pull requests (step 6.2 of each plan).
 
 ---
 ## Text that cannot be stored — the first reviews answered; the branch rebuilt on `162fd42`
@@ -2303,6 +2429,13 @@ Availability for @GM
 **Context**: Operations — the day-set fix's records go out on Joshua's go-ahead.
 
 ---
+## Date limit — `master` merged in after the push
+**Timestamp**: 2026-11-18T03:57:01Z
+**User Input**: (none — GitHub reported that pull request #189 conflicts with `master`. The desktop app's Auto-fix, which Joshua turned on for these pull requests after the push, passed it on: his standing leave to answer what it reports and push a fix to the branch without asking first)
+**AI Response**: `master` had moved to `04beae8` (pull request #191, records only). It is merged into `fix/date-ahead-limit` in a merge commit: the branch is on GitHub, so `master` is not put under the change again. Only `aidlc-docs/audit.md` conflicted. It is `master`'s entries with this change's put in by their timestamps, the entry of the push among them; git merged the state file by itself. Nothing outside `aidlc-docs` differs from `6620517`, whose tree step 5.8 ran (1,849 green) and on which #189's checks passed, so that result stands. The plan has the push (step 6.2), the merge (step 5.9) and Auto-fix (section 2), and the state file the pull request. Both agents read this commit before it is pushed.
+**Context**: Construction — the date limit: `master` merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
+
+---
 ## Unreadable date text — records pull request #195 opened; its merge asked
 **Timestamp**: 2026-11-18T03:57:06Z
 **User Input**: (none — continuation of "Open it, plain")
@@ -2322,6 +2455,13 @@ Availability for @GM
 **User Input**: (none — no input from Joshua since his answer at 03:43:19Z)
 **AI Response**: `master` moved after this change's entry of 03:43:19Z: pull request #191 was merged at 03:48:45Z as `04beae8`, and #194 at 03:57:54Z as `47209ab`, both records only — the audit log, the state file and three plans of other changes. Step 6.1 of the plan: `master` `47209ab` is taken in by a merge, `843be27`, so `0c56280`, the commit these records name for the source and the tests, stays in the branch's history. The audit entries of both sides are kept whole, in their places by timestamp; the state file merged by itself, every section kept and this change's section still the last. Nothing outside `aidlc-docs` changes, so the source and the tests are those of `0c56280`. On the merge, `dotnet build CalCrony.slnx -c Release` without incremental state gives 0 errors and the baseline's 22 warnings, and `dotnet test CalCrony.slnx -c Release`, 2026-11-18 from 03:59Z to 04:01Z, passes 2,037 tests and fails none (1,118 API, 418 bot, 153 web, 348 release notes), with 17 release-notes tests skipped on this machine. In the plan, the baseline line names the merge, section 7 gains a note on it, and one sentence of section 7 is made exact (three comments in two files) and its paragraph re-wrapped; in the state file, the completion-gate line says what came after the answer. Next: the security reviewer reads the merge, these records and the pull request's text; then the branch is pushed and the pull request opened.
 **Context**: Construction — delivery, step 6.1: `master` taken in before the push.
+
+---
+## Date limit — `master` merged in again, before the push
+**Timestamp**: 2026-11-18T04:08:13Z
+**User Input**: (none — no input from Joshua since 2026-11-17T23:35:33Z; this follows the Auto-fix report of the entry of 03:57:01Z)
+**AI Response**: Both agents read the merges of 03:57:01Z and 03:58:26Z. Neither found a problem in what they hold, and both found that `master` had moved on to `47209ab` (pull request #194, records only, merged at 03:57:53Z) as the first was made, so that pushing them would leave #189 conflicting. `47209ab` is merged in on top, in a second merge commit. Only `aidlc-docs/audit.md` conflicted, and it is `master`'s entries with this change's put in by their timestamps; git merged the state file by itself. Nothing outside `aidlc-docs` differs from `6620517`. From the quality agent's read, taken: the entry of the push gives the times at which the two pull requests were opened. The plan's step 5.9 and its note, and the state file, name both merges. Both agents read this merge before it is pushed.
+**Context**: Construction — the date limit: `master` (`47209ab`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
 
 ---
 ## Code of Conduct — go-ahead to merge pull request #193
@@ -2359,10 +2499,24 @@ Availability for @GM
 **Context**: Build and test — complete; the records branch waits for Joshua's go-ahead.
 
 ---
+## Date limit — `master` merged in a third time
+**Timestamp**: 2026-11-18T18:50:52Z
+**User Input**: (none — no input from Joshua since 2026-11-17T23:35:33Z; the desktop app's Auto-fix reported that #189 conflicts with `master` again)
+**AI Response**: `master` had moved to `5fc9239`: pull request #198 (merged at 18:35:13Z), which changes the API as well as records; #193 (merged at 18:39:32Z), which adds a code of conduct, with a line each in `README.md` and `CONTRIBUTING.md`, and records; and #195 (merged at 18:47:57Z), records only. It is merged into `fix/date-ahead-limit` in one merge commit, as before. Only `aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted: the audit log is `master`'s entries with this change's put in by their timestamps, and the state file is `master`'s with this change's section after the two that #198 and #193 add. Git merged the rest by itself; the one file both this change and #198 change, `src/CalCrony.Api/Endpoints/PollEndpoints.cs`, they change in different places. On the merged tree, built from scratch: 0 errors and 22 warnings, 2,102 tests green (1,182 API, 418 bot, 153 web, 349 for the release-notes tool) and 17 of the tool's skipped. The checks of #189 had passed on `c9ec754`. The plan's step 5.10 and its note, and the state file, have it. Both agents read this merge before it is pushed.
+**Context**: Construction — the date limit: `master` (`5fc9239`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
+
+---
 ## Code of Conduct — go-ahead to push the records branch and open its pull request
 **Timestamp**: 2026-11-18T19:21:34Z
 **User Input**: "Push and open"
 **AI Response**: Joshua's answer to "Should I push docs/log-code-of-conduct-merge and open its pull request?"; the other answer was "Not yet". `master` had moved to `5fc9239` (#195) and was merged into the branch without a conflict. The branch is pushed with the keyring login and the pull request `docs: log the code of conduct through its merge` is opened against `master`. Records only; it cuts no release. Its merge is asked separately.
 **Context**: Build and test — the records pull request, on Joshua's go-ahead.
+
+---
+## Code of Conduct — records pull request #202 opened; `master` taken in (Auto-fix)
+**Timestamp**: 2026-11-18T19:22:36Z
+**User Input**: (none — Auto-fix event: pull request #202 conflicts with `master` at head `289b5bf`)
+**AI Response**: Pull request #202, `docs: log the code of conduct through its merge`, was opened against `master` at 2026-11-18T19:21:54Z after a scan of what it adds found no local path, token, mention or hidden character; Auto-fix is on for it, auto-merge off. Its merge was asked of Joshua: "Squash-merge #202 once its checks are green?", answers "Merge when green" and "Not yet". `master` then moved to `3e35071` (#189) and was merged into the branch. `audit.md`: both sides had only added entries; the shared base is kept with every added entry after the entry it followed, in timestamp order where both added at the same place; none dropped. `aidlc-state.md`: this branch's ticked "Build and test" line for the Code of Conduct is kept, followed by `master`'s new "Date limit" section; against `master`, that one line is the only difference. Pushed under the standing Auto-fix authorization.
+**Context**: Build and test — records pull request #202 open and up to date with `master`; its merge waits for Joshua's go-ahead.
 
 ---
