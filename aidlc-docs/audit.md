@@ -2429,3 +2429,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the pull request's conflict with `master`.
 
 ---
+## Build and test — the moved occurrence: go-ahead to merge pull request #196
+**Timestamp**: 2026-11-18T19:21:00Z
+**User Input**: "Merge when green"
+**AI Response**: Joshua's answer, given here, to "Merge #196 once its checks are green?" (recommended yes, "Merge when green"), the question put to him again here after a second-hand "Go ahead". The branch had gone up under Auto-fix at 19:15:23Z as `e7f51db`, a fast-forward from `8bb6c46`, after both review agents confirmed it, and the pull request was mergeable again. Its checks on `e7f51db` are read; when every check that runs has passed and `master` has not moved, the pull request is squash-merged through the REST call, pinned to `e7f51db`, with its title and text as the commit message. This entry stays in a local commit, so that the pull request's head stays the commit both agents read; it goes out with the record of the merge. The release and the rollout are each asked separately.
+**Context**: Build and test, in the repository's collapsed form — the merge go-ahead.
+
+---
