@@ -3094,3 +3094,10 @@ Availability for @GM
 **Context**: Operations — the ruleset change is in; the record of its first merge is still to be read.
 
 ---
+## Operations — the records branch after #191: `CONTRIBUTING.md` names the new rule; its push and pull request asked
+**Timestamp**: 2026-11-18T22:43:37Z
+**User Input**: (none — question put to Joshua)
+**AI Response**: `CONTRIBUTING.md` now says that the ruleset's "Restrict updates" rule lets only those who may bypass it update `master`, so every merge is made by an admin, and its note on code owners says the same of a pull request someone else opens. The code owners plan (status and step 5.1) and its state line record the read of #189's merge box and the rule added the same day; step 5.1 stays open for the release pull request. Committed on the local branch `docs/log-records-pr-191-merge`, with the audit entries since #191's merge; not pushed. Asked of Joshua, with a recommendation: push the branch and open its pull request, `docs: log the code owners follow-up and say that only admins can update master` — A) push, open it, and squash-merge it once its checks are green (recommended; its merge is also the first under the new rule, so the ruleset's record of it shows the rule at work); B) push and open it only, the merge asked separately.
+**Context**: Operations — the records of the follow-up wait for Joshua's go-ahead.
+
+---
