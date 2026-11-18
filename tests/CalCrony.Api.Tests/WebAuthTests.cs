@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using CalCrony.Api.Data;
 using CalCrony.Contracts;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CalCrony.Api.Tests;
 
@@ -37,6 +40,30 @@ public class WebAuthTests(WebAuthFixture fixture) : IClassFixture<WebAuthFixture
         // The poisoned returnUrl was discarded at start time; landing target is the safe default.
         Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
         Assert.Equal($"{WebAuthFixture.WebOrigin}/app", callback.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task A_return_address_as_long_as_can_be_stored_is_kept()
+    {
+        var returnUrl = "/" + new string('a', StoredReturnAddressLength() - 1);
+
+        Assert.Equal($"{WebAuthFixture.WebOrigin}{returnUrl}", await SignInReturningToAsync(returnUrl, 9006));
+    }
+
+    [Fact]
+    public async Task A_longer_return_address_is_dropped()
+    {
+        var returnUrl = "/" + new string('a', StoredReturnAddressLength());
+
+        Assert.Equal($"{WebAuthFixture.WebOrigin}/app", await SignInReturningToAsync(returnUrl, 9007));
+    }
+
+    [Fact]
+    public async Task A_return_address_with_a_space_or_a_character_outside_printable_ascii_is_dropped()
+    {
+        Assert.Equal($"{WebAuthFixture.WebOrigin}/app", await SignInReturningToAsync("/caf%C3%A9", 9008));
+        Assert.Equal($"{WebAuthFixture.WebOrigin}/app", await SignInReturningToAsync("/a%20b", 9009));
+        Assert.Equal($"{WebAuthFixture.WebOrigin}/app/guilds/1/events?past=1", await SignInReturningToAsync("/app/guilds/1/events%3Fpast%3D1", 9010));
     }
 
     [Fact]
@@ -112,6 +139,32 @@ public class WebAuthTests(WebAuthFixture fixture) : IClassFixture<WebAuthFixture
         var botClient = fixture.Client;
         var response = await botClient.GetAsync("/me/guilds");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>The longest return address the sign-in state can hold.</summary>
+    private int StoredReturnAddressLength()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        return db.Model.FindEntityType(typeof(WebLoginState))!
+            .FindProperty(nameof(WebLoginState.ReturnUrl))!
+            .GetMaxLength()!.Value;
+    }
+
+    /// <summary>Signs a new user in with the given return address and gives the address the sign-in
+    /// ends on.</summary>
+    private async Task<string> SignInReturningToAsync(string returnUrl, long userId)
+    {
+        var client = fixture.Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var start = await client.GetAsync($"/auth/discord/start?returnUrl={returnUrl}");
+        Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
+        var state = System.Web.HttpUtility.ParseQueryString(start.Headers.Location!.Query)["state"]!;
+
+        var code = $"return-{Guid.NewGuid():N}";
+        fixture.Discord.Logins[code] = (new(userId, $"user{userId}", null, null), []);
+        var callback = await client.GetAsync($"/auth/discord/callback?code={code}&state={state}");
+        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        return callback.Headers.Location!.ToString();
     }
 
     private async Task SeedGuildAsync(long guildId)
