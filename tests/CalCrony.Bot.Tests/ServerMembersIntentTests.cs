@@ -160,17 +160,43 @@ public class ServerMembersIntentTests
     public void The_refusal_log_says_what_happens_next_for_each_setting()
     {
         Assert.Equal(
-            "Discord refused the Server Members intent (gateway close code 4014). The bot stops now so that "
-            + "it restarts and decides again from the application's settings (Discord:ServerMembersIntent is auto).",
+            "Discord refused the Server Members intent (gateway close code 4014). The bot stops in 5 minutes so that "
+            + "it restarts and decides again from the application's settings (Discord:ServerMembersIntent is auto); "
+            + "the wait keeps restarts well inside Discord's daily limit on new connections. If it keeps restarting, "
+            + "set it to off.",
             ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, ApplicationFlags.GatewayGuildMembers).RefusalMessage);
         Assert.Equal(
             "Discord refused the Server Members intent (gateway close code 4014). Discord:ServerMembersIntent is on, "
-            + "so the bot keeps asking for it: set it to auto or off, or switch the intent on for the application "
-            + "in the Discord Developer Portal.",
+            + "so the bot stays offline: set it to auto or off, or switch the intent on for the application in the "
+            + "Discord Developer Portal, and restart the bot.",
             ServerMembersIntent.Decide(ServerMembersIntentMode.On, null).RefusalMessage);
         Assert.Equal(
             "Discord refused an intent the bot asked for (gateway close code 4014).",
             ServerMembersIntent.Decide(ServerMembersIntentMode.Off, null).RefusalMessage);
+    }
+
+    [Fact]
+    public void Restarts_after_a_refusal_stay_well_inside_discords_limit_of_1000_new_connections_a_day()
+    {
+        // Discord resets a bot's token past 1,000 new connections in a day; a refusal met on every
+        // start must not get near it, with room left for ordinary reconnects.
+        Assert.True(TimeSpan.FromDays(1) / ServerMembersIntent.RestartDelay <= 300);
+    }
+
+    [Fact]
+    public void Flags_read_again_show_the_intent_lost_only_in_auto_with_the_intent_asked_for()
+    {
+        var auto = ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, ApplicationFlags.GatewayGuildMembersLimited);
+
+        Assert.True(auto.LostOnRecheck((ApplicationFlags)0));
+        Assert.True(auto.LostOnRecheck(ApplicationFlags.GatewayPresenceLimited));
+        Assert.False(auto.LostOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));
+        Assert.False(auto.LostOnRecheck(ApplicationFlags.GatewayGuildMembers));
+
+        // Auto that left the intent out, on and off are not looking for a loss.
+        Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, (ApplicationFlags)0).LostOnRecheck((ApplicationFlags)0));
+        Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.On, null).LostOnRecheck((ApplicationFlags)0));
+        Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.Off, null).LostOnRecheck((ApplicationFlags)0));
     }
 
     [Theory]
@@ -178,29 +204,74 @@ public class ServerMembersIntentTests
     [InlineData("off", false)]
     public async Task On_and_off_are_decided_without_asking_Discord(string value, bool enabled)
     {
-        // A token that could never log in: any request to Discord would fail, so a decision that
-        // reached Discord would come back with a lookup error.
-        var decided = await ServerMembersIntent.ResolveAsync(Configuration(value, "not-a-token"));
+        var discord = StubDiscord.Answering(ApplicationFlags.GatewayGuildMembersLimited);
+
+        var decided = await ServerMembersIntent.ResolveAsync(Configuration(value, "token"), discord.Reader());
 
         Assert.Equal(enabled, decided.Enabled);
         Assert.Null(decided.LookupError);
+        Assert.Equal(0, discord.Calls);
+    }
+
+    [Theory]
+    [InlineData(ApplicationFlags.GatewayGuildMembersLimited, true)]
+    [InlineData((ApplicationFlags)0, false)]
+    public async Task Auto_decides_from_the_flags_Discord_gives(ApplicationFlags flags, bool enabled)
+    {
+        var discord = StubDiscord.Answering(flags);
+
+        var decided = await ServerMembersIntent.ResolveAsync(Configuration("auto", "token"), discord.Reader());
+
+        Assert.Equal(enabled, decided.Enabled);
+        Assert.Null(decided.LookupError);
+        Assert.Equal(1, discord.Calls);
+    }
+
+    [Fact]
+    public async Task Auto_asks_for_the_intent_as_before_when_Discord_refuses_the_read_and_never_logs_the_token()
+    {
+        var discord = StubDiscord.Status(System.Net.HttpStatusCode.Unauthorized, "{\"message\": \"401: Unauthorized\"}");
+
+        var decided = await ServerMembersIntent.ResolveAsync(Configuration("auto", "secret-token"), discord.Reader());
+
+        Assert.True(decided.Enabled);
+        Assert.Equal("HttpRequestException: Discord answered 401 Unauthorized.", decided.LookupError);
+        Assert.DoesNotContain("secret-token", decided.Describe());
+    }
+
+    [Fact]
+    public async Task Auto_asks_for_the_intent_as_before_when_Discord_does_not_answer_in_time()
+    {
+        var discord = StubDiscord.Silent();
+
+        var decided = await ServerMembersIntent.ResolveAsync(
+            Configuration(null, "token"), discord.Reader(TimeSpan.FromMilliseconds(100)));
+
+        Assert.True(decided.Enabled);
+        Assert.Equal("TimeoutException: Discord did not answer within 0.1 seconds.", decided.LookupError);
     }
 
     [Fact]
     public async Task Auto_without_a_token_asks_for_the_intent_as_before_and_says_why()
     {
-        var decided = await ServerMembersIntent.ResolveAsync(Configuration(null, null));
+        var discord = StubDiscord.Answering(ApplicationFlags.GatewayGuildMembersLimited);
+
+        var decided = await ServerMembersIntent.ResolveAsync(Configuration(null, null), discord.Reader());
 
         Assert.Equal(ServerMembersIntentMode.Auto, decided.Mode);
         Assert.True(decided.Enabled);
         Assert.Equal("no bot token is configured", decided.LookupError);
+        Assert.Equal(0, discord.Calls);
     }
 
     [Fact]
     public async Task An_unknown_setting_stops_the_bot_before_anything_else()
     {
+        var discord = StubDiscord.Answering(ApplicationFlags.GatewayGuildMembersLimited);
+
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => ServerMembersIntent.ResolveAsync(Configuration("maybe", "not-a-token")));
+            () => ServerMembersIntent.ResolveAsync(Configuration("maybe", "token"), discord.Reader()));
+        Assert.Equal(0, discord.Calls);
     }
 
     private static IConfiguration Configuration(string? mode, string? token) =>

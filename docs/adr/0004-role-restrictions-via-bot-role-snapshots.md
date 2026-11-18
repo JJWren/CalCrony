@@ -130,3 +130,9 @@ keep their names on the web.
   at guilds with a marker; they now also take a guild that holds any role row, so names are trimmed
   to the roles still watched and dropped when the bot leaves, as before.
 - A bot older than the field sends none, which reads as `MembersKnown: true`: nothing changes for it.
+- **The member cache is not trusted for roles.** Without the intent no member update reaches the
+  bot's cache, not even for a role the bot granted itself, so attendee-role grants and removals
+  skip the cache's "already done" check and go through REST, which Discord applies idempotently.
+- **In auto the flags are read again every ten minutes**, in case Discord takes the intent away
+  without closing the connection; the member cache would otherwise stop changing while syncs went
+  on renewing the marker from it.

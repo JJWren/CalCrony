@@ -1,6 +1,5 @@
 using Discord;
 using Discord.Net;
-using Discord.Rest;
 
 namespace CalCrony.Bot;
 
@@ -41,30 +40,43 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
         "Listing who holds a role needs Discord's Server Members access, which CalCrony doesn't have right now. "
         + "`/availability event`, and `/availability slots` for yourself or a member, still work.";
 
+    /// <summary>The critical log line when the flags, read again while running, no longer show the intent.</summary>
+    public const string LostMessage =
+        "The application no longer has the Server Members intent (its flags, read again from Discord). The bot stops "
+        + "now so that it restarts without it (" + SettingKey + " is auto).";
+
+    /// <summary>How long the bot waits after Discord refuses the intent before it stops to restart.
+    /// Discord resets a bot's token when it opens more than 1,000 new connections in a day; at one
+    /// restart every five minutes, even a refusal met on every start stays under 300.</summary>
+    public static readonly TimeSpan RestartDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>How often, in auto with the intent asked for, the application's flags are read again.</summary>
+    public static readonly TimeSpan RecheckInterval = TimeSpan.FromMinutes(10);
+
     /// <summary>The application flags that mean it has the intent: approved, or switched on in the
     /// Developer Portal.</summary>
     private const ApplicationFlags MembersFlags =
         ApplicationFlags.GatewayGuildMembers | ApplicationFlags.GatewayGuildMembersLimited;
-
-    /// <summary>How long the start-up read of the application may take.</summary>
-    private const int LookupTimeoutMilliseconds = 15_000;
 
     /// <summary>The intents the bot connects with.</summary>
     public GatewayIntents GatewayIntents =>
         Enabled ? GatewayIntents.Guilds | GatewayIntents.GuildMembers : GatewayIntents.Guilds;
 
     /// <summary>Whether a refusal of the intent while running stops the bot, so that its container
-    /// restarts and the decision is made again: only in auto, and only when the intent was asked for.</summary>
+    /// restarts and the decision is made again: only in auto, and only when the intent was asked for.
+    /// The flags are read again while running in the same case.</summary>
     public bool RestartsOnRefusal => Mode == ServerMembersIntentMode.Auto && Enabled;
 
     /// <summary>The critical log line for a refusal (close code 4014), saying what happens next.</summary>
     public string RefusalMessage => Enabled
         ? RestartsOnRefusal
-            ? $"Discord refused the Server Members intent (gateway close code {RefusedCloseCode}). The bot stops now so that "
-              + $"it restarts and decides again from the application's settings ({SettingKey} is auto)."
+            ? $"Discord refused the Server Members intent (gateway close code {RefusedCloseCode}). The bot stops in "
+              + $"{RestartDelay.TotalMinutes:0} minutes so that it restarts and decides again from the application's "
+              + $"settings ({SettingKey} is auto); the wait keeps restarts well inside Discord's daily limit on new "
+              + "connections. If it keeps restarting, set it to off."
             : $"Discord refused the Server Members intent (gateway close code {RefusedCloseCode}). {SettingKey} is on, "
-              + "so the bot keeps asking for it: set it to auto or off, or switch the intent on for the application "
-              + "in the Discord Developer Portal."
+              + "so the bot stays offline: set it to auto or off, or switch the intent on for the application in the "
+              + "Discord Developer Portal, and restart the bot."
         : $"Discord refused an intent the bot asked for (gateway close code {RefusedCloseCode}).";
 
     /// <summary>Reads the setting: empty, missing or <c>auto</c> is auto; <c>on</c> and <c>off</c>
@@ -81,6 +93,11 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
             $"{SettingKey} (DISCORD_SERVER_MEMBERS_INTENT in the compose files) must be auto, on or off."),
     };
 
+    /// <summary>Whether application flags show the intent: approved, or switched on.</summary>
+    /// <param name="flags">The application's flags.</param>
+    /// <returns>True when the application has the intent.</returns>
+    public static bool HasMembersIntent(ApplicationFlags flags) => (flags & MembersFlags) != 0;
+
     /// <summary>The decision, pure: on and off as set; auto asks for the intent when the
     /// application has it, and — as before the setting existed — when it could not be read.</summary>
     /// <param name="mode">What the setting asked for.</param>
@@ -96,18 +113,20 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
                 mode, true,
                 $"auto: the application could not be read, so the bot asks for it as before: {lookupError ?? "no answer"}",
                 lookupError ?? "no answer"),
-            _ when (flags.Value & MembersFlags) != 0 => new(mode, true, "auto: the application has it"),
+            _ when HasMembersIntent(flags.Value) => new(mode, true, "auto: the application has it"),
             _ => new(mode, false, "auto: the application does not have it"),
         };
 
-    /// <summary>Reads the setting and, in auto, the bot's own application from Discord, with the
-    /// bot's token, before the gateway client exists — its intents are fixed when it is built.</summary>
+    /// <summary>Reads the setting and, in auto, the bot's own application flags from Discord, with
+    /// the bot's token, before the gateway client exists — its intents are fixed when it is built.
+    /// The read has a time limit, and any failure leaves the bot asking for the intent as before.</summary>
     /// <param name="configuration">The application configuration.</param>
+    /// <param name="reader">Reads the application's flags.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The decision.</returns>
     /// <exception cref="InvalidOperationException">The setting has a value other than auto, on or off.</exception>
     public static async Task<ServerMembersIntent> ResolveAsync(
-        IConfiguration configuration, CancellationToken cancellationToken = default)
+        IConfiguration configuration, ApplicationFlagsReader reader, CancellationToken cancellationToken = default)
     {
         var mode = ParseMode(configuration[SettingKey]);
         if (mode != ServerMembersIntentMode.Auto)
@@ -123,17 +142,19 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
 
         try
         {
-            using var rest = new DiscordRestClient();
-            var options = new RequestOptions { Timeout = LookupTimeoutMilliseconds, CancelToken = cancellationToken };
-            await rest.LoginAsync(TokenType.Bot, token);
-            var application = await ((IDiscordClient)rest).GetApplicationInfoAsync(options);
-            return Decide(mode, application.Flags);
+            return Decide(mode, await reader.ReadAsync(token, cancellationToken));
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             return Decide(mode, null, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    /// <summary>Whether flags read again while running show the intent gone, so that the bot must
+    /// restart without it: only in auto with the intent asked for.</summary>
+    /// <param name="flags">The application's flags as read again.</param>
+    /// <returns>True when the bot should restart.</returns>
+    public bool LostOnRecheck(ApplicationFlags flags) => RestartsOnRefusal && !HasMembersIntent(flags);
 
     /// <summary>Whether a disconnect was Discord refusing an intent: a gateway close with code
     /// 4014, however Discord.Net wrapped it.</summary>

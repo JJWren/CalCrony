@@ -17,7 +17,7 @@ namespace CalCrony.Bot;
 /// <param name="liveLists">The live-list manager.</param>
 /// <param name="roleSnapshots">The role-snapshot pusher.</param>
 /// <param name="membersIntent">Whether the bot asks for the Server Members intent.</param>
-/// <param name="lifetime">The host lifetime, stopped when Discord refuses the intent in auto.</param>
+/// <param name="restart">Stops the bot to restart when Discord refuses the intent in auto.</param>
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
@@ -28,7 +28,7 @@ public sealed class DiscordBotService(
     LiveListManager liveLists,
     RoleSnapshotService roleSnapshots,
     ServerMembersIntent membersIntent,
-    IHostApplicationLifetime lifetime) : IHostedService
+    IntentRestart restart) : IHostedService
 {
     /// <summary>Wires events, loads interaction modules, and logs the bot in.</summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -313,9 +313,10 @@ public sealed class DiscordBotService(
     }
 
     /// <summary>Discord refusing an intent (gateway close code 4014) is logged as critical, saying
-    /// what happens next. In auto, with the intent asked for, the bot then stops with a non-zero
-    /// exit code, so its container restarts and decides again from the application's flags; set
-    /// to on, it keeps going as Discord.Net does. Any other disconnect is Discord.Net's to handle.</summary>
+    /// what happens next. Discord.Net does not reconnect after it. In auto, with the intent asked
+    /// for, the bot stops after <see cref="ServerMembersIntent.RestartDelay"/> with a non-zero exit
+    /// code, so its container restarts and decides again from the application's flags; set to on,
+    /// it stays disconnected until it is restarted. Any other disconnect is Discord.Net's to handle.</summary>
     /// <param name="exception">What the disconnect carried.</param>
     private Task OnDisconnectedAsync(Exception? exception)
     {
@@ -324,11 +325,13 @@ public sealed class DiscordBotService(
             return Task.CompletedTask;
         }
 
-        logger.LogCritical("{Refusal}", membersIntent.RefusalMessage);
         if (membersIntent.RestartsOnRefusal)
         {
-            Environment.ExitCode = 1;
-            lifetime.StopApplication();
+            restart.Schedule(membersIntent.RefusalMessage, ServerMembersIntent.RestartDelay);
+        }
+        else
+        {
+            logger.LogCritical("{Refusal}", membersIntent.RefusalMessage);
         }
 
         return Task.CompletedTask;

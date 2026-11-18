@@ -362,10 +362,19 @@ two accounts: one holding the role, one not.
 - [ ] On the website, the account with the role picks the restricted option → "We can't confirm
       your roles right now — RSVP from Discord."; the event shows the restricted and granted roles
       by name, not `role #…`.
+- [ ] The attendee role: the account with the role is seated in Discord and gets the attendee
+      role; when the event ends (or the account leaves the option), the attendee role is taken
+      away again. Without the intent the bot's cached roles are never updated, so it now goes to
+      Discord for each grant and removal; this item shows the removal happens.
 - [ ] Intent switched on again, test bot restarted → `Server Members intent: on (auto: the
       application has it)`; within one reconcile the website seats the account with the role.
-- [ ] To look at, not to pass: with the test bot running, the intent switched off → whether Discord
-      closes the connection (code 4014 in the log, then a restart) or only refuses the next one.
+- [ ] With the test bot running and the intent on, the intent switched off → the bot comes back
+      without it, either after Discord closes the connection (code 4014 in the log, a restart 5
+      minutes later) or within 10 minutes, when it reads the flags again and finds the intent gone
+      (a restart at once). Note which of the two happened.
+- [ ] To look at, not to pass: with the intent off, the bot given a new role with Manage Roles →
+      whether `/create attendee-role:` sees the permission before a restart (the bot's own member
+      may not be updated without the intent).
 
 ---
 

@@ -3252,3 +3252,17 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Inception complete; Construction — code generation starts.
 
 ---
+## Server Members intent — code generated, local commit
+**Timestamp**: 2026-11-18T23:26:05Z
+**User Input**: (none)
+**AI Response**: Built on `feature/run-without-members-intent`, tests first, as the plan sets out: the setting and the start-up decision (`ServerMembersIntent`), the refusal handling in `DiscordBotService`, the sentence of `/availability role` and `/availability slots` with a role, names-only role syncs in the bot, and in the API the `MembersKnown` field, the names-only sync, and retention and the presence sync taking in names kept without a marker; README, both compose files, ADR 0004, the live script's section 15 and `docs/release-notes/0.38.0.md`. The API tests of the names-only sync failed on the unchanged route (one with the 403 a names-only sync read as a full one would give), and passed once it was built. 2,638 tests green with the baseline's 17 skipped, the build's warnings unchanged. The start-up decision was run by itself against Discord with the hosted application's token: it decides `on`, as today. Two local commits, the plan and the change (`791295c`); nothing pushed.
+**Context**: Construction — code generation, steps 0.1 to 5.1 and 5.3 of the plan.
+
+---
+## Server Members intent — mutation checks and review round 1 answered
+**Timestamp**: 2026-11-18T23:47:13Z
+**User Input**: (none — no input from Joshua since "Approve, all A")
+**AI Response**: Nineteen mutation checks on `791295c`, each taking one rule out, all failed a test. Two review agents read `791295c` from git. Security: nothing critical, high or medium; three low points. Quality: one major point and minor ones. The major point: without the intent the bot's member cache is never updated, so the removal of an attendee role at an event's end read "already gone" and skipped it; attendee-role grants and removals now go through REST without the intent. The low points: the start-up read had no working time limit (now one plain request, 15 seconds, no retries); a restart at once after each refusal could pass Discord's limit of 1,000 new connections a day, past which it resets the bot's token (the stop now waits five minutes); and a loss of the intent that Discord does not announce would go unseen (in auto the flags are read again every ten minutes). The message for `on` now says the bot stays offline; the API test covers the creator and a poll vote; nits answered. One older point outside this change, in the Discord-side check of a click from a server the bot does not have cached, is to be raised with Joshua separately. Suite after the answers: 2,653 green, 17 skipped, warnings unchanged. The plan's section 8.5 lists each finding and its answer, and how they refine rules 3.1.6, 3.2.2, 3.2.3 and 3.5.2. Next: the answers committed, and both agents' read of them.
+**Context**: Construction — code generation, steps 5.2 and 5.4 (round 1).
+
+---

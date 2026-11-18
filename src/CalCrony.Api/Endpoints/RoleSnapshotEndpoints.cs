@@ -7,8 +7,9 @@ using NodaTime;
 namespace CalCrony.Api.Endpoints;
 
 /// <summary>Bot-only role snapshot endpoints (ADR 0004). The API never asks Discord who holds a
-/// role; the bot, which runs the GuildMembers intent, writes snapshots here and the API reads
-/// them to answer WEB callers' signup restrictions and to name the roles events grant (#167).
+/// role; the bot, which runs the GuildMembers intent when its application has it, writes snapshots
+/// here and the API reads them to answer WEB callers' signup restrictions and to name the roles
+/// events grant (#167). Without the intent the bot writes names alone, and the guild stays unsynced.
 /// Rows exist only for watched roles — roles a live restriction names or a live event or running
 /// series grants — and only for members holding at least one of them, following the
 /// channel-snapshot model: the API publishes what it references, the bot pushes exactly that.</summary>

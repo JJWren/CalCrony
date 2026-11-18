@@ -50,12 +50,12 @@ public sealed class RetentionService(
         // and synced after this sweep started is never mistaken for a stale one and dropped. Role
         // names kept without members (a bot without the Server Members intent) carry no sync
         // marker, so a guild holding any role row is swept as well.
-        var syncedGuilds = await db.Guilds
+        var snapshotGuilds = await db.Guilds
             .Where(g => g.RolesSyncedAt != null || db.GuildRoles.Any(r => r.GuildId == g.Id))
             .Select(g => g.Id)
             .ToListAsync(cancellationToken);
         var roleSnapshots = 0;
-        foreach (var guildId in syncedGuilds)
+        foreach (var guildId in snapshotGuilds)
         {
             roleSnapshots += await Endpoints.RoleSnapshotEndpoints.ReconcileSnapshotAsync(db, guildId, cancellationToken);
         }

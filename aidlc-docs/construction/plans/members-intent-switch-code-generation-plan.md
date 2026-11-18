@@ -211,23 +211,24 @@ Each has a recommendation. Answer with a letter after `[Answer]:`.
 
 ## 6. Execution plan
 
-- [ ] 0.1 Baseline: Release build and the whole suite on `4242144`; warnings counted.
-- [ ] 1.1 Tests first for the setting read, the decision and the 4014 recognizer; seen failing.
-- [ ] 1.2 `ServerMembersIntent.cs`; those tests green.
-- [ ] 1.3 `Program.cs` and `DiscordBotService.cs`: the decision at start, the log line, the 4014
+- [x] 0.1 Baseline: Release build and the whole suite on `6e0d8b2` (written as `4242144`, before the
+  branch moved onto release 0.37.2); warnings counted.
+- [x] 1.1 Tests first for the setting read, the decision and the 4014 recognizer; seen failing.
+- [x] 1.2 `ServerMembersIntent.cs`; those tests green.
+- [x] 1.3 `Program.cs` and `DiscordBotService.cs`: the decision at start, the log line, the 4014
   handler.
-- [ ] 2.1 Tests first for the availability sentence; seen failing.
-- [ ] 2.2 `AvailabilityModule.cs`; green.
-- [ ] 3.1 API tests first for the names-only sync, the gate, names on the event, an older body,
+- [x] 2.1 Tests first for the availability sentence; seen failing.
+- [x] 2.2 `AvailabilityModule.cs`; green.
+- [x] 3.1 API tests first for the names-only sync, the gate, names on the event, an older body,
   retention and the presence sync; seen failing.
-- [ ] 3.2 The contract field, `RoleSnapshotEndpoints.cs`, `RetentionService.cs`,
+- [x] 3.2 The contract field, `RoleSnapshotEndpoints.cs`, `RetentionService.cs`,
   `GuildPresenceEndpoints.cs`; green.
-- [ ] 3.3 Bot test first for the names-only sync request; `RoleSnapshotService.cs`; green.
-- [ ] 4.1 README, both compose files, ADR 0004, the live-test section, the release summary.
-- [ ] 5.1 Release build (no new warnings) and the whole suite.
-- [ ] 5.2 Mutation checks: each rule of sections 3.1–3.4 taken out in turn fails a test.
-- [ ] 5.3 The bot started locally against the test application with `off`, and with `auto`, to see
-  the log line and that it connects (no server data touched).
+- [x] 3.3 Bot test first for the names-only sync request; `RoleSnapshotService.cs`; green.
+- [x] 4.1 README, both compose files, ADR 0004, the live-test section, the release summary.
+- [x] 5.1 Release build (no new warnings) and the whole suite.
+- [x] 5.2 Mutation checks: each rule of sections 3.1–3.4 taken out in turn fails a test.
+- [x] 5.3 The bot started locally against the test application with `off`, and with `auto`, to see
+  the log line and that it connects (no server data touched). Done in part, differently: see 8.3.
 - [ ] 5.4 Both review agents, one on security and one on correctness and quality, read the local
   commits; findings answered and recorded in section 8, and read again until neither has one.
 - [ ] 5.5 Completion gate.
@@ -270,3 +271,96 @@ Each has a recommendation. Answer with a letter after `[Answer]:`.
   took such a guild in.
 - Steps 1.1, 2.1 and 3.3: the bot's tests were written against types and members that did not
   exist yet, so they failed to compile until the code was added.
+
+### 8.2 The suite on the change
+
+On `791295c`, the Release build has the same 22 warnings as the baseline, rule for rule (CS0618,
+CS8604 and MSB3277, none in a changed file), and 2,638 tests pass with the same 17 skipped: Api
+1,604 (6 new), Bot 530 (40 new), Web 154, ReleaseNotes 350 (the new summary file adds one). The
+release-notes tool's `check` passes on `0.38.0.md`, and its `preview` shows the summary as it
+would open the release notes. No hidden characters in the added lines.
+
+### 8.3 The decision against Discord, instead of a local bot run
+
+Step 5.3 as written would have started a second gateway session for a live application, which
+also receives that application's interactions. Instead, `ServerMembersIntent.ResolveAsync` was run
+by itself against Discord with the hosted application's token (one read of the application, no
+gateway connection; the token was read from the stack's settings and not printed): unset and
+`auto` both decided `on (auto: the application has it)`, so the hosted bot asks for the intent as
+it does today; `on` and `off` decided without reading anything; and a token Discord refuses gave
+`on (auto: the application could not be read, so the bot asks for it as before: HttpException:
+The server responded with error 401: 401: Unauthorized)`, the token not in the message. The
+gateway side, connecting without the intent, is left to the live items of section 15 of the live
+script, on the test stack.
+
+### 8.4 Mutation checks
+
+Nineteen changes, each taking one rule out, were made in turn to the committed code (`791295c`),
+the project rebuilt and its tests run; every one failed at least one test, and each file was put
+back after. The rules taken out: the setting read (`true` read as on; an unknown value read as
+auto), the decision (the switched-on flag ignored; a failed read leaving the intent out; `off`
+asking for it; the intent always asked for), the restart (also in auto without the intent), the
+refusal test (wrapped and aggregated exceptions not searched; any close code taken), auto without
+a token reading Discord anyway, the bot's names-only sync (listing members; saying members are
+known), the contract's default, and in the API the marker kept without members, members accepted
+when unknown, and the three clean-up paths passing over names kept without a marker.
+
+What no automated test reaches is the wiring: the two `/availability` guards, the member-list
+download and member-event guards in `RoleSnapshotService`, the `Disconnected` handler and the start
+line in `DiscordBotService`, and `Program.cs` handing the decision to the client. The live items of
+section 15 cover the guards and the start line; the restart on a refusal is an item to look at,
+since whether Discord closes a live connection when the intent is switched off is not known.
+
+### 8.5 Review, round 1 (on `791295c`)
+
+Two review agents read the two commits from git while the mutation checks ran. **Security**:
+nothing critical, high or medium; it confirmed from Discord.Net 3.20.1's source that a click in a
+cached server carries the member's roles from the interaction itself, so the Discord check holds
+without the intent (the live item still has to show it), that no message carries the token, and
+that the route stays bot-only. **Quality**: one major finding; the rules of sections 3.1 to 3.4
+otherwise built as written. Findings and answers:
+
+1. *Major (quality): attendee roles could stay after the event.* A member who clicks is cached
+   with the roles they had then; without the intent no member update follows the bot's own grant,
+   so the removal at the event's end read "already gone" from the cache and skipped it. Rule 3.5.2
+   did not hold. **Answered**: without the intent, `AttendeeRoleManager` skips the cache and goes
+   through REST for every grant and removal (Discord applies both idempotently); a live item
+   added. No automated test reaches it (wiring, like the other guards in 8.4).
+2. *Low (security) and minor (quality): the time limit of the start-up read never applied.*
+   Discord.Net's login already reads the application, retrying without end, so a Discord outage
+   at start could hold the bot back silently. **Answered**: the flags are read by
+   `ApplicationFlagsReader`, one plain request to `GET /applications/@me` with a 15-second limit
+   and no retries; an error names the status alone. Tested against a stand-in for Discord: the
+   request, the flags, an error, an answer without flags, a timeout, a cancellation.
+3. *Low (security): a restart loop could cost the bot its token.* Discord resets a bot's token
+   past 1,000 new connections in a day, and a restart at once after each refusal, if the refusal
+   met every start, could pass that. **Answered**: in auto the stop after a refusal waits five
+   minutes (`IntentRestart`), at most 288 restarts a day; tested, with the stop made once only and
+   not at all when the host is already stopping. Q2's known limit stands with that bound.
+4. *Low (security): a loss Discord does not announce.* If Discord takes the intent away without
+   closing the connection, member events stop while syncs renew the marker from a cache that no
+   longer changes. **Answered**: in auto, with the intent asked for, `ServerMembersIntentWatch`
+   reads the flags again every ten minutes and, finding the intent gone, stops the bot at once so
+   that it restarts without it; a failed read changes nothing. The decision is tested; the timer
+   is wiring, and a live item covers it.
+5. *Minor (quality): the message for `on` was wrong.* Discord.Net does not reconnect after 4014,
+   so a bot set to `on` stays offline. **Answered**: the message and the README say so and ask for
+   a restart.
+6. *Minor (quality): guards no test reaches.* **Answered** in 8.4: the wiring is named there and
+   left to the live items. The API test of the names-only sync now also covers the creator's
+   bypass and a poll vote ("vote from Discord").
+7. *Minor (quality): the records lagged the work.* **Answered**: steps ticked, step 0.1's
+   baseline named, and the state file and the audit log brought up to date.
+8. *Nits*: the role-snapshot routes' summary no longer says the bot always has the intent; the
+   retention sweep's list is named for what it holds; the auto refusal says to set `off` if the
+   bot keeps restarting; `Program.cs` ends with `await host.RunAsync()`.
+9. *Info (security), older than this change*: a click that reaches the bot from a server it does
+   not have cached is let through by the Discord-side check. Not changed here; raised with Joshua
+   separately.
+
+These answers refine the approved rules: 3.1.6 (the decision holds until a restart) gains the
+re-read of 4; 3.2.2 gains the five-minute wait of 3; 3.2.3's wording follows 5; and 3.5.2 holds
+through 1.
+
+The suite on the answers: 2,653 tests green (Bot 545, 15 new) with the same 17 skipped, and the
+build's warnings unchanged.

@@ -134,7 +134,7 @@ Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/
 |---|---|---|
 | `Discord__BotToken` | *(empty)* | Bot token; without it the bot logs a warning and idles |
 | `Discord__TestGuildId` | *(empty)* | If set, slash commands register to that guild instantly; otherwise globally (can take up to an hour) |
-| `Discord__ServerMembersIntent` | `auto` | Whether the bot asks Discord for the **Server Members** intent: `auto` asks only when the application has it (read from Discord at start, and read again after Discord refuses it, the bot restarting), `on` always asks, `off` never does. Any other value stops the bot at start |
+| `Discord__ServerMembersIntent` | `auto` | Whether the bot asks Discord for the **Server Members** intent: `auto` asks only when the application has it, read from Discord at start and every 10 minutes after; if Discord refuses it, the bot restarts 5 minutes later, and if the application no longer has it, at once, to come back without it. `on` always asks, and if Discord refuses it the bot stays offline until restarted; `off` never asks. Any other value stops the bot at start |
 | `Api__BaseUrl` / `Api__ApiKey` | `http://localhost:8080` / — | How the bot reaches the API |
 | `Api__PublicBaseUrl` | falls back to `Api__BaseUrl` | Public URL used when showing the ICS feed link |
 | `Api__PollSeconds` | `15` | Outbox polling cadence |

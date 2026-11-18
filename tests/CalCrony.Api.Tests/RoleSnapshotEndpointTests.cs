@@ -460,7 +460,9 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         const long granted = 995197;
         var (member, memberSession) = await fixture.LoginAsync(1219401, (guild, "G", false));
         var (manager, managerSession) = await fixture.LoginAsync(1219402, (guild, "G", true));
+        var (creator, creatorSession) = await fixture.LoginAsync(CreatorId, (guild, "G", false));
         var ev = await CreateEventAsync(guild, "Raiders only", [raider], attendeeRoleId: granted);
+        var poll = await CreatePollAsync(guild, "Raid night?", [raider]);
 
         // A full sync had listed the member as a holder; then the bot lost the intent.
         (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
@@ -477,7 +479,18 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         Assert.Equal("We can't confirm your roles right now — RSVP from Discord.", error.Error);
         Assert.Equal(ErrorCodes.RoleRestricted, error.Code);
 
-        // A manager still passes, and the bot, which checks Discord itself, still seats the member.
+        // A poll limited to the role is answered the same way.
+        var vote = await member.PutAsJsonAsync(
+            $"/polls/{poll.Id}/votes/{memberSession.UserId}", new PutPollVotesRequest([poll.Options[0].Id]));
+        Assert.Equal(HttpStatusCode.Conflict, vote.StatusCode);
+        Assert.Equal(
+            "We can't confirm your roles right now — vote from Discord.",
+            (await vote.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        // The creator and a manager still pass, and the bot, which checks Discord itself, still
+        // seats the member.
+        Assert.Equal(HttpStatusCode.OK, (await creator.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{creatorSession.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await manager.PutAsJsonAsync(
             $"/events/{ev.Id}/rsvps/{managerSession.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Client.PutAsJsonAsync(
