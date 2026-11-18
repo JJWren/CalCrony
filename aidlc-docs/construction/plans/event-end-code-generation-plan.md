@@ -2,15 +2,16 @@
 
 **Task**: make `SeriesProjection.EndOf` call `EventTimes.End`, so that the API works out an
 event's end in one place, with one value for the length of an event that has none set; and
-correct the summary of `SeriesProjection.DefaultLengthMinutes`, which says that the scheduler and
-the feed each keep their own copy of that value. Handed over on 2026-11-18 by the session of
-pull request #196, once that pull request had merged.
+leave no summary saying that the scheduler and the feed each keep their own copy of that value,
+as the summary of `SeriesProjection.DefaultLengthMinutes` does. Handed over on 2026-11-18 by the
+session of pull request #196, once that pull request had merged.
 **Baseline**: `master` `aeff22d` (pull request #190 merged).
 **Branch**: `refactor/event-end-one-place` → a pull request titled
 `refactor: work out an event's end in one place`.
 **Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
-A ("Approve, Q1 A"); code generated and checked the same day (section 7). Next: the two review
-agents' read, then the completion gate.
+A ("Approve, Q1 A"); code generated and checked the same day, and read by two review agents, who
+found no fault in the change; `master` taken in at `f05e1d0` before the push (section 7). Next:
+the agents' read of that merge, then the completion gate.
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -110,8 +111,9 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
   one for quality and accuracy, until neither has a finding.
 - [ ] 5.2 The completion gate: "Code generation complete. Choose: A) Request Changes  B) Continue
   to Next Stage".
-- [ ] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
-  entries placed among them by timestamp.
+- [x] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
+  entries placed among them by timestamp. Done at `f05e1d0` (section 7); again if `master` moves
+  before the push.
 - [ ] 5.4 The push and the pull request, on Joshua's go-ahead.
 - [ ] 5.5 The merge, on his go-ahead. The change then goes out with the next release, whose
   release and rollout each have their own go-ahead.
@@ -145,3 +147,33 @@ Generated on 2026-11-18, after the approval.
   whose output was then deleted: the new references resolve, to `EventTimes.End(Instant, int?)`
   and to `EventTimes.DefaultLengthMinutes`, and no warning names `SeriesProjection.cs`.
 - No invisible characters in what the branch adds.
+
+**`master` taken in.** Before the review, `master` had moved from `aeff22d` to `ee844fb` (pull
+request #204, which changes code and tests outside this change's files, and pull requests #203,
+#205 and #206, records and documentation), and the review read the branch with that merged in.
+While it read, `master` moved on to `f05e1d0`: pull request #200, the release of 0.37.2, and pull
+request #197, which rewrites `SeriesProjection.cs` and `SeriesProjectionTests.cs` for the
+free-slots lookup. Nothing had been pushed, so the branch is made again on `aeff22d` with one
+merge of `master`, at `f05e1d0`, as `73fc5bf`, in place of the merge of `ee844fb`. The records
+keep master's text as it is, with this branch's audit entries each placed among master's by its
+timestamp and this state section after master's. The two files are #197's, with this change
+made to them: the constant removed, `EndOf` returning `EventTimes.End`, and the summaries that
+spoke of the default length naming `EventTimes.DefaultLengthMinutes`, three of them now with
+#197's `SeriesSchedule`; the test class's summary, #197's, names `EndOf` as well, and the new
+test sits before `Upcoming`'s. #197's own new code already takes an occurrence's end from
+`EventTimes.End`. `PublicCalendarBuilder.cs` and `EventTimes.cs` are as on `master`. On the
+merged tree the Release build has no error and the same 22 warnings, and 2,661 tests pass and
+none fails (1,658 API, 499 bot, 154 web and 350 for the release-notes tool, with the same
+seventeen skipped); with the documentation file turned on, every reference in the API resolves
+and no warning names `SeriesProjection.cs`.
+
+**Review.** Two review agents read the branch before any push, with `ee844fb` merged in, and the
+draft text of the pull request: one for security and privacy, one for quality and accuracy.
+Neither found a fault in the change. Between them, by reading and by runs of their own: `EndOf`
+gives the end `EventTimes.End` gives; the builder, `EventTimes` and the calendar's route are as
+on `master`; no route's answer changes; the references resolve; and the merge kept master's
+records as they are, with this branch's entries by their timestamps. Both found that `master` had
+moved on, answered above. The quality agent also found that the status did not say that
+`master` had been taken in, answered there, and that the audit entry of 22:47:36Z gives `master`
+on GitHub as `aeff22d` when pull request #203 had merged at 22:40:32Z, answered in the entry that
+records this merge. Both read the new merge and its records next.
