@@ -3101,3 +3101,10 @@ Availability for @GM
 **Context**: Operations — the records of the follow-up wait for Joshua's go-ahead.
 
 ---
+## Operations — the records branch after #191: go-ahead to push it, open its pull request and merge it
+**Timestamp**: 2026-11-18T22:44:57Z
+**User Input**: "Yes, through merge"
+**AI Response**: Read as A to the question asked at 22:43:37Z: the local branch `docs/log-records-pr-191-merge` is pushed with the keyring login, its pull request `docs: log the code owners follow-up and say that only admins can update master` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. `master` was fetched first and had not moved from `5b30e5b`, which the branch already holds.
+**Context**: Operations — the records of the follow-up go out on Joshua's go-ahead; their merge is the first under the "Restrict updates" rule.
+
+---
