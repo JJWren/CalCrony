@@ -2555,11 +2555,25 @@ Availability for @GM
 **Context**: Build and test — pull request #193 brought up to date with `master` a second time.
 
 ---
+## Code of Conduct — pull request #193 merged; the community profile read
+**Timestamp**: 2026-11-18T18:39:55Z
+**User Input**: (none — continuation of "Yes merge")
+**AI Response**: Every check on head `b3b8145` passed (`build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses, the secret scan) and `master` was still `67baa24`. Pull request #193 was squash-merged through the REST call with `sha` pinned to that head, at 2026-11-18T18:39:32Z, as `db488b3` (`docs: add a code of conduct (#193)`); it cuts no release. The community profile, read after the merge, is at 100 percent and lists `CODE_OF_CONDUCT.md`, but under the key `other` ("Other") rather than as the Contributor Covenant: GitHub's list of codes of conduct names only the Covenant's 2.0 text, and this file is 2.1 with two lines changed. CC1's "so GitHub recognises it" is therefore met for the profile and not for the name. Plan step 4.4 is ticked with that note. These records are on the local branch `docs/log-code-of-conduct-merge`, cut from `master` at `db488b3`; nothing pushed. Asked of Joshua: whether to leave the file as it is.
+**Context**: Build and test — merged; records local; the "Other" label put to Joshua.
+
+---
 ## Build and test — the moved occurrence: the merge question put again; `master` taken in again
 **Timestamp**: 2026-11-18T18:41:15Z
 **User Input**: (none in this session — Joshua's words "Go ahead", given at about 18:33Z where this question had been passed on to him, reached this session second-hand)
 **AI Response**: Pull request #196 is merged only on an answer Joshua gives here, so the "Go ahead" that reached this session second-hand is not taken as the go-ahead for that merge, and the question is put to him again here: "Merge #196 once its checks are green?" — recommended yes ("Merge when green"). `master` had moved meanwhile to `67baa24` (pull request #198, merged at 18:35:13Z, which changes code outside this fix's files and adds records of its own), and pull request #196 showed a conflict in the records. It is merged in the same way as before, as `74121c3`: the audit file keeps master's entries and this branch's byte for byte, this branch's each in timestamp order among master's, and the state file keeps master's text with this fix's section after it. Before the push the whole suite is run on the merged tree and both review agents read the commits written since their last read; the push then runs the checks again on the new head. Nothing is pushed or merged; the release and the rollout are each asked separately.
 **Context**: Build and test, in the repository's collapsed form — the merge question.
+
+---
+## Code of Conduct — the "Other" label kept
+**Timestamp**: 2026-11-18T18:41:52Z
+**User Input**: "Keep as is"
+**AI Response**: Joshua's answer to "Should I leave the Code of Conduct as it is, with GitHub's 'Other' label?" (A, recommended); the other answer was "Switch to GitHub's 2.0 template". `CODE_OF_CONDUCT.md` stays the Covenant 2.1 with its two CalCrony lines; the community profile stays at 100 percent with the file listed as "Other". The work is done. Committed on the local records branch `docs/log-code-of-conduct-merge`; nothing pushed. Asked of Joshua: "Push the records branch and open its pull request?", answers "Push and open" and "Not yet".
+**Context**: Build and test — complete; the records branch waits for Joshua's go-ahead.
 
 ---
 ## Date limit — `master` merged in a third time
@@ -2581,5 +2595,26 @@ Availability for @GM
 **User Input**: "Merge when green"
 **AI Response**: Joshua's answer, given here, to "Merge #196 once its checks are green?" (recommended yes, "Merge when green"), the question put to him again here after a second-hand "Go ahead". The branch had gone up under Auto-fix at 19:15:23Z as `e7f51db`, a fast-forward from `8bb6c46`, after both review agents confirmed it, and the pull request was mergeable again. Its checks on `e7f51db` are read; when every check that runs has passed and `master` has not moved, the pull request is squash-merged through the REST call, pinned to `e7f51db`, with its title and text as the commit message. This entry stays in a local commit, so that the pull request's head stays the commit both agents read; it goes out with the record of the merge. The release and the rollout are each asked separately.
 **Context**: Build and test, in the repository's collapsed form — the merge go-ahead.
+
+---
+## Code of Conduct — go-ahead to push the records branch and open its pull request
+**Timestamp**: 2026-11-18T19:21:34Z
+**User Input**: "Push and open"
+**AI Response**: Joshua's answer to "Should I push docs/log-code-of-conduct-merge and open its pull request?"; the other answer was "Not yet". `master` had moved to `5fc9239` (#195) and was merged into the branch without a conflict. The branch is pushed with the keyring login and the pull request `docs: log the code of conduct through its merge` is opened against `master`. Records only; it cuts no release. Its merge is asked separately.
+**Context**: Build and test — the records pull request, on Joshua's go-ahead.
+
+---
+## Code of Conduct — records pull request #202 opened; `master` taken in (Auto-fix)
+**Timestamp**: 2026-11-18T19:22:36Z
+**User Input**: (none — Auto-fix event: pull request #202 conflicts with `master` at head `289b5bf`)
+**AI Response**: Pull request #202, `docs: log the code of conduct through its merge`, was opened against `master` at 2026-11-18T19:21:54Z after a scan of what it adds found no local path, token, mention or hidden character; Auto-fix is on for it, auto-merge off. Its merge was asked of Joshua: "Squash-merge #202 once its checks are green?", answers "Merge when green" and "Not yet". `master` then moved to `3e35071` (#189) and was merged into the branch. `audit.md`: both sides had only added entries; the shared base is kept with every added entry after the entry it followed, in timestamp order where both added at the same place; none dropped. `aidlc-state.md`: this branch's ticked "Build and test" line for the Code of Conduct is kept, followed by `master`'s new "Date limit" section; against `master`, that one line is the only difference. Pushed under the standing Auto-fix authorization.
+**Context**: Build and test — records pull request #202 open and up to date with `master`; its merge waits for Joshua's go-ahead.
+
+---
+## Code of Conduct — go-ahead to merge records pull request #202
+**Timestamp**: 2026-11-18T19:24:19Z
+**User Input**: "Merge when green"
+**AI Response**: Joshua's answer to "Squash-merge #202 once its checks are green?"; the other answer was "Not yet". This entry goes out as a records-only push; the merge is the REST call with `sha` set to the head that carries it, once its checks are green: squash, title `docs: log the code of conduct through its merge (#202)`. It cuts no release. With it, the work on the Code of Conduct is done.
+**Context**: Build and test — the merge of #202, on Joshua's go-ahead.
 
 ---
