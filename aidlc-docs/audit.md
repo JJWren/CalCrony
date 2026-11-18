@@ -2163,3 +2163,10 @@ Availability for @GM
 **Context**: Operations — the records of the merges of #181 and #187 go out on Joshua's go-ahead; the next change waits for his answer.
 
 ---
+## Operations — public calendar day sets: go-ahead to push the records, open their pull request and merge it
+**Timestamp**: 2026-11-18T03:53:57Z
+**User Input**: "A: open, merge green"
+**AI Response**: His answer to the question asked at 2026-11-17T23:54:45Z and put to him again, with the same choices, before he answered: A) push this branch, open its docs pull request, and merge it once its checks pass (recommended); B) push and open it, and ask before the merge; C) not yet. The app offered two buttons, "A: open, merge green" and "B: open only", and his answer is the first one's words. Read first (03:49Z): `master` on GitHub had moved from `162fd42` to `04beae8` (#191, the records of #181 and #187), so it was merged into this branch, as `b675ab7`, by script. Only the audit log conflicted. Its result is master's text as it is, with this branch's entries in the order of their timestamps, and the script checked both ways: take this branch's entries out and master's file comes back, take master's new entries out and this branch's comes back. The state file is git's own merge. Over `master` the branch still changes the same three record files, with the same line counts. The two review agents read the branch at `232ada6`. The merge and this entry were checked by me and not read by an agent. Next: the branch is pushed by name with the keyring login, its pull request `docs: log the public calendar day-set fix through its release and rollout` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. That merge is recorded after it, on a local branch cut from `master`, for a later records pull request.
+**Context**: Operations — the day-set fix's records go out on Joshua's go-ahead.
+
+---
