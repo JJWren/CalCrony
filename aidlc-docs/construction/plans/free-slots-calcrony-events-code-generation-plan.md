@@ -900,17 +900,17 @@ has no error and 22 warnings, 2,599 tests pass with none failing (1,596 API, 499
 350 for the release-summary tool; 17 of the tool's tests skipped on Windows), and the
 release-summary tool's check finds no problem.
 
-While `aeff22d` was being taken in, `master` moved to `5b30e5b` (#203, records only), and so that
-the branch goes out once it was merged in as `7ccc5c9`, without a conflict: everything merged by
-itself, and nothing outside `aidlc-docs` differs from `8124d98`. Round 10, two new agents on
-`f879fcf`, `8124d98`, `3078abe`, `7ccc5c9` and `17c9f91`: security and privacy found nothing; code
-quality found both merges exact, with two minor findings and a few nits, all on records. The
-plan and the state line did not name `7ccc5c9`; the audit entry of 22:46:58Z speaks of a conflict
-that #203 did not bring; the paragraph above did not name the commits the agents read; and
-"with its two rewordings put back" in the entry of 22:46:04Z means the two entries' earlier
-wording put back. These paragraphs and the state line answer them, and the audit trail corrects
-the two entries. While the agents read, `master` moved again, to `4242144` (#204 and #205), the
-next take-in below.
+While `aeff22d` was being taken in, `master` moved to `5b30e5b` (#203, records only), and, so
+that the branch goes out once, it was merged in as `7ccc5c9`, without a conflict: everything
+merged by itself, and nothing outside `aidlc-docs` differs from `8124d98`. Round 10, two new
+agents on `f879fcf`, `8124d98`, `3078abe`, `7ccc5c9` and `17c9f91`: security and privacy found
+nothing; code quality found both merges exact, with two minor findings and a few nits, all on
+records. The plan and the state line did not name `7ccc5c9`; the audit entry of 22:46:58Z speaks
+of a conflict that #203 did not bring; the paragraph on `e0b2337` did not name the commits the
+agents read; and "with its two rewordings put back" in the entry of 22:46:04Z means the two
+entries' earlier wording put back. These paragraphs and the state line answer them, and the
+audit trail corrects the two entries. While the agents read, `master` moved again, to `4242144`
+(#204, and #205, which changes records and `CONTRIBUTING.md`), the next take-in below.
 
 `master` at `4242144` is merged in as `ceaa324`. The audit trail and the state file conflicted:
 the audit trail is merged by its stamps as before, and two of `master`'s entries that share a
@@ -920,6 +920,14 @@ stamp stay in `master`'s order; the state file keeps both sections, `master`'s f
 warnings, 2,657 tests pass with none failing (1,654 API, 499 bot, 154 web, 350 for the
 release-summary tool; 17 of the tool's tests skipped on Windows), and the release-summary tool's
 check finds no problem.
+
+Both agents read `ceaa324` and `3356b59`: the merge exact, nothing under the public-text rule,
+and #204's checks leave the free-slots route as it was. Code quality found one minor point in
+the audit entry of 23:02:36Z, which says #203 was taken in while `aeff22d` was, where `master`
+moved to it then and it was taken in after the records of that take-in, and a few words in this
+plan and the state line, answered here. `master` then moved to `ee844fb` (#206, records only) and
+is merged in as `0b6b5f3`: only the audit trail conflicted, merged by its stamps as before, and
+nothing outside `aidlc-docs` differs from `3356b59`, so the results above stand.
 
 ## 10. Plan checklist
 
