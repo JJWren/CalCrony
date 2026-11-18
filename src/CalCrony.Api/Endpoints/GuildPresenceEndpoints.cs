@@ -75,7 +75,8 @@ public static class GuildPresenceEndpoints
     }
 
     /// <summary>Reconciles presence against the bot's full guild list (reported at Ready):
-    /// listed guilds become present (rows created as needed), unlisted known guilds become absent.</summary>
+    /// listed guilds become present (rows created as needed), unlisted known guilds become absent.
+    /// A list with an entry missing altogether is refused, and no guild is marked either way.</summary>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -86,6 +87,11 @@ public static class GuildPresenceEndpoints
         if (request.Guilds is null)
         {
             return Results.BadRequest(new ErrorResponse("Guilds is required (an empty list marks every guild absent)."));
+        }
+
+        if (request.Guilds.Any(g => g is null))
+        {
+            return Results.BadRequest(new ErrorResponse("Guilds can't have an entry missing."));
         }
 
         var current = request.Guilds

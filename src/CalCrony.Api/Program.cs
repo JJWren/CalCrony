@@ -141,6 +141,7 @@ app.UseCors("Web");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseStorableText();
+app.UseRequestBodyChecks();
 
 var version = typeof(Program).Assembly
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
