@@ -5,10 +5,29 @@ using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
-/// <summary>What a running series goes on to post, asked of the helper directly rather than
-/// through a month view.</summary>
+/// <summary>When an occurrence ends and what a running series goes on to post, asked of the helper
+/// directly rather than through a month view.</summary>
 public class SeriesProjectionTests
 {
+    [Theory]
+    [InlineData(null, 2, 19, 0)]
+    [InlineData(1, 2, 18, 1)]
+    [InlineData(90, 2, 19, 30)]
+    [InlineData(40320, 30, 18, 0)]
+    public void EndOf_is_where_EventTimes_says_an_event_ends(
+        int? durationMinutes, int day, int hour, int minute)
+    {
+        // An occurrence that starts at 18:00 UTC on Monday 2 November 2026. With no length set it
+        // runs an hour (EventTimes.DefaultLengthMinutes); 40,320 minutes, the longest an event
+        // may last, is four weeks.
+        var start = Instant.FromUtc(2026, 11, 2, 18, 0);
+
+        var end = SeriesProjection.EndOf(start, durationMinutes);
+
+        Assert.Equal(Instant.FromUtc(2026, 11, day, hour, minute), end);
+        Assert.Equal(EventTimes.End(start, durationMinutes), end);
+    }
+
     [Fact]
     public void Upcoming_lists_no_more_occurrences_than_the_steps_it_is_given()
     {

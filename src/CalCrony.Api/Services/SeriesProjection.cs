@@ -7,7 +7,8 @@ namespace CalCrony.Api.Services;
 /// it: when it starts and how long it lasts.</summary>
 /// <param name="SeriesId">The series the occurrence belongs to.</param>
 /// <param name="StartsAt">When the occurrence starts.</param>
-/// <param name="DurationMinutes">Its stored length in minutes, or null for the default.</param>
+/// <param name="DurationMinutes">Its stored length in minutes; null means
+/// <see cref="EventTimes.DefaultLengthMinutes"/>.</param>
 public readonly record struct LiveOccurrence(Guid SeriesId, Instant StartsAt, int? DurationMinutes);
 
 /// <summary>What a running series goes on to post. A series has one live occurrence at a time
@@ -18,16 +19,14 @@ public readonly record struct LiveOccurrence(Guid SeriesId, Instant StartsAt, in
 /// passes: they are never posted, and they use up none of a count. Pure — no I/O.</summary>
 public static class SeriesProjection
 {
-    /// <summary>The length of an occurrence that has none stored: an hour, as the scheduler and
-    /// the feed count it (each keeps its own copy of the value).</summary>
-    public const int DefaultLengthMinutes = 60;
-
-    /// <summary>When an occurrence ends.</summary>
+    /// <summary>When an occurrence ends: <see cref="EventTimes.End(Instant, int?)"/>, where the
+    /// API works out an event's end.</summary>
     /// <param name="startsAt">When it starts.</param>
-    /// <param name="durationMinutes">Its stored length in minutes, or null for the default.</param>
+    /// <param name="durationMinutes">Its stored length in minutes; null means
+    /// <see cref="EventTimes.DefaultLengthMinutes"/>.</param>
     /// <returns>The instant it ends.</returns>
     public static Instant EndOf(Instant startsAt, int? durationMinutes) =>
-        startsAt + Duration.FromMinutes(durationMinutes ?? DefaultLengthMinutes);
+        EventTimes.End(startsAt, durationMinutes);
 
     /// <summary>The moment from which a series can post its next occurrence: now, or the end of
     /// its live occurrence when that is still to come.</summary>

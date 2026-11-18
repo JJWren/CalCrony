@@ -8,7 +8,9 @@ pull request #196, once that pull request had merged.
 **Baseline**: `master` `aeff22d` (pull request #190 merged).
 **Branch**: `refactor/event-end-one-place` → a pull request titled
 `refactor: work out an event's end in one place`.
-**Status**: written 2026-11-18; waits for Joshua's approval and his answer to Q1.
+**Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
+A ("Approve, Q1 A"); code generated and checked the same day (section 7). Next: the two review
+agents' read, then the completion gate.
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -62,7 +64,7 @@ nobody using CalCrony will notice the change.
   it is that value. Nothing else changes, but the API has two names for one value.
 - C) Other (please describe).
 
-[Answer]:
+[Answer]: A
 
 ## 5. Tests
 
@@ -78,30 +80,30 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
 ## 6. Steps
 
 ### 0. Baseline
-- [ ] 0.1 On `aeff22d`: the Release build's errors and warnings, and the whole suite's counts.
+- [x] 0.1 On `aeff22d`: the Release build's errors and warnings, and the whole suite's counts.
 
 ### 1. Code
-- [ ] 1.1 `SeriesProjection.EndOf` returns `EventTimes.End(startsAt, durationMinutes)`; its
+- [x] 1.1 `SeriesProjection.EndOf` returns `EventTimes.End(startsAt, durationMinutes)`; its
   summary says so.
-- [ ] 1.2 `SeriesProjection.DefaultLengthMinutes` removed (Q1 = A); the summaries of
+- [x] 1.2 `SeriesProjection.DefaultLengthMinutes` removed (Q1 = A); the summaries of
   `LiveOccurrence` and of `EndOf` name `EventTimes.DefaultLengthMinutes`.
 
 ### 2. Tests
-- [ ] 2.1 The test of section 5.
+- [x] 2.1 The test of section 5.
 
 ### 3. Checks
-- [ ] 3.1 Release build: no error, and the warnings of the baseline.
-- [ ] 3.2 The whole suite passes, with the new test's four cases as the only addition and no
+- [x] 3.1 Release build: no error, and the warnings of the baseline.
+- [x] 3.2 The whole suite passes, with the new test's four cases as the only addition and no
   other test changed.
-- [ ] 3.3 Under `src`, the branch changes `Services/SeriesProjection.cs` alone.
-- [ ] 3.4 The summaries' references resolve: the API built once with its documentation file
+- [x] 3.3 Under `src`, the branch changes `Services/SeriesProjection.cs` alone.
+- [x] 3.4 The summaries' references resolve: the API built once with its documentation file
   turned on, outside the commit, with no warning about them.
-- [ ] 3.5 No invisible characters in what the branch adds.
+- [x] 3.5 No invisible characters in what the branch adds.
 
 ### 4. Records
-- [ ] 4.1 This plan ticked, with what was built and checked; the state file's section; audit
+- [x] 4.1 This plan ticked, with what was built and checked; the state file's section; audit
   entries.
-- [ ] 4.2 Committed locally, without attribution lines.
+- [x] 4.2 Committed locally, without attribution lines.
 
 ### 5. Review, and what follows
 - [ ] 5.1 Two review agents read every commit before any push, one for security and privacy and
@@ -113,3 +115,33 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
 - [ ] 5.4 The push and the pull request, on Joshua's go-ahead.
 - [ ] 5.5 The merge, on his go-ahead. The change then goes out with the next release, whose
   release and rollout each have their own go-ahead.
+
+## 7. As built
+
+Generated on 2026-11-18, after the approval.
+
+**The change** is the one of section 2, with Q1 answered A:
+
+- `src/CalCrony.Api/Services/SeriesProjection.cs`: `EndOf` returns
+  `EventTimes.End(startsAt, durationMinutes)`, and its summary names `EventTimes.End`;
+  `DefaultLengthMinutes` is removed; the two summaries that said a length of null meant "the
+  default" (`LiveOccurrence`'s `DurationMinutes` and `EndOf`'s `durationMinutes`) now name
+  `EventTimes.DefaultLengthMinutes`.
+- `tests/CalCrony.Api.Tests/SeriesProjectionTests.cs`: the test of section 5,
+  `EndOf_is_where_EventTimes_says_an_event_ends`, with its four cases. The class's summary now
+  names both things it asks of the helper, which the plan did not say.
+
+**Checks**
+
+- Baseline on `aeff22d`: the Release build has no error and 22 warnings; 2,533 tests pass and
+  none fails (1,540 API, 490 bot, 154 web and 349 for the release-notes tool, seventeen of whose
+  tests are skipped on this Windows machine and run in CI).
+- With the change: the Release build has no error and the same 22 warnings; 2,537 tests pass and
+  none fails (1,544 API, 490 bot, 154 web and 349 for the release-notes tool, with the same
+  seventeen skipped): the baseline's tests and the new test's four cases.
+- Under `src` and `tests`, the branch changes `Services/SeriesProjection.cs` and
+  `SeriesProjectionTests.cs` alone.
+- The API built once with its documentation file turned on, in a build configuration of its own
+  whose output was then deleted: the new references resolve, to `EventTimes.End(Instant, int?)`
+  and to `EventTimes.DefaultLengthMinutes`, and no warning names `SeriesProjection.cs`.
+- No invisible characters in what the branch adds.

@@ -3052,3 +3052,17 @@ Availability for @GM
 **Context**: Workflow planning and the code-generation plan (part 1), at minimal depth; waiting for Joshua's approval.
 
 ---
+## Workflow planning and code generation plan — one place for an event's end: Joshua's approval
+**Timestamp**: 2026-11-18T23:02:35Z
+**User Input**: "Approve, Q1 A"
+**AI Response**: Read as the approval of the plan as written, with Q1 answered A: `SeriesProjection.DefaultLengthMinutes` is removed, and `EventTimes.DefaultLengthMinutes` is the API's one value for the length of an event that has none set. The plan's status and its answer are updated; the code and its test are generated next, on `refactor/event-end-one-place`.
+**Context**: Workflow planning and the code-generation plan (part 1) approved; next, code generation (part 2).
+
+---
+## Code generation — one place for an event's end: the change and its checks
+**Timestamp**: 2026-11-18T23:07:21Z
+**User Input**: (none — no input from Joshua since "Approve, Q1 A")
+**AI Response**: Generated on `refactor/event-end-one-place` as the plan says, with Q1 answered A: `SeriesProjection.EndOf` returns `EventTimes.End(startsAt, durationMinutes)`; `SeriesProjection.DefaultLengthMinutes` is removed, and the two summaries that spoke of "the default" length name `EventTimes.DefaultLengthMinutes`; the new test, `EndOf_is_where_EventTimes_says_an_event_ends`, has its four cases, and the test class's summary names both things it asks of the helper. Under `src`, only `Services/SeriesProjection.cs` changes. The Release build has no error and the same 22 warnings as the baseline, and 2,537 tests pass and none fails (1,544 API, 490 bot, 154 web and 349 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI): the baseline's 2,533 and the four new cases. The API, built once with its documentation file turned on and outside the commit, resolves the new references, and no warning names `SeriesProjection.cs`. No invisible characters in what the branch adds. Section 7 of the plan and the state file have it. Committed locally; nothing is pushed. Next: the two review agents read the branch's commits before anything is pushed.
+**Context**: Code generation (part 2), at minimal depth; next, the review.
+
+---
