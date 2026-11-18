@@ -315,11 +315,14 @@ apart.
       `0.37.1.md` stays as 0.37.1 shipped it. No code under `src` differs from step 5.5's.
       Result on that tree: 0 errors and 22 warnings; 1,953 tests green — 960 API, 490 bot,
       154 web and 349 for the release-notes tool — and 17 of the tool's skipped.
-- [x] 5.7 The date limit's merge of `master` (`04beae8`, pull request #191, records only) merged in
-      on 2026-11-18, after the push, in a merge commit. Only `aidlc-docs/aidlc-state.md` conflicted:
-      it keeps the date limit's lines as that merge has them, and this change's section after them.
-      Git merged the audit log by itself, with the entries in the order of their timestamps. Nothing
-      outside `aidlc-docs` differs from the tree of step 5.6, so its result stands for this one.
+- [x] 5.7 The date limit's merges of `master` merged in on 2026-11-18, after the push, each in a
+      merge commit: that of `04beae8` (pull request #191, records only), then that of `47209ab`
+      (pull request #194, records only). The first time only `aidlc-docs/aidlc-state.md` conflicted:
+      it keeps the date limit's lines as that merge has them, and this change's section after them;
+      git merged the audit log by itself, with the entries in the order of their timestamps. The
+      second time only `aidlc-docs/audit.md` conflicted, and it is the date limit's merge with this
+      change's entries put in by their timestamps. Nothing outside `aidlc-docs` differs from the
+      tree of step 5.6, so its result stands for this one.
 
 ## 6. Delivery
 
@@ -329,10 +332,11 @@ apart.
       of 2026-11-17 ("A, push both"), at `92fd33b`, and opened as pull request #190 with the date
       limit's branch (#189) as its base: while that is its base it shows this change alone, and CI
       and CodeQL, which run on pull requests into `master`, wait until it is moved there. Once the
-      date limit is squash-merged, `master` holds it as a new commit. The branch is on GitHub, so
-      `master` is then merged into it, the date limit's lines being on both sides, rather than the
-      branch being put onto the new `master`; and the pull request is moved to `master`. The agents
-      read that merge before it is pushed.
+      date limit is squash-merged and its branch deleted, GitHub moves this pull request to
+      `master`; until `master` is merged into the branch, it shows the date limit's change as well.
+      `master` is then merged in, rather than the branch being put onto the new `master`, since the
+      branch is on GitHub: the date limit's own lines are the same on both sides, and only records
+      added since can conflict. The agents read that merge before it is pushed.
 - [ ] 6.3 *Go-ahead:* squash merge. The test stack picks up `:main`. One thing is looked at there
       before the release, since no test here can see Discord's side of it: whom a start
       announcement, a reminder and a scheduled ping notify.
@@ -570,7 +574,8 @@ move to the next version's file: `docs/release-notes/0.37.2.md` holds the date l
 this change's two lines and, under a heading of its own, its step. No code under `src` differs
 from the take-in before. Step 5.6 has the result.
 
-After the push, on 2026-11-18, `master` moved to `04beae8` by pull request #191 (records), and the
-date limit merges it in (its plan, step 5.9). This branch merges in the date limit's merge, so that
-its pull request still shows this change alone. The audit entries of both sides are in the order of
-their timestamps. Nothing outside `aidlc-docs` differs. Step 5.7 has it.
+After the push, on 2026-11-18, `master` moved to `04beae8` by pull request #191 (records) and then
+to `47209ab` by #194 (records), and the date limit merges both in (its plan, step 5.9). This branch
+merges in the date limit's merges, so that its pull request does not conflict with its base, which
+now holds `master`'s records, and still shows this change alone. The audit entries of both sides are
+in the order of their timestamps. Nothing outside `aidlc-docs` differs. Step 5.7 has it.
