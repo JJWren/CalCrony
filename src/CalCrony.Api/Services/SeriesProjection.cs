@@ -47,8 +47,9 @@ public sealed record SeriesSchedule(
 /// moment (<see cref="SeriesMaterializer"/>). So a live occurrence that an edit of that occurrence
 /// alone moved later — the cursor stays where it was — or that runs long holds back the dates it
 /// passes: they are never posted, and they use up none of a count. Pure — no I/O.
-/// <see cref="Upcoming"/> lists the starts the public calendar shows; <see cref="LaterOccurrences"/>
-/// gives the occurrences, each with its end, that reach into a free-slots lookup's window.</summary>
+/// <see cref="Upcoming"/> gives the later starts the public calendar projects;
+/// <see cref="LaterOccurrences"/> gives the occurrences, each with its end, that reach into a
+/// free-slots lookup's window.</summary>
 public static class SeriesProjection
 {
     /// <summary>The length of an occurrence that has none stored: an hour, as the scheduler and

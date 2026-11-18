@@ -5,10 +5,10 @@ using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
-/// <summary>What a running series goes on to post, asked of the projection directly: the starts
-/// the public calendar lists (<see cref="SeriesProjection.Upcoming"/>), and the later occurrences
-/// a free-slots lookup counts for the member who created it, the ones the scheduler will create
-/// after the occurrence that exists (<see cref="SeriesProjection.LaterOccurrences"/>).
+/// <summary>What a running series goes on to post, asked of the projection directly: the later
+/// starts the public calendar projects (<see cref="SeriesProjection.Upcoming"/>), and the later
+/// occurrences a free-slots lookup counts for the member who created it, the ones the scheduler
+/// will create after the occurrence that exists (<see cref="SeriesProjection.LaterOccurrences"/>).
 /// Unless a test says otherwise the series is weekly on Friday at 7 PM Chicago time and three
 /// hours long, first held on October 30, 2026; its second occurrence, November 6, has been
 /// created and is over; and "now" is noon on Tuesday, November 10.</summary>

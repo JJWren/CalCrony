@@ -346,7 +346,7 @@ where it sits in the design above.
 | Component | Kind | Responsibility |
 |---|---|---|
 | `EventBusyTimes` | new scoped service, `Services/` | For the members a lookup counts: the intervals of the server's live events each one created or holds a seat in on the attending option, and of the later occurrences of the running series each one created (D12–D16). |
-| `SeriesProjection` | static class, pure, shared with the public calendar | `LaterOccurrences`: the occurrences a running series will have after the one that exists, inside a window (D17). The public calendar's `Upcoming`, which `master` brought in, sits beside it, and both take the one `LiveOccurrence`. |
+| `SeriesProjection` | static class, pure, shared with the public calendar | `LaterOccurrences`: the occurrences a running series will have after the one that exists, inside a window (D17). The public calendar's `Upcoming`, which `master` brought in, sits beside it; free slots and the public calendar read a series' live occurrence into the one `LiveOccurrence`. |
 | `FreeSlotsService` | changed | After the by-name rule and once it knows who is counted, asks `EventBusyTimes` for those members and hands the calculation both kinds of busy interval; sets `EventsCounted` (D18). |
 | `FreeSlotsResponse` | changed | One more defaulted field, `EventsCounted`. |
 | `FreeSlotsEmbedBuilder` | changed | The sentence on what the slots rest on names CalCrony events when the answer says they were counted. |

@@ -11,10 +11,10 @@ namespace CalCrony.Api.Services;
 /// server counts for the member who created it and for a member holding a seat on its attending
 /// option — an RSVP there that is not waitlisted. A running series counts for the member who
 /// created it, on the later occurrences the scheduler will create
-/// (<see cref="SeriesProjection"/>). Only live events are read, scheduled or started, and only
-/// those of the one server. Nothing but ids, times, lengths and schedules is selected — no title,
-/// description, place or channel — and nothing is stored or cached, so an event that is moved,
-/// cancelled or deleted shows in the next lookup.
+/// (<see cref="SeriesProjection.LaterOccurrences"/>). Only live events are read, scheduled or
+/// started, and only those of the one server. Nothing but ids, times, lengths and schedules is
+/// selected — no title, description, place or channel — and nothing is stored or cached, so an
+/// event that is moved, cancelled or deleted shows in the next lookup.
 /// </summary>
 /// <param name="db">The database context.</param>
 /// <param name="logger">The host logger.</param>
@@ -174,7 +174,8 @@ public sealed class EventBusyTimes(CalCronyDbContext db, ILogger<EventBusyTimes>
     }
 
     /// <summary>Reads the running series the members created, each with its schedule and its live
-    /// occurrence, for <see cref="SeriesProjection"/> to step once the reads are over.</summary>
+    /// occurrence, for <see cref="SeriesProjection.LaterOccurrences"/> to step once the reads are
+    /// over.</summary>
     /// <param name="guildId">The server.</param>
     /// <param name="memberIds">The members answered for.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -217,6 +218,8 @@ public sealed class EventBusyTimes(CalCronyDbContext db, ILogger<EventBusyTimes>
                         && (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started))
             .Select(e => new { SeriesId = e.SeriesId!.Value, e.StartsAt, e.DurationMinutes })
             .ToListAsync(cancellationToken);
+        // Nullable values, so that a series with no live occurrence gets null below, not an
+        // empty one.
         var live = liveRows
             .GroupBy(e => e.SeriesId)
             .ToDictionary(g => g.Key, g => (LiveOccurrence?)new LiveOccurrence(g.Key, g.First().StartsAt, g.First().DurationMinutes));

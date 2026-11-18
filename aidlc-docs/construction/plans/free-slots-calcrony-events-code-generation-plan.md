@@ -415,7 +415,8 @@ Tests are written with each step. A step is ticked in the same turn its work is 
 - [x] 5.4 `docs/release-notes/0.38.0.md`; `dotnet run --project tools/ReleaseNotes -- check` and
       `-- preview --version 0.38.0`. If a release PR for a 0.37.x patch is open with a summary
       file of its own and this change is to merge before that release, that file is renamed to
-      `0.38.0.md` and added to instead, before this change merges (section 9).
+      `0.38.0.md` and added to instead, before this change merges, and cut to the 1,800
+      characters a summary may have, with Joshua's approval of the wording (section 9).
 
 **6. Whole change**
 
@@ -818,7 +819,8 @@ stays in its own file until the order of that release and this change's merge is
 this change go first, the fold of step 5.4 is made before it merges. That answers the minor
 finding too. `6ce2b7f` says in `SeriesProjection.LaterOccurrences` that a rule that cannot be
 stepped throws, and narrows the design document's row to the ends of events and later
-occurrences; "those commits" became "the commits above", and the state line names `ee820c4`.
+occurrences; in `5935891`, "those commits" became "the commits above", and the state line names
+`ee820c4`.
 `ee43871`, named above, is kept on the local history branch. On the tree of `6ce2b7f` the
 Release build has no error and 22 warnings; 2,472 tests pass with none failing (1,542 API, 427
 bot, 153 web, 350 for the release-summary tool; 17 of the tool's tests skipped on Windows), and
@@ -833,21 +835,27 @@ adds its own `SeriesProjection.cs` and tests for the public calendar. Second, sh
 go first, folding `0.37.2.md` into `0.38.0.md` gives a file longer than the 1,800 characters a
 release summary may have, so the fold would also cut its text, with Joshua's approval of the
 wording. The minor finding: step 5.4 read as done for a fold only planned, and now says when it
-applies. The nits: the conflict list above leaves out `0.37.2.md`, the paragraph above answered
-three of round 7's five nits, the state line's condition read loosely, and the projection said
-it leaves a series out where only its later occurrences are left out; each is answered here, in
-the state line or in the merge below.
+applies. The nits: the conflict list above left out `0.37.2.md`, the paragraph above had
+answered three of round 7's five nits, the state line's condition read loosely, and the
+projection said it leaves a series out where only its later occurrences are left out; each is
+answered here, in the state line or in the merge below.
 
 `master` at `1fce915` is merged in as `05476a2`. Both sides had added `SeriesProjection.cs` and
-`SeriesProjectionTests.cs`; they are now one class, with the public calendar's `EndOf`,
-`FreeFrom` and `Upcoming` as `master` has them beside this change's `LaterOccurrences` and
-`CanReachWindow`, and one `LiveOccurrence`, `master`'s, which `EventBusyTimes` now builds with the
-series' id, and the tests of both sides are one test class. The audit trail and the state file
-conflicted as well and are merged as before. The design document's rows for `SeriesProjection`
-and `EventTimes` say what they are now. On the tree of `05476a2` the Release build has no error
-and 22 warnings, 2,495 tests pass with none failing (1,565 API, 427 bot, 153 web, 350 for the
-release-summary tool; 17 of the tool's tests skipped on Windows), and the release-summary tool's
-check finds no problem.
+`SeriesProjectionTests.cs`; the two `SeriesProjection` classes are now one, with the public
+calendar's `EndOf`, `FreeFrom` and `Upcoming` as `master` has them beside this change's
+`LaterOccurrences` and `CanReachWindow`, and one `LiveOccurrence`, `master`'s, which
+`EventBusyTimes` now builds with the series' id, and the tests of both sides are one test class.
+The audit trail and the state file conflicted as well and are merged as before. The design
+document's rows for `SeriesProjection` and `EventTimes` say what they are now (`7a55431`). On the
+tree of `05476a2` the Release build has no error and 22 warnings, 2,495 tests pass with none
+failing (1,565 API, 427 bot, 153 web, 350 for the release-summary tool; 17 of the tool's tests
+skipped on Windows), and the release-summary tool's check finds no problem.
+
+D17 and 4.4 read again against #196: the public calendar now starts a series' next dates once its
+live occurrence has ended and leaves out the dates that occurrence passes, as free slots do; its
+`Upcoming` still gives starts without ends, so D17 stands, and one stepping loop for both stays
+the follow-up D17 names. The public calendar's `EndOf` and `DefaultLengthMinutes` are kept as
+`master` has them; the ends free slots counts still come from `EventTimes.End`.
 
 ## 10. Plan checklist
 
