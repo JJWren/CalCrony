@@ -2121,3 +2121,10 @@ Availability for @GM
 **Context**: Operations — the next change and the last part of #187's step 5.1 each wait for Joshua.
 
 ---
+## Operations — the read of #189's merge box: Joshua's answer
+**Timestamp**: 2026-11-18T18:34:41Z
+**User Input**: "A"
+**AI Response**: Read as A to the second question asked at 2026-11-18T03:50:58Z: he opens #189 signed in and says whether its merge box lists "Code owner review required". The first question, on pinning the other actions, was not answered and stays open. The app's built-in browser, opened on #189, is still signed out of GitHub, and a signed-out page has no merge box, so the read cannot be made from here. Joshua was asked for what the merge box lists, and told that if he meant the read to be made here, he can sign that browser in to GitHub and it will be read there.
+**Context**: Operations — the last part of #187's step 5.1 waits for that read.
+
+---
