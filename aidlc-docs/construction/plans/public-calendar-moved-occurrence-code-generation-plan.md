@@ -472,17 +472,18 @@ the route does (`LiveOf`), and the direct calls of `Build` pass it.
 1. *Two live occurrences of one series.* The database keeps a series to one. Were the builder ever
    handed two, it takes the later end, as the feed does; the plan did not say, and the trial took
    the later start.
-2. *`master` taken in before the review, again after it, and once more before the push.* It had
+2. *`master` taken in before the review, again after it, and again before the push.* It had
    moved to `916ecd1` (pull request #186, records only) before the approval, and to `723696d`
    (pull request #184, the date reader) while the code was being written; both were merged in
    before the review. 0.37.1 was released (pull request #185) minutes before the commit the
    reviewers first read was made, and while they read `master` moved on to `162fd42` (pull
    requests #188 and #187: records, a code owners file and the release workflow), so it was
    merged in again, and the reviewers' second read is of that tree. After the completion gate it
-   had moved to `04beae8` (pull request #191, records only), and it was merged in once more
-   before the push. The audit file keeps master's text as it is, with each of this branch's
-   entries placed among master's in the order of their timestamps; the state file keeps
-   master's sections, with this one after them, in the order they started.
+   moved on with records only, to `04beae8` (pull request #191) and then to `47209ab` (pull
+   request #194), and each was merged in before the push. The audit file keeps master's text as
+   it is, with each of this branch's entries placed among master's in the order of their
+   timestamps; the state file keeps master's sections, with this one after them, in the order
+   they started.
 3. *The release summary's file* is `docs/release-notes/0.37.2.md`, not `0.37.1.md`: 0.37.1 went
    out without this fix (step 4.1).
 4. *What the review changed*, listed under "Review" below: the step limit is now an argument of
