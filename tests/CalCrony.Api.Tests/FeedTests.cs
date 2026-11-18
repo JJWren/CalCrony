@@ -289,6 +289,92 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Contains($"URL:https://web.test/app/guilds/{GuildId}/events", ics);
     }
 
+    // Servers of their own, so the zone set here reaches no other test. A series entry is written
+    // in its series' zone: with a Z for a server in UTC, in local time with a TZID for another.
+    [Theory]
+    [InlineData(710, null)]
+    [InlineData(711, "America/Chicago")]
+    public async Task Every_entry_ends_its_length_after_its_start(long guildId, string? zone)
+    {
+        if (zone is not null)
+        {
+            var settings = await Client.PutAsJsonAsync($"/guilds/{guildId}/settings", new GuildSettingsDto(zone, ChannelId));
+            settings.EnsureSuccessStatusCode();
+        }
+
+        // An event with a length, one with none set (which runs an hour), and a series, whose
+        // live occurrence is an entry of its own beside the one that carries the rule.
+        foreach (var request in new[]
+                 {
+                     new CreateEventRequest(CreatorId, "Ninety minutes", "in 6 hours", ChannelId, DurationMinutes: 90),
+                     new CreateEventRequest(CreatorId, "No length set", "in 7 hours", ChannelId),
+                     new CreateEventRequest(
+                         CreatorId, "Two-hour series", "in 8 hours", ChannelId, DurationMinutes: 120,
+                         Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)),
+                 })
+        {
+            var created = await Client.PostAsJsonAsync($"/guilds/{guildId}/events", request);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        }
+
+        var entries = await FetchEntriesAsync(guildId);
+
+        Assert.Equal(90, IcsText.LengthMinutes(Assert.Single(entries, e => e.Contains("SUMMARY:Ninety minutes"))));
+        Assert.Equal(60, IcsText.LengthMinutes(Assert.Single(entries, e => e.Contains("SUMMARY:No length set"))));
+
+        var series = entries.Where(e => e.Contains("SUMMARY:Two-hour series")).ToList();
+        Assert.Equal(2, series.Count);
+        var rule = Assert.Single(series, e => e.Contains("RRULE:"));
+        Assert.All(series, e => Assert.Equal(120, IcsText.LengthMinutes(e)));
+        Assert.Contains(zone is null ? "DTEND:" : $"DTEND;TZID={zone}:", rule);
+    }
+
+    [Fact]
+    public async Task A_series_whose_stored_zone_is_not_known_is_written_in_utc_and_ends_its_length_after_its_start()
+    {
+        const long guildId = 712;
+        var created = await Client.PostAsJsonAsync($"/guilds/{guildId}/events", new CreateEventRequest(
+            CreatorId, "Zone not known", "in 8 hours", ChannelId, DurationMinutes: 120,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Week)));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var ev = (await created.Content.ReadFromJsonAsync<EventDto>())!;
+
+        // A zone id the zone database does not have, which the API never stores. The schedule is
+        // then read in UTC, and the feed writes the entry on a path of its own.
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            await db.EventSeries.Where(s => s.Id == ev.SeriesId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.TimeZone, "Nowhere/Unknown"));
+        }
+
+        var rule = Assert.Single(await FetchEntriesAsync(guildId), e => e.Contains("RRULE:"));
+
+        Assert.Contains("DTSTART:", rule);
+        Assert.Contains("DTEND:", rule);
+        Assert.DoesNotContain("TZID", rule);
+        Assert.Equal(120, IcsText.LengthMinutes(rule));
+    }
+
+    [Fact]
+    public async Task A_series_is_projected_from_the_end_of_its_live_occurrence_by_that_occurrences_own_length()
+    {
+        // A daily series whose occurrences run two and a half days. The live one is still running
+        // at the slots of the next two days, so the entry that carries the rule starts on the
+        // third day — not on the next, as it would for an occurrence of an hour.
+        const long guildId = 713;
+        var created = await Client.PostAsJsonAsync($"/guilds/{guildId}/events", new CreateEventRequest(
+            CreatorId, "Long sessions", "in 6 hours", ChannelId, DurationMinutes: 60 * 60,
+            Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day)));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var ev = (await created.Content.ReadFromJsonAsync<EventDto>())!;
+
+        var rule = Assert.Single(await FetchEntriesAsync(guildId), e => e.Contains("RRULE:"));
+
+        var liveStart = Instant.FromDateTimeOffset(ev.StartsAtUtc).InUtc().Date;
+        Assert.Equal(liveStart.PlusDays(3), IcsText.DtStartDate(rule, DateTimeZone.Utc));
+    }
+
     /// <summary>Re-times a live occurrence without touching its series — what an
     /// Occurrence-scoped time edit does, minus the natural-language parse.</summary>
     private async Task MoveLiveAsync(Guid eventId, Instant startsAt)
@@ -309,6 +395,17 @@ public class FeedTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var response = await anonymous.GetAsync(token.Path);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync();
+    }
+
+    /// <summary>The VEVENT blocks of another server's feed, for tests that keep to a server of
+    /// their own.</summary>
+    private async Task<List<string>> FetchEntriesAsync(long guildId)
+    {
+        var token = await Client.PostAsync($"/guilds/{guildId}/feed-token", null);
+        token.EnsureSuccessStatusCode();
+        using var anonymous = fixture.Factory.CreateClient();
+        var ics = await anonymous.GetStringAsync((await token.Content.ReadFromJsonAsync<FeedTokenDto>())!.Path);
+        return [.. IcsText.Events(ics)];
     }
 
     private async Task<FeedTokenDto> ReadTokenAsync()

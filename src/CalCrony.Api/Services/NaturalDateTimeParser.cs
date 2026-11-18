@@ -75,6 +75,34 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     private static readonly string TooLongError =
         $"The date/time text must be at most {DateTextLimits.MaxLength} characters.";
 
+    /// <summary>The refusal for a time more than <see cref="DateTextLimits.MaxYearsAhead"/> years
+    /// ahead, whatever names it: text as it was read, in quotes, or a time that was stored.</summary>
+    /// <param name="what">What lies too far ahead, as the subject of the sentence.</param>
+    /// <returns>The user-facing error text.</returns>
+    public static string TooFarAheadError(string what) =>
+        $"{what} is more than {DateTextLimits.MaxYearsAhead} years away; dates can be set up to {DateTextLimits.MaxYearsAhead} years ahead.";
+
+    /// <summary>The last day a date may name: <see cref="DateTextLimits.MaxYearsAhead"/> years
+    /// from today.</summary>
+    /// <param name="today">Today's date in the zone the date is judged in.</param>
+    /// <returns>The last day allowed.</returns>
+    private static LocalDate LastDayAllowed(LocalDate today) => today.PlusYears(DateTextLimits.MaxYearsAhead);
+
+    /// <summary>Whether an instant lies inside the limit that a date typed in words has: on or
+    /// before the last day allowed, in the given zone. For a time that was stored earlier and is
+    /// used again without being read from text, so that the same limit holds for it.</summary>
+    /// <param name="instant">The instant to judge.</param>
+    /// <param name="zone">The zone whose days are meant.</param>
+    /// <param name="now">The current instant.</param>
+    /// <returns>True when the instant is on or before the last day allowed.</returns>
+    public static bool IsWithinAheadLimit(Instant instant, DateTimeZone zone, Instant now)
+    {
+        // The last day allowed ends where the next day begins. Read leniently, like every other
+        // local time here: a zone can skip a whole day, and that day then begins where it ends.
+        var nextDay = LastDayAllowed(now.InZone(zone).Date).PlusDays(1).AtMidnight().InZoneLeniently(zone).ToInstant();
+        return instant < nextDay;
+    }
+
     /// <summary>The recognizer's type for a phrase that repeats ("every friday", "weekly").</summary>
     private const string RepeatTypeName = "datetimeV2.set";
 
@@ -129,8 +157,9 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
     // with a TryParse method as a bindable route/query primitive, which breaks DI injection.
     /// <summary>Resolves text to the nearest future instant in the given zone (or the zone a
     /// contained abbreviation selects). False with a user-facing error on over-long, unparseable,
-    /// repeating or past-only input. Named TryResolve, not TryParse — minimal APIs treat TryParse
-    /// types as bindable primitives, which breaks DI injection.
+    /// repeating or past-only input, and on a date more than
+    /// <see cref="DateTextLimits.MaxYearsAhead"/> years ahead. Named TryResolve, not TryParse —
+    /// minimal APIs treat TryParse types as bindable primitives, which breaks DI injection.
     /// <para>The recognizer returns one or more phrases, each with one or more values. A value is
     /// read as a day and a time, a day with no time of its own, or a time with no day of its own,
     /// and the readings are put together. A day alone is 9:00. A time alone is today's, or
@@ -355,10 +384,20 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
             }
         }
 
-        var candidates = locals.Select(local => local.InZoneLeniently(zone).ToInstant()).ToList();
+        // The last day a date may name is counted from today in the zone the text is read in.
+        // Each reading is judged by its local date before it is turned into an instant, and one
+        // on a later day is set aside: where nothing else is left, that is the reason given.
+        var lastDay = LastDayAllowed(today);
+        var namedDayAfterLast = locals.Exists(local => local.Date > lastDay);
+        var candidates = locals
+            .Where(local => local.Date <= lastDay)
+            .Select(local => local.InZoneLeniently(zone).ToInstant())
+            .ToList();
         if (candidates.Count == 0)
         {
-            error = $"Could not understand \"{text}\" as a date/time.";
+            error = namedDayAfterLast
+                ? TooFarAheadError($"\"{text}\"")
+                : $"Could not understand \"{text}\" as a date/time.";
             return false;
         }
 
@@ -368,7 +407,11 @@ public sealed partial class NaturalDateTimeParser(IClock clock)
         var future = candidates.Where(c => c > graceFloor).OrderBy(c => c).ToList();
         if (future.Count == 0)
         {
-            error = $"\"{text}\" resolves to a time in the past.";
+            // Nothing left that is still ahead: a day after the last one is why, where one was
+            // named, rather than whatever else in the text has passed.
+            error = namedDayAfterLast
+                ? TooFarAheadError($"\"{text}\"")
+                : $"\"{text}\" resolves to a time in the past.";
             return false;
         }
 
