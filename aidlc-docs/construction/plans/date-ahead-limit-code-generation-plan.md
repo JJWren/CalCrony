@@ -239,7 +239,12 @@ the recognizer and from the class summary, and its parser tests are in a file of
 - [x] 6.2 *Go-ahead:* push the branch and open the pull request, at the commit the agents passed.
       Pushed on 2026-11-18, on Joshua's go-ahead of 2026-11-17 ("A, push both"), together with the
       second change, at `6620517`, and opened as pull request #189 into `master`.
-- [ ] 6.3 *Go-ahead:* squash merge. The test stack picks up `:main`.
+- [x] 6.3 *Go-ahead:* squash merge. Squash-merged on 2026-11-18 at 19:21:34Z, on Joshua's go-ahead
+      ("Yes, merge #189"), at the head both agents read (`0addf9e`), as `3e35071`; its tree is that
+      head's. Before the merge, two lines of the pull request's text, which became the commit's
+      message, were brought up to date: the test count, as step 5.10 has it, and the sentence on the
+      next release, since a release pull request is open now. Whether the test stack has taken up
+      `:main` since is not checked.
 - [ ] 6.4 *Go-ahead:* the release (a patch release, opened by release-please).
 - [ ] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only.
 

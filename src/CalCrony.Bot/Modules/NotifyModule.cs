@@ -12,7 +12,8 @@ namespace CalCrony.Bot.Modules;
 [RequireBotInGuild]
 public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketInteractionContext>
 {
-    /// <summary>Adds a pre-event notification to an event found by name/picker.</summary>
+    /// <summary>Adds a pre-event notification to an event found by name/picker (creator or
+    /// server manager, as for every other change to an event).</summary>
     /// <param name="eventName">Event title (or fragment), or an autocomplete-picked event id.</param>
     /// <param name="minutesBefore">How many minutes before start the ping fires.</param>
     /// <param name="message">Optional message text.</param>
@@ -32,6 +33,12 @@ public class NotifyModule(CalCronyApiClient api) : InteractionModuleBase<SocketI
         if (ev is null)
         {
             await FollowupAsync(problem!, ephemeral: true);
+            return;
+        }
+
+        if (!EventAccess.CanManage(Context.User, ev.CreatorId))
+        {
+            await FollowupAsync("Only the event creator or a server manager can add a notification to this event.", ephemeral: true);
             return;
         }
 

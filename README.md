@@ -75,7 +75,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 | `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
 | `/series edit name [repeat repeat-every repeat-days ends until count]` | Change a series' rule, day set, or end condition — editing an ended series revives it |
 | `/remind when about` | One-off reminder in the current channel |
-| `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) |
+| `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) — creator or server manager only |
 | `/poll create question options [single-vote anonymous allow-options closes restrict-to]` | Create a poll (`options` comma-separated, `closes` natural language) |
 | `/poll time question slots [anonymous allow-options closes restrict-to]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
