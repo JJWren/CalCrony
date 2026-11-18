@@ -2002,3 +2002,31 @@ Availability for @GM
 **Context**: Build and test — the records pull request's merge, on Joshua's go-ahead, once its checks are green.
 
 ---
+
+---
+## Code of Conduct — request, workspace detection and requirements
+**Timestamp**: 2026-11-17T23:37:32Z
+**User Input**: "A Code of Conduct should be added to CalCrony. Make it match GitHub's recommended standards."
+**AI Response**: Workspace detection: brownfield, AIDLC state and records present, so no reverse engineering. The branch `docs/code-of-conduct` was cut from `master` at `e792e1a` in its own worktree. Read-only checks: GitHub's community profile for the repository is at 85 percent with no code of conduct; `GET /codes_of_conduct` offers the Contributor Covenant (template version 2.0, one blank for the contact method) and Django's. Requirements at minimal depth written to `inception/requirements/code-of-conduct-requirements.md`: CC1–CC5, NF1–NF3, and four questions (version, where reports go, where it applies, where it is linked), each with a recommendation. User stories and design stages skipped as documentation only. Asked of Joshua: the four answers, then "Requirements analysis complete. Do you want to request changes or continue to the next stage?"
+**Context**: Inception — requirements analysis; waits for Joshua's answers.
+
+---
+## Code of Conduct — requirements approved; workflow and code generation plan
+**Timestamp**: 2026-11-17T23:43:57Z
+**User Input**: "Recommended. Continue."
+**AI Response**: Joshua's answer to "Requirements analysis complete. Do you want to request changes or continue to the next stage?" and the four questions asked at 2026-11-17T23:37:32Z: Q1–Q4 all A — Contributor Covenant 2.1; reports to the address in `SECURITY.md` with "CalCrony conduct" in the subject; applies to the GitHub repository and the official Discord server; linked from the README and `CONTRIBUTING.md`. The answers are written into the requirements, and CC1 now names the two changes CC2 and CC3 make to the text. The 2.1 text was read from the Covenant's own repository (`EthicalSource/contributor_covenant`, branch `release`). Written: `construction/plans/code-of-conduct-code-generation-plan.md`, with the workflow (code generation and build and test run; every other stage skipped) and the steps. Asked of Joshua at 2026-11-17T23:44:30Z: approval of the workflow and code generation plan.
+**Context**: Inception — requirements approved; workflow planning and code generation plan await approval.
+
+---
+## Code of Conduct — plan approved; code generation
+**Timestamp**: 2026-11-18T03:42:07Z
+**User Input**: "Approve plan"
+**AI Response**: Joshua's answer to the question asked at 2026-11-17T23:44:30Z, "Do you approve the plan?"; the other answer was "Request changes". Code generation starts: the file, the two links and the checks, per `construction/plans/code-of-conduct-code-generation-plan.md`.
+**Context**: Construction — code generation, on Joshua's approval.
+
+---
+## Code of Conduct — built and tested; committed locally; push asked
+**Timestamp**: 2026-11-18T03:44:33Z
+**User Input**: (none — continuation of "Approve plan")
+**AI Response**: `CODE_OF_CONDUCT.md` written in the repository root from the Contributor Covenant 2.1 text: the front matter dropped; the report contact filled with the address in `SECURITY.md` and "CalCrony conduct" in the subject; one sentence added to Scope naming the GitHub repository and the official CalCrony Discord server. A diff against the published body shows only those two lines changed; the attribution section is whole. Linked from the README's "Contributing, releases & security" paragraph and from the top of `CONTRIBUTING.md`. No control or format characters in the new file or the added lines. `dotnet test CalCrony.slnx`: Api 865, Web 153, Bot 418 passed; ReleaseNotes 345 passed and 17 skipped; none failed. Plan steps 1–3 and 4.1–4.2 ticked. Committed locally as `docs: add a code of conduct`, no attribution lines; nothing pushed. Asked of Joshua: "Push the branch and open the pull request?", answers "Push and open" and "Not yet".
+**Context**: Build and test — committed locally; the push waits for Joshua's go-ahead.

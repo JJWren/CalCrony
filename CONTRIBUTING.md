@@ -2,6 +2,8 @@
 
 This document is the standard for how changes, releases, and issues flow through this repo. It applies to humans and AI assistants alike.
 
+Everyone taking part — in issues, pull requests, reviews or the Discord server — is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Branching strategy — GitHub Flow
 
 `master` is the trunk and is **always releasable**. No direct pushes; every change lands through a pull request.
