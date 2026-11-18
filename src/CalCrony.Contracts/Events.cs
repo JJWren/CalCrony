@@ -443,13 +443,20 @@ public record ParseDateTimeRequest(string Text, long? UserId = null, long? Guild
 /// <param name="LocalDate">ISO "yyyy-MM-dd" date of the instant in TimeZone; null from older servers.</param>
 public record ParseDateTimeResponse(DateTimeOffset Utc, long Unix, string TimeZone, string? LocalDate = null);
 
-/// <summary>Limits on a date or time typed in words ("tomorrow 6pm"). The API's parser and the
-/// bot's date options both read them here, so the two cannot drift.</summary>
+/// <summary>Limits on a date or time typed in words ("tomorrow 6pm"). The API's parser applies
+/// both; the bot's date options declare the length as well, read from here, so the two cannot
+/// drift.</summary>
 public static class DateTextLimits
 {
     /// <summary>Longest date/time text that is read, in characters. A date and a time take a few
     /// words; longer text is refused unread.</summary>
     public const int MaxLength = 100;
+
+    /// <summary>How far ahead a date and time typed in words may lie, in years, counted from today
+    /// in the zone the text is read in. A later date is refused; the API alone applies this one.
+    /// The first day of a free-slots lookup has a shorter limit of its own
+    /// (<see cref="FreeSlotLimits.MaxDaysAhead"/>).</summary>
+    public const int MaxYearsAhead = 10;
 }
 
 /// <summary>A selectable timezone: canonical IANA id + display label with the current UTC offset,

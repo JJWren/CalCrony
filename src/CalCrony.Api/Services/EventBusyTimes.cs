@@ -103,7 +103,7 @@ public sealed class EventBusyTimes(CalCronyDbContext db)
             .Select(e => new { e.Id, e.CreatorId, e.StartsAt, e.DurationMinutes })
             .ToListAsync(cancellationToken);
         var events = rows
-            .Select(e => (e.Id, e.CreatorId, Start: e.StartsAt, End: e.StartsAt + DeliveryScheduler.EventLength(e.DurationMinutes)))
+            .Select(e => (e.Id, e.CreatorId, Start: e.StartsAt, End: EventTimes.End(e.StartsAt, e.DurationMinutes)))
             .Where(e => e.End > windowStart)
             .ToList();
         if (events.Count == 0)

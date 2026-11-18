@@ -81,14 +81,13 @@ public static class SeriesProjection
 
         // The count the scheduler checks before it creates an occurrence: none once it is used up.
         var remaining = schedule.MaxOccurrences is int max ? max - schedule.OccurrenceCount : int.MaxValue;
-        var length = DeliveryScheduler.EventLength(schedule.DurationMinutes);
 
         // Nothing is created while an occurrence is live, so the next one starts once it is over:
         // after it ends, and never before it starts.
         var floor = now;
         if (live is { } current)
         {
-            var currentEnd = current.StartsAt + DeliveryScheduler.EventLength(current.DurationMinutes);
+            var currentEnd = EventTimes.End(current.StartsAt, current.DurationMinutes);
             floor = Instant.Max(floor, Instant.Max(current.StartsAt, currentEnd));
         }
 
@@ -105,7 +104,7 @@ public static class SeriesProjection
                 break;
             }
 
-            var occurrenceEnd = next.Value.Instant + length;
+            var occurrenceEnd = EventTimes.End(next.Value.Instant, schedule.DurationMinutes);
             if (occurrenceEnd > windowStart)
             {
                 occurrences.Add((next.Value.Instant, occurrenceEnd));
