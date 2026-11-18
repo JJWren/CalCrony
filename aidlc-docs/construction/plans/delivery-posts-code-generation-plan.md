@@ -340,6 +340,12 @@ apart.
       `docs/release-notes/0.37.2.md` and in `SchedulingTests.cs`, this branch's side is kept, which
       has the date limit's lines already. Nothing outside `aidlc-docs` differs from the tree of step
       5.8, so its result stands for this one. From here the pull request shows this change alone.
+- [x] 5.10 `master` merged in again at `6b85491` (pull request #202, records only,
+      2026-11-18T19:27:56Z), which reached `master` just before the merge of step 5.9 was pushed, so
+      that the pull request conflicted with it again. It is merged in on top, in a second merge
+      commit. Only `aidlc-docs/audit.md` conflicts: it is `master`'s entries with this change's put
+      in by their timestamps; git merges the state file by itself. Nothing outside `aidlc-docs`
+      differs from the tree of step 5.8, so its result stands for this one.
 
 ## 6. Delivery
 
@@ -605,3 +611,6 @@ merges without a conflict, and the whole suite is run on the merged tree. Step 5
 On 2026-11-18 at 19:21:34Z the date limit was squash-merged (#189, `3e35071`), and GitHub moved this
 pull request to `master`. `master` is merged in as step 6.2 says; since its tree is the date limit's
 last commit, which this branch holds, nothing outside the records changes. Step 5.9 has it.
+
+#202 (records) reached `master` just before that merge was pushed, and is merged in on top in the
+same way. Step 5.10 has it.
