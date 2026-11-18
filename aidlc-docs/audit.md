@@ -2520,3 +2520,10 @@ Availability for @GM
 **Context**: Build and test — records pull request #202 open and up to date with `master`; its merge waits for Joshua's go-ahead.
 
 ---
+## Code of Conduct — go-ahead to merge records pull request #202
+**Timestamp**: 2026-11-18T19:24:19Z
+**User Input**: "Merge when green"
+**AI Response**: Joshua's answer to "Squash-merge #202 once its checks are green?"; the other answer was "Not yet". This entry goes out as a records-only push; the merge is the REST call with `sha` set to the head that carries it, once its checks are green: squash, title `docs: log the code of conduct through its merge (#202)`. It cuts no release. With it, the work on the Code of Conduct is done.
+**Context**: Build and test — the merge of #202, on Joshua's go-ahead.
+
+---
