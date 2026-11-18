@@ -23,7 +23,8 @@ in two rounds (section 7); the findings of both rounds are answered. Joshua answ
 gate B the same day ("B, continue"), so `master` was taken in again and the branch pushed and opened
 as a pull request (step 4.1). On his "Hand run, then merge" the workflow was run once by hand from
 the branch (step 4.2) and pull request #187 was squash-merged as `162fd42` (step 4.3). Step 5.1 is
-done but for what GitHub lists as required on the next pull requests, none being open after it.
+done but for what GitHub lists as required on the next release pull request; on one the owner
+opened it was read on 2026-11-18, and `protect-master` gained "Restrict updates" the same day.
 
 ## 1. What exists today (verified 2026-11-17)
 
@@ -292,7 +293,11 @@ Each is a change or a decision of its own.
       and on one the owner opened. Read on 2026-11-17: the merge's run (44201104260) fetched the
       action by `5c625bf…` from `master`, found no user-facing commit and wrote nothing; GitHub's
       `codeowners/errors` for `master` is empty. No pull request was open after the merge, so the
-      last part waits for the next release pull request and the next one the owner opens.
+      last part waits for the next release pull request and the next one the owner opens. Read on
+      2026-11-18, by Joshua, signed in: the merge box of #189, which he opened, does not list
+      "Code owner review required". The same day `protect-master` gained "Restrict updates", so
+      only those who may bypass the ruleset, the admins, can update `master` (`CONTRIBUTING.md`).
+      The release pull request's part waits for the next one.
 
 ## 7. Review (2026-11-17)
 

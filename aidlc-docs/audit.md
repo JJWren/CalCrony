@@ -2702,6 +2702,20 @@ Availability for @GM
 **Context**: Build and test — pull request #193 open; its merge waits for Joshua's go-ahead.
 
 ---
+## Operations — records pull request #191 merged; the run its merge started
+**Timestamp**: 2026-11-18T03:50:52Z
+**User Input**: (none — continuation of "Yes, through merge")
+**AI Response**: The branch `docs/log-release-permissions-and-code-owners-merges` was pushed at 03:45Z with the keyring login, and pull request #191, `docs: log the release workflow's least access and the code owners file through their merges`, was opened at 03:45:32Z. Every check on its head `0b7dee4` was green by 03:48:25Z (`build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses, CodeQL and the secret scan; `publish-main` skipped), with no review, review comment or comment, and `master` still `162fd42`. The squash merge was made at 03:48:43Z by the REST call with the keyring login, the head `0b7dee4` named, the title `docs: log the release workflow's least access and the code owners file through their merges (#191)` and the pull request's text as its message, which has no at sign. GitHub merged it at 03:48:45Z as `04beae8`, whose tree is the head's, and deleted the branch. The run the merge started (44233012058) was green: its release job fetched `googleapis/release-please-action` by the commit `5c625bf…`, held `Contents: write`, `Metadata: read` and `PullRequests: write`, found no user-facing commit since `eb6afb8` and wrote nothing, and `release-summary-preview` found no open release pull request and did nothing more. What GitHub lists as required on a pull request shows only to a signed-in viewer, so it was not read on #191; for #187's step 5.1 it still waits for the next release pull request and for a signed-in look at an open pull request the owner opened.
+**Context**: Operations — the records of #181 and #187 are merged. Left: the last part of #187's step 5.1.
+
+---
+## Operations — after the records merge: the other actions asked again, and a signed-in read of an open pull request's merge box
+**Timestamp**: 2026-11-18T03:50:58Z
+**User Input**: (none — questions put to Joshua)
+**AI Response**: Asked of Joshua, each with a recommendation. First, asked a third time: pin the other actions named by tags to their commits the same way, `docker/login-action` first, with Dependabot version updates for actions, as the next pull request from this session — A) yes (recommended), B) not now. Second, for #187's step 5.1: open #189, a pull request he opened into `master`, signed in, and say whether its merge box lists "Code owner review required" — A) he looks and says (recommended), B) not now, leaving the step to the next release pull request.
+**Context**: Operations — the next change and the last part of #187's step 5.1 each wait for Joshua.
+
+---
 ## Request bodies and snapshot lists — the request and workspace detection
 **Timestamp**: 2026-11-18T03:53:12Z
 **User Input**: (none typed by Joshua — the task was handed over from another session: a JSON request body in a character set the API cannot read, and a snapshot list from the bot with an entry missing altogether, are to be refused with a sentence; and what a refusal quotes back of a request is to be kept short, with a size limit of the API's own for a request body, both put to Joshua with a recommendation.)
@@ -2826,6 +2840,13 @@ Availability for @GM
 **User Input**: "Yes merge"
 **AI Response**: Joshua's answer to "Squash-merge pull request #193 once its checks are green?"; the other answer was "Not yet". Checked first, read-only: head `dc6b89c`, mergeable, blocked only on the required review; `build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses and the secret scan passed on it. No Copilot review was requested (no `review_requested` event), as on the records pull requests #188, #191 and #194, which were merged without one. This entry goes out as a records-only push; the merge is the REST call with `sha` set to the head that carries it, once its checks are green: squash, title `docs: add a code of conduct (#193)`. It cuts no release.
 **Context**: Build and test — the merge of #193, on Joshua's go-ahead.
+
+---
+## Operations — the read of #189's merge box: Joshua's answer
+**Timestamp**: 2026-11-18T18:34:41Z
+**User Input**: "A"
+**AI Response**: Read as A to the second question asked at 2026-11-18T03:50:58Z: he opens #189 signed in and says whether its merge box lists "Code owner review required". The first question, on pinning the other actions, was not answered and stays open. The app's built-in browser, opened on #189, is still signed out of GitHub, and a signed-out page has no merge box, so the read cannot be made from here. Joshua was asked for what the merge box lists, and told that if he meant the read to be made here, he can sign that browser in to GitHub and it will be read there.
+**Context**: Operations — the last part of #187's step 5.1 waits for that read.
 
 ---
 ## Unreadable date text — go-ahead to merge records pull request #195
@@ -2975,6 +2996,13 @@ Availability for @GM
 **Context**: Build and test — the merge of #202, on Joshua's go-ahead.
 
 ---
+## Operations — the read of #189's merge box: what it lists
+**Timestamp**: 2026-11-18T19:24:37Z
+**User Input**: "Not listed"
+**AI Response**: Recorded: the merge box of #189, a pull request the owner opened into `master`, does not list "Code owner review required". The `protect-master` ruleset and the repository's Actions setting were read again (19:23Z). A follow-up change to the ruleset was put to Joshua, with a recommendation, to be recorded once he decides.
+**Context**: Operations — #187's step 5.1 is read for a pull request the owner opened; the release pull request's half waits for the next release.
+
+---
 ## Delivery posts — `master` merged in after the date limit's squash merge
 **Timestamp**: 2026-11-18T19:24:55Z
 **User Input**: (none — this follows the entry before)
@@ -3113,5 +3141,40 @@ Availability for @GM
 **User Input**: (none — no input from Joshua in this session since 2026-11-18T19:20:21Z)
 **AI Response**: #190's checks passed on `b6c0e60`. `master` then moved to `c97c15e` (pull request #201, records only, merged at 20:50:59Z), so #190 conflicts with it again. It is merged in, in a merge commit. Only `aidlc-docs/audit.md` conflicted, and it is `master`'s entries with this change's put in by their timestamps, the two entries this branch made exact keeping its wording; git merged the state file by itself. Nothing outside `aidlc-docs` differs from `b6c0e60`, so its result stands (2,533 tests green). The plan's step 5.13 and its note, and the state file, have it. Both agents read this merge before it is pushed.
 **Context**: Construction — delivery posts: `master` (`c97c15e`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
+
+---
+## Operations — the `protect-master` ruleset to gain "Restrict updates": Joshua's choice
+**Timestamp**: 2026-11-18T22:37:47Z
+**User Input**: "Restrict updates"
+**AI Response**: Read as his choice of the recommended follow-up: the `protect-master` ruleset gains the "Restrict updates" rule, so that only those who may bypass the ruleset, the repository's admins, can update `master`. A ruleset is a security setting, so he sets it himself. Read through the API at 22:37Z, the ruleset (last changed 2026-11-17T23:13:05Z) did not have the rule yet; he was given the steps, and the rule is to be checked through the API once he says it is saved, and then on the ruleset's record of the next merge.
+**Context**: Operations — the ruleset change waits for Joshua; its check follows.
+
+---
+## Operations — `protect-master` restricts updates to `master`
+**Timestamp**: 2026-11-18T22:41:47Z
+**User Input**: "It's saved now"
+**AI Response**: Checked through the API at 22:39:57Z: the `protect-master` ruleset was changed at 22:39:28Z and now has the "Restrict updates" rule (`update`, with no fetch-and-merge allowance), so only those who may bypass the ruleset can update `master`. It is still active on `refs/heads/master` alone, its one bypass is still the repository's admin role, always, and its other rules are as they were. No merge had reached `master` since the change (the last, `aeff22d`, at 22:38:39Z), so the ruleset's record of the next merge is still to be read for the new rule. `master` (`aeff22d`, then `5b30e5b`) was taken into this records branch, the audit log kept in time order.
+**Context**: Operations — the ruleset change is in; the record of its first merge is still to be read.
+
+---
+## Operations — the records branch after #191: `CONTRIBUTING.md` names the new rule; its push and pull request asked
+**Timestamp**: 2026-11-18T22:43:37Z
+**User Input**: (none — question put to Joshua)
+**AI Response**: `CONTRIBUTING.md` now says that the ruleset's "Restrict updates" rule lets only those who may bypass it update `master`, so every merge is made by an admin, and its note on code owners says the same of a pull request someone else opens. The code owners plan (status and step 5.1) and its state line record the read of #189's merge box and the rule added the same day; step 5.1 stays open for the release pull request. Committed on the local branch `docs/log-records-pr-191-merge`, with the audit entries since #191's merge; not pushed. Asked of Joshua, with a recommendation: push the branch and open its pull request, `docs: log the code owners follow-up and say that only admins can update master` — A) push, open it, and squash-merge it once its checks are green (recommended; its merge is also the first under the new rule, so the ruleset's record of it shows the rule at work); B) push and open it only, the merge asked separately.
+**Context**: Operations — the records of the follow-up wait for Joshua's go-ahead.
+
+---
+## Operations — the records branch after #191: go-ahead to push it, open its pull request and merge it
+**Timestamp**: 2026-11-18T22:44:57Z
+**User Input**: "Yes, through merge"
+**AI Response**: Read as A to the question asked at 22:43:37Z: the local branch `docs/log-records-pr-191-merge` is pushed with the keyring login, its pull request `docs: log the code owners follow-up and say that only admins can update master` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. `master` was fetched first and had not moved from `5b30e5b`, which the branch already holds.
+**Context**: Operations — the records of the follow-up go out on Joshua's go-ahead; their merge is the first under the "Restrict updates" rule.
+
+---
+## Operations — the first merges under "Restrict updates"; `master` taken in for pull request #205
+**Timestamp**: 2026-11-18T22:49:37Z
+**User Input**: (none — continuation of "Yes, through merge")
+**AI Response**: Pull request #205, `docs: log the code owners follow-up and say that only admins can update master`, was opened at 22:45:32Z from the pushed branch, and every check on its head `b61efef` was green by 22:48:32Z. Just before the merge call, `master` was found at `384ea0d` (#204, merged 22:48:36Z), not `5b30e5b`, so no merge was made: `master` was taken into the branch, the audit log kept in time order, to be pushed again and merged once green. The ruleset's records of the first two merges under the new rule, #203 (`5b30e5b`, 22:40:33Z) and #204 (`384ea0d`), each list `update` as "Cannot update this protected ref." with the merge let through by the admin's bypass: a pull request's merge is held to the rule, and only an admin can make it.
+**Context**: Operations — the rule is seen at work; #205 is to be merged once its checks are green again.
 
 ---
