@@ -35,4 +35,4 @@
 - [x] 4.1 `aidlc-state.md` line, audit entries, this plan ticked.
 - [x] 4.2 One commit, `docs: add a code of conduct`, no attribution lines.
 - [x] 4.3 Push and open the pull request — on Joshua's go-ahead.
-- [ ] 4.4 After merge: the community profile lists the code of conduct.
+- [x] 4.4 After merge: the community profile lists the code of conduct. Done 2026-11-18: 100 percent, the file listed as "Other" rather than as the Contributor Covenant.

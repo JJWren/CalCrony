@@ -139,7 +139,7 @@ Milestone order: M9 series rule editing → M10 Discord native-event mirroring �
 - [ ] User stories, design stages — skipped: documentation only
 - [x] Workflow planning and code generation plan — approved 2026-11-18T03:42:07Z ("Approve plan"): `construction/plans/code-of-conduct-code-generation-plan.md`
 - [x] Code generation — `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1; reports to the address in `SECURITY.md`; covers the repository and the Discord server), linked from the README and `CONTRIBUTING.md`, on local branch `docs/code-of-conduct`
-- [ ] Build and test — full suite green on 2026-11-18 (Api 865, Web 153, Bot 418, ReleaseNotes 345 passed and 17 skipped; 0 failed); committed locally; the pull request waits for Joshua's go-ahead
+- [x] Build and test — full suite green on 2026-11-18 (Api 865, Web 153, Bot 418, ReleaseNotes 345 passed and 17 skipped; 0 failed); pull request #193 merged 2026-11-18T18:39:32Z as `db488b3`; community profile 100 percent, the file listed as "Other"
 
 ## Date limit — how far ahead a date can be set (started 2026-11-15)
 - [x] Workspace detection (2026-11-15) — brownfield; existing state resumed; `master` at 56b61ab, whose code is v0.37.0, the release prod runs.
