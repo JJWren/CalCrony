@@ -346,12 +346,12 @@ where it sits in the design above.
 | Component | Kind | Responsibility |
 |---|---|---|
 | `EventBusyTimes` | new scoped service, `Services/` | For the members a lookup counts: the intervals of the server's live events each one created or holds a seat in on the attending option, and of the later occurrences of the running series each one created (D12–D16). |
-| `SeriesProjection` | new static class, pure | The occurrences a running series will have after the one that exists, inside a window (D17). |
+| `SeriesProjection` | static class, pure, shared with the public calendar | `LaterOccurrences`: the occurrences a running series will have after the one that exists, inside a window (D17). The public calendar's `Upcoming`, which `master` brought in, sits beside it, and both take the one `LiveOccurrence`. |
 | `FreeSlotsService` | changed | After the by-name rule and once it knows who is counted, asks `EventBusyTimes` for those members and hands the calculation both kinds of busy interval; sets `EventsCounted` (D18). |
 | `FreeSlotsResponse` | changed | One more defaulted field, `EventsCounted`. |
 | `FreeSlotsEmbedBuilder` | changed | The sentence on what the slots rest on names CalCrony events when the answer says they were counted. |
 | `RsvpPolicy.AttendingOf` | new method | The attending-option rule for rows that carry an option's flag and sort order only (D16); `AttendingOption` calls it. |
-| `EventTimes` | unchanged, now used here | The API's one place for an event's end and for the 60 minutes of an event with no length set; the end of every event and later occurrence that free slots counts comes from it. Until `master` brought it in, this change made `DeliveryScheduler.DefaultEventLengthMinutes` internal for the same purpose. |
+| `EventTimes` | unchanged, now used here | An event's end, and the 60 minutes of an event with no length set; the end of every event and later occurrence that free slots counts comes from it. Until `master` brought it in, this change made `DeliveryScheduler.DefaultEventLengthMinutes` internal for the same purpose. |
 | `FreeSlotCalculator`, `CalendarAvailabilityService`, the route, the command | unchanged | The calculation already takes busy intervals from any source (D4). |
 
 Section 4.4 holds as written: an event's interval is one more busy block of step 2. In 4.5, events

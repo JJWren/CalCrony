@@ -414,7 +414,8 @@ Tests are written with each step. A step is ticked in the same turn its work is 
 - [x] 5.3 `live-e2e-script.md` §12: the new block.
 - [x] 5.4 `docs/release-notes/0.38.0.md`; `dotnet run --project tools/ReleaseNotes -- check` and
       `-- preview --version 0.38.0`. If a release PR for a 0.37.x patch is open with a summary
-      file of its own, that file is renamed to `0.38.0.md` and added to instead.
+      file of its own and this change is to merge before that release, that file is renamed to
+      `0.38.0.md` and added to instead, before this change merges (section 9).
 
 **6. Whole change**
 
@@ -809,17 +810,44 @@ Round 7, both agents on `302262d`, `b33dd0a`, `a8ad00e` and `406dd24`, then on `
 `ce80856`: security and privacy found nothing; code quality found both merges exact and the guard
 and its test sound, with one minor finding on the pull request's text, which did not say that
 `0.37.2.md` moved, and five nits. Meanwhile `master` moved to `6cb41c8` (#199), which adds to
-`0.37.2.md`, and is merged in as `f31d3ff`: the audit trail and the state file as before, the
-live script by itself with both sides' items, and `0.37.2.md` kept as `master` has it. `ca4b2cc`
-takes the moved line back out of `0.38.0.md`. The release pull request for 0.37.2 is open, so its
-summary stays in its own file until the order of that release and this change's merge is
-settled; should this change go first, the fold of step 5.4 is made before it merges. That answers
-the minor finding too. `6ce2b7f` says in `SeriesProjection.LaterOccurrences` that a rule that
-cannot be stepped throws, and narrows the design document's row to the ends of events and later
-occurrences. `ee43871`, named above, is kept on the local history branch. On the tree of
-`6ce2b7f` the Release build has no error and 22 warnings; 2,472 tests pass with none failing
-(1,542 API, 427 bot, 153 web, 350 for the release-summary tool; 17 of the tool's tests skipped
-on Windows), and the release-summary tool's check finds no problem.
+`0.37.2.md`, and is merged in as `f31d3ff`. Three files conflicted: the audit trail and the
+state file, merged as before, and `0.37.2.md`, deleted here and changed on `master`, kept as
+`master` has it; the live script merged by itself with both sides' items. `ca4b2cc` takes the
+moved line back out of `0.38.0.md`. The release pull request for 0.37.2 is open, so its summary
+stays in its own file until the order of that release and this change's merge is settled; should
+this change go first, the fold of step 5.4 is made before it merges. That answers the minor
+finding too. `6ce2b7f` says in `SeriesProjection.LaterOccurrences` that a rule that cannot be
+stepped throws, and narrows the design document's row to the ends of events and later
+occurrences; "those commits" became "the commits above", and the state line names `ee820c4`.
+`ee43871`, named above, is kept on the local history branch. On the tree of `6ce2b7f` the
+Release build has no error and 22 warnings; 2,472 tests pass with none failing (1,542 API, 427
+bot, 153 web, 350 for the release-summary tool; 17 of the tool's tests skipped on Windows), and
+the release-summary tool's check finds no problem.
+
+### `master` taken in with the public calendar's projection (2026-11-18)
+
+Round 8, two new agents on `f31d3ff`, `ca4b2cc`, `6ce2b7f` and `5935891`: security and privacy
+found nothing; code quality found the four commits accurate and the merge exact, with two major
+findings, one minor and four nits. First, `master` had moved again, to `1fce915` (#196), which
+adds its own `SeriesProjection.cs` and tests for the public calendar. Second, should this change
+go first, folding `0.37.2.md` into `0.38.0.md` gives a file longer than the 1,800 characters a
+release summary may have, so the fold would also cut its text, with Joshua's approval of the
+wording. The minor finding: step 5.4 read as done for a fold only planned, and now says when it
+applies. The nits: the conflict list above leaves out `0.37.2.md`, the paragraph above answered
+three of round 7's five nits, the state line's condition read loosely, and the projection said
+it leaves a series out where only its later occurrences are left out; each is answered here, in
+the state line or in the merge below.
+
+`master` at `1fce915` is merged in as `05476a2`. Both sides had added `SeriesProjection.cs` and
+`SeriesProjectionTests.cs`; they are now one class, with the public calendar's `EndOf`,
+`FreeFrom` and `Upcoming` as `master` has them beside this change's `LaterOccurrences` and
+`CanReachWindow`, and one `LiveOccurrence`, `master`'s, which `EventBusyTimes` now builds with the
+series' id, and the tests of both sides are one test class. The audit trail and the state file
+conflicted as well and are merged as before. The design document's rows for `SeriesProjection`
+and `EventTimes` say what they are now. On the tree of `05476a2` the Release build has no error
+and 22 warnings, 2,495 tests pass with none failing (1,565 API, 427 bot, 153 web, 350 for the
+release-summary tool; 17 of the tool's tests skipped on Windows), and the release-summary tool's
+check finds no problem.
 
 ## 10. Plan checklist
 
