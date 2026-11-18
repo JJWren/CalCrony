@@ -809,3 +809,30 @@ their own permissions, and the preview job's run above came after it. The 0.37.0
 onto the published v0.37.0 release on 2026-11-16, on Joshua's answer in the session that released
 0.37.0; read back on 2026-11-17, that release's notes equal the text kept beside the tests. A
 workflow linter in CI is open as pull request #183.
+
+## 19. The first release with a summary (2026-11-17)
+
+**The release.** On Joshua's "Release now", given in the session working on pull request #184, the
+release pull request #185 was squash-merged at 2026-11-17T23:27:30Z as `eb6afb8`, and
+release-please published v0.37.1 at 23:27:43Z with #180, #182 and #184. The release workflow's run
+(44199537457) passed on its first attempt, and nothing in it was run again.
+
+**`release-summary`** (23:27:52Z to 23:28:09Z). The render step printed "Release summary for
+0.37.1: docs/release-notes/0.37.1.md, 659 characters; 659 go to Discord." The step "Ask GitHub
+whether the summary mentions anyone" passed without a warning, `gh release edit` succeeded, and the
+step that warns of a summary left out was skipped. The job's token had Contents write and Metadata
+read. Read back, the v0.37.1 notes are `docs/release-notes/0.37.1.md` exactly, then a `---` line,
+then release-please's changelog with #180, #184 and #182: 1,398 characters in all.
+
+**`announce-release`** (23:30:43Z to 23:30:47Z). The job had the summary's 659 characters in
+`SUMMARY`, and its post succeeded: the post is sent with `curl -sf` under `pipefail`, so an error
+from Discord would have failed the step. The message was 791 of Discord's 2,000 characters (130 for
+the usual line, 2 for the blank line, 659 for the summary), so the summary went in under the usual
+line. The Discord channel itself was not read from here.
+
+**No warning.** The run has no "Release summary" warning. Its other annotations are older ones:
+actions that run on Node.js 20, and obsolete APIs in the image build's tests.
+
+**Since then.** The release workflow has passed on every push to `master`: #188, #187, #191, #194,
+#198, #193, #195 and #189. Each of the three things section 17 listed as not yet run has now run
+for real, so section 18's "Still not run" is closed, and nothing of this change is left open.

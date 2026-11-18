@@ -2996,6 +2996,20 @@ Availability for @GM
 **Context**: Construction — build and test: step 7.2.
 
 ---
+## Release summary — the old worktree removed; the answer logged with the next records pull request
+**Timestamp**: 2026-11-18T19:26:51Z
+**User Input**: "Remove it"
+**AI Response**: His answer to "Remove the old release-summary worktree and its local branch?", put to him on 2026-11-17 at 17:12:52Z, after pull request #186 was merged, with the recommendation to remove them. By this session's transcript the answer arrived at 23:04:59Z. Checked first: the worktree `.claude/worktrees/release-notes-summary` had no uncommitted or untracked files; the squash merge `4af1305` has exactly the tree of the pull request's last head, `e32f18c`; and the two local commits after that head add only audit entries, all of them on `master`. The worktree and its local branch `ci/release-notes-summary` (tip `0e2c717`) were then removed, the branch with `git branch -D`, since git never counts a squash-merged branch as merged. Nothing on GitHub changed. Left: this session's own worktree, `.claude/worktrees/release-summary-records` (branch `docs/log-release-summary-merge`, merged as #186), which goes once the session is closed. The answer was not logged at the time: the records had just been merged, and a local cleanup alone did not call for a pull request. It is logged here, with the next one.
+**Context**: Operations for the release summary — local cleanup after the records' merge.
+
+---
+## Release summary — the first release with a summary, 0.37.1; a records pull request on his answer
+**Timestamp**: 2026-11-18T19:26:51Z
+**User Input**: "Open it"
+**AI Response**: His answer to "Open a small records pull request for the first real run?", put to him on 2026-11-17 at 23:47:30Z with the recommendation to open it, and again on 2026-11-18 at 18:37:21Z; by this session's transcript the answer arrived at 19:20:51Z. What the question was about, read on GitHub after the release: release pull request #185 was squash-merged at 2026-11-17T23:27:30Z as `eb6afb8`, and v0.37.1 was published at 23:27:43Z. The release workflow's run, 44199537457, passed on its first attempt. In it `release-summary` printed "Release summary for 0.37.1: docs/release-notes/0.37.1.md, 659 characters; 659 go to Discord.", its question to GitHub about mentions passed without a warning, `gh release edit` succeeded, and the step that warns of a summary left out was skipped. The v0.37.1 notes are that file exactly, then a `---` line, then release-please's changelog with #180, #184 and #182. `announce-release` had the summary's text in `SUMMARY`, and its post succeeded; it is sent with `curl -sf` under `pipefail`, so Discord accepted it. The message was 791 of Discord's 2,000 characters, so the summary went in under the usual line. The Discord channel itself was not read from here, and nothing in the run was run again. Since then the release workflow has passed on every push to `master`: #188, #187, #191, #194, #198, #193, #195 and #189. This branch, `docs/log-release-summary-first-run`, is cut from `master` at `3e35071`, in a worktree of its own; the main checkout, which other sessions share, is not touched. The plan gains section 19 with these facts, the state file's release-summary lines say the first run is done and name #186, and this entry and the one before it record his answers. Next: the push with the keyring login, the pull request (`docs:`, so no release, and no attribution line), and the merge asked separately.
+**Context**: Operations for the release summary — the first release with a summary checked; its records go out on his go-ahead.
+
+---
 ## Construction — date text gaps: `master` taken in with the limit on how far ahead a date can be set
 **Timestamp**: 2026-11-18T19:27:39Z
 **User Input**: (none beyond Joshua's go-ahead, logged above at 19:25:06Z)
