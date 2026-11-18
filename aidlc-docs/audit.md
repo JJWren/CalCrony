@@ -2639,3 +2639,10 @@ Availability for @GM
 **Context**: Build and test — the merge of #202, on Joshua's go-ahead.
 
 ---
+## Delivery — short weekend days: `master` taken in again for pull request #201 (Auto-fix), before its checks finished
+**Timestamp**: 2026-11-18T19:28:54Z
+**User Input**: (none — Auto-fix reported that #201 conflicts with `master`)
+**AI Response**: #202 merged into `master` at 19:27:55Z as `6b85491`, while the checks on `6999d49` were still running, so #201 conflicted again. `6b85491` was taken in as `0768d14`. Only the audit log conflicted, and both sides' entries are kept in the order of their stamps. Nothing is merged. The merge waits for the checks on the new head, as the go-ahead of 19:20:28Z says.
+**Context**: Delivery — records pull request kept up to date with `master`. Next: the merge, once the new head's checks pass.
+
+---
