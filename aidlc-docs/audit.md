@@ -3038,3 +3038,10 @@ Availability for @GM
 **Context**: Construction — delivery posts: `master` (`c97c15e`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
 
 ---
+## Delivery posts — squash merge
+**Timestamp**: 2026-11-18T22:37:46Z
+**User Input**: "Yes, merge #190"
+**AI Response**: His answer to "Merge #190 once its checks are green?", asked in this session after the push of 20:53:23Z, with yes as the recommendation. Every check on #190 was green at `a84a97f`, the head both agents read, and `master` was still `c97c15e`. Three parts of the pull request's text, which becomes the squash commit's message, were out of date and are brought up to date first: it no longer stands on the date limit's branch, which is merged; the test count is 2,533, on the branch with `master` merged in; and its release summary is the one line the file now has, with no step. Squash-merged through the REST call, at that head, at 22:38:40Z as `aeff22d`; its tree is `a84a97f`'s. GitHub deleted the branch. Both fixes are on `master` now, so the release waits only for its own go-ahead; by the plan's step 6.3 the look on the test stack comes first, each on Joshua's go-ahead.
+**Context**: Construction — delivery posts: squash merge, on Joshua's go-ahead.
+
+---

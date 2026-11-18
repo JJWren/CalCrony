@@ -390,9 +390,14 @@ apart.
       `master` is then merged in, rather than the branch being put onto the new `master`, since the
       branch is on GitHub: the date limit's own lines are the same on both sides, and only records
       added since can conflict. The agents read that merge before it is pushed.
-- [ ] 6.3 *Go-ahead:* squash merge. The test stack picks up `:main`. One thing is looked at there
-      before the release, since no test here can see Discord's side of it: whom a start
-      announcement, a reminder and a scheduled ping notify.
+- [ ] 6.3 *Go-ahead:* squash merge. Squash-merged on 2026-11-18 at 22:38:40Z, on Joshua's go-ahead
+      ("Yes, merge #190"), at the head both agents read (`a84a97f`), as `aeff22d`; its tree is that
+      head's. Before the merge, three parts of the pull request's text, which became the commit's
+      message, were brought up to date: that it stood on the date limit's branch, the test count,
+      and its release summary, now one line. The test stack picks up `:main`. One thing is looked at
+      there before the release, since no test here can see Discord's side of it: whom a start
+      announcement, a reminder and a scheduled ping notify. That look is still to come, on its own
+      go-ahead.
 - [ ] 6.4 *Go-ahead:* the release (a patch release, opened by release-please).
 - [ ] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only. The API
       applies the migration when it starts.
