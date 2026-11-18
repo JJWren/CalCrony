@@ -3206,3 +3206,10 @@ Availability for @GM
 **Context**: Operations — the unit's last records wait for Joshua's go-ahead.
 
 ---
+## Operations — the last records of the code owners unit: go-ahead to push them, open their pull request and merge it
+**Timestamp**: 2026-11-18T23:00:50Z
+**User Input**: "Yes, through merge"
+**AI Response**: Read as A to the question asked at 22:59:52Z: the local branch `docs/log-records-pr-205-merge` is pushed with the keyring login, its pull request `docs: log the code owners unit through its last step` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. `master` was fetched first and had not moved from `4242144`, which the branch already holds. This is the unit's last entry here: the merge of this pull request is noted outside the repository.
+**Context**: Operations — the code owners unit is complete; its last records go out on Joshua's go-ahead.
+
+---
