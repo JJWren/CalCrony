@@ -245,7 +245,11 @@ the recognizer and from the class summary, and its parser tests are in a file of
       message, were brought up to date: the test count, as step 5.10 has it, and the sentence on the
       next release, since a release pull request is open now. Whether the test stack has taken up
       `:main` since is not checked.
-- [ ] 6.4 *Go-ahead:* the release (a patch release, opened by release-please).
+- [x] 6.4 *Go-ahead:* the release (a patch release, opened by release-please). Released on
+      2026-11-18 as v0.37.2, with delivery posts, on Joshua's go-ahead ("Yes, release now"): release
+      pull request #200 merged at 23:08:43Z as `6e0d8b2`, the tag and the GitHub release at
+      23:08:57Z with the release summary on top of its notes, the three images by 23:13:02Z and the
+      announcement at 23:13:06Z; every job of the run passed.
 - [ ] 6.5 *Go-ahead:* prod — a backup first, then the pinned tag, app services only.
 
 ## 7. Notes from generation

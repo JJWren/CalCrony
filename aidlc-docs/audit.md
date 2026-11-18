@@ -3059,3 +3059,10 @@ Availability for @GM
 **Context**: Construction — delivery posts: the look of the plan's step 6.3 done.
 
 ---
+## Date limit and delivery posts — release 0.37.2
+**Timestamp**: 2026-11-18T23:08:09Z
+**User Input**: "Yes, release now"
+**AI Response**: His answer to "Release 0.37.2 now?", asked after the look on the test stack, with yes as the recommendation and with the note that the announcement goes out at release time, before prod is rolled. Release pull request #200 was green at its head `441e8f9` and listed six fixes (#189, #190, #196, #198, #199 and #204); `master` had moved on by records only (#205, #206), and the release pull request merged onto it without a conflict. Merged through the REST call, with release-please's own text as the message: release pull request #200 merged at 23:08:43Z as `6e0d8b2`, the tag and the GitHub release at 23:08:57Z with the release summary on top of its notes, the three images by 23:13:02Z and the announcement at 23:13:06Z; every job of the run passed. The release summary is the file of 1,744 characters. Prod still runs 0.37.1; the rollout waits for his go-ahead.
+**Context**: Operations — release 0.37.2, on Joshua's go-ahead.
+
+---
