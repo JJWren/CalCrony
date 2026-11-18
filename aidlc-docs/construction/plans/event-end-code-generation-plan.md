@@ -9,10 +9,10 @@ session of pull request #196, once that pull request had merged.
 **Branch**: `refactor/event-end-one-place` → a pull request titled
 `refactor: work out an event's end in one place`.
 **Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
-A ("Approve, Q1 A"); code generated and checked the same day, and read three times by two review
-agents, who found no fault in the change; `master` taken in at `f05e1d0` before the push
-(section 7). At the completion gate; the push and the pull request then each wait for Joshua's
-go-ahead.
+A ("Approve, Q1 A"); code generated and checked the same day; the change read twice by two review
+agents without a fault, and the records after it twice more, their findings answered; `master`
+taken in at `f05e1d0` before the push (section 7). Approved at the completion gate the same day
+("B) Continue"); the push and the pull request each wait for Joshua's go-ahead.
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -110,8 +110,8 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
 ### 5. Review, and what follows
 - [ ] 5.1 Two review agents read every commit before any push, one for security and privacy and
   one for quality and accuracy, until neither has a finding.
-- [ ] 5.2 The completion gate: "Code generation complete. Choose: A) Request Changes  B) Continue
-  to Next Stage".
+- [x] 5.2 The completion gate: "Code generation complete. Choose: A) Request Changes  B) Continue
+  to Next Stage". Answered B on 2026-11-18 ("B) Continue").
 - [x] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
   entries placed among them by timestamp. Done at `f05e1d0` (section 7); again if `master` moves
   before the push.
@@ -205,8 +205,13 @@ the free-slots lookup's route tests among them, passed. Their findings, with the
 - Both (nit): a line of the pull request's draft text was longer than the rest. *Answered*: the
   summary's long line and three checklist items rewrapped.
 
-*Third read*, of the record of the second read and the draft text: neither found a fault. Their
-nits are answered here and in that record before anything is pushed: a paragraph of this section
-rewrapped, the first read's first item given its severity, the item above made exact about what
-was rewrapped, and the second read's paragraph and its audit entry made exact about who ran
-which tests.
+*Third read*, of `500c188` (the record of the second read, amended into `95b1c81` before anything
+was pushed) and the draft text: neither found a fault. Their nits are answered here and in that
+record: a paragraph of this section rewrapped, the first read's first item given its severity,
+the item above made exact about what was rewrapped, and the second read's paragraph and its
+audit entry made exact about who ran which tests.
+
+*Fourth read*, of `95b1c81` (records only): the security agent found nothing; the quality agent
+found (low) that the status and the audit entry of 23:42:23Z said the change had been read three
+times, when the third read was of the records alone, and (low) that the third read named no
+commit. *Answered* in the status, above and in the next audit entry.
