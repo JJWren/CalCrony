@@ -2786,3 +2786,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the pull request's conflict with `master`.
 
 ---
+## Build and test — the moved occurrence: pull request #196 merged
+**Timestamp**: 2026-11-18T19:55:59Z
+**User Input**: (none — this entry records the merge that had Joshua's go-ahead at 19:21:00Z, "Merge when green")
+**AI Response**: The take-in of `6cb41c8` went up by its branch name at 19:51:40Z as `93a8ebd`, a fast-forward from `e7f51db`, after both review agents had read it; the quality agent's one finding, a sentence of the entry of 19:49:18Z that said more than happened, was answered with its own wording before the push. Every check on `93a8ebd` passed: `pr-title`, `lint-workflows`, `build-test` (2,446 tests passed and none failed or was skipped: 1,509 API, 418 bot, 153 web and 366 for the release-notes tool), both CodeQL analyses and the secret scan; `publish-main` is skipped on pull requests. `master` was still `6cb41c8` when read at 19:55:04Z, and the pull request was squash-merged through the REST call, pinned to `93a8ebd`, at 19:55:10Z as `1fce915`, with its title and text as the commit message and the text's "Release summary" section brought up to date (1,522 of the 1,800 characters). The tree of `1fce915` is the tree of `93a8ebd`. The release and the rollout are each asked separately.
+**Context**: Build and test, in the repository's collapsed form — the merge.
+
+---
