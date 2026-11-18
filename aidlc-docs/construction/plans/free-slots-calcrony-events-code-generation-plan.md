@@ -723,9 +723,9 @@ says that whoever created an event stays blocked whatever they answer (R30).
 The completion gate was answered "Continue", and the tracking issue was filed as #192. Asked how
 the branch's local history goes out, Joshua answered "Rebuild first": the branch was rebuilt as
 one commit on `master`, with `master` taken in twice more on the way (#191 and #194, records
-only; the audit trail merged by its stamps as before). The commits this section names up to
-here stay on the local branch `feature/free-slots-calcrony-events-history`, which is never
-pushed.
+only; the audit trail merged by its stamps as before). The commits this section names before
+the first push stay on the local branch `feature/free-slots-calcrony-events-history`, which is
+never pushed.
 
 Round 5, both agents on the first rebuild, `56e381f`: its code, tests and docs byte-identical to
 `0139ee8`, and the merge exact. Security and privacy: no finding above information. Code
@@ -753,6 +753,17 @@ documents are the same against `5fc9239` as against `47209ab`. On the merged tre
 build has no error and 22 warnings, as before, and 2,102 tests pass with none failing (1,173
 API, 427 bot, 153 web, 349 for the release-summary tool; 17 of the tool's tests skipped on
 Windows).
+
+Round 6, both agents on the four commits not yet pushed (`b33cda9`, `ef91352`, `3fd509f` and its
+records `ee43871`): security and privacy found nothing; code quality found the merge exact, with
+one minor finding and six nits, all on wording. "The other open pull request that changes
+`DeliveryScheduler.cs`" also fits a second open pull request that changes that file, so the state
+line says "the same lines"; which commits stay on the history branch is narrowed to those named
+before the first push; the paragraph above is re-wrapped and its counts worded as in the earlier
+notes; and "once since the push" replaces "once already". The messages of `b33cda9` and `3fd509f`
+stay as they are, since changing them would change the ids the records name. The records commit
+was amended into `a3b30a5`, both agents confirmed the difference, and the branch was pushed by
+its name at 19:10:55Z.
 
 ## 10. Plan checklist
 
