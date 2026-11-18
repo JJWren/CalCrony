@@ -800,10 +800,26 @@ On the tree of `a8ad00e` the Release build has no error and 22 warnings, as befo
 tests pass with none failing (1,238 API, 427 bot, 153 web, 349 for the release-summary tool; 17
 of the tool's tests skipped on Windows); and the release-summary tool's check finds no problem.
 
-While both agents read those commits, `master` moved to `6b85491` (#202, records only) and is
+While both agents read the commits above, `master` moved to `6b85491` (#202, records only) and is
 merged in as `ee820c4`, so that the branch goes out once: only the audit trail conflicted, merged
 by its stamps as before. Nothing outside `aidlc-docs` differs from `406dd24`, so the results above
 stand.
+
+Round 7, both agents on `302262d`, `b33dd0a`, `a8ad00e` and `406dd24`, then on `ee820c4` and
+`ce80856`: security and privacy found nothing; code quality found both merges exact and the guard
+and its test sound, with one minor finding on the pull request's text, which did not say that
+`0.37.2.md` moved, and five nits. Meanwhile `master` moved to `6cb41c8` (#199), which adds to
+`0.37.2.md`, and is merged in as `f31d3ff`: the audit trail and the state file as before, the
+live script by itself with both sides' items, and `0.37.2.md` kept as `master` has it. `ca4b2cc`
+takes the moved line back out of `0.38.0.md`. The release pull request for 0.37.2 is open, so its
+summary stays in its own file until the order of that release and this change's merge is
+settled; should this change go first, the fold of step 5.4 is made before it merges. That answers
+the minor finding too. `6ce2b7f` says in `SeriesProjection.LaterOccurrences` that a rule that
+cannot be stepped throws, and narrows the design document's row to the ends of events and later
+occurrences. `ee43871`, named above, is kept on the local history branch. On the tree of
+`6ce2b7f` the Release build has no error and 22 warnings; 2,472 tests pass with none failing
+(1,542 API, 427 bot, 153 web, 350 for the release-summary tool; 17 of the tool's tests skipped
+on Windows), and the release-summary tool's check finds no problem.
 
 ## 10. Plan checklist
 
