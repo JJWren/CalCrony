@@ -2709,3 +2709,10 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): conflicts resolved and pushed under Auto-fix; this pull request's merge waits for the other one to merge first and then for Joshua's go-ahead.
 
 ---
+## Code Generation — `master` taken in after the other pull request merged (Auto-fix)
+**Timestamp**: 2026-11-18T19:31:04Z
+**User Input**: (none — the app's Auto-fix reported that pull request #197 had merge conflicts with `master` again, after the other pull request that changes the same lines of `DeliveryScheduler.cs` merged at 19:21:34Z)
+**AI Response**: `master` at `3e35071` was merged in as `b33dd0a`. The audit trail, the state file and `DeliveryScheduler.cs` conflicted: the audit trail was merged as a set in the order of its stamps, and taking either side's entries out gives the other side's file exactly; the state file keeps both sections, `master`'s first; `DeliveryScheduler.cs` is taken as `master` has it, so the default length this change had made internal, and the helper beside it, are gone. In the same merge this change's ends come from `EventTimes.End`, `master`'s release summary for 0.37.2 moves into `0.38.0.md` under `CONTRIBUTING.md`'s rename rule (the release pull request for 0.37.2 is open), and the design document names `EventTimes`. `a8ad00e` then steps each series on its own in a free-slots lookup, as the scheduler does: a series whose rule cannot be stepped is logged and left out, and a new test fails with that guard taken out. On the tree of `a8ad00e` the Release build has no error and 22 warnings, 2,167 tests pass with none failing (1,238 API, 427 bot, 153 web, 349 for the release-summary tool; 17 of the tool's tests skipped on Windows), and the release-summary tool finds no problem. The commits not yet pushed — the records of round 6, this merge, the guard and these records — go to both review agents before the push.
+**Context**: Construction — delivery (plan section 8): the take-in the merge order called for; the push waits for both agents' read, and this pull request's merge waits for Joshua's go-ahead after that.
+
+---

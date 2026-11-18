@@ -765,6 +765,41 @@ stay as they are, since changing them would change the ids the records name. The
 was amended into `a3b30a5`, both agents confirmed the difference, and the branch was pushed by
 its name at 19:10:55Z.
 
+### `master` taken in after the other pull request merged (2026-11-18)
+
+The other pull request that changes the same lines of `DeliveryScheduler.cs` merged at
+19:21:34Z, and the app's Auto-fix reported the conflict. `master` at `3e35071` is merged in as
+`b33dd0a`. Three files conflicted: the audit trail (merged as a set in the order of its stamps;
+taking either side's entries out gives the other side's file exactly), the state file (both
+sections kept, `master`'s first) and `DeliveryScheduler.cs`, where `master` moved the 60-minute
+default into `EventTimes`, the API's one place for an event's end. That file is taken as
+`master` has it: the default this change had made internal, and the `EventLength` helper beside
+it, are gone. In the same merge:
+
+- `EventBusyTimes` and `SeriesProjection` take every end from `EventTimes.End`, as the scheduler
+  and the feed do on `master`.
+- `master`'s release summary for 0.37.2 moves into `0.38.0.md` under `CONTRIBUTING.md`'s rule
+  that a later `feat:` renames the file, since the release pull request for 0.37.2 is open: its
+  bullet follows this change's two, worded as it was. Should 0.37.2 be released before this
+  change merges, `0.37.2.md` goes back as it was and `0.38.0.md` loses that bullet.
+- The design document's component table (section 11) names `EventTimes` in place of the
+  constant made internal.
+
+`a8ad00e` then has `EventBusyTimes` step each series on its own, as the scheduler advances each
+on its own: a series whose rule cannot be stepped is logged with its id and the server's, and
+its later occurrences are left out, rather than failing every lookup that counts its creator.
+The guard is in `EventBusyTimes`, not in the pure projection, so the two tests that show a series
+passed over before its rule is read still fail if it is read. One test pins the guard (a series
+with an interval of zero beside an event of the same member and another member's series); with
+the guard taken out it fails.
+
+D17 read again against `master`'s `FeedEndpoints.cs`: it stands. The feed takes its ends from
+`EventTimes` too, and the projection still steps from the cursor with the day set.
+
+On the tree of `a8ad00e` the Release build has no error and 22 warnings, as before; 2,167
+tests pass with none failing (1,238 API, 427 bot, 153 web, 349 for the release-summary tool; 17
+of the tool's tests skipped on Windows); and the release-summary tool's check finds no problem.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan, design document and the two earlier plans loaded
