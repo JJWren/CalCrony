@@ -2205,6 +2205,13 @@ Availability for @GM
 **Context**: Construction — step 4.3, the squash merge, approved. `master` is taken in once more so that the pull request can be merged; the merge follows once the checks on the new head are green.
 
 ---
+## Code of Conduct — request, workspace detection and requirements
+**Timestamp**: 2026-11-17T23:37:32Z
+**User Input**: "A Code of Conduct should be added to CalCrony. Make it match GitHub's recommended standards."
+**AI Response**: Workspace detection: brownfield, AIDLC state and records present, so no reverse engineering. The branch `docs/code-of-conduct` was cut from `master` at `e792e1a` in its own worktree. Read-only checks: GitHub's community profile for the repository is at 85 percent with no code of conduct; `GET /codes_of_conduct` offers the Contributor Covenant (template version 2.0, one blank for the contact method) and Django's. Requirements at minimal depth written to `inception/requirements/code-of-conduct-requirements.md`: CC1–CC5, NF1–NF3, and four questions (version, where reports go, where it applies, where it is linked), each with a recommendation. User stories and design stages skipped as documentation only. Asked of Joshua: the four answers, then "Requirements analysis complete. Do you want to request changes or continue to the next stage?"
+**Context**: Inception — requirements analysis; waits for Joshua's answers.
+
+---
 ## Operations — public calendar day sets: rolled out to prod
 **Timestamp**: 2026-11-17T23:38:33Z
 **User Input**: (none in this session — the rollout was asked of Joshua in the session working on #184; he answered there "Roll out now", recorded there at 23:35:34Z, and that session ran it)
@@ -2238,6 +2245,13 @@ Availability for @GM
 **User Input**: (none in this session — Joshua gave the go-aheads for the release and the prod rollout in the session behind pull request #184, whose records hold his words)
 **AI Response**: That session's note said both were done; each fact was checked here before it was recorded. The release pull request #185 merged at 23:27:30Z as `eb6afb8`, and `v0.37.1` was published at 23:27:43Z on that commit, with three fixes: #180 (this one), #182 and #184. `b582c2b` is in it. The release run on `eb6afb8` passed: `release-please`, `release-summary`, `publish-images` and `announce-release`, with `release-summary-preview` skipped. On prod, `CALCRONY_IMAGE_TAG` is 0.37.1; a backup of the database was taken first, at 23:35:47Z; the API started at 23:36:20Z and the bot and web at 23:36:37Z, all three on the 0.37.1 images; the database container was not touched (running since 2026-11-15). `/health` answers `{"status":"ok","version":"0.37.1"}`, and the API on prod holds the new helper. The watch on the test bot's log ended at 23:41:13Z, its six-hour limit, with no call for either live item; they stay open in the live script. The test stack now runs `0.0.0-main.723696d`, which includes this fix. `master` (`162fd42`) was taken into this branch, with the audit entries in the order of their stamps. Asked next: "Push the records branch and open its docs pull request?", recommending yes. The pull request would be titled `docs: log the sat and sun fix through its release`, and its merge is asked on its own.
 **Context**: Delivery — plan steps 7.3 and 7.4 complete; the state file's release line ticked. Next: the records pull request, on its own go-ahead.
+
+---
+## Code of Conduct — requirements approved; workflow and code generation plan
+**Timestamp**: 2026-11-17T23:43:57Z
+**User Input**: "Recommended. Continue."
+**AI Response**: Joshua's answer to "Requirements analysis complete. Do you want to request changes or continue to the next stage?" and the four questions asked at 2026-11-17T23:37:32Z: Q1–Q4 all A — Contributor Covenant 2.1; reports to the address in `SECURITY.md` with "CalCrony conduct" in the subject; applies to the GitHub repository and the official Discord server; linked from the README and `CONTRIBUTING.md`. The answers are written into the requirements, and CC1 now names the two changes CC2 and CC3 make to the text. The 2.1 text was read from the Covenant's own repository (`EthicalSource/contributor_covenant`, branch `release`). Written: `construction/plans/code-of-conduct-code-generation-plan.md`, with the workflow (code generation and build and test run; every other stage skipped) and the steps. Asked of Joshua at 2026-11-17T23:44:30Z: approval of the workflow and code generation plan.
+**Context**: Inception — requirements approved; workflow planning and code generation plan await approval.
 
 ---
 ## Operations — public calendar day sets: the records read by two agents; the docs pull request asked
@@ -2275,6 +2289,13 @@ Availability for @GM
 **Context**: Construction — code generation complete; the completion gate, waiting for Joshua's choice.
 
 ---
+## Code of Conduct — plan approved; code generation
+**Timestamp**: 2026-11-18T03:42:07Z
+**User Input**: "Approve plan"
+**AI Response**: Joshua's answer to the question asked at 2026-11-17T23:44:30Z, "Do you approve the plan?"; the other answer was "Request changes". Code generation starts: the file, the two links and the checks, per `construction/plans/code-of-conduct-code-generation-plan.md`.
+**Context**: Construction — code generation, on Joshua's approval.
+
+---
 ## Text that cannot be stored — completion gate answered: continue
 **Timestamp**: 2026-11-18T03:43:19Z
 **User Input**: "B) Continue to next stage"
@@ -2289,11 +2310,39 @@ Availability for @GM
 **Context**: Operations — the records of the merges of #181 and #187 go out on Joshua's go-ahead; the next change waits for his answer.
 
 ---
+## Code of Conduct — built and tested; committed locally; push asked
+**Timestamp**: 2026-11-18T03:44:33Z
+**User Input**: (none — continuation of "Approve plan")
+**AI Response**: `CODE_OF_CONDUCT.md` written in the repository root from the Contributor Covenant 2.1 text: the front matter dropped; the report contact filled with the address in `SECURITY.md` and "CalCrony conduct" in the subject; one sentence added to Scope naming the GitHub repository and the official CalCrony Discord server. A diff against the published body shows only those two lines changed; the attribution section is whole. Linked from the README's "Contributing, releases & security" paragraph and from the top of `CONTRIBUTING.md`. No control or format characters in the new file or the added lines. `dotnet test CalCrony.slnx`: Api 865, Web 153, Bot 418 passed; ReleaseNotes 345 passed and 17 skipped; none failed. Plan steps 1–3 and 4.1–4.2 ticked. Committed locally as `docs: add a code of conduct`, no attribution lines; nothing pushed. After the commit, `master` had moved to `162fd42` (#187) and was merged in; the one conflict, in `audit.md`, was resolved with `master`'s two entries before this branch's four, none dropped. Asked of Joshua: "Push the branch and open the pull request?", answers "Push and open" and "Not yet".
+**Context**: Build and test — committed locally; the push waits for Joshua's go-ahead.
+
+---
+## Code of Conduct — go-ahead to push and open the pull request
+**Timestamp**: 2026-11-18T03:48:59Z
+**User Input**: "Push and open"
+**AI Response**: Joshua's answer to the question asked at 2026-11-18T03:44:33Z, "Push the branch and open the pull request?"; the other answer was "Not yet". The branch `docs/code-of-conduct` is pushed with the keyring login and the pull request `docs: add a code of conduct` is opened against `master`. Before the push, `master` had moved to `04beae8` (#191) and was merged in; the one conflict, in `audit.md`, was resolved with the entries of both sides in timestamp order, each side's order kept and none dropped. It cuts no release. Its merge is asked separately.
+**Context**: Build and test — push and open, on Joshua's go-ahead.
+
+---
+## Code of Conduct — pull request #193 opened; its merge asked
+**Timestamp**: 2026-11-18T03:49:55Z
+**User Input**: (none — continuation of "Push and open")
+**AI Response**: The branch `docs/code-of-conduct` was pushed with the keyring login after a scan of everything it adds for a local path, anything shaped like a token and a mention outside backticks; the only hit was the report address in `CODE_OF_CONDUCT.md`, as Joshua chose (Q2 A). Pull request #193, `docs: add a code of conduct`, was opened against `master` at 2026-11-18T03:49:44Z. "Auto-fix pull requests" is on for it; auto-merge is off. This entry goes out as its second push, records only. Asked of Joshua: "Squash-merge pull request #193 once its checks are green?", answers "Merge when green" and "Not yet". After the merge, the community profile is read to confirm it lists the code of conduct (plan step 4.4).
+**Context**: Build and test — pull request #193 open; its merge waits for Joshua's go-ahead.
+
+---
 ## Operations — public calendar day sets: go-ahead to push the records, open their pull request and merge it
 **Timestamp**: 2026-11-18T03:53:57Z
 **User Input**: "A: open, merge green"
 **AI Response**: His answer to the question asked at 2026-11-17T23:54:45Z and put to him again, with the same choices, before he answered: A) push this branch, open its docs pull request, and merge it once its checks pass (recommended); B) push and open it, and ask before the merge; C) not yet. The app offered two buttons, "A: open, merge green" and "B: open only", and his answer is the first one's words. Read first (03:49Z): `master` on GitHub had moved from `162fd42` to `04beae8` (#191, the records of #181 and #187), so it was merged into this branch, as `b675ab7`, by script. Only the audit log conflicted. Its result is master's text as it is, with this branch's entries in the order of their timestamps, and the script checked both ways: take this branch's entries out and master's file comes back, take master's new entries out and this branch's comes back. The state file is git's own merge. Over `master` the branch still changes the same three record files, with the same line counts. The two review agents read the branch at `232ada6`. The merge and this entry were checked by me and not read by an agent. Next: the branch is pushed by name with the keyring login, its pull request `docs: log the public calendar day-set fix through its release and rollout` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. That merge is recorded after it, on a local branch cut from `master`, for a later records pull request.
 **Context**: Operations — the day-set fix's records go out on Joshua's go-ahead.
+
+---
+## Code of Conduct — `master` taken in for pull request #193 (Auto-fix)
+**Timestamp**: 2026-11-18T03:59:03Z
+**User Input**: (none — Auto-fix event: pull request #193 conflicts with `master` at head `0c4c711`)
+**AI Response**: `master` had moved to `47209ab` (#194, records only) and was merged into `docs/code-of-conduct`. The one conflicted file was `audit.md`: both sides had only added entries, at several points; the result is the shared base with every added entry kept after the entry it followed, and where both sides added after the same entry, in timestamp order. No line of either side was dropped. Pushed under the standing Auto-fix authorization. The merge question for #193 is still open.
+**Context**: Build and test — pull request #193 brought up to date with `master`.
 
 ---
 ## Text that cannot be stored — `master` taken in before the push
@@ -2308,6 +2357,20 @@ Availability for @GM
 **User Input**: "Yes"
 **AI Response**: Read as A, the recommended answer to "Push the records branch and open its docs pull request?", asked at 2026-11-17T23:42:33Z and repeated in this session's later messages. `master` has moved since `162fd42`: the records pull requests #191 and #194 merged, and it is now `47209ab`. It is taken into this branch first, with the audit entries in the order of their stamps. Then the branch is pushed by name and the pull request `docs: log the sat and sun fix through its release` is opened against `master`. Its merge is asked on its own.
 **Context**: Delivery — records pull request, go-ahead given. Next: take in `master`, push, open the pull request, then ask the merge.
+
+---
+## Code of Conduct — go-ahead to merge pull request #193
+**Timestamp**: 2026-11-18T18:33:39Z
+**User Input**: "Yes merge"
+**AI Response**: Joshua's answer to "Squash-merge pull request #193 once its checks are green?"; the other answer was "Not yet". Checked first, read-only: head `dc6b89c`, mergeable, blocked only on the required review; `build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses and the secret scan passed on it. No Copilot review was requested (no `review_requested` event), as on the records pull requests #188, #191 and #194, which were merged without one. This entry goes out as a records-only push; the merge is the REST call with `sha` set to the head that carries it, once its checks are green: squash, title `docs: add a code of conduct (#193)`. It cuts no release.
+**Context**: Build and test — the merge of #193, on Joshua's go-ahead.
+
+---
+## Code of Conduct — `master` taken in again for pull request #193 (Auto-fix)
+**Timestamp**: 2026-11-18T18:36:07Z
+**User Input**: (none — Auto-fix event: pull request #193 conflicts with `master` at head `228a381`)
+**AI Response**: `master` had moved to `67baa24` (#198) and was merged into `docs/code-of-conduct`. Two records files conflicted. `audit.md`: both sides had only added entries; the shared base is kept with every added entry after the entry it followed, in timestamp order where both added at the same place; none dropped. `aidlc-state.md`: both sides had appended a section at the end; both are kept, `master`'s first. None of this branch's files are touched by #198. Pushed under the standing Auto-fix authorization. The merge on Joshua's "Yes merge" goes ahead once the checks on the new head are green.
+**Context**: Build and test — pull request #193 brought up to date with `master` a second time.
 
 ---
 ## Delivery — short weekend days: records pull request #201 opened; `master` taken in again; its merge asked
