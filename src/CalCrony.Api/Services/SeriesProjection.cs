@@ -1,8 +1,16 @@
+using CalCrony.Api.Data;
 using CalCrony.Api.Endpoints;
 using CalCrony.Contracts;
 using NodaTime;
 
 namespace CalCrony.Api.Services;
+
+/// <summary>The live (scheduled or started) occurrence of a series, as far as a projection needs
+/// it: when it starts and how long it lasts.</summary>
+/// <param name="SeriesId">The series the occurrence belongs to.</param>
+/// <param name="StartsAt">When the occurrence starts.</param>
+/// <param name="DurationMinutes">Its stored length in minutes, or null for the default.</param>
+public readonly record struct LiveOccurrence(Guid SeriesId, Instant StartsAt, int? DurationMinutes);
 
 /// <summary>The schedule of a running series, as far as its later occurrences depend on it: the
 /// rule, the cursor and the count the scheduler keeps, and the length every occurrence has.
@@ -33,29 +41,81 @@ public sealed record SeriesSchedule(
     int OccurrenceCount,
     int? DurationMinutes);
 
-/// <summary>The occurrence of a series that exists as an event, as far as the next one depends on
-/// it: when it starts and how long it lasts.</summary>
-/// <param name="StartsAt">When it starts.</param>
-/// <param name="DurationMinutes">Its length in minutes; null for the default length.</param>
-public sealed record LiveOccurrence(Instant StartsAt, int? DurationMinutes);
-
-/// <summary>Which occurrences a running series will have after the one that exists. Only one
-/// occurrence of a series is a row at any time: the scheduler creates the next once that one is
-/// over, as the first slot of the schedule that starts after it. This follows the same steps
-/// ahead of time, so what it gives is what the scheduler will create, as far as that can be
-/// foreseen: a skip, a cancellation, a move or an edit made later changes it, and the scheduler
-/// acts on an end at its next sweep, which makes a difference only to an occurrence that ends
-/// less than a sweep before a slot. So it is not every slot of the schedule: an occurrence moved
-/// past later slots, or one that outlasts the gap to the next, leaves the slots it passes empty.
-/// Pure: no clock and no database.</summary>
+/// <summary>What a running series goes on to post. A series has one live occurrence at a time
+/// (IX_Events_SeriesId_Live): the scheduler posts the next one only once that one has ended, and
+/// then takes the first date of the schedule after the series' slot cursor that starts after that
+/// moment (<see cref="SeriesMaterializer"/>). So a live occurrence that an edit of that occurrence
+/// alone moved later — the cursor stays where it was — or that runs long holds back the dates it
+/// passes: they are never posted, and they use up none of a count. Pure — no I/O.
+/// <see cref="Upcoming"/> lists the starts the public calendar shows; <see cref="LaterOccurrences"/>
+/// gives the occurrences, each with its end, that reach into a free-slots lookup's window.</summary>
 public static class SeriesProjection
 {
-    /// <summary>Hard stop on stepping one series. A free-slots lookup ends at most a year and
-    /// fifteen days from today and a schedule's smallest step is a day, so no lookup the route
-    /// accepts comes near it; it is there so that the loop is bounded on its own.</summary>
+    /// <summary>The length of an occurrence that has none stored: an hour, as the scheduler and
+    /// the feed count it (each keeps its own copy of the value).</summary>
+    public const int DefaultLengthMinutes = 60;
+
+    /// <summary>Hard stop on stepping one series in <see cref="LaterOccurrences"/>. A free-slots
+    /// lookup ends at most a year and fifteen days from today and a schedule's smallest step is a
+    /// day, so no lookup the route accepts comes near it; it is there so that the loop is bounded
+    /// on its own.</summary>
     public const int MaxSteps = 1000;
 
-    /// <summary>The later occurrences of a running series that reach into a window, in order.
+    /// <summary>When an occurrence ends.</summary>
+    /// <param name="startsAt">When it starts.</param>
+    /// <param name="durationMinutes">Its stored length in minutes, or null for the default.</param>
+    /// <returns>The instant it ends.</returns>
+    public static Instant EndOf(Instant startsAt, int? durationMinutes) =>
+        startsAt + Duration.FromMinutes(durationMinutes ?? DefaultLengthMinutes);
+
+    /// <summary>The moment from which a series can post its next occurrence: now, or the end of
+    /// its live occurrence when that is still to come.</summary>
+    /// <param name="now">The current instant.</param>
+    /// <param name="liveEnd">When the series' live occurrence ends; null when it has none.</param>
+    /// <returns>The later of the two.</returns>
+    public static Instant FreeFrom(Instant now, Instant? liveEnd) =>
+        liveEnd is { } end && end > now ? end : now;
+
+    /// <summary>The occurrences a series goes on to post, in order, when each runs its length:
+    /// the first date after the slot cursor that starts after <paramref name="freeFrom"/>, then
+    /// the first that starts after that occurrence has ended, and so on — up to and including the
+    /// until date, until the count is used up, or until <paramref name="maxSteps"/> occurrences
+    /// have been listed, whichever comes first. The weekly day set is passed on: without it a
+    /// Mon + Wed + Fri series would step on its first occurrence's weekday alone.</summary>
+    /// <param name="series">The running series.</param>
+    /// <param name="freeFrom">The moment from which the series can post (<see cref="FreeFrom"/>).</param>
+    /// <param name="maxSteps">The most occurrences to list: each costs one step of the schedule,
+    /// and for a series without an end the list would otherwise go on without end.</param>
+    /// <returns>Start instants, ascending.</returns>
+    public static IEnumerable<Instant> Upcoming(EventSeries series, Instant freeFrom, int maxSteps)
+    {
+        var zone = Endpoints.Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
+        var remaining = series.MaxOccurrences is int max ? max - series.OccurrenceCount : int.MaxValue;
+        var cursor = series.CurrentOccurrenceDate;
+        var floor = freeFrom;
+        for (var step = 0; step < maxSteps && remaining > 0; step++)
+        {
+            var next = RecurrenceCalculator.NextOccurrence(
+                series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate, series.StartTime,
+                zone, cursor, series.UntilDate, floor, series.DaysOfWeek);
+            if (next is null)
+            {
+                yield break;
+            }
+
+            yield return next.Value.Instant;
+
+            // That occurrence is the live one until it ends, at the series' own length.
+            cursor = next.Value.Date;
+            floor = EndOf(next.Value.Instant, series.DurationMinutes);
+            remaining--;
+        }
+    }
+
+    /// <summary>The later occurrences of a running series that reach into a window, in order —
+    /// what the scheduler will create, as far as that can be foreseen: a skip, a cancellation, a
+    /// move or an edit made later changes it, and the scheduler acts on an end at its next sweep,
+    /// which makes a difference only to an occurrence that ends less than a sweep before a slot.
     /// The first is the first slot after the series' cursor that starts once the live occurrence
     /// is over — after <paramref name="now"/> when there is no live occurrence, or it is over
     /// already — and each one after that is the first slot that starts after the one before it
@@ -63,7 +123,7 @@ public static class SeriesProjection
     /// given: the ones before the window use up the count as well. A series that cannot reach the
     /// window (<see cref="CanReachWindow"/>) is passed over before its rule is stepped. A rule
     /// that cannot be stepped, such as one with an interval of zero, throws; a free-slots lookup
-    /// leaves that series out (<see cref="EventBusyTimes"/>).</summary>
+    /// leaves that series' later occurrences out (<see cref="EventBusyTimes"/>).</summary>
     /// <param name="schedule">The series' schedule. The series is running: one that was stopped
     /// has no later occurrences and is not asked about.</param>
     /// <param name="live">The series' live occurrence; null when it has none.</param>

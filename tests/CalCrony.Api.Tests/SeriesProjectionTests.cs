@@ -1,11 +1,14 @@
+using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
-/// <summary>The later occurrences of a running series, as a free-slots lookup counts them for the
-/// member who created it: the ones the scheduler will create after the occurrence that exists.
+/// <summary>What a running series goes on to post, asked of the projection directly: the starts
+/// the public calendar lists (<see cref="SeriesProjection.Upcoming"/>), and the later occurrences
+/// a free-slots lookup counts for the member who created it, the ones the scheduler will create
+/// after the occurrence that exists (<see cref="SeriesProjection.LaterOccurrences"/>).
 /// Unless a test says otherwise the series is weekly on Friday at 7 PM Chicago time and three
 /// hours long, first held on October 30, 2026; its second occurrence, November 6, has been
 /// created and is over; and "now" is noon on Tuesday, November 10.</summary>
@@ -14,6 +17,9 @@ public class SeriesProjectionTests
     private static readonly DateTimeZone Chicago = DateTimeZoneProviders.Tzdb["America/Chicago"];
 
     private static readonly Instant Now = At(2026, 11, 10, 12);
+
+    /// <summary>The series the live occurrences here belong to; the projection does not read it.</summary>
+    private static readonly Guid SeriesId = Guid.Empty;
 
     [Fact]
     public void A_weekly_series_gives_the_slots_inside_the_window_each_as_long_as_the_series_says()
@@ -94,7 +100,7 @@ public class SeriesProjectionTests
         var schedule = Weekly() with { CurrentOccurrenceDate = new LocalDate(2026, 11, 13), OccurrenceCount = 3 };
 
         var later = SeriesProjection.LaterOccurrences(
-            schedule, new LiveOccurrence(At(2026, 11, 13, 19), 180), Now, At(2026, 11, 11, 0), At(2026, 12, 7, 0));
+            schedule, new LiveOccurrence(SeriesId, At(2026, 11, 13, 19), 180), Now, At(2026, 11, 11, 0), At(2026, 12, 7, 0));
 
         Assert.Equal(
             [At(2026, 11, 20, 19), At(2026, 11, 27, 19), At(2026, 12, 4, 19)], later.Select(occurrence => occurrence.Start));
@@ -107,7 +113,7 @@ public class SeriesProjectionTests
         // creates the next one when that one ends, so the slot of November 20 will never exist.
         var schedule = Weekly() with { CurrentOccurrenceDate = new LocalDate(2026, 11, 13), OccurrenceCount = 3 };
 
-        var later = SeriesProjection.LaterOccurrences(schedule, new LiveOccurrence(At(2026, 11, 21, 20), 180), Now, At(2026, 11, 16, 0), At(2026, 12, 7, 0));
+        var later = SeriesProjection.LaterOccurrences(schedule, new LiveOccurrence(SeriesId, At(2026, 11, 21, 20), 180), Now, At(2026, 11, 16, 0), At(2026, 12, 7, 0));
 
         Assert.Equal([At(2026, 11, 27, 19), At(2026, 12, 4, 19)], later.Select(occurrence => occurrence.Start));
     }
@@ -122,7 +128,7 @@ public class SeriesProjectionTests
         var schedule = Weekly() with { CurrentOccurrenceDate = new LocalDate(2026, 11, 13), OccurrenceCount = 3 };
 
         var later = SeriesProjection.LaterOccurrences(
-            schedule, new LiveOccurrence(At(2026, 11, 20, 19), -60), Now, At(2026, 11, 16, 0), At(2026, 11, 30, 0));
+            schedule, new LiveOccurrence(SeriesId, At(2026, 11, 20, 19), -60), Now, At(2026, 11, 16, 0), At(2026, 11, 30, 0));
 
         Assert.Equal([At(2026, 11, 27, 19)], later.Select(occurrence => occurrence.Start));
     }
@@ -135,7 +141,7 @@ public class SeriesProjectionTests
         var schedule = Weekly() with { Interval = 0 };
 
         var later = SeriesProjection.LaterOccurrences(
-            schedule, new LiveOccurrence(At(2026, 11, 30, 19), 180), Now, At(2026, 11, 11, 0), At(2026, 11, 30, 0));
+            schedule, new LiveOccurrence(SeriesId, At(2026, 11, 30, 19), 180), Now, At(2026, 11, 11, 0), At(2026, 11, 30, 0));
 
         Assert.Empty(later);
     }
@@ -157,8 +163,8 @@ public class SeriesProjectionTests
         var windowEnd = At(2026, 11, 16, 0);
 
         Assert.True(SeriesProjection.CanReachWindow(
-            Weekly(), new LiveOccurrence(windowEnd - Duration.FromMinutes(1), 60), windowEnd));
-        Assert.False(SeriesProjection.CanReachWindow(Weekly(), new LiveOccurrence(windowEnd, 60), windowEnd));
+            Weekly(), new LiveOccurrence(SeriesId, windowEnd - Duration.FromMinutes(1), 60), windowEnd));
+        Assert.False(SeriesProjection.CanReachWindow(Weekly(), new LiveOccurrence(SeriesId, windowEnd, 60), windowEnd));
     }
 
     [Fact]
@@ -199,7 +205,7 @@ public class SeriesProjectionTests
     {
         var withNone = SeriesProjection.LaterOccurrences(Weekly(), live: null, Now, At(2026, 11, 11, 0), At(2026, 11, 30, 0));
         var withOneThatEnded = SeriesProjection.LaterOccurrences(
-            Weekly(), new LiveOccurrence(At(2026, 11, 6, 19), 180), Now, At(2026, 11, 11, 0), At(2026, 11, 30, 0));
+            Weekly(), new LiveOccurrence(SeriesId, At(2026, 11, 6, 19), 180), Now, At(2026, 11, 11, 0), At(2026, 11, 30, 0));
 
         Assert.Equal(withNone, withOneThatEnded);
         Assert.Equal(3, withNone.Count);
@@ -217,7 +223,7 @@ public class SeriesProjectionTests
             CurrentOccurrenceDate: new LocalDate(2026, 11, 9), OccurrenceCount: 1, DurationMinutes: 36 * 60);
 
         var later = SeriesProjection.LaterOccurrences(
-            schedule, new LiveOccurrence(At(2026, 11, 9, 20), 36 * 60), At(2026, 11, 10, 9), At(2026, 11, 11, 0), At(2026, 11, 16, 0));
+            schedule, new LiveOccurrence(SeriesId, At(2026, 11, 9, 20), 36 * 60), At(2026, 11, 10, 9), At(2026, 11, 11, 0), At(2026, 11, 16, 0));
 
         Assert.Equal(
             [
@@ -303,6 +309,30 @@ public class SeriesProjectionTests
         Assert.Equal(15, later.Count);
         Assert.Equal((At(2027, 11, 11, 18), At(2027, 11, 11, 19)), later[0]);
         Assert.Equal((At(2027, 11, 25, 18), At(2027, 11, 25, 19)), later[^1]);
+    }
+
+    [Fact]
+    public void Upcoming_lists_no_more_occurrences_than_the_steps_it_is_given()
+    {
+        // Daily at 18:00 UTC with no until date and no count, so only the limit ends the list.
+        var series = new EventSeries
+        {
+            Id = Guid.NewGuid(),
+            Unit = RecurrenceUnit.Day,
+            Interval = 1,
+            AnchorDate = new LocalDate(2026, 11, 2),
+            StartTime = new LocalTime(18, 0),
+            TimeZone = "UTC",
+            CurrentOccurrenceDate = new LocalDate(2026, 11, 2),
+            OccurrenceCount = 1,
+            Title = "Class",
+        };
+        var freeFrom = Instant.FromUtc(2026, 11, 2, 19, 0);
+
+        Assert.Equal(
+            [Instant.FromUtc(2026, 11, 3, 18, 0), Instant.FromUtc(2026, 11, 4, 18, 0), Instant.FromUtc(2026, 11, 5, 18, 0)],
+            SeriesProjection.Upcoming(series, freeFrom, maxSteps: 3));
+        Assert.Empty(SeriesProjection.Upcoming(series, freeFrom, maxSteps: 0));
     }
 
     /// <summary>The series of the class summary: weekly on Friday at 7 PM Chicago time, three hours

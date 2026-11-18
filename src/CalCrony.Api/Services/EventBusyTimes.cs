@@ -219,7 +219,7 @@ public sealed class EventBusyTimes(CalCronyDbContext db, ILogger<EventBusyTimes>
             .ToListAsync(cancellationToken);
         var live = liveRows
             .GroupBy(e => e.SeriesId)
-            .ToDictionary(g => g.Key, g => new LiveOccurrence(g.First().StartsAt, g.First().DurationMinutes));
+            .ToDictionary(g => g.Key, g => (LiveOccurrence?)new LiveOccurrence(g.Key, g.First().StartsAt, g.First().DurationMinutes));
 
         return
         [

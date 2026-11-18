@@ -28,6 +28,8 @@ public static class PublicCalendarBuilder
     /// <param name="series">The guild's running (non-ended) series.</param>
     /// <param name="channelNames">Channel-name snapshots by channel id (missing = omit the name).</param>
     /// <param name="now">The current instant — projections are strictly in the future.</param>
+    /// <param name="liveOccurrences">The live (scheduled or started) occurrence of each running
+    /// series, in whatever month it lies: a series posts nothing more before that one has ended.</param>
     /// <returns>The month DTO with entries in start order.</returns>
     public static PublicCalendarDto Build(
         string? guildName,
@@ -37,12 +39,13 @@ public static class PublicCalendarBuilder
         IReadOnlyList<Event> events,
         IReadOnlyList<EventSeries> series,
         IReadOnlyDictionary<long, string> channelNames,
-        Instant now)
+        Instant now,
+        IReadOnlyList<LiveOccurrence> liveOccurrences)
     {
         var (windowStart, windowEnd) = MonthWindow(zone, year, month);
         var entries = new List<PublicCalendarEventDto>();
 
-        // Concrete rows. A series' live occurrence is one of these; projections start after it.
+        // Concrete rows: the month's events, the posted occurrences of series among them.
         var concreteStartsBySeries = new Dictionary<Guid, HashSet<Instant>>();
         foreach (var ev in events)
         {
@@ -61,13 +64,43 @@ public static class PublicCalendarBuilder
             }
         }
 
+        // When each series' live occurrence ends, in whatever month it lies: the series posts
+        // nothing more before then. The database keeps a series to one live occurrence
+        // (IX_Events_SeriesId_Live); were there two, the later end would stand, as in the feed.
+        // A live occurrence that starts at or after the month's end leaves its series nothing
+        // to show in the month: the series is passed over, and that occurrence's end is not
+        // worked out.
+        var liveEnds = new Dictionary<Guid, Instant>();
+        var liveAfterMonth = new HashSet<Guid>();
+        foreach (var live in liveOccurrences)
+        {
+            if (live.StartsAt >= windowEnd)
+            {
+                liveAfterMonth.Add(live.SeriesId);
+                continue;
+            }
+
+            var end = SeriesProjection.EndOf(live.StartsAt, live.DurationMinutes);
+            if (!liveEnds.TryGetValue(live.SeriesId, out var seen) || end > seen)
+            {
+                liveEnds[live.SeriesId] = end;
+            }
+        }
+
         foreach (var s in series)
         {
-            var concrete = concreteStartsBySeries.GetValueOrDefault(s.Id);
-            foreach (var instant in ProjectOccurrences(s, windowStart, windowEnd, now))
+            if (liveAfterMonth.Contains(s.Id))
             {
-                // Belt and braces against a slot that is also a concrete row (e.g. a live
-                // occurrence whose slot date is a day or more old).
+                continue;
+            }
+
+            Instant? liveEnd = liveEnds.TryGetValue(s.Id, out var end) ? end : null;
+            var concrete = concreteStartsBySeries.GetValueOrDefault(s.Id);
+            foreach (var instant in ProjectOccurrences(s, windowStart, windowEnd, now, liveEnd))
+            {
+                // Belt and braces against a slot that is also a concrete row of the series. The
+                // slots start after the live occurrence has ended, so it is never that one; the
+                // guard stays for any other row.
                 if (concrete is not null && concrete.Contains(instant))
                 {
                     continue;
@@ -108,37 +141,37 @@ public static class PublicCalendarBuilder
         return (first.AtStartOfDayInZone(zone).ToInstant(), first.PlusMonths(1).AtStartOfDayInZone(zone).ToInstant());
     }
 
-    /// <summary>Future occurrences of a series inside the window, stepping the schedule from the
-    /// series' slot cursor (the last materialized occurrence, so the live one is never repeated),
-    /// honoring the weekly day set, the until-date and the remaining count. Without the day set
-    /// a Mon + Wed + Fri series would step on its first occurrence's weekday alone. Slots before
-    /// the window still consume count — they are spawns that will happen first.</summary>
+    /// <summary>The occurrences a series goes on to post that start inside the window
+    /// (<see cref="SeriesProjection.Upcoming"/>): the schedule is stepped on past the series' slot
+    /// cursor (the last materialized occurrence, so the live one is never repeated), starting
+    /// after the end of its live occurrence when that is later than now, honoring the weekly day
+    /// set, the until-date and the remaining count, under <see cref="MaxStepsPerSeries"/>.
+    /// Occurrences before the window still use up the count — they are posted first.</summary>
     /// <param name="series">The running series.</param>
     /// <param name="windowStart">Inclusive window start.</param>
     /// <param name="windowEnd">Exclusive window end.</param>
     /// <param name="now">The current instant.</param>
+    /// <param name="liveEnd">When the series' live occurrence ends; null when it has none.</param>
     /// <returns>Occurrence start instants inside the window, ascending.</returns>
     public static IEnumerable<Instant> ProjectOccurrences(
-        EventSeries series, Instant windowStart, Instant windowEnd, Instant now)
+        EventSeries series, Instant windowStart, Instant windowEnd, Instant now, Instant? liveEnd)
     {
-        var zone = Endpoints.Mapping.FindZone(series.TimeZone) ?? DateTimeZone.Utc;
-        var remaining = series.MaxOccurrences is int max ? max - series.OccurrenceCount : int.MaxValue;
-        var cursor = series.CurrentOccurrenceDate;
-        for (var step = 0; step < MaxStepsPerSeries && remaining > 0; step++)
+        var freeFrom = SeriesProjection.FreeFrom(now, liveEnd);
+        if (freeFrom >= windowEnd)
         {
-            var next = RecurrenceCalculator.NextOccurrence(
-                series.Unit, series.Interval, series.MonthlyMode, series.AnchorDate, series.StartTime,
-                zone, cursor, series.UntilDate, now, series.DaysOfWeek);
-            if (next is null || next.Value.Instant >= windowEnd)
+            yield break;
+        }
+
+        foreach (var instant in SeriesProjection.Upcoming(series, freeFrom, MaxStepsPerSeries))
+        {
+            if (instant >= windowEnd)
             {
                 yield break;
             }
 
-            cursor = next.Value.Date;
-            remaining--;
-            if (next.Value.Instant >= windowStart)
+            if (instant >= windowStart)
             {
-                yield return next.Value.Instant;
+                yield return instant;
             }
         }
     }
