@@ -14,7 +14,8 @@ approved by Joshua the same day as written, with Q1–Q4 all answered A ("Approv
 generated and checked the same day (sections 8 and 9); read by two review agents until neither
 had a finding (section 9); `master` taken in. Approved at the completion gate on 2026-11-18
 ("B) Continue"), and the push and the pull request given their go-ahead the same day
-("Push and open"); the merge, the release and the rollout each wait for their own.
+("Push and open"), and the merge the same day ("Merge when green"); the release and the
+rollout each wait for their own.
 
 A contained fix, so the workflow runs at minimal depth: the task is the requirement; no user
 stories, application design, units, NFR or infrastructure stages; one unit, and this file is both
@@ -483,13 +484,16 @@ the route does (`LiveOf`), and the direct calls of `Build` pass it.
    request #194), and each was merged in before the push. After the push, while the merge waited
    for its go-ahead, it moved to `67baa24` (pull request #198, which changes code outside this
    fix's files), to `db488b3` (pull request #193, documentation) and to `5fc9239` (pull
-   request #195, records), and the pull request's records conflicted with each; each was merged
-   in the same way, and the whole suite passes on the tree with `db488b3`. The audit file keeps
-   master's text as it is, with each of this branch's entries placed among master's in the order
-   of their timestamps; the state file keeps master's sections, with this one after them, in the
-   order they started.
+   request #195, records), and once the merge had its go-ahead, to `3e35071` (pull request #189,
+   which also changes code outside this fix's files) and to `6b85491` (pull request #202,
+   records). The pull request's records conflicted with each, and with #189 its release summary
+   as well (point 3); each was merged in the same way, and the whole suite passes on the tree
+   with `3e35071`. The audit file keeps master's text as it is, with each of this branch's
+   entries placed among master's in the order of their timestamps; the state file keeps
+   master's sections, with this one after them, in the order they started.
 3. *The release summary's file* is `docs/release-notes/0.37.2.md`, not `0.37.1.md`: 0.37.1 went
-   out without this fix (step 4.1).
+   out without this fix (step 4.1). Pull request #189 created the same file first, so this fix's
+   bullet is added to it, under its one `### What's new` heading.
 4. *What the review changed*, listed under "Review" below: the step limit is now an argument of
    the helper, the helper gives start instants alone, two tests more and one control extended,
    and the records corrected where they said more than the runs showed.
