@@ -9,7 +9,7 @@ anything is built. Handed over on 2026-11-16 from the session that wrote that fi
 was run as it stands on pull request #180, open and not merged, because the five were found on
 that code and `sat` and `sun` must go on reading exactly as their full names do. The change was
 built on `master` b582c2b, which has that pull request, and `master` has been taken in since,
-last at 47209ab.
+last at 5fc9239.
 **Branch**: `fix/date-text-gaps` → one pull request, a `fix:`, titled once the scope is decided.
 **Status**: written 2026-11-16 and approved by Joshua the same day, as written, with Q1–Q5 each
 answered A (section 4). Q6, which preparing the change turned up, was asked on 2026-11-17 and
@@ -870,7 +870,7 @@ tried it, with three tests. It also noted that an end beside a whole period is r
 (`next month, by 6pm` is today at 6 PM), as `6pm (may change)` is; that is listed at the end of
 this section.
 
-**`master` taken in four more times.** `master` moved while the branch was being reviewed and
+**`master` taken in five more times.** `master` moved while the branch was being reviewed and
 after the completion gate, and was taken in each time: this branch's audit entries by their
 timestamps, and its section of the state file after the others.
 
@@ -892,6 +892,11 @@ timestamps, and its section of the state file after the others.
 - Pull requests #191 and #194 (`47209ab`), merged after the completion gate was answered and
   before the push. Both change only records under `aidlc-docs`, which no test reads, so the
   build and the suite were not run again. The parser and its tests are as they were.
+- Pull requests #198, #193 and #195 (`5fc9239`), merged after the push; the app that Joshua set to
+  fix the pull request reported the conflict. Only the records met, and none of the three
+  touches the parser or its tests. On that tree the Release build had no error and the same 22
+  warnings, and 2,297 tests were green: 1,377 API, 418 bot, 153 web and 349 for the tool, with
+  the same 17 skipped.
 
 **Noticed while probing, not part of this.** Each is listed for Joshua to take up or leave:
 
