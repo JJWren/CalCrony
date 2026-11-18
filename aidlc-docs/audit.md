@@ -2303,3 +2303,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the pull request's checks.
 
 ---
+## Build and test — the moved occurrence: the merge question put again; `master` taken in again
+**Timestamp**: 2026-11-18T18:41:15Z
+**User Input**: (none in this session — Joshua's words "Go ahead", given at about 18:33Z where this question had been passed on to him, reached this session second-hand)
+**AI Response**: Pull request #196 is merged only on an answer Joshua gives here, so the "Go ahead" that reached this session second-hand is not taken as the go-ahead for that merge, and the question is put to him again here: "Merge #196 once its checks are green?" — recommended yes ("Merge when green"). `master` had moved meanwhile to `67baa24` (pull request #198, merged at 18:35:13Z, which changes code outside this fix's files and adds records of its own), and pull request #196 showed a conflict in the records. It is merged in the same way as before, as `74121c3`: the audit file keeps master's entries and this branch's byte for byte, this branch's each in timestamp order among master's, and the state file keeps master's text with this fix's section after it. Before the push the whole suite is run on the merged tree and both review agents read the commits written since their last read; the push then runs the checks again on the new head. Nothing is pushed or merged; the release and the rollout are each asked separately.
+**Context**: Build and test, in the repository's collapsed form — the merge question.
+
+---
