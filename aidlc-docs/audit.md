@@ -3178,3 +3178,17 @@ Availability for @GM
 **Context**: Operations — the rule is seen at work; #205 is to be merged once its checks are green again.
 
 ---
+## Operations — records pull request #205 merged; the release pull request still updated under the rule
+**Timestamp**: 2026-11-18T22:53:58Z
+**User Input**: (none — continuation of "Yes, through merge")
+**AI Response**: Every check on the head `472d18b` was green by 22:52:09Z (`build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses, CodeQL and the secret scan; `publish-main` skipped), with no review, review comment or comment, and `master` still `384ea0d`; the conflict the app reported was for the earlier head `b61efef`. The squash merge was made at 22:52:25Z by the REST call with the keyring login, the head `472d18b` named and the pull request's text, which has no at sign, as its message. GitHub merged it at 22:52:31Z as `4242144`, whose tree is the head's, and deleted the branch. The ruleset's record of the merge lists `update` as "Cannot update this protected ref.", let through by the admin's bypass. The run the merge started (44415677760) was green: the release job fetched the action by its commit and found the open release pull request #200 (`chore(master): release 0.37.2`) the same; #200 had been updated at 22:49:00Z, after the rule was added, so the release pull request's branch is still kept up to date. #200 is the release pull request that #187's step 5.1 waits for.
+**Context**: Operations — the follow-up's records are merged; the last part of #187's step 5.1 can be read on #200.
+
+---
+## Operations — the release pull request's merge box asked
+**Timestamp**: 2026-11-18T22:53:59Z
+**User Input**: (none — question put to Joshua)
+**AI Response**: Asked of Joshua, with a recommendation, for the last part of #187's step 5.1: open #200, the release pull request, signed in, and say whether its merge box lists "Code owner review required" — A) he looks and says (recommended); B) not now, the step closed without it, since an admin makes every merge either way.
+**Context**: Operations — #187's step 5.1 waits for Joshua's answer.
+
+---
