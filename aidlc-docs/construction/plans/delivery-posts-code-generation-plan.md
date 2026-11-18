@@ -44,7 +44,7 @@ added while the change was built and reviewed, and he reads those here for the f
    would give a series a second live occurrence, and saves the rest. When a sweep cannot be
    saved, the log names the rows the failure names, by entity, key and state.
 8. The Docs page says where a ping goes, whom it mentions and who may add one; the README's row
-   for `/notify` says who may; and the release summary has two lines.
+   for `/notify` says who may; and the release summary has one line (step 5.12).
 
 In the API, the bot and Contracts (one optional field on three payloads), with one migration and
 one paragraph of the Docs page. No configuration. The web app's pages are not changed.
@@ -232,7 +232,7 @@ apart.
 | `tests/CalCrony.Bot.Tests/DeliveryStandIns.cs` (new) | What those two classes stand a channel, a logger and a delivery in with. |
 | `tests/CalCrony.Bot.Tests/EventAccessTests.cs` (new) | 3.1 rule 4: the rule, and where the command applies it. |
 | `tests/CalCrony.Web.Tests/DocsPageTests.cs` | The Docs page's new sentences. |
-| `docs/release-notes/0.37.2.md` | A line for 3.6 with one step of how to use the mention option, and a line for 3.1 rule 4. |
+| `docs/release-notes/0.37.2.md` | One line for 3.6 and 3.1 rule 4 (until step 5.12, a line for each, and one step of how to use the mention option). |
 
 ## 5. Execution plan
 
@@ -357,6 +357,20 @@ apart.
       itself: #199 changes `NaturalDateTimeParser` and its tests, which this change does not touch.
       Result on the merged tree, built from scratch: 0 errors and 22 warnings; 2,510 tests green —
       1,517 API, 490 bot, 154 web and 349 for the release-notes tool — and 17 of the tool's skipped.
+- [x] 5.12 `master` merged in again at `1fce915` (pull request #196, merged 2026-11-18T19:55:10Z),
+      which changes the public calendar and adds a line to `docs/release-notes/0.37.2.md`. The
+      records and the release summary conflict: the audit log is `master`'s entries with this
+      change's put in by their timestamps, the two entries this branch made exact keeping its
+      wording; the state file is `master`'s, with the date limit's build-and-test line as this
+      branch has it and this change's section after #196's; and the release summary keeps `master`'s
+      lines. With this change's two lines and its step as well, the summary would run to 1,967
+      characters, over the 1,800 its check allows; so this change's two lines are made one that says
+      the same, and its step of how to use the mention option is left out: 1,744 of the 1,800
+      characters, and the repository's check passes it. The other changes' lines are as they wrote
+      them. Git merges the code by itself: #196 changes the public calendar's route, its builder and
+      `SeriesProjection`, with their tests, none of which this change touches. Result on the merged
+      tree, built from scratch: 0 errors and 22 warnings; 2,533 tests green — 1,540 API, 490 bot,
+      154 web and 349 for the release-notes tool — and 17 of the tool's skipped.
 
 ## 6. Delivery
 
@@ -630,3 +644,9 @@ same way. Step 5.10 has it.
 its lines to `docs/release-notes/0.37.2.md`. It is merged in; the summary keeps #199's lines, with
 this change's after them. The code merges without a conflict, and the whole suite is run on the
 merged tree. Step 5.11 has the result.
+
+`master` then moved to `1fce915` by pull request #196, which changes the public calendar and adds a
+line to `docs/release-notes/0.37.2.md`. It is merged in the same way. With every change's lines the
+summary ran over its 1,800 characters, so this change's two lines are made one and its step is left
+out; the other changes' lines are as they wrote them. The code merges without a conflict, and the
+whole suite is run on the merged tree. Step 5.12 has the result.
