@@ -605,7 +605,11 @@ public static class PollEndpoints
         var title = (request.Title ?? poll.Question).Trim();
         if (title.Length > FieldLimits.EventTitle)
         {
-            title = title[..FieldLimits.EventTitle];
+            // The cut keeps whole characters, as the API's other cuts do.
+            var cut = char.IsHighSurrogate(title[FieldLimits.EventTitle - 1])
+                ? FieldLimits.EventTitle - 1
+                : FieldLimits.EventTitle;
+            title = title[..cut];
         }
 
         if (Validation.BadDuration(request.DurationMinutes) is { } invalid)
