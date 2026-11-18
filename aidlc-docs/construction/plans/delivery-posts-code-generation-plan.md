@@ -323,6 +323,16 @@ apart.
       second time only `aidlc-docs/audit.md` conflicted, and it is the date limit's merge with this
       change's entries put in by their timestamps. Nothing outside `aidlc-docs` differs from the
       tree of step 5.6, so its result stands for this one.
+- [x] 5.8 The date limit's merge of `5fc9239` (pull requests #198, #193 and #195) merged in on
+      2026-11-18 in the same way. `aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted:
+      the audit log is the date limit's merge with this change's entries put in by their timestamps,
+      and the state file is the date limit's merge with this change's section after the date
+      limit's. Git merges the rest by itself: `README.md`, which #193 and this change both change,
+      in different sections; `TemplateEndpoints.cs` and `RsvpPolicy.cs`, which #198 and this change
+      both change, in different places, with #198's refusal of a list with an entry missing before
+      any line of this change that reads the entries. Result on the merged tree, built from scratch:
+      0 errors and 22 warnings; 2,206 tests green — 1,213 API, 490 bot, 154 web and 349 for the
+      release-notes tool — and 17 of the tool's skipped.
 
 ## 6. Delivery
 
@@ -579,3 +589,8 @@ to `47209ab` by #194 (records), and the date limit merges both in (its plan, ste
 merges in the date limit's merges, so that its pull request does not conflict with its base, which
 now holds `master`'s records, and still shows this change alone. The audit entries of both sides are
 in the order of their timestamps. Nothing outside `aidlc-docs` differs. Step 5.7 has it.
+
+Later that day `master` moved to `5fc9239` by pull requests #198, which changes the API as well as
+records, #193, which adds a code of conduct and records, and #195, records only, and the date limit
+merges it in (its plan, step 5.10); this branch merges in that merge in the same way. The code
+merges without a conflict, and the whole suite is run on the merged tree. Step 5.8 has the result.

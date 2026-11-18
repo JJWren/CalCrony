@@ -130,7 +130,8 @@ the recognizer and from the class summary, and its parser tests are in a file of
 
 - [x] 0.1 Branch `fix/date-ahead-limit`, on `master` 56b61ab; since step 5.4 on `4af1305`,
       since step 5.5 on `ab32e96`, since step 5.6 on `916ecd1`, since step 5.7 on `723696d`,
-      and since step 5.8 on `162fd42`, with `04beae8` and `47209ab` merged in at step 5.9.
+      and since step 5.8 on `162fd42`, with `04beae8` and `47209ab` merged in at step 5.9 and
+      `5fc9239` at step 5.10.
 - [x] 1.1 `DateTextLimits.MaxYearsAhead`, documented in the file's style.
 - [x] 1.2 `TryResolve` (3.1). `DateAheadLimitTests`: a time on the last day allowed is read and the
       same time a day later is refused, with the refusal's exact words; relative text that lands
@@ -220,6 +221,16 @@ the recognizer and from the class summary, and its parser tests are in a file of
       merged in rather than put under the change again. Both times only `aidlc-docs/audit.md`
       conflicts: it is `master`'s entries with this change's put in by their timestamps. Nothing
       outside `aidlc-docs` differs from the tree of step 5.8, so its result stands for this one.
+- [x] 5.10 `master` merged in again at `5fc9239` on 2026-11-18, when GitHub reported again that the
+      pull request conflicts with it. It holds pull requests #198, which changes the API as well as
+      records; #193, which adds a code of conduct, with a line each in `README.md` and
+      `CONTRIBUTING.md`, and records; and #195, records only. Only `aidlc-docs/audit.md` and
+      `aidlc-docs/aidlc-state.md` conflict: the audit log is `master`'s entries with this change's
+      put in by their timestamps, and the state file is `master`'s with this change's section after
+      the two that #198 and #193 add. Git merges the rest by itself; the one file both this change
+      and #198 change, `PollEndpoints.cs`, they change in different places. Result on the merged
+      tree, built from scratch: 0 errors and 22 warnings; 2,102 tests green — 1,182 API, 418 bot,
+      153 web and 349 for the release-notes tool — and 17 of the tool's skipped.
 
 ## 6. Delivery
 
@@ -410,3 +421,8 @@ makes one commit of the pull request either way. The audit entries of both sides
 their timestamps, and git merges the state file by itself. As that merge was made, `master` moved on
 to `47209ab` by pull request #194 (records), which is merged in on top in the same way, before the
 push. Nothing outside `aidlc-docs` differs. Step 5.9 has it.
+
+Later that day `master` moved to `5fc9239` by pull requests #198, which changes the API as well as
+records, #193, which adds a code of conduct and records, and #195, records only, and #189 conflicted
+with it again, in the records. It is merged in the same way. The code merges without a conflict, and
+the whole suite is run on the merged tree. Step 5.10 has the result.
