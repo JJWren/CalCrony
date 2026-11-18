@@ -2296,3 +2296,10 @@ Availability for @GM
 **Context**: Build and test — pull request #193 brought up to date with `master` a second time.
 
 ---
+## Code of Conduct — pull request #193 merged; the community profile read
+**Timestamp**: 2026-11-18T18:39:55Z
+**User Input**: (none — continuation of "Yes merge")
+**AI Response**: Every check on head `b3b8145` passed (`build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses, the secret scan) and `master` was still `67baa24`. Pull request #193 was squash-merged through the REST call with `sha` pinned to that head, at 2026-11-18T18:39:32Z, as `db488b3` (`docs: add a code of conduct (#193)`); it cuts no release. The community profile, read after the merge, is at 100 percent and lists `CODE_OF_CONDUCT.md`, but under the key `other` ("Other") rather than as the Contributor Covenant: GitHub's list of codes of conduct names only the Covenant's 2.0 text, and this file is 2.1 with two lines changed. CC1's "so GitHub recognises it" is therefore met for the profile and not for the name. Plan step 4.4 is ticked with that note. These records are on the local branch `docs/log-code-of-conduct-merge`, cut from `master` at `db488b3`; nothing pushed. Asked of Joshua: whether to leave the file as it is.
+**Context**: Build and test — merged; records local; the "Other" label put to Joshua.
+
+---
