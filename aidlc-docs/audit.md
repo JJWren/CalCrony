@@ -3087,3 +3087,10 @@ Availability for @GM
 **Context**: Operations — the ruleset change waits for Joshua; its check follows.
 
 ---
+## Operations — `protect-master` restricts updates to `master`
+**Timestamp**: 2026-11-18T22:41:47Z
+**User Input**: "It's saved now"
+**AI Response**: Checked through the API at 22:39:57Z: the `protect-master` ruleset was changed at 22:39:28Z and now has the "Restrict updates" rule (`update`, with no fetch-and-merge allowance), so only those who may bypass the ruleset can update `master`. It is still active on `refs/heads/master` alone, its one bypass is still the repository's admin role, always, and its other rules are as they were. No merge had reached `master` since the change (the last, `aeff22d`, at 22:38:39Z), so the ruleset's record of the next merge is still to be read for the new rule. `master` (`aeff22d`, then `5b30e5b`) was taken into this records branch, the audit log kept in time order.
+**Context**: Operations — the ruleset change is in; the record of its first merge is still to be read.
+
+---
