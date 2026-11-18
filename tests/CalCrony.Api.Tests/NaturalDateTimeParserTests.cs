@@ -872,6 +872,7 @@ public class NaturalDateTimeParserTests
     [InlineData("friday by 6pm", 17, 18)]
     [InlineData("friday until 6pm", 17, 18)]
     [InlineData("by friday night", 17, 20)]         // as "friday night": a night begins at 8 PM
+    [InlineData("by night", 15, 20)]                // as "night": tonight at 8 PM
     [InlineData("rsvp by friday 6pm", 17, 18)]
     [InlineData("friday, by 6pm", 17, 18)]          // was Friday at 09:00: the time was dropped
     [InlineData("by friday (6pm)", 17, 18)]         // was today at 6 PM
@@ -999,6 +1000,24 @@ public class NaturalDateTimeParserTests
 
         Assert.False(ok);
         Assert.Equal($"\"{text}\" resolves to a time in the past.", error);
+    }
+
+    [Fact]
+    public void A_deadline_on_todays_date_is_todays_with_a_part_of_the_day_too()
+    {
+        // July 15 at 5 PM: the evening began at 4 PM, and the night begins at 8 PM.
+        var parser = CreateParser();
+
+        Assert.False(parser.TryResolve("by jul 15 evening", Chicago, out _, out var error, JulyAt(15, 17)));
+        Assert.Equal("\"by jul 15 evening\" resolves to a time in the past.", error);
+        Assert.True(parser.TryResolve("by jul 15 night", Chicago, out var result, out error, JulyAt(15, 17)), error);
+        Assert.Equal(JulyInChicago(15, 20), result);
+        Assert.False(parser.TryResolve("by jul 15 night", Chicago, out _, out error, JulyAt(15, 21)));
+        Assert.Equal("\"by jul 15 night\" resolves to a time in the past.", error);
+
+        // The date alone is not a deadline, and is July 15 of next year, as before.
+        Assert.True(parser.TryResolve("jul 15", Chicago, out result, out error, JulyAt(15, 17)), error);
+        Assert.Equal(new LocalDateTime(2027, 7, 15, 9, 0).InZoneStrictly(Chicago).ToInstant(), result);
     }
 
     // The day reader's caller asks for a first day, and a deadline names a last one.
@@ -1273,6 +1292,7 @@ public class NaturalDateTimeParserTests
     [InlineData("friday night (9pm)", 17, 21)]          // was today at 9 PM
     [InlineData("saturday night @ 10pm", 18, 22)]       // was today at 10 PM
     [InlineData("tomorrow evening (7pm)", 16, 19)]      // was today at 7 PM
+    [InlineData("friday afternoon (3pm)", 17, 15)]      // was today at 3 PM
     [InlineData("by friday night (11pm)", 17, 23)]      // was today at 11 PM
     [InlineData("game night friday 7pm", 17, 19)]       // "night friday" is read as Friday night; was today at 7 PM
     [InlineData("tomorrow morning (7am)", 16, 7)]       // as before
@@ -1280,6 +1300,66 @@ public class NaturalDateTimeParserTests
     [InlineData("tonight (9pm)", 15, 21)]               // was today at 8 PM, when the night begins
     [InlineData("tonight, ends 11pm", 15, 23)]          // even when the time is an end: it was today at 8 PM
     public void A_part_of_the_day_takes_a_time_written_beside_it_as_its_own(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    // An end ("until 2am", "by 10pm") is not a time a part of the day takes as its own: it ends
+    // the part, which begins at its start, and is not read on its own either. Each of these is
+    // as before. (Once the part has begun: the next test.)
+    [Theory]
+    [InlineData("friday night till 2am", 17, 20)]
+    [InlineData("saturday night until midnight", 18, 20)]
+    [InlineData("tonight until 2am", 15, 20)]
+    [InlineData("tonight, by 10pm", 15, 20)]
+    [InlineData("this evening until 9pm", 15, 16)]      // an evening begins at 4 PM
+    [InlineData("tomorrow morning, until 10am", 16, 8)]
+    [InlineData("by friday night (until 2am)", 17, 20)]     // a part of the day that is itself a deadline too
+    [InlineData("until friday night, by 11pm", 17, 20)]
+    public void An_end_beside_a_part_of_the_day_ends_it_and_is_not_its_time(string text, int julyDay, int hour)
+    {
+        var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
+
+        Assert.True(ok, error);
+        Assert.Equal(JulyInChicago(julyDay, hour), result);
+    }
+
+    // Once the part of the day has begun, the end is still not read: each of these is what the
+    // part of the day alone gives at that moment.
+    [Fact]
+    public void An_end_beside_a_part_of_the_day_that_has_begun_is_not_read_either()
+    {
+        var parser = CreateParser();
+
+        // Tonight began at 8 PM, and the evening at 4 PM: both have passed, as before.
+        Assert.False(parser.TryResolve("tonight until 2am", Chicago, out _, out var error, JulyAt(15, 21)));
+        Assert.Equal("\"tonight until 2am\" resolves to a time in the past.", error);
+        Assert.False(parser.TryResolve("this evening until 9pm", Chicago, out _, out error, JulyAt(15, 17)));
+        Assert.Equal("\"this evening until 9pm\" resolves to a time in the past.", error);
+
+        // Typed during that Friday night, it is next Friday's night, as "friday night" is then.
+        Assert.True(parser.TryResolve("friday night till 2am", Chicago, out var result, out error, JulyAt(17, 21)), error);
+        Assert.Equal(JulyInChicago(24, 20), result);
+
+        // The same where the part of the day is itself a deadline.
+        Assert.False(parser.TryResolve("by tonight, until 2am", Chicago, out _, out error, JulyAt(17, 21)));
+        Assert.Equal("\"by tonight, until 2am\" resolves to a time in the past.", error);
+    }
+
+    // An end is the time only where the text has no other time and no part of the day. Beside a
+    // time of its own it is an end, and beside a part of the day it ends that part, on whichever
+    // day the text names.
+    [Theory]
+    [InlineData("friday, by 6pm", 17, 18)]                          // no other time: the end is the time (2.1)
+    [InlineData("friday (9pm) till 2am", 17, 21)]                   // was today at 9 PM
+    [InlineData("friday night (9pm) till 2am", 17, 21)]             // was today at 9 PM
+    [InlineData("saturday night (9pm) until midnight", 18, 21)]     // was today at 9 PM
+    [InlineData("friday or saturday night until midnight", 17, 9)]  // as before
+    [InlineData("friday, by 6pm (party 8pm)", 17, 20)]              // a time of its own, even one meant otherwise
+    public void An_end_is_the_time_only_where_the_text_has_no_other(string text, int julyDay, int hour)
     {
         var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
 
@@ -1397,12 +1477,30 @@ public class NaturalDateTimeParserTests
     [InlineData("6pm room 2027", 18)]
     [InlineData("6pm, table 1999", 18)]
     [InlineData("next month (6pm)", 18)]
+    [InlineData("next 2 weeks (6pm)", 18)]
     public void A_time_beside_a_whole_period_is_a_time_alone_as_before(string text, int hour)
     {
         var ok = CreateParser().TryResolve(text, Chicago, out var result, out var error);
 
         Assert.True(ok, error);
         Assert.Equal(JulyInChicago(15, hour), result);
+    }
+
+    // Beside a time, a phrase that names no single day does not offer its first day at 09:00: the
+    // time is meant, today's or tomorrow's. Each of these was 09:00 on that first day.
+    [Fact]
+    public void A_time_beside_a_phrase_that_names_no_day_is_meant_before_9am_too()
+    {
+        var parser = CreateParser();
+
+        Assert.True(parser.TryResolve("this weekend 6pm", Chicago, out var result, out var error, JulyAt(18, 0)), error);
+        Assert.Equal(JulyInChicago(18, 18), result);
+        Assert.True(parser.TryResolve("this week (6pm)", Chicago, out result, out error, JulyAt(20, 8)), error);
+        Assert.Equal(JulyInChicago(20, 18), result);
+
+        var newYearsEve = new LocalDateTime(2026, 12, 31, 23, 30).InZoneStrictly(Chicago).ToInstant();
+        Assert.True(parser.TryResolve("next month (6pm)", Chicago, out result, out error, newYearsEve), error);
+        Assert.Equal(new LocalDateTime(2027, 1, 1, 18, 0).InZoneStrictly(Chicago).ToInstant(), result);
     }
 
     // The rule itself: a day and a time written apart read as the same two written together — the
