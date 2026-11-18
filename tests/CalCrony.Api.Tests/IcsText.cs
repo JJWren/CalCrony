@@ -30,9 +30,30 @@ internal static class IcsText
     /// <returns>The DTSTART calendar date.</returns>
     public static LocalDate DtStartDate(string block, DateTimeZone zone)
     {
-        var line = block.Split('\n').Select(l => l.TrimEnd('\r')).First(l => l.StartsWith("DTSTART", StringComparison.Ordinal));
-        var value = line[(line.LastIndexOf(':') + 1)..];
+        var value = Value(block, "DTSTART");
         var local = Basic.Parse(value.TrimEnd('Z')).Value;
         return value.EndsWith('Z') ? local.InUtc().ToInstant().InZone(zone).Date : local.Date;
+    }
+
+    /// <summary>How long one VEVENT runs, in minutes: its DTEND less its DTSTART, read as written.
+    /// The feed writes both in the same form (UTC "…Z", or local time with a TZID).</summary>
+    /// <param name="block">A VEVENT block from <see cref="Events"/>.</param>
+    /// <returns>The minutes between DTSTART and DTEND.</returns>
+    public static long LengthMinutes(string block)
+    {
+        var start = Basic.Parse(Value(block, "DTSTART").TrimEnd('Z')).Value;
+        var end = Basic.Parse(Value(block, "DTEND").TrimEnd('Z')).Value;
+        return Period.Between(start, end, PeriodUnits.Minutes).Minutes;
+    }
+
+    /// <summary>The value of the first line of a VEVENT block that begins with a property name:
+    /// what follows its last colon.</summary>
+    /// <param name="block">A VEVENT block from <see cref="Events"/>.</param>
+    /// <param name="property">The property name the line begins with.</param>
+    /// <returns>The value as written.</returns>
+    private static string Value(string block, string property)
+    {
+        var line = block.Split('\n').Select(l => l.TrimEnd('\r')).First(l => l.StartsWith(property, StringComparison.Ordinal));
+        return line[(line.LastIndexOf(':') + 1)..];
     }
 }

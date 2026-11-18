@@ -75,7 +75,7 @@ Most features work from both Discord and the web app; roles, restrictions and li
 | `/series skip name` · `/series stop name` · `/series info name` | Skip a repeating event's next occurrence · stop it repeating · see its schedule |
 | `/series edit name [repeat repeat-every repeat-days ends until count]` | Change a series' rule, day set, or end condition — editing an ended series revives it |
 | `/remind when about` | One-off reminder in the current channel |
-| `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) |
+| `/notify event minutes-before [message mention channel]` | Add a scheduled ping before an event starts (max 5) — creator or server manager only |
 | `/poll create question options [single-vote anonymous allow-options closes restrict-to]` | Create a poll (`options` comma-separated, `closes` natural language) |
 | `/poll time question slots [anonymous allow-options closes restrict-to]` | Time poll — `slots` are natural-language datetimes, voters pick every time they can make |
 | `/poll close name` / `/poll convert name [title duration]` | Close a poll · turn a closed time poll's winner into an event |
@@ -201,4 +201,4 @@ channel where the production bot is live to try. Confirmed bugs still graduate t
 
 ## Contributing, releases & security
 
-All changes flow through PRs on GitHub Flow branches with conventional-commit titles; `master` is protected by a ruleset (required review, Copilot review, required checks, squash-only). Releases are cut automatically by release-please and published to GHCR; the hand-written summaries of what changed for users live in [docs/release-notes](docs/release-notes). See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process and [SECURITY.md](SECURITY.md) for how to report vulnerabilities. The hosted instance's [Terms of Service](TERMS_OF_SERVICE.md) and [Privacy Policy](PRIVACY_POLICY.md) live here too. CalCrony is [MIT-licensed](LICENSE).
+All changes flow through PRs on GitHub Flow branches with conventional-commit titles; `master` is protected by a ruleset (required review, Copilot review, required checks, squash-only). Releases are cut automatically by release-please and published to GHCR; the hand-written summaries of what changed for users live in [docs/release-notes](docs/release-notes). See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process, [SECURITY.md](SECURITY.md) for how to report vulnerabilities, and the [Code of Conduct](CODE_OF_CONDUCT.md) that applies here and in the Discord server. The hosted instance's [Terms of Service](TERMS_OF_SERVICE.md) and [Privacy Policy](PRIVACY_POLICY.md) live here too. CalCrony is [MIT-licensed](LICENSE).

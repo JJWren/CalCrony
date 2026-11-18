@@ -130,8 +130,10 @@ public static partial class PublicCalendarEndpoints
     }
 
     /// <summary>Serves one month of the public calendar: the guild's non-cancelled events plus
-    /// projected future occurrences of its running series, in the guild's zone. Unknown, malformed,
-    /// and switched-off slugs all 404 identically; names come from bot snapshots only (ADR 0001).</summary>
+    /// projected future occurrences of its running series, in the guild's zone. The projections
+    /// start after each series' live occurrence has ended, so that occurrence is read too, in
+    /// whatever month it lies. Unknown, malformed, and switched-off slugs all 404 identically;
+    /// names come from bot snapshots only (ADR 0001).</summary>
     /// <param name="context">The current HTTP request context.</param>
     /// <param name="slug">The calendar slug from the URL.</param>
     /// <param name="year">The month's year (defaults to the current month in the guild's zone).</param>
@@ -182,6 +184,20 @@ public static partial class PublicCalendarEndpoints
         var series = await db.EventSeries
             .Where(s => s.GuildId == guild.Id && !s.Ended)
             .ToListAsync(cancellationToken);
+
+        // Each running series' live occurrence, in whatever month it lies: the series posts
+        // nothing more before that one has ended. At most one row per series, found through the
+        // index that keeps it to one (IX_Events_SeriesId_Live), and three columns of it.
+        var seriesIds = series.Select(s => s.Id).ToList();
+        List<LiveOccurrence> liveOccurrences = seriesIds.Count == 0
+            ? []
+            : await db.Events
+                .Where(e => e.GuildId == guild.Id
+                            && e.SeriesId != null
+                            && seriesIds.Contains(e.SeriesId.Value)
+                            && (e.Status == EventStatus.Scheduled || e.Status == EventStatus.Started))
+                .Select(e => new LiveOccurrence(e.SeriesId!.Value, e.StartsAt, e.DurationMinutes))
+                .ToListAsync(cancellationToken);
         var channelIds = events.Select(e => e.ChannelId).Concat(series.Select(s => s.ChannelId)).Distinct().ToList();
         var channelNames = await db.Channels
             .Where(c => channelIds.Contains(c.Id))
@@ -192,7 +208,8 @@ public static partial class PublicCalendarEndpoints
         // not keep answering from an HTTP cache.
         context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
         context.Response.Headers.CacheControl = "no-store";
-        return Results.Ok(PublicCalendarBuilder.Build(guild.Name, zone, y, m, events, series, channelNames, now));
+        return Results.Ok(PublicCalendarBuilder.Build(
+            guild.Name, zone, y, m, events, series, channelNames, now, liveOccurrences));
     }
 
     private static PublicCalendarSettingsDto ToSettingsDto(string? slug, IConfiguration configuration)

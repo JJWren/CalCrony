@@ -17,8 +17,6 @@ namespace CalCrony.Api.Services;
 public sealed class DeliveryScheduler(
     CalCronyDbContext db, SeriesMaterializer materializer, ILogger<DeliveryScheduler> logger)
 {
-    private const int DefaultEventLengthMinutes = 60;
-
     /// <summary>Runs one sweep: matures notifications, transitions event statuses, materializes freed series slots, and auto-closes due polls.</summary>
     /// <param name="now">The current instant.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -38,6 +36,9 @@ public sealed class DeliveryScheduler(
         // Channel posts that may need opt-in DM mirrors — collected across the loops below and
         // fanned out in ONE batched pass, so a large sweep costs three extra queries, not 2-3 per item.
         var dmItems = new List<DmReminderFanOut.Item>();
+        // Series that end in this sweep because they have no next occurrence — named in the log
+        // once the sweep is saved.
+        var endedSeries = new List<EventSeries>();
 
         // Due event notifications (fire time recomputed from the event's current start).
         var pendingNotifications = await db.EventNotifications
@@ -63,7 +64,8 @@ public sealed class DeliveryScheduler(
                     pair.Event.Title,
                     pair.Event.StartsAt.ToUnixTimeSeconds(),
                     pair.Notification.Message,
-                    pair.Notification.Mentions),
+                    pair.Notification.Mentions,
+                    pair.Event.GuildId),
                 fireAt,
                 now));
             enqueued++;
@@ -102,8 +104,7 @@ public sealed class DeliveryScheduler(
             .ToListAsync(cancellationToken);
         foreach (var ev in endedCutoffCandidates)
         {
-            var length = Duration.FromMinutes(ev.DurationMinutes ?? DefaultEventLengthMinutes);
-            if (ev.StartsAt.Plus(length) <= now)
+            if (EventTimes.End(ev.StartsAt, ev.DurationMinutes) <= now)
             {
                 ev.Status = EventStatus.Ended;
                 if (ev.NativeEventId is long nativeId)
@@ -129,10 +130,12 @@ public sealed class DeliveryScheduler(
 
         // Rolling next occurrence: any running series without a live (Scheduled/Started)
         // occurrence gets its next event materialized — self-healing regardless of how the slot
-        // freed (ended above, skipped, cancelled via PATCH, or a crashed earlier attempt).
+        // freed (ended above, skipped, cancelled via PATCH, or a crashed earlier attempt). Read in
+        // id order, so every sweep takes the series in the same order.
         var activeSeries = await db.EventSeries
             .Include(s => s.NotificationSpecs)
             .Where(s => !s.Ended)
+            .OrderBy(s => s.Id)
             .ToListAsync(cancellationToken);
         if (activeSeries.Count > 0)
         {
@@ -149,11 +152,34 @@ public sealed class DeliveryScheduler(
                 .ToHashSet();
             foreach (var series in activeSeries.Where(s => !liveSeriesIds.Contains(s.Id)))
             {
-                if (materializer.MaterializeNext(series, now) is not null)
+                Event? next;
+                try
                 {
-                    enqueued++;
-                    liveListGuilds.Add(series.GuildId);
+                    next = materializer.MaterializeNext(series, now);
                 }
+                catch (Exception ex)
+                {
+                    // Each series is advanced on its own. MaterializeNext works its occurrence
+                    // out and builds it before it adds anything to the context, so a series that
+                    // fails there is left exactly as it was: logged, passed over, and tried
+                    // again on the next sweep.
+                    logger.LogError(
+                        ex,
+                        "Could not advance series {SeriesId} in guild {GuildId}; leaving it as it is.",
+                        series.Id,
+                        series.GuildId);
+                    continue;
+                }
+
+                if (next is null)
+                {
+                    // No next occurrence, so MaterializeNext has ended the series.
+                    endedSeries.Add(series);
+                    continue;
+                }
+
+                enqueued++;
+                liveListGuilds.Add(series.GuildId);
             }
         }
 
@@ -225,8 +251,21 @@ public sealed class DeliveryScheduler(
             enqueued += await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
         }
 
-        await db.SaveChangesAsync(cancellationToken);
+        // The save lets go of what can no longer be saved. A next occurrence it let go of took
+        // the post queued for it along.
+        enqueued -= await new SweepSave(db, logger, endedSeries).RunAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        // Said only now that it is saved, so a series that stops repeating can be traced to the
+        // sweep that ended it.
+        foreach (var series in endedSeries)
+        {
+            logger.LogInformation(
+                "Series {SeriesId} in guild {GuildId} has no next occurrence and has ended.",
+                series.Id,
+                series.GuildId);
+        }
+
         if (enqueued > 0)
         {
             logger.LogInformation("Scheduler sweep enqueued {Count} deliveries.", enqueued);

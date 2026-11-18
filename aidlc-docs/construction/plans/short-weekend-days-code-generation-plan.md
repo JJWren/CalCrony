@@ -229,15 +229,26 @@ this machine waits for its own go-ahead.
       the two, when pull request #179 merged at 16:51:53Z, so it was taken in straight after:
       the audit entries in the order of their stamps, and both new sections of the state file
       kept.)*
-- [ ] 7.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
-      `:main`.
-- [ ] 7.3 *Go-ahead:* release 0.37.1 — the release PR that release-please opens — with a short
+- [x] 7.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
+      `:main`. *(2026-11-17: the checks were green on the last head, `9facd68`, and no review had
+      started. Merged on the go-ahead "Merge now" at 16:36:36Z as `b582c2b`. The test stack took
+      `:main` at 16:43Z, the three app containers only, and answers `0.0.0-main.b582c2b`. The two
+      live items in the live script were not run; on Joshua's "Continue" at 17:53Z the stage was
+      closed without them, and they stay open there.)*
+- [x] 7.3 *Go-ahead:* release 0.37.1 — the release PR that release-please opens — with a short
       summary and a two-line how-to for the notes, shown to Joshua first. *(Since pull request
       #179 the summary is a file in the pull request that makes the change:
       `docs/release-notes/0.37.1.md` was added to #180 with the merge of `master`, and its text
-      is put to Joshua before the merge.)*
-- [ ] 7.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
-      No migration.
+      is put to Joshua before the merge. On 2026-11-17 release-please opened #185 straight after
+      the merge; #182 and #184 merged the same day and joined it, so the release was one step
+      for all three. Released that day on Joshua's go-ahead, given in the session behind #184:
+      #185 merged at 23:27:30Z as `eb6afb8`, `v0.37.1` was published at 23:27:43Z, and the
+      release run passed, its summary and announcement jobs included.)*
+- [x] 7.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
+      No migration. *(2026-11-17, on Joshua's go-ahead in the same session: a backup of the
+      database first, at 23:35:47Z; `CALCRONY_IMAGE_TAG` 0.37.1; the API started at 23:36:20Z
+      and the bot and web at 23:36:37Z; the database container not touched. `/health` answers
+      0.37.1, and the API on prod holds the new helper.)*
 
 ## 8. Notes from generation
 
@@ -427,3 +438,19 @@ and is listed for Joshua to take up or leave:
   `tuesday, next week`.
 - `easter sat` reads as Easter Sunday today — "easter" is read and the rest dropped. Under this
   change it reads as the Saturday before.
+
+**What became of these four (added 2026-11-17).** They were taken up as a change of their own,
+measured again on the parser and put to Joshua, who decided each
+(`date-text-gaps-code-generation-plan.md`). From the release that carries that change:
+
+- `by friday`, `until saturday` and `before saturday 6pm` are read by the date-and-time reader as
+  the date and time they name. The day reader keeps its refusal, because a deadline does not
+  name a first day. `every saturday 8pm` is still refused by both readers, now in words that say
+  the text repeats, and the date-and-time reader's refusal points to the repeat option.
+- A weekday typed on its own day is next week's once its time is behind: `wed` on a Wednesday at
+  10:00 is the Wednesday after, from the date-and-time reader. The day reader gave today and
+  still does.
+- A day and a time written apart read as the same two written together: `fri (6pm)`, `fri. 6pm`
+  and `friday from 6pm` are Friday at 6 PM. `tuesday, next week` still gives the earlier of the
+  two days named.
+- `easter sat` is right as it reads, the Saturday before Easter Sunday, and is left.

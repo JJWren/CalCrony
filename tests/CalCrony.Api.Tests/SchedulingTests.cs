@@ -5,6 +5,7 @@ using CalCrony.Api.Services;
 using CalCrony.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NodaTime;
 
 namespace CalCrony.Api.Tests;
@@ -30,14 +31,14 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await SweepAsync();
 
         var pending = await GetPendingAsync();
-        var delivery = Assert.Single(pending, d => d.Type == DeliveryType.EventNotification && d.ChannelId == ChannelId);
+        var delivery = Assert.Single(pending, d => IsPingFor(d, ev));
         var payload = System.Text.Json.JsonSerializer.Deserialize<EventNotificationPayload>(delivery.PayloadJson)!;
         Assert.Equal("Notify Flow", payload.Title);
         Assert.Equal("Get ready!", payload.Message);
 
         // A second sweep must not duplicate the notification.
         await SweepAsync();
-        Assert.Single(await GetPendingAsync(), d => d.Type == DeliveryType.EventNotification && d.ChannelId == ChannelId);
+        Assert.Single(await GetPendingAsync(), d => IsPingFor(d, ev));
 
         var ack = await Client.PostAsync($"/deliveries/{delivery.Id}/ack", null);
         Assert.Equal(HttpStatusCode.NoContent, ack.StatusCode);
@@ -169,6 +170,142 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task A_series_that_cannot_be_advanced_is_logged_and_passed_over()
+    {
+        // Two series whose occurrences have ended, so each is due its next one, and an ordinary
+        // event due to start in the same sweep. A sweep takes the series in id order, and the one
+        // that comes first is the one made to fail, so the other is reached after it.
+        var one = await CreateSeriesEventAsync("Series one", new RecurrenceRuleDto(RecurrenceUnit.Day));
+        var two = await CreateSeriesEventAsync("Series two", new RecurrenceRuleDto(RecurrenceUnit.Day));
+        var (stuck, fine) =
+            string.CompareOrdinal(one.SeriesId!.Value.ToString(), two.SeriesId!.Value.ToString()) < 0 ? (one, two) : (two, one);
+        var due = await CreateEventAsync("Due in the same sweep", "in 2 hours");
+        await PastDateAsync(stuck.Id, minutesAgo: 120, alsoEnd: true);
+        await PastDateAsync(fine.Id, minutesAgo: 120, alsoEnd: true);
+        await PastDateAsync(due.Id, minutesAgo: 5);
+
+        // The first series gets a rule that nothing can step through: an interval of zero, which
+        // the API never stores. Working out its next occurrence then fails.
+        await SetSeriesIntervalAsync(stuck.SeriesId!.Value, 0);
+        try
+        {
+            var log = await SweepWithLogAsync();
+
+            // The other series has its next occurrence, and the event that was due has started.
+            var next = Assert.Single(await LiveSeriesEventsAsync(fine.SeriesId!.Value));
+            Assert.NotEqual(fine.Id, next.Id);
+            var started = await Client.GetFromJsonAsync<EventDto>($"/events/{due.Id}");
+            Assert.Equal(EventStatus.Started, started!.Status);
+
+            // The series that failed is left exactly as it was — still running, nothing spawned,
+            // nothing counted — to be tried again on the next sweep.
+            Assert.Empty(await LiveSeriesEventsAsync(stuck.SeriesId.Value));
+            await using var scope = fixture.Factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            var row = await db.EventSeries.SingleAsync(s => s.Id == stuck.SeriesId);
+            Assert.False(row.Ended);
+            Assert.Equal(1, row.OccurrenceCount);
+
+            // And it is in the log once, as an error that names the series and its server and
+            // carries what went wrong.
+            var entry = Assert.Single(log, e => e.Level == LogLevel.Error);
+            Assert.Contains(stuck.SeriesId.Value.ToString(), entry.Message);
+            Assert.Contains($"guild {GuildId}", entry.Message);
+            Assert.IsType<DivideByZeroException>(entry.Exception);
+        }
+        finally
+        {
+            // Back to a rule that can be stepped, whatever the assertions above made of it.
+            await SetSeriesIntervalAsync(stuck.SeriesId.Value, 1);
+        }
+
+        // With its rule readable again, the next sweep advances it like any other.
+        await SweepAsync();
+        Assert.Single(await LiveSeriesEventsAsync(stuck.SeriesId.Value));
+    }
+
+    [Fact]
+    public async Task A_series_that_ends_in_a_sweep_is_named_in_the_log()
+    {
+        // Weekly with an until-date tomorrow: once its occurrence has ended there is no next one.
+        var ev = await CreateSeriesEventAsync(
+            "Ends in the log", new RecurrenceRuleDto(RecurrenceUnit.Week), repeatUntil: "tomorrow");
+        await PastDateAsync(ev.Id, minutesAgo: 120, alsoEnd: true);
+
+        var log = await SweepWithLogAsync();
+
+        var entry = Assert.Single(log, e => e.Message.Contains(ev.SeriesId!.Value.ToString()));
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Contains($"guild {GuildId}", entry.Message);
+        Assert.Contains("has ended", entry.Message);
+
+        // Said once: the series is no longer among those the next sweep looks at.
+        Assert.DoesNotContain(await SweepWithLogAsync(), e => e.Message.Contains(ev.SeriesId!.Value.ToString()));
+    }
+
+    [Fact]
+    public async Task A_sweep_that_cannot_be_saved_names_the_rows_in_the_log()
+    {
+        var ev = await CreateEventAsync("Held title", "in 2 hours");
+        await PastDateAsync(ev.Id, minutesAgo: 5);
+
+        // For this test the database refuses a start announcement, so the sweep that starts the
+        // event cannot be saved.
+        const string Refusal = "refuses_start_announcements";
+        await ExecuteSqlAsync($"""ALTER TABLE "Deliveries" ADD CONSTRAINT "{Refusal}" CHECK ("Type" <> 2) NOT VALID""");
+        var log = new CollectingLogger();
+        try
+        {
+            await using var scope = fixture.Factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            var scheduler = new DeliveryScheduler(db, new SeriesMaterializer(db), log);
+            await Assert.ThrowsAsync<DbUpdateException>(
+                () => scheduler.SweepAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None));
+        }
+        finally
+        {
+            await ExecuteSqlAsync($"""ALTER TABLE "Deliveries" DROP CONSTRAINT "{Refusal}" """);
+        }
+
+        // One error line: the row by entity, key and state, and nothing of what the row holds.
+        var entry = Assert.Single(log.Entries, e => e.Level == LogLevel.Error);
+        Assert.StartsWith("The sweep could not be saved.", entry.Message);
+        Assert.Matches(@"Delivery [0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12} \(Added\)", entry.Message);
+        Assert.DoesNotContain("Held title", entry.Message);
+
+        // The failure itself, which quotes what the database refused, is not attached to the
+        // line: it goes on to the caller.
+        Assert.Null(entry.Exception);
+
+        // Nothing of that sweep was saved, and the next one starts the event.
+        Assert.Equal(EventStatus.Scheduled, (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!.Status);
+        await SweepAsync();
+        Assert.Equal(EventStatus.Started, (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!.Status);
+    }
+
+    [Fact]
+    public async Task A_started_event_ends_once_its_own_length_has_passed()
+    {
+        var created = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events",
+            new CreateEventRequest(CreatorId, "Ninety minutes", "in 2 hours", ChannelId, DurationMinutes: 90));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var ev = (await created.Content.ReadFromJsonAsync<EventDto>())!;
+        await PastDateAsync(ev.Id, minutesAgo: 5);
+        await SweepAsync();
+        var started = await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}");
+        Assert.Equal(EventStatus.Started, started!.Status);
+        var start = Instant.FromDateTimeOffset(started.StartsAtUtc);
+
+        // An hour after its start, the length of an event that has none set, it is still running.
+        await SweepAsync(start.Plus(Duration.FromMinutes(60)));
+        Assert.Equal(EventStatus.Started, (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!.Status);
+
+        // Ninety minutes after its start it has ended.
+        await SweepAsync(start.Plus(Duration.FromMinutes(90)));
+        Assert.Equal(EventStatus.Ended, (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!.Status);
+    }
+
+    [Fact]
     public async Task Partial_unique_index_rejects_a_second_live_occurrence()
     {
         var ev = await CreateSeriesEventAsync("Guarded slot", new RecurrenceRuleDto(RecurrenceUnit.Week));
@@ -214,6 +351,14 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             .SetProperty(e => e.Status, alsoEnd ? EventStatus.Ended : EventStatus.Scheduled));
     }
 
+    private async Task SetSeriesIntervalAsync(Guid seriesId, int interval)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        await db.EventSeries.Where(s => s.Id == seriesId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Interval, interval));
+    }
+
     private async Task<List<Event>> LiveSeriesEventsAsync(Guid seriesId)
     {
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
@@ -229,6 +374,47 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<DeliveryScheduler>();
         await scheduler.SweepAsync(now ?? SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
+    }
+
+    /// <summary>Runs one sweep with a scheduler built by hand around a logger that keeps what it
+    /// is given, and returns those entries.</summary>
+    private async Task<List<LogEntry>> SweepWithLogAsync()
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        var log = new CollectingLogger();
+        var scheduler = new DeliveryScheduler(db, new SeriesMaterializer(db), log);
+        await scheduler.SweepAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
+        return log.Entries;
+    }
+
+    /// <summary>Whether a delivery is the notification ping of this event, in the class's channel.</summary>
+    private static bool IsPingFor(DeliveryDto delivery, EventDto ev) =>
+        delivery.Type == DeliveryType.EventNotification
+        && delivery.ChannelId == ChannelId
+        && delivery.PayloadJson.Contains(ev.Id.ToString());
+
+    private async Task ExecuteSqlAsync(string sql)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        await db.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    private sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);
+
+    private sealed class CollectingLogger : ILogger<DeliveryScheduler>
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
     }
 
     private async Task<List<DeliveryDto>> GetPendingAsync() =>

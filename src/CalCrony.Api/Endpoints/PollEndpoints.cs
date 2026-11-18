@@ -602,10 +602,21 @@ public static class PollEndpoints
             return Results.Conflict(new ErrorResponse("The winning time has already passed."));
         }
 
+        // And the parser's limit on how far ahead a time may lie, judged in the poll's zone: the
+        // slot was read when the poll was made, and becomes an event's start without being read again.
+        if (!NaturalDateTimeParser.IsWithinAheadLimit(slot, Mapping.FindZone(poll.TimeZone) ?? DateTimeZone.Utc, now))
+        {
+            return Results.Conflict(new ErrorResponse(NaturalDateTimeParser.TooFarAheadError("The winning time")));
+        }
+
         var title = (request.Title ?? poll.Question).Trim();
         if (title.Length > FieldLimits.EventTitle)
         {
-            title = title[..FieldLimits.EventTitle];
+            // The cut keeps whole characters, as the API's other cuts do.
+            var cut = char.IsHighSurrogate(title[FieldLimits.EventTitle - 1])
+                ? FieldLimits.EventTitle - 1
+                : FieldLimits.EventTitle;
+            title = title[..cut];
         }
 
         if (Validation.BadDuration(request.DurationMinutes) is { } invalid)
