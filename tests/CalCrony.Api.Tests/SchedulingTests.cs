@@ -31,14 +31,14 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await SweepAsync();
 
         var pending = await GetPendingAsync();
-        var delivery = Assert.Single(pending, d => d.Type == DeliveryType.EventNotification && d.ChannelId == ChannelId);
+        var delivery = Assert.Single(pending, d => IsPingFor(d, ev));
         var payload = System.Text.Json.JsonSerializer.Deserialize<EventNotificationPayload>(delivery.PayloadJson)!;
         Assert.Equal("Notify Flow", payload.Title);
         Assert.Equal("Get ready!", payload.Message);
 
         // A second sweep must not duplicate the notification.
         await SweepAsync();
-        Assert.Single(await GetPendingAsync(), d => d.Type == DeliveryType.EventNotification && d.ChannelId == ChannelId);
+        Assert.Single(await GetPendingAsync(), d => IsPingFor(d, ev));
 
         var ack = await Client.PostAsync($"/deliveries/{delivery.Id}/ack", null);
         Assert.Equal(HttpStatusCode.NoContent, ack.StatusCode);
@@ -244,6 +244,46 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task A_sweep_that_cannot_be_saved_names_the_rows_in_the_log()
+    {
+        var ev = await CreateEventAsync("Held title", "in 2 hours");
+        await PastDateAsync(ev.Id, minutesAgo: 5);
+
+        // For this test the database refuses a start announcement, so the sweep that starts the
+        // event cannot be saved.
+        const string Refusal = "refuses_start_announcements";
+        await ExecuteSqlAsync($"""ALTER TABLE "Deliveries" ADD CONSTRAINT "{Refusal}" CHECK ("Type" <> 2) NOT VALID""");
+        var log = new CollectingLogger();
+        try
+        {
+            await using var scope = fixture.Factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            var scheduler = new DeliveryScheduler(db, new SeriesMaterializer(db), log);
+            await Assert.ThrowsAsync<DbUpdateException>(
+                () => scheduler.SweepAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None));
+        }
+        finally
+        {
+            await ExecuteSqlAsync($"""ALTER TABLE "Deliveries" DROP CONSTRAINT "{Refusal}" """);
+        }
+
+        // One error line: the row by entity, key and state, and nothing of what the row holds.
+        var entry = Assert.Single(log.Entries, e => e.Level == LogLevel.Error);
+        Assert.StartsWith("The sweep could not be saved.", entry.Message);
+        Assert.Matches(@"Delivery [0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12} \(Added\)", entry.Message);
+        Assert.DoesNotContain("Held title", entry.Message);
+
+        // The failure itself, which quotes what the database refused, is not attached to the
+        // line: it goes on to the caller.
+        Assert.Null(entry.Exception);
+
+        // Nothing of that sweep was saved, and the next one starts the event.
+        Assert.Equal(EventStatus.Scheduled, (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!.Status);
+        await SweepAsync();
+        Assert.Equal(EventStatus.Started, (await Client.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!.Status);
+    }
+
+    [Fact]
     public async Task A_started_event_ends_once_its_own_length_has_passed()
     {
         var created = await Client.PostAsJsonAsync($"/guilds/{GuildId}/events",
@@ -346,6 +386,19 @@ public class SchedulingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var scheduler = new DeliveryScheduler(db, new SeriesMaterializer(db), log);
         await scheduler.SweepAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
         return log.Entries;
+    }
+
+    /// <summary>Whether a delivery is the notification ping of this event, in the class's channel.</summary>
+    private static bool IsPingFor(DeliveryDto delivery, EventDto ev) =>
+        delivery.Type == DeliveryType.EventNotification
+        && delivery.ChannelId == ChannelId
+        && delivery.PayloadJson.Contains(ev.Id.ToString());
+
+    private async Task ExecuteSqlAsync(string sql)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        await db.Database.ExecuteSqlRawAsync(sql);
     }
 
     private sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);

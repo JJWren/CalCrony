@@ -6,6 +6,10 @@ namespace CalCrony.Api.Data;
 /// <param name="options">The context options.</param>
 public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : DbContext(options)
 {
+    /// <summary>The name of the partial unique index that keeps one live (Scheduled or Started)
+    /// occurrence to a series.</summary>
+    public const string LiveOccurrenceIndex = "IX_Events_SeriesId_Live";
+
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<Guild> Guilds => Set<Guild>();
     public DbSet<Channel> Channels => Set<Channel>();
@@ -104,7 +108,7 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
             e.HasIndex(ev => ev.SeriesId, "IX_Events_SeriesId");
             // The rolling-occurrence invariant and the concurrent-spawn guard: at most one live
             // (Scheduled=0 / Started=1) occurrence per series. NULL SeriesId rows are exempt.
-            e.HasIndex(ev => ev.SeriesId, "IX_Events_SeriesId_Live")
+            e.HasIndex(ev => ev.SeriesId, LiveOccurrenceIndex)
                 .IsUnique()
                 .HasFilter("\"Status\" IN (0, 1)");
         });
@@ -205,7 +209,9 @@ public class CalCronyDbContext(DbContextOptions<CalCronyDbContext> options) : Db
 
         modelBuilder.Entity<Delivery>(e =>
         {
-            e.Property(d => d.PayloadJson).HasMaxLength(8192);
+            // No length limit of its own: a payload is bounded by the limits of the fields
+            // written into it (FieldLimits).
+            e.Property(d => d.PayloadJson).HasColumnType("text");
             e.HasIndex(d => d.RecipientUserId);
             e.HasIndex(d => new { d.Status, d.DueAt });
         });

@@ -49,7 +49,9 @@ public static class NotificationEndpoints
         return Results.Ok(notifications.Select(ToDto));
     }
 
-    /// <summary>Adds a notification; on a live series occurrence a Scope is required and Series also writes the template spec.</summary>
+    /// <summary>Adds a notification; on a live series occurrence a Scope is required and Series
+    /// also writes the template spec. Its channel and mentions are taken from the bot only: one
+    /// added from the web goes to the event's channel and carries no mentions.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="id">The event id.</param>
@@ -107,6 +109,13 @@ public static class NotificationEndpoints
                 "This event repeats — specify whether to change this occurrence or the whole series."));
         }
 
+        // Web callers pick neither a channel nor mentions, as they pick no channel for an event
+        // or a poll: both are set from Discord. A notification added from the web goes to the
+        // event's channel and carries no mentions.
+        var isBot = context.User.IsBot();
+        var channelId = isBot ? request.ChannelId : null;
+        var mentions = isBot ? request.Mentions : null;
+
         SeriesNotification? spec = null;
         if (series is not null && request.Scope == EditScope.Series)
         {
@@ -121,8 +130,8 @@ public static class NotificationEndpoints
                 SeriesId = series.Id,
                 MinutesBefore = request.MinutesBefore,
                 Message = request.Message,
-                Mentions = request.Mentions,
-                ChannelId = request.ChannelId,
+                Mentions = mentions,
+                ChannelId = channelId,
             };
             db.SeriesNotifications.Add(spec);
         }
@@ -133,8 +142,8 @@ public static class NotificationEndpoints
             EventId = ev.Id,
             MinutesBefore = request.MinutesBefore,
             Message = request.Message,
-            Mentions = request.Mentions,
-            ChannelId = request.ChannelId,
+            Mentions = mentions,
+            ChannelId = channelId,
             SeriesNotificationId = spec?.Id,
         };
         db.EventNotifications.Add(notification);

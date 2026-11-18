@@ -157,6 +157,7 @@ public class RsvpV1ApiTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var ping = Assert.Single(await PromotionsAsync(ev.Id));
         Assert.Equal(522, ping.UserId);
         Assert.Equal("Promotion on drop", ping.Title);
+        Assert.Equal(GuildId, ping.GuildId); // the ping says which server it is for
     }
 
     [Fact]

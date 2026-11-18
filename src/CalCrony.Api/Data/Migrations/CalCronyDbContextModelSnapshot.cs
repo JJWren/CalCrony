@@ -215,8 +215,7 @@ namespace CalCrony.Api.Data.Migrations
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("character varying(8192)");
+                        .HasColumnType("text");
 
                     b.Property<long?>("RecipientUserId")
                         .HasColumnType("bigint");
