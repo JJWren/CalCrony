@@ -2835,6 +2835,13 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the pull request's conflict with `master`.
 
 ---
+## Request bodies and snapshot lists — plan approved; Q1–Q4 answered A
+**Timestamp**: 2026-11-18T19:20:13Z
+**User Input**: "Approve, all A"
+**AI Response**: The plan is approved, with its four questions answered A: a JSON request body in a character set the API cannot read is refused with a 415 and `The request body is in a character set that can't be read — send it as UTF-8.` (Q1); the five refusals that quote back a value quote at most 64 characters of it, then `…` (Q2); a request body of more than 1 MB from any caller but the bot is refused with a 413 (Q3); and the change is built now, on `master` (Q4). `master` has moved since the plan was written, to `5fc9239`: pull requests #191 and #194 (records), #198, the other change that adds a line after `UseAuthorization()` in `Program.cs`, #193 (a code of conduct) and #195 (records). By Q4 this change takes #198 in, so the plan's local commit is moved onto `master` before anything is built. Next: the baseline on that `master`, then the tests, written first and run against the unchanged code.
+**Context**: Construction — code generation, part 1 approved; part 2 begins.
+
+---
 ## Construction — date text gaps: the merge of `master` pushed
 **Timestamp**: 2026-11-18T19:20:23Z
 **User Input**: (none — no input from Joshua in this session since 18:31:57Z)
@@ -2931,5 +2938,47 @@ Availability for @GM
 **User Input**: (none — Auto-fix reported that #201 conflicts with `master`)
 **AI Response**: Every check on `0506b26` had passed, but #196 merged into `master` at 19:55:09Z as `1fce915` before the merge was made, so #201 conflicted again. Nothing is merged. `1fce915` was taken in as `b6c3bd7`. Only the audit log conflicted, and both sides' entries are kept in the order of their stamps. The merge waits for the checks on the new head, as the go-ahead of 19:20:28Z says.
 **Context**: Delivery — records pull request kept up to date with `master`. Next: the merge, once the new head's checks pass.
+
+---
+## Request bodies and snapshot lists — built: the tests first, then the change
+**Timestamp**: 2026-11-18T20:07:45Z
+**User Input**: (none)
+**AI Response**: `master` moved again at 19:21:33Z, to `3e35071` (pull request #189), so the plan's commit was put back on top of it: the plan unchanged, its two entries in this file placed by their stamps among `master`'s, and its state section after `master`'s last. The baseline on `3e35071`, from 19:23Z to 19:29Z: 0 errors and 22 warnings; 2,102 tests passed and none failed (1,182 API, 418 bot, 153 web, 349 release notes), and 17 of the release-notes project skipped by their own conditions on this machine. The tests first: 56 new cases in four classes, run against the unchanged code at 19:36Z, where all 32 refusal tests failed and all 24 tests that pin what is accepted today passed. Then the change, committed locally: one check after authorization, right after the `UseStorableText` of pull request #198, for a route that reads a JSON body: a body of more than 1 MB from any caller but the bot is refused with a 413, and a body in a character set that can't be read with a 415, each with its sentence; the bot's routes for channels, roles and servers refuse a list with an entry missing, before anything is changed; its availability check reads a missing `userIds` as an empty list; and `Validation.Quotable` gives the five refusals at most 64 characters of the value to quote. On the result, from 19:44Z to 19:48Z: the build without incremental state with 0 errors and the same 22 warnings, and 2,158 tests passed and none failed (1,238 API: `master`'s 1,182 and the 56 added), with the same 17 skipped. Twenty-three changes that each take one rule out, made one at a time in a scratch copy, each failed tests written for it. Found while building, and written into rule 1 of 2.4 as an amendment to put to Joshua at the completion gate: the server measures a body that does not state its length as it is sent, the framing of its chunks included, so such a body is answered 413 a few bytes before 1 MB of content; a body that states its length is measured exactly. One test was changed for it, and the run on the unchanged code was repeated with the same result. Two review agents are reading the local commits. Nothing is pushed.
+**Context**: Construction — code generation, part 2: the tests, the change and the verification of the plan's steps 1 to 3.3.
+
+---
+## Request bodies and snapshot lists — the first reviews answered; the commits rebuilt on `1fce915`
+**Timestamp**: 2026-11-18T20:18:53Z
+**User Input**: (none)
+**AI Response**: Two review agents read the local commits up to `cc40686`, each in a checkout of its own: one for correctness, one for security and the public text. Both built it, ran the new tests and sent requests to the server itself, and the check of the character set was compared with the framework's own reading over 74 forms of the header, with the same answer for each. Answered: a body that states a length of more than 1 MB is refused with the 413 only when the route would read it as JSON, and one without a content type, or with one that isn't JSON, is answered 415 by the framework whatever its size, as before (rule 1 of 2.4 now says "a JSON body", and a new test pins the rest; taking the condition out fails it); the check takes any failure of the lookup of a character set to mean one it can't read, as the framework does; two code comments say what the server does; and the records lose a clause each in rule 3 of 2.1 and in this change's first entry here. Left as they are, with the reasons in section 7 of the plan: the 415's sentence, the server reading and discarding the rest of a body after the 413 for a stated length, the 30 seconds the raw test waits, and a 400 where a roles sync for a server the bot has left got a 409. `master` had moved to `1fce915` meanwhile (pull requests #202, #199 and #196, none of which touches this change's code), and nothing had been pushed, so the three commits are rebuilt there: the plan with those two wording changes, the code with the answers, and the records in their places by timestamp. Next: the build and the suite on that tree, and both agents' read of the rebuilt commits.
+**Context**: Construction — code generation, step 3.4: the first reviews answered.
+
+---
+## Request bodies and snapshot lists — the second reads answered
+**Timestamp**: 2026-11-18T20:27:53Z
+**User Input**: (none)
+**AI Response**: Both agents read the rebuilt commits up to `06b565d`. The security read confirmed every answer: neither removed clause is anywhere in the rebuilt history, the public text of the three commits is within the rules, and the condition on a JSON body opens nothing, since the route reads exactly the bodies it names. The correctness read confirmed the answers but one: a body that states no length and isn't JSON still had the server's limit lowered, so a web caller's such body of more than 1 MB could have its connection closed before the framework's 415 reached it, where today it gets the 415. The whole size rule now applies only to a body the route would read as JSON, and a new test on the server itself pins the rest (with the rule as it stood, it fails, and with the condition taken out altogether, it and the matching test in memory fail). The fix commit is amended with it; nothing had been pushed. Two smaller points are recorded in section 7 of the plan as left as they are. Next: the build and the suite on the amended commits, and both agents' read of the amendment.
+**Context**: Construction — code generation, step 3.4: the second reads answered.
+
+---
+## Request bodies and snapshot lists — the final reads; completion gate asked
+**Timestamp**: 2026-11-18T20:33:16Z
+**User Input**: (none)
+**AI Response**: Both agents read the amended fix commit and the records and confirmed them; nothing is open. On the security read's suggestion the fix commit's message now says "a JSON body of more than 1 MB", as rule 1 of 2.4 does; its tree is unchanged. The branch holds three local commits on `master` `1fce915` — the plan, the fix and these records — and nothing is pushed. Put to Joshua with the code, as the plan says: the amendment to rule 1 of 2.4 (a body that does not state its length is measured as it is sent, the framing of its chunks included, and the size rule is for a JSON body); rule 3 of 2.1, one clause shorter than when it was approved; and the 400 that a roles sync with an entry missing, for a server the bot has left, now gets where it got a 409. Asked: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage", with B recommended. By step 6.1 of the plan, B is the go-ahead to take `master` in if it has moved, run the suite and the reviewers' read again, push the branch and open the pull request; the merge, the release and the rollout each wait for their own go-ahead.
+**Context**: Construction — code generation, completion gate. Waiting for Joshua's answer.
+
+---
+## Request bodies and snapshot lists — completion gate answered: continue
+**Timestamp**: 2026-11-18T20:48:27Z
+**User Input**: "B"
+**AI Response**: Joshua chose B, continue to the next stage, with the code as it stands and the three points put to him with it: the amendment to rule 1 of 2.4, rule 3 of 2.1 one clause shorter, and the 400 for a roles sync with an entry missing, for a server the bot has left. By step 6.1 of the plan that is the go-ahead to take `master` in if it has moved, run the suite and the reviewers' read again, push the branch and open the pull request. `master` is still at `1fce915`, the commits' base, so there is nothing to take in, and the suite's result on the fix commit's tree stands. Next: both agents' read of the records as they now stand, then the push of `fix/request-bodies-and-snapshot-lists` and its pull request, `fix: refuse unreadable or oversized request bodies and snapshot lists with an entry missing`. The merge, the release and the rollout each wait for their own go-ahead.
+**Context**: Construction — code generation complete; Build and test, step 6.1 of the plan.
+
+---
+## Request bodies and snapshot lists — `master` taken in before the push
+**Timestamp**: 2026-11-18T20:52:16Z
+**User Input**: (none)
+**AI Response**: `master` moved to `c97c15e` at 20:50:58Z, after the completion gate was answered: pull request #201, records only. Nothing had been pushed, so by step 6.1 the three commits are put back on top of it, the plan, the fix and the records, with the audit entries in their places by timestamp and the state section after `master`'s last. Nothing outside `aidlc-docs` differs from the tree the suite ran on, so its result stands: 2,487 tests passed, with 17 skipped. Next: both agents' read of the result, then the push and the pull request.
+**Context**: Build and test — step 6.1 of the plan: `master` taken in.
 
 ---
