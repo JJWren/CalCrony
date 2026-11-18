@@ -3031,3 +3031,10 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; the order of the 0.37.2 release and this change's merge is to be put to Joshua with the merge.
 
 ---
+## Code Generation — round 9 on the joined projection; its comments and records made exact
+**Timestamp**: 2026-11-18T20:33:57Z
+**User Input**: (none — continuation of the Auto-fix report)
+**AI Response**: Round 9, two new review agents on `05476a2` and `7a55431`: security and privacy found nothing above two nits; code quality found the merge's code exact, with two minor findings and seven nits, all on comments and records. The design document's row said that `Upcoming` takes the one `LiveOccurrence`, which it does not (both agents); the plan did not read D17 and 4.4 again against the public calendar's change; and the entry of 20:11:31Z counts the design rows among what `05476a2` did, where they changed in `7a55431` — that entry stays as written and is corrected by this one. The nits asked for a comment on the nullable values in `EventBusyTimes`, exact wording for the public calendar's entry point, two sentences in the plan in the right tense, the summary limit in step 5.4, and `5935891` named for two answers. All are answered in `5e5af40`, comments and records only; D17 stands, and joining the two projections into one stepping loop, with one way to work out an end, stays the follow-up D17 names. No code line changed, so the results of `05476a2` stand, and a full rebuild has no error and 22 warnings. The two commits go to both agents for a short read before the push.
+**Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; the order of the 0.37.2 release and this change's merge is to be put to Joshua with the merge.
+
+---

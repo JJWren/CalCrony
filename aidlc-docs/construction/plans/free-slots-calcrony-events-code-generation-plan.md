@@ -857,6 +857,20 @@ live occurrence has ended and leaves out the dates that occurrence passes, as fr
 the follow-up D17 names. The public calendar's `EndOf` and `DefaultLengthMinutes` are kept as
 `master` has them; the ends free slots counts still come from `EventTimes.End`.
 
+Round 9, two new agents on `05476a2` and `7a55431`: security and privacy found nothing above two
+nits; code quality found the merge's code exact, with two minor findings and seven nits, all on
+comments and records. The design document's row said that `Upcoming` takes the one
+`LiveOccurrence`, which it does not (both agents); the plan did not read D17 and 4.4 again
+against the public calendar's change; the audit entry of 20:11:31Z counts the design rows among
+what `05476a2` did, where they changed in `7a55431`; and the nits asked for a comment on the
+nullable values in `EventBusyTimes`, exact wording for the public calendar's entry point, two
+sentences in the right tense, the summary limit in step 5.4, and `5935891` named for two answers.
+All are answered in `5e5af40`, comments and records only: the paragraph above reads D17 and 4.4
+again, and the entry of 20:11:31Z stays as written, corrected here and in the audit trail. No
+code line changed, so the results of `05476a2` stand; a full rebuild has no error and 22
+warnings. Joining the two projections into one stepping loop, with one way to work out an end,
+stays the follow-up D17 names.
+
 ## 10. Plan checklist
 
 - [x] Requirements, workflow plan, design document and the two earlier plans loaded
