@@ -61,7 +61,9 @@ public static class SeriesProjection
     /// already — and each one after that is the first slot that starts after the one before it
     /// ends. None falls after the until date, and with a count only as many as are left are
     /// given: the ones before the window use up the count as well. A series that cannot reach the
-    /// window (<see cref="CanReachWindow"/>) is passed over before its rule is stepped.</summary>
+    /// window (<see cref="CanReachWindow"/>) is passed over before its rule is stepped. A rule
+    /// that cannot be stepped, such as one with an interval of zero, throws; a free-slots lookup
+    /// leaves that series out (<see cref="EventBusyTimes"/>).</summary>
     /// <param name="schedule">The series' schedule. The series is running: one that was stopped
     /// has no later occurrences and is not asked about.</param>
     /// <param name="live">The series' live occurrence; null when it has none.</param>

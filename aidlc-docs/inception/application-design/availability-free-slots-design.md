@@ -351,7 +351,7 @@ where it sits in the design above.
 | `FreeSlotsResponse` | changed | One more defaulted field, `EventsCounted`. |
 | `FreeSlotsEmbedBuilder` | changed | The sentence on what the slots rest on names CalCrony events when the answer says they were counted. |
 | `RsvpPolicy.AttendingOf` | new method | The attending-option rule for rows that carry an option's flag and sort order only (D16); `AttendingOption` calls it. |
-| `EventTimes` | unchanged, now used here | The API's one place for an event's end and for the 60 minutes of an event with no length set; every end free slots counts comes from it. Until `master` brought it in, this change made `DeliveryScheduler.DefaultEventLengthMinutes` internal for the same purpose. |
+| `EventTimes` | unchanged, now used here | The API's one place for an event's end and for the 60 minutes of an event with no length set; the end of every event and later occurrence that free slots counts comes from it. Until `master` brought it in, this change made `DeliveryScheduler.DefaultEventLengthMinutes` internal for the same purpose. |
 | `FreeSlotCalculator`, `CalendarAvailabilityService`, the route, the command | unchanged | The calculation already takes busy intervals from any source (D4). |
 
 Section 4.4 holds as written: an event's interval is one more busy block of step 2. In 4.5, events
