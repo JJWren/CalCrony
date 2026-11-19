@@ -11,10 +11,10 @@ session of pull request #196, once that pull request had merged.
 **Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
 A ("Approve, Q1 A"); code generated and checked the same day; the change read twice by two review
 agents without a fault, and each record after it read again before the push, their findings
-answered; `master` taken in before the push, last at `f6152d7`, and once more after it, at
-`dab6a31` (section 7). Approved at the completion gate the same day ("B) Continue"); pushed on
+answered; `master` taken in before the push, last at `f6152d7`, and after it at `dab6a31` and
+`11afb47` (section 7). Approved at the completion gate the same day ("B) Continue"); pushed on
 2026-11-19 on Joshua's go-ahead ("Push and open"), as pull request #210; the merge has his
-go-ahead ("Merge when green").
+go-ahead ("Merge when green"), taken up again on his "Try again".
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -116,7 +116,8 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
   to Next Stage". Answered B on 2026-11-18 ("B) Continue").
 - [x] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
   entries placed among them by timestamp. Done at `f05e1d0`, `b1f5c58` and `f6152d7` (section 7),
-  the last just before the push, and after the push at `dab6a31`, before the merge.
+  the last just before the push, and after the push at `dab6a31` and `11afb47`, before the
+  merge.
 - [x] 5.4 The push and the pull request, on Joshua's go-ahead. Given on 2026-11-19 ("Push and
   open"); pushed the same day, after `master` was taken in at `f6152d7`, as pull request #210.
 - [ ] 5.5 The merge, on his go-ahead. The change then goes out with the next release, whose
@@ -261,4 +262,10 @@ On `315fac2` the Release build has no error and the same 22 warnings, and 2,677 
 none fails (1,674 API, 499 bot, 154 web and 350 for the release-notes tool, with the same
 seventeen skipped), the sixteen more being #209's. The squash commit's message is the pull
 request's title and text, with the checklist's line on the suite brought up to date to that
-count and `dab6a31`; the text on GitHub is left as it is.
+count and to the `master` merged in last; the text on GitHub is left as it is.
+
+Every check passed on `8507b5a`, the head pushed with that merge, but `master` moved again four
+minutes later, to `11afb47` (pull request #211, records only, merged at 03:40:15Z), and the pull
+request's records conflicted with it. On Joshua's "Try again" it is merged in as `5b83a53`, in
+the same way; git merged the state file by itself. Outside the records the tree is that of
+`315fac2`, so its result stands.

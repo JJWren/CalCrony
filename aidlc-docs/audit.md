@@ -3696,3 +3696,10 @@ Availability for @GM
 **Context**: Operations — the records of the merge, the release and the rollout.
 
 ---
+## Build and test — one place for an event's end: Joshua's "Try again", and `master` taken in at `11afb47`
+**Timestamp**: 2026-11-19T23:40:48Z
+**User Input**: "Try again"
+**AI Response**: Read as the word to take pull request #210 up again: resolve its conflict with `master` and merge it once its checks pass, under his go-ahead of 2026-11-19T03:30:06Z ("Merge when green"); the change's code is as it was then. Every check passed on the head pushed at 03:36:14Z, `8507b5a`: `pr-title`, `lint-workflows`, `build-test`, both CodeQL analyses, CodeQL and GitGuardian, with `publish-main` skipped. `master` had meanwhile moved to `11afb47` (pull request #211, records only, merged at 03:40:15Z), and the pull request's records conflicted with it, as Auto-fix reported. It is merged in as `5b83a53`: only the audit file conflicted, and it keeps master's text as it is, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself. Outside the records the tree is that of `315fac2`, so its result stands: 2,677 tests pass and none fails. Section 7 of the plan, its status and step 5.3, and the state file have it. Both agents read the merge and this commit before the push. The branch then goes up by its name, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head, its message the pull request's title and text with the checklist's line on the suite naming 2,677 tests and `11afb47`.
+**Context**: Build and test, in the repository's collapsed form — the merge, taken up again.
+
+---
