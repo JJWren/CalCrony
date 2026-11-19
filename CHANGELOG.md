@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/JJWren/CalCrony/compare/v0.37.2...v0.38.0) (2026-11-19)
+
+
+### Features
+
+* free slots count this server's CalCrony events ([#197](https://github.com/JJWren/CalCrony/issues/197)) ([f05e1d0](https://github.com/JJWren/CalCrony/commit/f05e1d03dcc6b193a2ea69620635faea45ee272e))
+
 ## [0.37.2](https://github.com/JJWren/CalCrony/compare/v0.37.1...v0.37.2) (2026-11-18)
 
 
