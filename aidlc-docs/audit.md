@@ -3325,6 +3325,13 @@ Availability for @GM
 **Context**: Delivery — records pull request kept up to date with `master`. Next: the merge, once the new head's checks pass.
 
 ---
+## Build and test — the moved occurrence: pull request #196 merged
+**Timestamp**: 2026-11-18T19:55:59Z
+**User Input**: (none — this entry records the merge that had Joshua's go-ahead at 19:21:00Z, "Merge when green")
+**AI Response**: The take-in of `6cb41c8` went up by its branch name at 19:51:40Z as `93a8ebd`, a fast-forward from `e7f51db`, after both review agents had read it; the quality agent's one finding, a sentence of the entry of 19:49:18Z that said more than happened, was answered with its own wording before the push. Every check on `93a8ebd` passed: `pr-title`, `lint-workflows`, `build-test` (2,446 tests passed and none failed or was skipped: 1,509 API, 418 bot, 153 web and 366 for the release-notes tool), both CodeQL analyses and the secret scan; `publish-main` is skipped on pull requests. `master` was still `6cb41c8` when read at 19:55:04Z, and the pull request was squash-merged through the REST call, pinned to `93a8ebd`, at 19:55:10Z as `1fce915`, with its title and text as the commit message and the text's "Release summary" section brought up to date (1,522 of the 1,800 characters). The tree of `1fce915` is the tree of `93a8ebd`. The release and the rollout are each asked separately.
+**Context**: Build and test, in the repository's collapsed form — the merge.
+
+---
 ## Delivery posts — `master` merged in again (pull request #196)
 **Timestamp**: 2026-11-18T20:00:52Z
 **User Input**: (none — no input from Joshua in this session since 2026-11-18T19:20:21Z)
@@ -3661,6 +3668,13 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — `master` taken in before the push.
 
 ---
+## Operations — the moved occurrence: released in 0.37.2 and live on prod
+**Timestamp**: 2026-11-19T01:27:26Z
+**User Input**: (none in this session — the release and the rollout that carried this fix were done on Joshua's go-ahead in the session that ran them, "Yes, release now" and "Yes, roll out now", recorded there at 23:08:09Z and 23:16:27Z)
+**AI Response**: Release 0.37.2 carries this fix: pull request #200 was merged at 23:08:45Z as `6e0d8b2`, `v0.37.2` was published at 23:08:57Z, `1fce915` is in it, and its release notes carry this fix's line under "What's new". The prod rollout of 0.37.2 restarted the API at 23:17:25Z and the bot and the web app at 23:17:43Z on the 0.37.2 images, and the API and the web app report healthy, so the fix has been live on prod since then. Nothing was done in this session for either step; this entry records both for this fix, as read from GitHub and from the prod stack on 2026-11-19 at 01:26Z. The state file's line for the release and the rollout is ticked, and the plan's status says so.
+**Context**: Operations — the release and the prod rollout.
+
+---
 ## Build and test — one place for an event's end: pushed, and pull request #210 opened
 **Timestamp**: 2026-11-19T01:29:46Z
 **User Input**: (none — no input from Joshua since "Push and open")
@@ -3673,5 +3687,12 @@ Availability for @GM
 **User Input**: "Merge when green"
 **AI Response**: Read as the go-ahead to squash-merge pull request #210 once its checks pass. Every check had passed on `2573c7f`: `pr-title`, `lint-workflows`, `build-test`, both CodeQL analyses (C# and JavaScript/TypeScript), CodeQL and GitGuardian; `publish-main` is skipped on pull requests. `master` had since moved to `dab6a31` (pull request #209, merged at 03:25:44Z, which adds tests and records), and the pull request's records conflicted with it. It is merged in as `315fac2`: only the audit file conflicted, and it keeps master's text as it is, master's own change to its entry of 23:53:37Z included, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself. Outside the records the merge is `master` with this change's two files. On `315fac2` the Release build has no error and the same 22 warnings, and 2,677 tests pass and none fails (1,674 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Section 7 of the plan, its status and step 5.3, and the state file have it. Both agents read the merge and this commit before the push. The branch then goes up by its name, with the record of the push and the pull request, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head. Its message is the pull request's title and text, with the checklist's line on the suite brought up to date (2,677 tests, with `master` at `dab6a31` merged in); the text on GitHub is left as it is.
 **Context**: Build and test, in the repository's collapsed form — the merge's go-ahead.
+
+---
+## Operations — the moved occurrence: go-ahead to open and merge the records pull request
+**Timestamp**: 2026-11-19T03:32:19Z
+**User Input**: "Open, merge green"
+**AI Response**: Joshua's answer to "Open #196's records pull request and merge it when green?" (recommended yes, "Open, merge green"). Both review agents had read the branch's two records commits, `091db68` and `99ff818`, and neither had a finding. Next: `master` is merged in, both agents read that merge, this entry and the pull request's text, the branch goes up by its name and the pull request is opened; when every check passes and `master` has not moved, it is squash-merged through the REST call, pinned to its head.
+**Context**: Operations — the records of the merge, the release and the rollout.
 
 ---
