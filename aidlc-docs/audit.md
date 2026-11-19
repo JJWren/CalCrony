@@ -3668,3 +3668,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the pull request and its checks.
 
 ---
+## Build and test — one place for an event's end: Joshua's go-ahead for the merge, and `master` taken in at `dab6a31`
+**Timestamp**: 2026-11-19T03:30:06Z
+**User Input**: "Merge when green"
+**AI Response**: Read as the go-ahead to squash-merge pull request #210 once its checks pass. Every check had passed on `2573c7f`: `pr-title`, `lint-workflows`, `build-test`, both CodeQL analyses (C# and JavaScript/TypeScript), CodeQL and GitGuardian; `publish-main` is skipped on pull requests. `master` had since moved to `dab6a31` (pull request #209, merged at 03:25:44Z, which adds tests and records), and the pull request's records conflicted with it. It is merged in as `315fac2`: only the audit file conflicted, and it keeps master's text as it is, master's own change to its entry of 23:53:37Z included, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself. Outside the records the merge is `master` with this change's two files. On `315fac2` the Release build has no error and the same 22 warnings, and 2,677 tests pass and none fails (1,674 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Section 7 of the plan, its status and step 5.3, and the state file have it. Both agents read the merge and this commit before the push. The branch then goes up by its name, with the record of the push and the pull request, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head. Its message is the pull request's title and text, with the checklist's line on the suite brought up to date (2,677 tests, with `master` at `dab6a31` merged in); the text on GitHub is left as it is.
+**Context**: Build and test, in the repository's collapsed form — the merge's go-ahead.
+
+---
