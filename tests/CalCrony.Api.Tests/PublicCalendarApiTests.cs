@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using CalCrony.Api.Data;
 using CalCrony.Api.Services;
 using CalCrony.Contracts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
@@ -247,10 +249,9 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
 
     // A series posts its next occurrence only once the posted one has ended, and then takes the
     // first of its dates that starts after that moment. The tests below compare what the calendar
-    // shows with what the series really posts when each occurrence runs its length. All but the
-    // last move the posted occurrence, or change its length, by an edit of that occurrence alone,
-    // and compare what the ICS feed lists as well; the last, a series whose own length reaches its
-    // next date, leaves the feed out and says why.
+    // shows with what the series really posts when each occurrence runs its length, and with what
+    // the ICS feed lists. All but the last move the posted occurrence, or change its length, by an
+    // edit of that occurrence alone; the last is a series whose own length reaches its next date.
 
     [Fact]
     public async Task A_posted_occurrence_moved_past_a_date_shows_what_the_feed_lists_and_the_series_goes_on_to_post()
@@ -450,18 +451,23 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         var slug = (await PutAsync(guildId, new PublicCalendarRequest(true))).Slug!;
         var monday = AMondayEvening();
         var live = await CreateAsync(guildId, new CreateEventRequest(
-            CreatorId, title, WhenText(monday), ChannelId, DurationMinutes: 36 * 60,
+            CreatorId, title, WhenText(monday), ChannelId,
             Recurrence: new RecurrenceRuleDto(RecurrenceUnit.Day), RepeatCount: 4));
         Assert.Equal(monday, live.StartsAtUtc);
 
+        // A day and a half long, set in the database: such a length is refused at creation now,
+        // and this is a series made before that.
+        await MakeLongAsync(live, 36 * 60);
+
         using var anonymous = fixture.Factory.CreateClient();
+        var feed = await FeedStartsAsync(anonymous, guildId, title, monday);
         var shown = await ShownAsync(anonymous, slug, title, monday);
         var posted = await PostedByRunningAsync(live.SeriesId!.Value);
 
         // Every occurrence ends at 06:00 two days after it starts, so the series posts every
-        // second date: Monday, Wednesday, Friday, Sunday. (The feed's repeat rule has no way to
-        // say this, so the feed is not compared here.)
+        // second date: Monday, Wednesday, Friday, Sunday.
         DateTimeOffset[] expected = [.. new[] { 0, 2, 4, 6 }.Select(days => monday.AddDays(days))];
+        Assert.Equal(expected, feed);
         Assert.Equal(expected[1..], posted);
         Assert.Equal(expected, shown.Select(e => e.StartsAtUtc));
     }
@@ -595,6 +601,18 @@ public class PublicCalendarApiTests(WebAuthFixture fixture) : IClassFixture<WebA
         await using var scope = fixture.Factory.Services.CreateAsyncScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<DeliveryScheduler>();
         await scheduler.SweepAsync(now, CancellationToken.None);
+    }
+
+    /// <summary>Gives a series and its live occurrence a length in the database, as a series made
+    /// before a length that reaches its next date was refused at creation.</summary>
+    private async Task MakeLongAsync(EventDto live, int minutes)
+    {
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+        await db.EventSeries.Where(s => s.Id == live.SeriesId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.DurationMinutes, minutes));
+        await db.Events.Where(e => e.Id == live.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.DurationMinutes, minutes));
     }
 
     /// <summary>Changes one occurrence through the edit route.</summary>

@@ -133,6 +133,26 @@ public class DocsPageTests : TestContext
     }
 
     [Fact]
+    public void Docs_page_says_an_occurrence_has_to_end_before_the_next_date_and_how_the_feed_lists_one_that_cannot()
+    {
+        var cut = Render<Docs>();
+
+        var recurring = Flat(Entry(cut, "Recurring events").TextContent);
+        Assert.Contains("so an occurrence has to end before the next date begins", recurring);
+        Assert.Contains(
+            "a length that reaches the gap between two of the dates it repeats on (a day, for a daily event) is refused, "
+            + "with the longest the schedule allows.",
+            recurring);
+
+        var feed = Flat(Entry(cut, "ICS subscribe feed").TextContent);
+        Assert.Contains(
+            "Within the year ahead, a date an event will not post, because the occurrence before it is still running "
+            + "then, is left out, and an event as long as the gap between its dates (made before that was refused) is "
+            + "listed date by date.",
+            feed);
+    }
+
+    [Fact]
     public void Docs_page_explains_available_hours_in_an_entry_of_its_own()
     {
         var cut = Render<Docs>();

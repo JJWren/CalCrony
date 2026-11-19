@@ -206,11 +206,13 @@
         Friday") or years; weekly schedules can tick a set of days (Tue + Thu, or the Weekdays
         preset) and still repeat every N weeks. The schedule is anchored on the first occurrence
         with timezone-aware math, so 8pm stays 8pm across DST. When one occurrence ends or is
-        skipped, the next posts itself; end by date or count, or never. Edits and reminders ask
-        "this occurrence or the whole series?"; <code>/series edit</code> changes the rule or end
-        condition afterwards, and editing an ended series revives it. On the web: pick the schedule
-        on the event form (repeat controls with live previews), and skip, stop, or change the rule
-        from the event page.
+        skipped, the next posts itself, so an occurrence has to end before the next date begins:
+        a length that reaches the gap between two of the dates it repeats on (a day, for a daily
+        event) is refused, with the longest the schedule allows. End by date or count, or never.
+        Edits and reminders ask "this occurrence or the whole series?"; <code>/series edit</code>
+        changes the rule or end condition afterwards, and editing an ended series revives it. On
+        the web: pick the schedule on the event form (repeat controls with live previews), and
+        skip, stop, or change the rule from the event page.
     </li>
     <li class="mb-2">
         <b>Live list</b> — <code>/livelist create</code> posts an upcoming-events embed the bot
@@ -247,9 +249,13 @@
         <b>ICS subscribe feed</b> — <code>/link</code> (or the server settings page) gives a
         tokenized URL for Google, Apple, and Outlook calendars; the calendar is named after the
         server ("CalCrony · Your Server"). Repeating events carry their full schedule (RRULE), so
-        subscribers see every future occurrence. Each entry's description names its channel and
-        links to the event's web page and to the RSVP embed in Discord — except recurring series,
-        which link to the server's events page instead, since their live occurrence rotates.
+        subscribers see every future occurrence. Within the year ahead, a date an event will not
+        post, because the occurrence before it is still running then, is left out, and an event as
+        long as the gap between its dates (made before that was refused) is listed date by date.
+        Each entry's
+        description names its channel and links to the event's web page and to the RSVP embed in
+        Discord — except recurring series, which link to the server's events page instead, since
+        their live occurrence rotates.
         Calendar apps refresh on their own schedule (see Good to know below).
     </li>
     <li class="mb-2">
