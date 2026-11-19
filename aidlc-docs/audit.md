@@ -3430,6 +3430,13 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): pushed under Auto-fix; this pull request's merge waits for the 0.37.2 release and rollout, then for Joshua's go-ahead.
 
 ---
+## Delivery posts — squash merge
+**Timestamp**: 2026-11-18T22:37:46Z
+**User Input**: "Yes, merge #190"
+**AI Response**: His answer to "Merge #190 once its checks are green?", asked in this session after the push of 20:53:23Z, with yes as the recommendation. Every check on #190 was green at `a84a97f`, the head both agents read, and `master` was still `c97c15e`. Three parts of the pull request's text, which becomes the squash commit's message, were out of date and are brought up to date first: it no longer stands on the date limit's branch, which is merged; the test count is 2,533, on the branch with `master` merged in; and its release summary is the one line the file now has, with no step. Squash-merged through the REST call, at that head, at 22:38:40Z as `aeff22d`; its tree is `a84a97f`'s. GitHub deleted the branch. Both fixes are on `master` now, so the release waits only for its own go-ahead; by the plan's step 6.3 the look on the test stack comes first, each on Joshua's go-ahead.
+**Context**: Construction — delivery posts: squash merge, on Joshua's go-ahead.
+
+---
 ## Operations — the `protect-master` ruleset to gain "Restrict updates": Joshua's choice
 **Timestamp**: 2026-11-18T22:37:47Z
 **User Input**: "Restrict updates"
@@ -3449,6 +3456,13 @@ Availability for @GM
 **User Input**: (none — question put to Joshua)
 **AI Response**: `CONTRIBUTING.md` now says that the ruleset's "Restrict updates" rule lets only those who may bypass it update `master`, so every merge is made by an admin, and its note on code owners says the same of a pull request someone else opens. The code owners plan (status and step 5.1) and its state line record the read of #189's merge box and the rule added the same day; step 5.1 stays open for the release pull request. Committed on the local branch `docs/log-records-pr-191-merge`, with the audit entries since #191's merge; not pushed. Asked of Joshua, with a recommendation: push the branch and open its pull request, `docs: log the code owners follow-up and say that only admins can update master` — A) push, open it, and squash-merge it once its checks are green (recommended; its merge is also the first under the new rule, so the ruleset's record of it shows the rule at work); B) push and open it only, the merge asked separately.
 **Context**: Operations — the records of the follow-up wait for Joshua's go-ahead.
+
+---
+## Delivery posts — the look on the test stack: go-ahead
+**Timestamp**: 2026-11-18T22:44:31Z
+**User Input**: "Yes, look now"
+**AI Response**: His answer to "Run the test-stack look at whom delivery posts notify before the release?", asked after the squash merge, with yes as the recommendation. Once `master`'s CI had published `:main` from `5b30e5b`, the test stack's app services were pulled and restarted on it at 22:46:37Z, the database container left as it was; its `/health` reported `0.0.0-main.5b30e5b`, and the migration `WidenDeliveryPayload` applied at the API's start. He was asked to make three posts in the test server: an event a few minutes ahead, a scheduled ping for it with himself in the mention option, and a reminder.
+**Context**: Construction — delivery posts: the look of the plan's step 6.3, on Joshua's go-ahead.
 
 ---
 ## Operations — the records branch after #191: go-ahead to push it, open its pull request and merge it
@@ -3528,6 +3542,13 @@ Availability for @GM
 **Context**: Operations — the code owners unit is complete; its last records go out on Joshua's go-ahead.
 
 ---
+## Delivery posts — the look on the test stack: result
+**Timestamp**: 2026-11-18T23:02:08Z
+**User Input**: "Done" (2026-11-18T22:56:39Z, when the three were made)
+**AI Response**: Read from Discord's own record of each post in the test server's channel: the scheduled ping (22:58:17Z) and the reminder (22:58:34Z) each mentioned him alone, and the start announcement (23:01:04Z) mentioned nobody; none mentioned a role or everyone. The text he typed into the title, the message and the reminder held no mention, so the rule that such a mention is shown as text was not seen on Discord's side; the tests hold it. The plan's step 6.3 and the state file have it. The release and the rollout each wait for his go-ahead.
+**Context**: Construction — delivery posts: the look of the plan's step 6.3 done.
+
+---
 ## Workflow planning and code generation plan — one place for an event's end: Joshua's approval
 **Timestamp**: 2026-11-18T23:02:35Z
 **User Input**: "Approve, Q1 A"
@@ -3556,6 +3577,20 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; this pull request's merge waits for the 0.37.2 release and rollout.
 
 ---
+## Date limit and delivery posts — release 0.37.2
+**Timestamp**: 2026-11-18T23:08:09Z
+**User Input**: "Yes, release now"
+**AI Response**: His answer to "Release 0.37.2 now?", asked after the look on the test stack, with yes as the recommendation and with the note that the announcement goes out at release time, before prod is rolled. Release pull request #200 was green at its head `441e8f9` and listed six fixes (#189, #190, #196, #198, #199 and #204); `master` had moved on by records and two lines of `CONTRIBUTING.md` (#205, #206), and the release pull request merged onto it without a conflict. Merged through the REST call, with release-please's own text as the message: release pull request #200 merged at 23:08:45Z as `6e0d8b2`, the tag and the GitHub release at 23:08:57Z with the release summary on top of its notes, the three images by 23:13:02Z and the announcement at 23:13:06Z; every job that ran passed. The release summary is the file of 1,744 characters. Prod still runs 0.37.1; the rollout waits for his go-ahead.
+**Context**: Operations — release 0.37.2, on Joshua's go-ahead.
+
+---
+## Date limit and delivery posts — prod rollout of 0.37.2
+**Timestamp**: 2026-11-18T23:16:27Z
+**User Input**: "Yes, roll out now"
+**AI Response**: His answer to "Roll out 0.37.2 to prod now?", asked after the release, with yes as the recommendation. Prod ran 0.37.1 with no delivery pending, so no row queued before the upgrade was waiting. The database was backed up first. The tag was pinned to 0.37.2 and a dry run showed that only the API, the bot and the web would be recreated; they were pulled and restarted on it, the database container left as it was. The API started at 23:17:25Z and applied the migration `WidenDeliveryPayload`, which makes the payload column `text`; `/health` and `/health/ready` report 0.37.2; the bot connected and was ready; the logs since the start show only the known start-up notices, and no error. Both changes are live on prod.
+**Context**: Operations — prod rollout of 0.37.2, on Joshua's go-ahead.
+
+---
 ## Code generation — one place for an event's end: the review, and `master` taken in at `f05e1d0`
 **Timestamp**: 2026-11-18T23:29:42Z
 **User Input**: (none — no input from Joshua since "Approve, Q1 A")
@@ -3582,6 +3617,13 @@ Availability for @GM
 **User Input**: "B) Continue"
 **AI Response**: Read as the answer to the gate alone: code generation is complete, and the next stage, build and test in the repository's collapsed form, runs the pull request's checks, which need the push. The push and the pull request are asked next, as their own go-ahead. Both review agents read `95b1c81`, the commit before this one, which holds records only: the security agent found nothing, and the quality agent found that the entry of 23:42:23Z says the change had been read three times, when it was read twice and the records after it twice more, and that it names no commit for the third read, which was of `500c188`, the record of the second read, amended into `95b1c81` before anything was pushed. Section 7 of the plan, its status and step 5.2, and the state file have it. Committed locally; both agents read this commit before the push. `master` is still `f05e1d0`; release pull request #207 (0.38.0) is open, and if it merges first, `master` is taken in again before the push. Asked: "Push `refactor/event-end-one-place` and open its pull request, `refactor: work out an event's end in one place`?" (recommended: yes, once both agents have read this commit).
 **Context**: Code generation (part 2) — completion gate answered; next, the push and the pull request, on Joshua's go-ahead.
+
+---
+## Records — the date limit and delivery posts: go-ahead to push and open their pull request
+**Timestamp**: 2026-11-18T23:53:37Z
+**User Input**: "Yes, open it"
+**AI Response**: His answer to "Push the records branch and open its pull request?", asked after the rollout, with yes as the recommendation. The branch holds the records of #190's squash merge, the look on the test stack, release 0.37.2 and its rollout. `master` (`f05e1d0`) is merged in first: only `aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted, and they are `master`'s files with this branch's entries put in by their timestamps and its two lines as it has them. Both agents read the branch before it is pushed; it is then pushed and opened as a pull request into `master`, records only, so that it causes no release. From the two agents' read, taken: the date limit's step 6.3 says that the test stack has since run `:main`; and the entry of the release gives #200's merge time as GitHub has it, says that #205 also changed two lines of `CONTRIBUTING.md`, and that every job that ran passed. Its merge waits for his go-ahead.
+**Context**: Operations — the records of the date limit and delivery posts: push and pull request, on Joshua's go-ahead.
 
 ---
 ## Build and test — one place for an event's end: Joshua's go-ahead for the push and the pull request
