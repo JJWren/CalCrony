@@ -29,14 +29,16 @@ public class IntentRestartTests
     }
 
     [Fact]
-    public void The_line_is_logged_at_the_level_given()
+    public async Task The_line_is_logged_at_the_level_given()
     {
         var logger = new ListLogger<IntentRestart>();
-        var restart = new IntentRestart(new FakeLifetime(), logger) { MarkFailed = () => { } };
+        var lifetime = new FakeLifetime();
+        var restart = new IntentRestart(lifetime, logger) { MarkFailed = () => { } };
 
         restart.Schedule("back", TimeSpan.FromMinutes(1), LogLevel.Warning);
 
         Assert.Equal([(LogLevel.Warning, "back")], logger.Lines);
+        await lifetime.Stopping.CancelAsync(); // ends the delay with the test
     }
 
     [Fact]

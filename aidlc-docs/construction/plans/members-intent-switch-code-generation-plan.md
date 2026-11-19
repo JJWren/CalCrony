@@ -229,7 +229,7 @@ Each has a recommendation. Answer with a letter after `[Answer]:`.
 - [x] 5.2 Mutation checks: each rule of sections 3.1–3.4 taken out in turn fails a test.
 - [x] 5.3 The bot started locally against the test application with `off`, and with `auto`, to see
   the log line and that it connects (no server data touched). Done in part, differently: see 8.3.
-- [ ] 5.4 Both review agents, one on security and one on correctness and quality, read the local
+- [x] 5.4 Both review agents, one on security and one on correctness and quality, read the local
   commits; findings answered and recorded in section 8, and read again until neither has one.
 - [ ] 5.5 Completion gate.
 
@@ -418,3 +418,14 @@ closed; one minor point and three nits, answered:
 
 The suite after: 2,661 tests green (Bot 553, three runs in a row) with the same 17 skipped, and
 the build's warnings unchanged.
+
+### 8.8 Review, round 4 (on `581abe5`), and `master`
+
+The quality agent confirmed every round-3 point closed; its two nits, an audit entry for
+`581abe5` and a test that left a one-minute timer running past its end, are answered in the
+records commit that follows. The security agent had nothing left after round 3.
+
+`master` moved to `f05e1d0` (#197, free slots counting the server's own events) during the review.
+The code merges with it cleanly; `aidlc-docs/audit.md`, `aidlc-docs/aidlc-state.md` and
+`docs/release-notes/0.38.0.md`, to which #197 also adds a line, are to be merged by hand when
+`master` is taken in, after the completion gate.
