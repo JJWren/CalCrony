@@ -3566,7 +3566,28 @@ Availability for @GM
 ## Records — the date limit and delivery posts: go-ahead to push and open their pull request
 **Timestamp**: 2026-11-18T23:53:37Z
 **User Input**: "Yes, open it"
-**AI Response**: His answer to "Push the records branch and open its pull request?", asked after the rollout, with yes as the recommendation. The branch holds the records of #190's squash merge, the look on the test stack, release 0.37.2 and its rollout. `master` (`f05e1d0`) is merged in first: only `aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted, and they are `master`'s files with this branch's entries put in by their timestamps and its two lines as it has them. Both agents read the branch before it is pushed; it is then pushed and opened as a pull request into `master`, records only, so that it causes no release. From the two agents' read, taken: the date limit's step 6.3 says that the test stack has since run `:main`; and the entry of the release gives #200's merge time as GitHub has it, says that #205 also changed two lines of `CONTRIBUTING.md`, and that every job that ran passed. Its merge waits for his go-ahead.
+**AI Response**: His answer to "Push the records branch and open its pull request?", asked after the rollout, with yes as the recommendation. The branch holds the records of #190's squash merge, the look on the test stack, release 0.37.2 and its rollout. `master` (`f05e1d0`) is merged in first: only `aidlc-docs/audit.md` and `aidlc-docs/aidlc-state.md` conflicted, and they are `master`'s files with this branch's entries put in by their timestamps and its two lines as it has them. Both agents read the branch before it is pushed; it is then pushed and opened as a pull request into `master`, records only, so that it causes no release. From the quality agent's read, taken: the date limit's step 6.3 says that the test stack has since run `:main`, and the entry of the release gives #200's merge time as GitHub has it and says that #205 also changed two lines of `CONTRIBUTING.md`; and, found in the same pass, that entry says that every job that ran passed. Its merge waits for his go-ahead.
 **Context**: Operations — the records of the date limit and delivery posts: push and pull request, on Joshua's go-ahead.
+
+---
+## Records — the date limit and delivery posts: pushed, pull request #208
+**Timestamp**: 2026-11-18T23:58:43Z
+**User Input**: (none — this follows the entry of 23:53:37Z)
+**AI Response**: Both agents read the branch at `885a454`, with three points from the quality agent's read and one more taken in it, and found nothing that holds up the push. `master` was still `f05e1d0`. The branch `docs/log-delivery-posts-merge` was pushed at 23:58:31Z and opened as pull request #208 into `master` (`docs: log the date limit and delivery posts through their rollout`). The desktop app's Auto-fix is on for it. Its merge waits for Joshua's go-ahead.
+**Context**: Operations — the records of the date limit and delivery posts: pull request opened.
+
+---
+## Records — the date limit and delivery posts: pull request #208 merged
+**Timestamp**: 2026-11-19T00:23:35Z
+**User Input**: "Yes, merge #208"
+**AI Response**: His answer to "Merge #208 once its checks are green?", asked after it was opened, with yes as the recommendation. Every check on #208 was green at `885a454`, the head both agents read, and `master` was still `f05e1d0`. Squash-merged through the REST call, at that head, at 00:23:55Z as `b1f5c58`; its tree is `885a454`'s. GitHub deleted the branch. With this, the date limit and delivery posts are merged, released in 0.37.2, live on prod and recorded.
+**Context**: Operations — the records of the date limit and delivery posts: merged, on Joshua's go-ahead.
+
+---
+## Delivery posts — the scheduler's save tests added
+**Timestamp**: 2026-11-19T01:15:42Z
+**User Input**: "Yes, held tests"
+**AI Response**: His answer to the question whether to add the sixteen tests of the scheduler's save now, asked after #208's merge, with yes as the recommendation. They are added as `tests/CalCrony.Api.Tests/SweepSaveTests.cs`: rows deleted or changed while a sweep runs are let go of and the rest is saved, a series is given no second live occurrence, and a failure that persists is handed on to the caller. On `master` (`b1f5c58`) all sixteen pass, with no new warning, and the whole suite is green on the commit: 2,673 tests (1,670 API, 499 bot, 154 web, 350 for the release-notes tool), 17 of the tool's skipped. Both agents read it before it is pushed; from their read, taken: the wording of this entry and of the commit's message, and the entries of 23:53:37Z and 23:58:43Z say exactly whose points were taken. The push and the pull request wait for his go-ahead.
+**Context**: Construction — delivery posts: the scheduler's save tests, on Joshua's go-ahead.
 
 ---
