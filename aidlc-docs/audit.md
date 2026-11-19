@@ -2800,3 +2800,10 @@ Availability for @GM
 **Context**: Operations — the release and the prod rollout.
 
 ---
+## Operations — the moved occurrence: go-ahead to open and merge the records pull request
+**Timestamp**: 2026-11-19T03:32:19Z
+**User Input**: "Open, merge green"
+**AI Response**: Joshua's answer to "Open #196's records pull request and merge it when green?" (recommended yes, "Open, merge green"). Both review agents had read the branch's two records commits, `091db68` and `99ff818`, and neither had a finding. Next: `master` is merged in, both agents read that merge, this entry and the pull request's text, the branch goes up by its name and the pull request is opened; when every check passes and `master` has not moved, it is squash-merged through the REST call, pinned to its head.
+**Context**: Operations — the records of the merge, the release and the rollout.
+
+---
