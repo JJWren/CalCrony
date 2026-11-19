@@ -224,10 +224,15 @@
 <ul class="text-body-secondary" style="max-width:66ch">
     <li class="mb-2">
         <b>Scheduled pings and reminders</b> — <code>/notify</code>, or <b>Scheduled notifications</b>
-        on an event page here, adds up to five pings before an event starts (with an optional
-        message and mention), and every event announces its start; <code>/remind</code>, or the
+        on an event page here, adds up to five pings before an event starts, each with an optional
+        message (the event's creator or a server manager, on both sides), and every event
+        announces its start; <code>/remind</code>, or the
         <b>Remind me</b> form on a server's events page, is a one-off reminder in a channel. All of
-        it goes through a crash-safe outbox, so a restart never loses a ping.
+        it goes through a crash-safe outbox, so a restart never loses a ping. A ping's mention and
+        its channel are set in Discord: <code>/notify</code> takes one role or member to mention
+        and, if you want, another channel to post in, and a ping added here goes to the event's
+        channel without a mention. Only that one mention notifies anyone — a mention typed into a
+        title, a message or a reminder is shown as text.
     </li>
     <li class="mb-2">
         <b>DM reminders</b> (<b>opt-in</b> per user, off by default) — <code>/settings dm-reminders
@@ -269,12 +274,18 @@
         default), <code>days</code> how many (7 by default) and <code>duration</code> the shortest
         slot worth listing (60 minutes by default). A slot is time inside each member's available
         hours (8 AM to 11 PM until they save their own), read in that member's own timezone (the
-        server's, if they haven't set one), with nothing on a linked calendar. It is listed under
-        the day it starts on, and a day with none of its own that begins inside one says until
-        when it's free. Members with neither saved hours nor a linked calendar aren't counted, and
-        the reply lists them under <b>Not counted</b> (a long list ends in a count); it also says
-        when a member was counted on saved hours alone. Read-only: it never blocks creating or
-        RSVPing.
+        server's, if they haven't set one), with nothing on a linked calendar and none of their
+        CalCrony events in this server. An event counts for the member who created it and for
+        members holding a seat on its attending option (Going by default): a waitlisted RSVP or
+        one on another option doesn't count, and whoever created the event stays busy even if
+        they RSVP elsewhere. A repeating event's later dates count for the member who created
+        it. Only <code>slots</code> counts CalCrony events: <code>/availability role</code>,
+        <code>/availability event</code> and the grid show linked calendars alone. A slot is
+        listed under the day it starts on, and a day with none of its own that begins inside one
+        says until when it's free. Members with neither saved hours nor a linked calendar aren't
+        counted, whatever events they have, and the reply lists them under <b>Not counted</b> (a
+        long list ends in a count); it also says when a member was counted on saved hours alone.
+        Read-only: it never blocks creating or RSVPing.
     </li>
     <li class="mb-2">
         <b>Available hours</b> (per member; only you can set yours) —
@@ -287,8 +298,9 @@
         back to the default. With saved hours you are counted in free-slot lists even without a
         linked calendar, marked as hours only.
         Saving hours also lets members of the servers you share with CalCrony list your free slots
-        by name, which shows roughly the hours you keep and, if your calendar is linked, when
-        you're busy inside them; <code>reset</code> takes that back.
+        by name, which shows roughly the hours you keep and when you're busy inside them: with
+        your CalCrony events in that server and, if your calendar is linked, with what's on your
+        calendar; <code>reset</code> takes that back.
     </li>
 </ul>
 
@@ -364,7 +376,7 @@
             <tr><td><code>/create</code></td><td>Create an event — <code>when</code> is natural language; options: <code>description</code>, <code>duration</code>, <code>channel</code>, <code>location</code>, <code>image</code>, <code>repeat</code>, <code>repeat-every</code>, <code>repeat-days</code>, <code>repeat-until</code>, <code>repeat-count</code>, <code>template</code>, <code>attendee-role</code>, <code>thread</code>, <code>rsvp-options</code>, <code>attendee-limit</code>, <code>rsvp-close</code>, <code>restrict-to</code>, <code>multi-rsvp</code> (each explained under <a href="/docs#features">Features in depth</a>)</td></tr>
             <tr><td><code>/list</code> · <code>/edit</code> · <code>/delete</code></td><td>Browse and manage events (creator or server manager); repeating events ask for a <code>scope</code>; <code>/edit</code> fields: <code>title</code>, <code>when</code>, <code>description</code>, <code>duration</code>, <code>location</code>, <code>image</code>, <code>scope</code>, <code>attendee-role</code> / <code>clear-attendee-role</code>, <code>rsvp-options</code>, <code>attendee-limit</code> / <code>clear-attendee-limit</code>, <code>rsvp-close</code> / <code>clear-rsvp-close</code>, <code>restrict-to</code> / <code>clear-restriction</code>, <code>multi-rsvp</code></td></tr>
             <tr><td><code>/series skip</code> · <code>/series stop</code> · <code>/series info</code> · <code>/series edit</code></td><td>Skip the next occurrence · stop repeating · see the schedule · change the rule (editing an ended series revives it)</td></tr>
-            <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts</td></tr>
+            <tr><td><code>/remind</code> · <code>/notify</code></td><td>One-off reminders · scheduled pings before an event starts (creator or server manager)</td></tr>
             <tr><td><code>/availability role|event|slots</code></td><td>Free/busy grid for a role or an event's Going list · free slots for a member or role over 1–14 days</td></tr>
             <tr><td><code>/calendar connect</code></td><td>Link your Google Calendar (free/busy scope only)</td></tr>
             <tr><td><code>/link</code></td><td>Your server's calendar-subscribe URL</td></tr>

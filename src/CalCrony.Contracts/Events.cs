@@ -374,7 +374,8 @@ public record RsvpRequest(Guid OptionId, IReadOnlyList<long>? CheckedRoleIds = n
 /// <summary>A guild's timezone, the default channel web-created embeds post to, and whether
 /// events mirror into Discord's native scheduled events.</summary>
 /// <param name="TimeZone">The IANA timezone id.</param>
-/// <param name="DefaultChannelId">The channel web-created embeds post to, when set.</param>
+/// <param name="DefaultChannelId">The channel web-created embeds post to, when set. Set from
+/// Discord; a save from a web caller leaves it as it is.</param>
 /// <param name="MirrorNativeEvents">When true, new events mirror into the server's Events tab
 /// (requires the bot to hold Manage Events).</param>
 public record GuildSettingsDto(string TimeZone, long? DefaultChannelId, bool MirrorNativeEvents = false);

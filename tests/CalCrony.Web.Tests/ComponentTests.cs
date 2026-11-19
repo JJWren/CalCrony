@@ -119,8 +119,17 @@ public class ComponentTests : TestContext
         Assert.Contains("your available hours if you save them", policy);
         Assert.Contains(
             "saving them lets members of the servers you share with CalCrony list your free slots by name, " +
-            "which shows roughly the hours you keep and, if your calendar is linked, when you are busy inside them, " +
-            "and resetting them takes that back",
+            "which shows roughly the hours you keep and when you are busy inside them — " +
+            "with the CalCrony events of that server that you created or hold a seat in on their attending option and, " +
+            "if your calendar is linked, with what is on your calendar — and resetting them takes that back",
+            policy);
+
+        // Events and seats are stored already; what is new is that their times count in
+        // free-slot lists, and the policy says so, which seat counts, and what a list does not show.
+        Assert.Contains(
+            "In a server's free-slot lists, the times of that server's events you created, " +
+            "or hold a seat in on their attending option (Going by default), " +
+            "count as busy time for you; a list shows no title, channel or attendee.",
             policy);
         Assert.Contains("kept until you reset them", policy);
 

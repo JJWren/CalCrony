@@ -46,7 +46,8 @@ public static class SettingsEndpoints
             guild?.TimeZone ?? "UTC", guild?.DefaultChannelId, guild?.MirrorNativeEvents ?? false));
     }
 
-    /// <summary>Updates guild settings (managers only for web callers); validates the timezone id.</summary>
+    /// <summary>Updates guild settings (managers only for web callers); validates the timezone id.
+    /// The default channel is taken from the bot only: a web caller's save leaves it as it is.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="guildId">The Discord guild (server) id.</param>
@@ -71,10 +72,16 @@ public static class SettingsEndpoints
 
         if (Mapping.FindZone(settings.TimeZone) is null)
         {
-            return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
+            return Results.BadRequest(new ErrorResponse(
+                $"Unknown time zone \"{Validation.Quotable(settings.TimeZone)}\". Use an IANA id like America/Chicago."));
         }
 
         var guild = await EventEndpoints.GetOrCreateGuildAsync(db, guildId, cancellationToken);
+
+        // The default channel is set from Discord (/settings default-channel), where it comes
+        // from the server's own list of channels. A web caller's save leaves it as it is,
+        // whatever the request holds.
+        var defaultChannelId = context.User.IsBot() ? settings.DefaultChannelId : guild.DefaultChannelId;
 
         // The PUT is a whole-object write, so the log diffs it against the stored row and names
         // only what actually changed — the field names, never the submitted values (the log's
@@ -82,10 +89,10 @@ public static class SettingsEndpoints
         // read-modify-write of an unchanged field, a first-touch guild row) writes no entry.
         var changed = ActionLog.Changed(
             ("timezone", guild.TimeZone != settings.TimeZone),
-            ("default channel", guild.DefaultChannelId != settings.DefaultChannelId),
+            ("default channel", guild.DefaultChannelId != defaultChannelId),
             ("native events", guild.MirrorNativeEvents != settings.MirrorNativeEvents));
         guild.TimeZone = settings.TimeZone;
-        guild.DefaultChannelId = settings.DefaultChannelId;
+        guild.DefaultChannelId = defaultChannelId;
         guild.MirrorNativeEvents = settings.MirrorNativeEvents;
         if (changed.Count > 0)
         {
@@ -150,13 +157,14 @@ public static class SettingsEndpoints
 
         if (settings.TimeZone is not null && Mapping.FindZone(settings.TimeZone) is null)
         {
-            return Results.BadRequest(new ErrorResponse($"Unknown time zone \"{settings.TimeZone}\". Use an IANA id like America/Chicago."));
+            return Results.BadRequest(new ErrorResponse(
+                $"Unknown time zone \"{Validation.Quotable(settings.TimeZone)}\". Use an IANA id like America/Chicago."));
         }
 
         if (settings.Theme is not null && !InterfaceThemes.IsValid(settings.Theme))
         {
             return Results.BadRequest(new ErrorResponse(
-                $"Unknown theme \"{settings.Theme}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
+                $"Unknown theme \"{Validation.Quotable(settings.Theme)}\". Valid themes: {string.Join(", ", InterfaceThemes.All)}."));
         }
 
         // One transaction for the profile write and any queued-DM withdrawal it implies: the

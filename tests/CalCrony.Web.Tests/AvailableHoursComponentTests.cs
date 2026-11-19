@@ -274,8 +274,9 @@ public class AvailableHoursComponentTests : BunitContext
         var notice = string.Join(" ", cut.Find("#ah-notice").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         Assert.Equal(
             "Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots " +
-            "with /availability slots, which shows roughly the hours you keep and, if your calendar is linked, " +
-            "when you're busy inside them. Reset to default takes that back.",
+            "with /availability slots, which shows roughly the hours you keep and when you're busy inside them: " +
+            "with your CalCrony events in that server and, if your calendar is linked, with what's on your calendar. " +
+            "Reset to default takes that back.",
             notice);
     }
 

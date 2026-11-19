@@ -64,7 +64,8 @@ public sealed class DeliveryScheduler(
                     pair.Event.Title,
                     pair.Event.StartsAt.ToUnixTimeSeconds(),
                     pair.Notification.Message,
-                    pair.Notification.Mentions),
+                    pair.Notification.Mentions,
+                    pair.Event.GuildId),
                 fireAt,
                 now));
             enqueued++;
@@ -250,7 +251,9 @@ public sealed class DeliveryScheduler(
             enqueued += await LiveListSync.EnqueueSyncForGuildAsync(db, guildId, now, cancellationToken);
         }
 
-        await db.SaveChangesAsync(cancellationToken);
+        // The save lets go of what can no longer be saved. A next occurrence it let go of took
+        // the post queued for it along.
+        enqueued -= await new SweepSave(db, logger, endedSeries).RunAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         // Said only now that it is saved, so a series that stops repeating can be traced to the

@@ -123,7 +123,7 @@ public static class DeliveryEndpoints
             return Results.BadRequest(new ErrorResponse("The reminder text is required."));
         }
 
-        // The text is embedded in the delivery's bounded payload column — cap it up front.
+        // The text goes into the delivery's payload — held to its own limit up front.
         if (Validation.TooLong("reminder text", request.Text, FieldLimits.ReminderText) is { } invalid)
         {
             return invalid;
@@ -162,7 +162,7 @@ public static class DeliveryEndpoints
             Id = Guid.NewGuid(),
             Type = DeliveryType.Reminder,
             ChannelId = channelId,
-            PayloadJson = JsonSerializer.Serialize(new ReminderPayload(userId, request.Text)),
+            PayloadJson = JsonSerializer.Serialize(new ReminderPayload(userId, request.Text, request.GuildId)),
             DueAt = fireAt,
             Status = DeliveryStatus.Pending,
             CreatedAt = clock.GetCurrentInstant(),

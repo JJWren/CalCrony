@@ -595,7 +595,7 @@ public class FreeSlotsEmbedBuilderTests
             .Select(i => i < countedMembers ? OnDefaultHours(UserId(i)) : Member(UserId(i), states[i % 3]))
             .ToArray();
         var response = new FreeSlotsResponse(
-            "America/Argentina/ComodRivadavia", first, first.AddDays(13), countedMembers, days, members);
+            "America/Argentina/ComodRivadavia", first, first.AddDays(13), countedMembers, days, members, EventsCounted: true);
 
         // Discord.Net itself refuses to build an embed over either limit, so building is the test;
         // the numbers are asserted as well so a regression says by how much.
@@ -626,7 +626,7 @@ public class FreeSlotsEmbedBuilderTests
             .Append(OnOwnHours(UserId(96)))
             .ToArray();
         var response = new FreeSlotsResponse(
-            "America/Argentina/ComodRivadavia", first, first.AddDays(13), members.Count(IsCounted), days, members);
+            "America/Argentina/ComodRivadavia", first, first.AddDays(13), members.Count(IsCounted), days, members, EventsCounted: true);
 
         // More members than one lookup allows, on purpose: the fields must hold whatever they are
         // given. Discord.Net refuses to build an embed over either limit, so building is the test.
@@ -756,6 +756,152 @@ public class FreeSlotsEmbedBuilderTests
 
         Assert.Equal(grid.Color, FreeSlotsEmbedBuilder.Build("@GM", 60, Week(OnDefaultHours(1))).Color);
     }
+
+    // The sentences once the answer says CalCrony events were counted. The tests above build
+    // answers that do not say so, as an API from before events counted would, and pin the
+    // sentences such an answer gets: the same ones as before, word for word.
+
+    [Fact]
+    public void With_events_counted_one_member_on_the_default_hours_is_also_clear_of_their_events()
+    {
+        var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, CountingEvents(Week(OnDefaultHours(1))));
+
+        Assert.Contains(
+            $"\nFree on their linked calendar and clear of their CalCrony events in this server, {Sentence8To11} " +
+            "in their timezone (the server's if they haven't set one).\n",
+            embed.Description);
+    }
+
+    [Fact]
+    public void With_events_counted_one_counted_member_of_several_on_the_default_hours_is_said_the_same_way()
+    {
+        var embed = FreeSlotsEmbedBuilder.Build(
+            "@GM", 60, CountingEvents(Week(OnDefaultHours(1), Member(2, FreeSlotMemberState.NotCounted))));
+
+        Assert.Contains(
+            $"\nWhen the one counted member is free on their linked calendar and clear of their CalCrony events in this server, " +
+            $"{Sentence8To11} in their timezone (the server's if they haven't set one).\n",
+            embed.Description);
+    }
+
+    [Fact]
+    public void With_events_counted_several_members_on_the_default_hours_are_each_clear_of_their_own_events()
+    {
+        var embed = FreeSlotsEmbedBuilder.Build(
+            "@GM", 60, CountingEvents(Week(OnDefaultHours(1), OnDefaultHours(2), OnDefaultHours(3), Member(4, FreeSlotMemberState.Error))));
+
+        // "Their own": an event blocks the members it counts for, not everyone in the list.
+        Assert.Contains(
+            "\nWhen all 3 counted members are free on their linked calendars and clear of their own CalCrony events in this server, " +
+            $"each {Sentence8To11} in their own timezone (the server's for anyone who hasn't set one).\n",
+            embed.Description);
+    }
+
+    [Fact]
+    public void With_events_counted_one_member_on_their_calendar_and_saved_hours_is_also_clear_of_their_events()
+    {
+        var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, CountingEvents(Week(OnOwnHours(1))));
+
+        Assert.Contains(
+            "\nFree on their linked calendar and clear of their CalCrony events in this server, " +
+            "inside the available hours they saved, read in their timezone (the server's if they haven't set one).\n",
+            embed.Description);
+        Assert.Empty(embed.Fields);
+    }
+
+    [Fact]
+    public void With_events_counted_a_member_on_saved_hours_alone_is_said_to_have_only_those_events_behind_the_list()
+    {
+        var embed = FreeSlotsEmbedBuilder.Build("@Sam", 60, CountingEvents(Week(HoursOnly(1))));
+
+        // No longer "anything else they have on isn't taken into account": their events are.
+        Assert.Contains(
+            "\nInside the available hours they saved, read in their timezone (the server's if they haven't set one), " +
+            "and clear of their CalCrony events in this server. " +
+            "No calendar is linked, so those events are all that can show them as busy.\n",
+            embed.Description);
+        Assert.DoesNotContain("anything else they have on", embed.Description);
+        Assert.Empty(embed.Fields);
+    }
+
+    [Fact]
+    public void With_events_counted_one_counted_member_of_several_on_their_own_hours_is_said_the_same_way()
+    {
+        var linked = FreeSlotsEmbedBuilder.Build(
+            "@GM", 60, CountingEvents(Week(OnOwnHours(1), Member(2, FreeSlotMemberState.NotCounted))));
+        var hoursOnly = FreeSlotsEmbedBuilder.Build(
+            "@GM", 60, CountingEvents(Week(HoursOnly(1), Member(2, FreeSlotMemberState.Error))));
+
+        Assert.Contains(
+            "\nWhen the one counted member is free on their linked calendar and clear of their CalCrony events in this server, " +
+            "inside the available hours they saved, read in their timezone (the server's if they haven't set one).\n",
+            linked.Description);
+        Assert.Contains(
+            "\nInside the one counted member's saved available hours, read in their timezone (the server's if they haven't set one), " +
+            "and clear of their CalCrony events in this server. " +
+            "They have no calendar linked, so those events are all that can show them as busy.\n",
+            hoursOnly.Description);
+    }
+
+    [Fact]
+    public void With_events_counted_several_members_with_saved_hours_have_no_event_of_their_own_either()
+    {
+        var allSaved = FreeSlotsEmbedBuilder.Build("@GM", 60, CountingEvents(Week(OnOwnHours(1), OnOwnHours(2), HoursOnly(3))));
+        var someOnTheDefault = FreeSlotsEmbedBuilder.Build("@GM", 60, CountingEvents(Week(OnOwnHours(1), OnDefaultHours(2))));
+
+        Assert.Contains(
+            "\nWhen all 3 counted members are free: each inside their available hours, " +
+            "read in their own timezone (the server's for anyone who hasn't set one), " +
+            "with nothing on a linked calendar and no CalCrony event of their own in this server.\n",
+            allSaved.Description);
+        Assert.Contains(
+            $"\nWhen all 2 counted members are free: each inside their available hours ({Range8To11} for anyone who hasn't saved theirs), " +
+            "read in their own timezone (the server's for anyone who hasn't set one), " +
+            "with nothing on a linked calendar and no CalCrony event of their own in this server.\n",
+            someOnTheDefault.Description);
+    }
+
+    [Fact]
+    public void When_nobody_is_counted_the_reply_is_the_same_whether_or_not_events_were_counted()
+    {
+        var response = new FreeSlotsResponse(
+            "America/Chicago", Thursday, Thursday.AddDays(6), 0, [],
+            [Member(1, FreeSlotMemberState.NotCounted), Member(2, FreeSlotMemberState.Error)]);
+
+        var without = FreeSlotsEmbedBuilder.Build("@GM", 60, response);
+        var with = FreeSlotsEmbedBuilder.Build("@GM", 60, CountingEvents(response));
+
+        // Events never decide who is counted, so there is nothing to add.
+        Assert.Equal(without.Description, with.Description);
+        Assert.DoesNotContain("CalCrony event", with.Description);
+    }
+
+    [Fact]
+    public void An_answer_that_does_not_say_events_were_counted_never_names_them()
+    {
+        FreeSlotsResponse[] answers =
+        [
+            Week(OnDefaultHours(1)),
+            Week(OnDefaultHours(1), Member(2, FreeSlotMemberState.NotCounted)),
+            Week(OnDefaultHours(1), OnDefaultHours(2)),
+            Week(OnOwnHours(1)),
+            Week(HoursOnly(1)),
+            Week(OnOwnHours(1), Member(2, FreeSlotMemberState.NotCounted)),
+            Week(HoursOnly(1), Member(2, FreeSlotMemberState.NotCounted)),
+            Week(OnOwnHours(1), HoursOnly(2), OnDefaultHours(3)),
+        ];
+
+        // The reply claims only what the API says it did: every form of the sentence, both ways.
+        Assert.All(answers, answer =>
+        {
+            Assert.False(answer.EventsCounted);
+            Assert.DoesNotContain("CalCrony event", FreeSlotsEmbedBuilder.Build("@GM", 60, answer).Description);
+            Assert.Contains("CalCrony event", FreeSlotsEmbedBuilder.Build("@GM", 60, CountingEvents(answer)).Description);
+        });
+    }
+
+    /// <summary>The same answer from an API that counted CalCrony events and says so.</summary>
+    private static FreeSlotsResponse CountingEvents(FreeSlotsResponse response) => response with { EventsCounted = true };
 
     /// <summary>A member counted on a linked calendar and the default hours.</summary>
     private static FreeSlotMemberDto OnDefaultHours(long userId) => new(userId, FreeSlotMemberState.DefaultHours);

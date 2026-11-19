@@ -62,7 +62,8 @@ public static class ChannelEndpoints
     }
 
     /// <summary>Bulk-upserts channel-name snapshots (the bot's Ready-time reconcile). Creates
-    /// missing rows — callers only send channels the API said it references.</summary>
+    /// missing rows — callers only send channels the API said it references. A list with an entry
+    /// missing altogether is refused, and nothing is written.</summary>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -73,6 +74,11 @@ public static class ChannelEndpoints
         if (request.Channels is null)
         {
             return Results.BadRequest(new ErrorResponse("Channels is required."));
+        }
+
+        if (request.Channels.Any(c => c is null))
+        {
+            return Results.BadRequest(new ErrorResponse("Channels can't have an entry missing."));
         }
 
         var snapshots = request.Channels

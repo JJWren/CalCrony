@@ -9,7 +9,8 @@ namespace CalCrony.Bot;
 
 /// <summary>
 /// Polls the API outbox for due deliveries (reminders, event notifications, start pings),
-/// posts them to Discord, and acks each row only after the post succeeds.
+/// posts them to Discord, and acks each row only once it is settled: posted, or dropped because
+/// its channel lies outside the guild the delivery is for (see <see cref="DeliveryChannels"/>).
 /// </summary>
 /// <param name="client">The Discord socket client.</param>
 /// <param name="api">The CalCrony API client.</param>
@@ -29,7 +30,9 @@ public sealed class DeliveryPollerService(
     EventThreadManager threads,
     LiveListManager liveLists) : BackgroundService
 {
-    /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks only after success.</summary>
+    private readonly DeliveryChannels channels = new(id => client.GetChannelAsync(id), logger);
+
+    /// <summary>Polls the outbox (~15s), posts each due delivery to Discord, and acks it once it is settled.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -223,37 +226,17 @@ public sealed class DeliveryPollerService(
             return true;
         }
 
-        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
-        {
-            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
-        }
-
-        if (delivery.Type == DeliveryType.WaitlistPromotion)
-        {
-            // Title/label are creator-controlled text interpolated into a public message — pin
-            // the allowed mentions to just the promoted user so a crafted "@everyone" title
-            // can't turn a promotion into a mass ping.
-            var payload = JsonSerializer.Deserialize<WaitlistPromotionPayload>(delivery.PayloadJson)!;
-            await channel.SendMessageAsync(
-                FormatWaitlistPromotion(payload),
-                allowedMentions: new AllowedMentions { UserIds = [(ulong)payload.UserId] });
-            return true;
-        }
-
-        var text = delivery.Type switch
-        {
-            DeliveryType.Reminder => FormatReminder(delivery.PayloadJson),
-            DeliveryType.EventNotification => FormatNotification(delivery.PayloadJson),
-            _ => throw new InvalidOperationException($"Unknown delivery type {delivery.Type}."),
-        };
-
-        await channel.SendMessageAsync(text);
+        // A reminder, a pre-event notification or a waitlist promotion: a text post in the
+        // channel the delivery names, made and sent by DeliveryPosts. Acked whether it is posted
+        // or dropped.
+        await DeliveryPosts.PostAsync(delivery, channels);
         return true;
     }
 
     /// <summary>A web-created event needs its Discord embed posted (mirrors what /create does):
     /// post to the delivery's channel, then record the message id with the API. Event already
-    /// gone or already posted ⇒ done.</summary>
+    /// gone or already posted ⇒ done, and so is a channel outside the event's guild: nothing is
+    /// posted there.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task PostEventMessageAsync(DeliveryDto delivery)
     {
@@ -264,12 +247,12 @@ public sealed class DeliveryPollerService(
             return;
         }
 
-        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
+        var ev = result.Value;
+        if (await channels.ForPostAsync(delivery, ev.GuildId) is not { } channel)
         {
-            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
+            return;
         }
 
-        var ev = result.Value;
         var message = await channel.SendMessageAsync(
             embed: EventEmbedBuilder.Build(ev),
             components: EventEmbedBuilder.BuildComponents(ev));
@@ -322,7 +305,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>A web action changed event data shown on the posted Discord embed — re-render it.
-    /// Anything already gone (event deleted, message removed, channel missing) counts as done.</summary>
+    /// Anything already gone (event deleted, message removed, channel missing) counts as done,
+    /// and nothing is re-rendered in a channel outside the event's guild.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task SyncEventMessageAsync(DeliveryDto delivery)
     {
@@ -341,7 +325,7 @@ public sealed class DeliveryPollerService(
         }
 
         var ev = result.Value;
-        if (await client.GetChannelAsync((ulong)ev.ChannelId) is not IMessageChannel channel ||
+        if (await channels.ForRerenderAsync(delivery, ev.ChannelId, ev.GuildId) is not { } channel ||
             await channel.GetMessageAsync((ulong)messageId) is not IUserMessage message)
         {
             return;
@@ -379,7 +363,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>A web/scheduler action changed poll data shown on the posted embed — re-render.
-    /// Anything already gone counts as done.</summary>
+    /// Anything already gone counts as done, and nothing is re-rendered in a channel outside the
+    /// poll's guild.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task SyncPollMessageAsync(DeliveryDto delivery)
     {
@@ -391,7 +376,7 @@ public sealed class DeliveryPollerService(
         }
 
         var poll = result.Value;
-        if (await client.GetChannelAsync((ulong)poll.ChannelId) is not IMessageChannel channel ||
+        if (await channels.ForRerenderAsync(delivery, poll.ChannelId, poll.GuildId) is not { } channel ||
             await channel.GetMessageAsync((ulong)messageId) is not IUserMessage message)
         {
             return;
@@ -405,7 +390,8 @@ public sealed class DeliveryPollerService(
     }
 
     /// <summary>A web-created poll needs its embed posted; mirrors PostEventMessageAsync,
-    /// including the compensating delete when recording the message id fails.</summary>
+    /// including the compensating delete when recording the message id fails, and posting
+    /// nothing in a channel outside the poll's guild.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     private async Task PostPollMessageAsync(DeliveryDto delivery)
     {
@@ -416,12 +402,12 @@ public sealed class DeliveryPollerService(
             return;
         }
 
-        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
+        var poll = result.Value;
+        if (await channels.ForPostAsync(delivery, poll.GuildId) is not { } channel)
         {
-            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
+            return;
         }
 
-        var poll = result.Value;
         var message = await channel.SendMessageAsync(
             embed: PollEmbedBuilder.Build(poll),
             components: PollEmbedBuilder.BuildComponents(poll));
@@ -456,48 +442,15 @@ public sealed class DeliveryPollerService(
         await message.DeleteAsync();
     }
 
-    /// <summary>Message text for a reminder delivery.</summary>
-    /// <param name="payloadJson">The serialized delivery payload.</param>
-    /// <returns>The message text.</returns>
-    private static string FormatReminder(string payloadJson)
-    {
-        var payload = JsonSerializer.Deserialize<ReminderPayload>(payloadJson)!;
-        return $"⏰ <@{payload.UserId}> Reminder: {payload.Text}";
-    }
-
-    /// <summary>Message text for a waitlist-promotion ping. Posted in the event's channel (a DM
-    /// could be blocked; the channel ping is reliable and visible to organizers too).</summary>
-    /// <param name="payload">The promotion payload.</param>
-    /// <returns>The message text.</returns>
-    private static string FormatWaitlistPromotion(WaitlistPromotionPayload payload) =>
-        $"🎟️ <@{payload.UserId}> A spot opened up — you're now {payload.OptionEmote} " +
-        $"**{payload.OptionLabel}** for **{payload.Title}** (<t:{payload.StartsAtUnix}:F>).";
-
-    /// <summary>Message text for a pre-event notification delivery.</summary>
-    /// <param name="payloadJson">The serialized delivery payload.</param>
-    /// <returns>The message text.</returns>
-    private static string FormatNotification(string payloadJson)
-    {
-        var payload = JsonSerializer.Deserialize<EventNotificationPayload>(payloadJson)!;
-        var mentions = string.IsNullOrWhiteSpace(payload.Mentions) ? "" : $"{payload.Mentions} ";
-        var extra = string.IsNullOrWhiteSpace(payload.Message) ? "" : $"\n{payload.Message}";
-        return $"🔔 {mentions}**{payload.Title}** starts <t:{payload.StartsAtUnix}:R> (<t:{payload.StartsAtUnix}:F>){extra}";
-    }
-
-
     /// <summary>Posts the event-start announcement, then flips the mirrored native event to
-    /// active (best-effort; the ping is the ack-gated action).</summary>
+    /// active (best-effort; the ping is the ack-gated action). An announcement whose channel lies
+    /// outside the event's guild is not posted; the native event is still flipped.</summary>
     /// <param name="delivery">The outbox row to post.</param>
     /// <exception cref="InvalidOperationException">When the channel is missing — caught by
     /// DrainAsync, which leaves the delivery pending for retry.</exception>
     private async Task EventStartAsync(DeliveryDto delivery)
     {
-        if (await client.GetChannelAsync((ulong)delivery.ChannelId) is not IMessageChannel channel)
-        {
-            throw new InvalidOperationException($"Channel {delivery.ChannelId} not found or not a message channel.");
-        }
-
-        await channel.SendMessageAsync(FormatEventStart(delivery.PayloadJson));
+        await DeliveryPosts.PostAsync(delivery, channels);
 
         var payload = JsonSerializer.Deserialize<EventStartPayload>(delivery.PayloadJson)!;
         if (payload is { GuildId: long guildId, NativeEventId: long nativeId })
@@ -602,14 +555,5 @@ public sealed class DeliveryPollerService(
         refusedDeliveriesPendingReport.Remove(delivery.Id);
         logger.LogInformation("DM reminder {DeliveryId}: user {UserId} has DMs closed; refusal recorded.", delivery.Id, userId);
         return true;
-    }
-
-    /// <summary>Message text for an event-start announcement.</summary>
-    /// <param name="payloadJson">The serialized delivery payload.</param>
-    /// <returns>The message text.</returns>
-    private static string FormatEventStart(string payloadJson)
-    {
-        var payload = JsonSerializer.Deserialize<EventStartPayload>(payloadJson)!;
-        return $"🎉 **{payload.Title}** is starting now!";
     }
 }

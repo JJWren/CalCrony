@@ -19,15 +19,19 @@ public sealed record FreeSlotsOutcome(FreeSlotsResponse? Response, string? Error
 /// <see cref="FreeSlotCalculator"/>. Nothing a calendar returns is stored. Each counted member is
 /// on the hours they saved, or on the default hours (<see cref="WeeklyHours.Default"/>) when they
 /// have saved none, read in that member's own zone; a member with saved hours and no linked
-/// calendar is counted on the hours alone.
+/// calendar is counted on the hours alone. A counted member is also busy during the CalCrony
+/// events of the server the command ran in that count for them (<see cref="EventBusyTimes"/>);
+/// events cut a counted member's time and never decide who is counted.
 /// </summary>
 /// <param name="db">The database context.</param>
 /// <param name="availability">The availability service.</param>
+/// <param name="eventBusyTimes">The busy time of CalCrony's own events.</param>
 /// <param name="parser">The natural-language datetime parser.</param>
 /// <param name="clock">The time source.</param>
 public sealed class FreeSlotsService(
     CalCronyDbContext db,
     CalendarAvailabilityService availability,
+    EventBusyTimes eventBusyTimes,
     NaturalDateTimeParser parser,
     IClock clock)
 {
@@ -65,7 +69,8 @@ public sealed class FreeSlotsService(
         // By name, a member other than the one asking is listed only once they have saved their
         // own hours: saving them is how a member makes their free slots available by name, and
         // resetting them takes that back. Decided here, from the row just read and before any
-        // calendar is asked, so nothing about a member who has not saved hours is looked up.
+        // calendar is asked or any event is read, so nothing about a member who has not saved
+        // hours is looked up.
         if (request.ByName
             && request.UserIds.Any(id => id != request.RequesterId && savedHours.GetValueOrDefault(id) is null))
         {
@@ -100,25 +105,40 @@ public sealed class FreeSlotsService(
         var (windowStart, windowEnd) = FreeSlotCalculator.QueryWindow(query);
         var results = await availability.CheckAsync(request.UserIds, windowStart, windowEnd, cancellationToken);
 
+        // Who is counted is settled here, from the calendars and the saved hours alone.
         var members = new List<FreeSlotMemberDto>(results.Count);
-        var counted = new List<MemberAvailability>();
+        var countedResults = new List<UserAvailabilityDto>();
         foreach (var result in results)
         {
-            var saved = savedHours.GetValueOrDefault(result.UserId);
-            var state = StateOf(result.Status, saved is not null);
+            var state = StateOf(result.Status, savedHours.GetValueOrDefault(result.UserId) is not null);
             members.Add(new FreeSlotMemberDto(result.UserId, state));
-            if (state is not (FreeSlotMemberState.Counted or FreeSlotMemberState.DefaultHours or FreeSlotMemberState.HoursOnly))
+            if (state is FreeSlotMemberState.Counted or FreeSlotMemberState.DefaultHours or FreeSlotMemberState.HoursOnly)
             {
-                continue;
+                countedResults.Add(result);
             }
-
-            // A member counted on hours alone has no calendar, so no busy blocks came back.
-            counted.Add(new MemberAvailability(
-                MemberZone.Resolve(profiles.GetValueOrDefault(result.UserId)?.TimeZone, guildTimeZone),
-                saved ?? WeeklyHours.Default,
-                [.. result.BusyBlocks.Select(block =>
-                    (Instant.FromDateTimeOffset(block.StartUtc), Instant.FromDateTimeOffset(block.EndUtc)))]));
         }
+
+        // This server's CalCrony events, for the members who are counted and for nobody else:
+        // with nobody counted, no event, RSVP or series is read at all.
+        var eventBusy = countedResults.Count == 0
+            ? null
+            : await eventBusyTimes.GetAsync(
+                request.GuildId, [.. countedResults.Select(result => result.UserId)], now, windowStart, windowEnd,
+                cancellationToken);
+
+        // Each counted member's busy time is what their calendar returned and the time of their
+        // events, together. A member counted on hours alone has no calendar, so for them it is
+        // their events alone.
+        var counted = countedResults
+            .Select(result => new MemberAvailability(
+                MemberZone.Resolve(profiles.GetValueOrDefault(result.UserId)?.TimeZone, guildTimeZone),
+                savedHours.GetValueOrDefault(result.UserId) ?? WeeklyHours.Default,
+                [
+                    .. result.BusyBlocks.Select(block =>
+                        (Instant.FromDateTimeOffset(block.StartUtc), Instant.FromDateTimeOffset(block.EndUtc))),
+                    .. eventBusy?.GetValueOrDefault(result.UserId) ?? [],
+                ]))
+            .ToList();
 
         // Nobody counted means there is nothing to intersect: the answer carries no days at all
         // rather than a run of days that would read as "nothing free".
@@ -135,7 +155,8 @@ public sealed class FreeSlotsService(
                 days,
                 members,
                 request.ByName,
-                windowEnd.ToDateTimeOffset()),
+                windowEnd.ToDateTimeOffset(),
+                EventsCounted: true),
             null);
     }
 
