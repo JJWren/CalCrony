@@ -2793,3 +2793,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — the merge.
 
 ---
+## Operations — the moved occurrence: released in 0.37.2 and live on prod
+**Timestamp**: 2026-11-19T01:27:26Z
+**User Input**: (none in this session — the release and the rollout that carried this fix were done on Joshua's go-ahead in the session that ran them, "Yes, release now" and "Yes, roll out now", recorded there at 23:08:09Z and 23:16:27Z)
+**AI Response**: Release 0.37.2 carries this fix: pull request #200 was merged at 23:08:45Z as `6e0d8b2`, `v0.37.2` was published at 23:08:57Z, `1fce915` is in it, and its release notes carry this fix's line under "What's new". The prod rollout of 0.37.2 restarted the API at 23:17:25Z and the bot and the web app at 23:17:43Z on the 0.37.2 images, and the API and the web app report healthy, so the fix has been live on prod since then. Nothing was done in this session for either step; this entry records both for this fix, as read from GitHub and from the prod stack on 2026-11-19 at 01:26Z. The state file's line for the release and the rollout is ticked, and the plan's status says so.
+**Context**: Operations — the release and the prod rollout.
+
+---

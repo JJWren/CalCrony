@@ -14,8 +14,8 @@ approved by Joshua the same day as written, with Q1–Q4 all answered A ("Approv
 generated and checked the same day (sections 8 and 9); read by two review agents until neither
 had a finding (section 9); `master` taken in. Approved at the completion gate on 2026-11-18
 ("B) Continue"), and the push and the pull request given their go-ahead the same day
-("Push and open"), and the merge the same day ("Merge when green"); the release and the
-rollout each wait for their own.
+("Push and open"), and the merge the same day ("Merge when green"). It was released in
+0.37.2 and has been live on prod since that release's rollout the same evening.
 
 A contained fix, so the workflow runs at minimal depth: the task is the requirement; no user
 stories, application design, units, NFR or infrastructure stages; one unit, and this file is both
