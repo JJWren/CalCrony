@@ -200,6 +200,8 @@ public class ServerMembersIntentTests
         Assert.True(withoutIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembers));
         Assert.True(withoutIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));
         Assert.Equal(ServerMembersIntent.GainedMessage, withoutIt.RecheckMessage);
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, withoutIt.RecheckLogLevel); // good news
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Critical, withIt.RecheckLogLevel);
 
         // Agreeing flags change nothing.
         Assert.False(withIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));

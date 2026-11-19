@@ -400,3 +400,21 @@ failed read at start, and `on` and `off` reading Discord; and in the watch runni
 failed a test (the time limit's by hanging the run, ended by its 60-second limit). The suite after:
 2,660 tests green (Bot 552) with the same 17 skipped, the build's warnings unchanged, and the
 release summaries pass their check.
+
+### 8.7 Review, round 3 (on `7ec7786`)
+
+**Security**: its round-2 point closed, and nothing found. It checked for a faster restart loop
+through the intent coming back and found none: a bot that started without the intent restarts only
+from the watch, after a full ten minutes; one that started with it waits five minutes after a
+refusal; and a stop already scheduled cannot be brought forward. **Quality**: every round-2 point
+closed; one minor point and three nits, answered:
+
+1. *Minor*: a test of the watch gave two watches a fixed 400 ms to read twice. It now waits for the
+   reads, with a ten-second deadline.
+2. *Nits*: the audit log trailed the commit (an entry for `7ec7786` added, with a note that the
+   round-1 entry was worded more plainly in place); a restart for the intent coming back was logged
+   as critical (now a warning, tested; a loss and a refusal stay critical); the test doubles are in
+   one shared file, `IntentTestDoubles.cs`, instead of being borrowed across test classes.
+
+The suite after: 2,661 tests green (Bot 553, three runs in a row) with the same 17 skipped, and
+the build's warnings unchanged.

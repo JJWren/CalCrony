@@ -165,6 +165,9 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
     /// <summary>The log line for a restart after <see cref="ChangedOnRecheck"/>.</summary>
     public string RecheckMessage => Enabled ? LostMessage : GainedMessage;
 
+    /// <summary>How that line is logged: a loss is critical, the intent coming back a warning.</summary>
+    public LogLevel RecheckLogLevel => Enabled ? LogLevel.Critical : LogLevel.Warning;
+
     /// <summary>Whether a disconnect was Discord refusing an intent: a gateway close with code
     /// 4014, however Discord.Net wrapped it.</summary>
     /// <param name="exception">The exception the disconnect carried.</param>

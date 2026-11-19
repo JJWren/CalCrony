@@ -41,12 +41,11 @@ public class ServerMembersIntentWatchTests
 
         await first.StartAsync(CancellationToken.None);
         await second.StartAsync(CancellationToken.None);
-        await Task.Delay(Tick * 8);
+        await agreeing.WaitForCallsAsync(2); // it kept reading
+        await failing.WaitForCallsAsync(2);  // and kept trying
         await first.StopAsync(CancellationToken.None);
         await second.StopAsync(CancellationToken.None);
 
-        Assert.True(agreeing.Calls >= 2); // it kept reading
-        Assert.True(failing.Calls >= 2);  // and kept trying
         Assert.Equal(0, firstLifetime.Stops);
         Assert.Equal(0, secondLifetime.Stops);
     }
@@ -68,10 +67,10 @@ public class ServerMembersIntentWatchTests
         Assert.Equal(0, lifetime.Stops);
     }
 
-    private static (ServerMembersIntentWatch Watch, IntentRestartTests.FakeLifetime Lifetime) Watch(
+    private static (ServerMembersIntentWatch Watch, FakeLifetime Lifetime) Watch(
         ServerMembersIntent decided, StubDiscord discord, string? token = "token")
     {
-        var lifetime = new IntentRestartTests.FakeLifetime();
+        var lifetime = new FakeLifetime();
         var restart = new IntentRestart(lifetime, NullLogger<IntentRestart>.Instance) { MarkFailed = () => { } };
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Discord:BotToken"] = token })

@@ -3273,3 +3273,17 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Construction — code generation, step 5.4 (round 2).
 
 ---
+## Server Members intent — round 2 answers committed
+**Timestamp**: 2026-11-19T00:07:37Z
+**User Input**: (none)
+**AI Response**: The second round of mutation checks took out eighteen rules of the answers to both rounds, one at a time, and every one failed a test. Suite: 2,660 green with the same 17 skipped, warnings unchanged, release summaries checked. Committed locally as `7ec7786`. One correction to these records: the entry for round 1 was worded more plainly in place after it was written, so that it names the older point in the Discord-side check without detail, as the plan's section 8.5 now does.
+**Context**: Construction — code generation, step 5.4 (round 2 committed).
+
+---
+## Server Members intent — review round 3
+**Timestamp**: 2026-11-19T00:12:23Z
+**User Input**: (none — no input from Joshua since "Approve, all A")
+**AI Response**: Both agents read `7ec7786` from git. Security: its point closed, and nothing found, including no faster restart loop through the intent coming back: every restart in auto needs at least five minutes of running, and a scheduled stop cannot be brought forward. Quality: every round-2 point closed; one minor point (a test of the watch gave it a fixed 400 ms to read twice, which a busy machine could stretch) and three nits (these records trailing the commit; the intent coming back logged as critical; test helpers borrowed across classes). Answered: the test waits for the reads with a ten-second deadline; a restart for the intent coming back is logged as a warning; the helpers are in one shared file; these entries. Bot tests: 553 green, three runs in a row.
+**Context**: Construction — code generation, step 5.4 (round 3).
+
+---

@@ -42,7 +42,7 @@ public sealed class ServerMembersIntentWatch(
                     var flags = await reader.ReadAsync(token, stoppingToken);
                     if (intent.ChangedOnRecheck(flags))
                     {
-                        restart.Schedule(intent.RecheckMessage, TimeSpan.Zero);
+                        restart.Schedule(intent.RecheckMessage, TimeSpan.Zero, intent.RecheckLogLevel);
                         return;
                     }
                 }

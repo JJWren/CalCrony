@@ -1,5 +1,5 @@
 using CalCrony.Bot;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CalCrony.Bot.Tests;
@@ -14,7 +14,8 @@ public class IntentRestartTests
     {
         var lifetime = new FakeLifetime();
         var failed = 0;
-        var restart = new IntentRestart(lifetime, NullLogger<IntentRestart>.Instance) { MarkFailed = () => failed++ };
+        var logger = new ListLogger<IntentRestart>();
+        var restart = new IntentRestart(lifetime, logger) { MarkFailed = () => failed++ };
 
         Assert.True(restart.Schedule("refused", TimeSpan.FromSeconds(1)));
         Assert.False(restart.Schedule("refused again", TimeSpan.Zero));
@@ -24,6 +25,18 @@ public class IntentRestartTests
         await Task.Delay(200);
         Assert.Equal(1, lifetime.Stops);
         Assert.Equal(1, failed);
+        Assert.Equal([(LogLevel.Critical, "refused")], logger.Lines); // the second call logged nothing
+    }
+
+    [Fact]
+    public void The_line_is_logged_at_the_level_given()
+    {
+        var logger = new ListLogger<IntentRestart>();
+        var restart = new IntentRestart(new FakeLifetime(), logger) { MarkFailed = () => { } };
+
+        restart.Schedule("back", TimeSpan.FromMinutes(1), LogLevel.Warning);
+
+        Assert.Equal([(LogLevel.Warning, "back")], logger.Lines);
     }
 
     [Fact]
@@ -41,27 +54,5 @@ public class IntentRestartTests
 
         Assert.Equal(0, lifetime.Stops);
         Assert.Equal(0, failed); // an ordinary shutdown keeps its exit code
-    }
-
-    /// <summary>A host lifetime that records stops.</summary>
-    internal sealed class FakeLifetime : IHostApplicationLifetime
-    {
-        public CancellationTokenSource Stopping { get; } = new();
-
-        public TaskCompletionSource Stopped { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public int Stops { get; private set; }
-
-        public CancellationToken ApplicationStarted => CancellationToken.None;
-
-        public CancellationToken ApplicationStopping => Stopping.Token;
-
-        public CancellationToken ApplicationStopped => CancellationToken.None;
-
-        public void StopApplication()
-        {
-            Stops++;
-            Stopped.TrySetResult();
-        }
     }
 }
