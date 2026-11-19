@@ -113,8 +113,8 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
 - [x] 5.2 The completion gate: "Code generation complete. Choose: A) Request Changes  B) Continue
   to Next Stage". Answered B on 2026-11-18 ("B) Continue").
 - [x] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
-  entries placed among them by timestamp. Done at `f05e1d0` (section 7); again if `master` moves
-  before the push.
+  entries placed among them by timestamp. Done at `f05e1d0`, and again at `b1f5c58` (section 7);
+  again if `master` moves before the push.
 - [ ] 5.4 The push and the pull request, on Joshua's go-ahead.
 - [ ] 5.5 The merge, on his go-ahead. The change then goes out with the next release, whose
   release and rollout each have their own go-ahead.
@@ -171,6 +171,13 @@ bot, 154 web and 350 for the release-notes tool, with the same seventeen skipped
 documentation file turned on, the references this change adds resolve and no warning names
 `SeriesProjection.cs`.
 
+**`master` taken in again.** After the completion gate, `master` moved to `b1f5c58` (pull request
+#208, records only, merged at 00:23:55Z on 2026-11-19). It is merged in the same way, as
+`f2ee6c7`: only the audit file conflicted, and git merged the state file by itself, to master's
+file with this section after it. Outside the records the tree is that of `73fc5bf`; on
+`f2ee6c7` the Release build has no error and the same 22 warnings, and the same 2,661 tests pass
+and none fails.
+
 **Review.** Two review agents read the branch before any push, together with the draft text of
 the pull request: one for security and privacy, one for quality and accuracy.
 
@@ -215,3 +222,18 @@ audit entry made exact about who ran which tests.
 found (low) that the status and the audit entry of 23:42:23Z said the change had been read three
 times, when the third read was of the records alone, and (low) that the third read named no
 commit. *Answered* in the status, above and in the next audit entry.
+
+*Later reads*, of the records alone, each before the push:
+
+- `2992182`, the record of the completion gate: the security agent found nothing; the quality
+  agent found (low) that "without a fault" was said of the reads of the records as well.
+  *Answered* by amending it into `18607c7`.
+- `18607c7`: both found (nit) a line broken in mid-paragraph. *Answered* by amending it into
+  `85c050c`, in which neither found anything.
+- `de7fd42` and `f2ee6c7`, the record of the go-ahead for the push and the merge of `b1f5c58`:
+  neither found anything in the merge; the quality agent asked (low) for that take-in to be
+  recorded, and both for the pull request's draft text to name `b1f5c58`. *Answered* in
+  `2d71749`.
+- `2d71749`: the security agent found nothing; the quality agent found (low) that this section
+  stopped at the fourth read. *Answered* by this list, amended into that commit before the push.
+  Both agents read the amended commit before the push.
