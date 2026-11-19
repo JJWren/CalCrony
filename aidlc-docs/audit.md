@@ -3584,3 +3584,10 @@ Availability for @GM
 **Context**: Code generation (part 2) — completion gate answered; next, the push and the pull request, on Joshua's go-ahead.
 
 ---
+## Build and test — one place for an event's end: Joshua's go-ahead for the push and the pull request
+**Timestamp**: 2026-11-19T01:18:34Z
+**User Input**: "Push and open"
+**AI Response**: Read as the go-ahead to push `refactor/event-end-one-place` and open its pull request, `refactor: work out an event's end in one place`, with the draft text both review agents read. Before the push, both agents read this commit, and `master` is fetched again: if it has moved, it is merged in first, the suite is run on that tree, and both agents read the merge. The branch is pushed by its name; the pull request's checks are the build and test of the repository's collapsed form. The merge waits for its own go-ahead.
+**Context**: Build and test, in the repository's collapsed form — the push and the pull request.
+
+---
