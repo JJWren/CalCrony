@@ -10,9 +10,10 @@ session of pull request #196, once that pull request had merged.
 `refactor: work out an event's end in one place`.
 **Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
 A ("Approve, Q1 A"); code generated and checked the same day; the change read twice by two review
-agents without a fault, and the records after it twice more, their findings answered; `master`
-taken in at `f05e1d0` before the push (section 7). Approved at the completion gate the same day
-("B) Continue"); the push and the pull request each wait for Joshua's go-ahead.
+agents without a fault, and each record after it read again before the push, their findings
+answered; `master` taken in before the push, last at `f6152d7` (section 7). Approved at the
+completion gate the same day ("B) Continue"); pushed on 2026-11-19 on Joshua's go-ahead ("Push
+and open"), as pull request #210. The merge waits for his go-ahead.
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -113,9 +114,10 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
 - [x] 5.2 The completion gate: "Code generation complete. Choose: A) Request Changes  B) Continue
   to Next Stage". Answered B on 2026-11-18 ("B) Continue").
 - [x] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
-  entries placed among them by timestamp. Done at `f05e1d0`, and again at `b1f5c58` (section 7);
-  again if `master` moves before the push.
-- [ ] 5.4 The push and the pull request, on Joshua's go-ahead.
+  entries placed among them by timestamp. Done at `f05e1d0`, `b1f5c58` and `f6152d7` (section 7),
+  the last just before the push.
+- [x] 5.4 The push and the pull request, on Joshua's go-ahead. Given on 2026-11-19 ("Push and
+  open"); pushed the same day, after `master` was taken in at `f6152d7`, as pull request #210.
 - [ ] 5.5 The merge, on his go-ahead. The change then goes out with the next release, whose
   release and rollout each have their own go-ahead.
 
@@ -237,3 +239,13 @@ commit. *Answered* in the status, above and in the next audit entry.
 - `2d71749`: the security agent found nothing; the quality agent found (low) that this section
   stopped at the fourth read. *Answered* by this list, amended into that commit before the push.
   Both agents read the amended commit before the push.
+- `5e4ea37`, the amended commit, and `2573c7f`, the merge of `f6152d7` (below): neither found
+  anything in them; both asked for the pull request's draft text to name `f6152d7` rather than
+  `b1f5c58`. *Answered* before the pull request was opened.
+
+**`master` taken in a third time, and the push.** Just before the push, `master` moved to
+`f6152d7`: pull request #207, the release of 0.38.0, `CHANGELOG.md` only, merged at 01:24:11Z on
+2026-11-19. It is merged in without a conflict, as `2573c7f`, and on it the Release build has no
+error and the same 22 warnings, and the same 2,661 tests pass and none fails. The branch was
+pushed by its name with `2573c7f` at its head, and pull request #210 opened with the text both
+agents read. The merge waits for Joshua's go-ahead.

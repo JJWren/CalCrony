@@ -3640,3 +3640,10 @@ Availability for @GM
 **Context**: Build and test, in the repository's collapsed form — `master` taken in before the push.
 
 ---
+## Build and test — one place for an event's end: pushed, and pull request #210 opened
+**Timestamp**: 2026-11-19T01:29:46Z
+**User Input**: (none — no input from Joshua since "Push and open")
+**AI Response**: Both review agents read `5e4ea37`, the record of the take-in of `b1f5c58` with the list of the later reads, and found nothing in it. `master` had then moved to `f6152d7`: pull request #207, the release of 0.38.0, `CHANGELOG.md` only, merged at 01:24:11Z. It is merged in without a conflict, as `2573c7f`, which both agents read and found nothing in; on it the Release build has no error and the same 22 warnings, and 2,661 tests pass and none fails (1,658 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Both asked for the pull request's draft text to name `f6152d7`, which it does. `refactor/event-end-one-place` was pushed by its name, created on GitHub at 01:28:33Z with `2573c7f` at its head, and pull request #210, `refactor: work out an event's end in one place`, was opened at 01:28:43Z with the text both agents read; GitHub finds it mergeable, and its checks run on `2573c7f`. Auto-fix is on and auto-merge off. Section 7 of the plan, its step 5.4 and the state file have it. This record stays local until the merge's go-ahead, since pushing it runs the checks again; both agents read it before it goes up. The merge waits for Joshua's go-ahead.
+**Context**: Build and test, in the repository's collapsed form — the pull request and its checks.
+
+---
