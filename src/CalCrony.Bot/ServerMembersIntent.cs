@@ -45,12 +45,17 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
         "The application no longer has the Server Members intent (its flags, read again from Discord). The bot stops "
         + "now so that it restarts without it (" + SettingKey + " is auto).";
 
+    /// <summary>The log line when the flags, read again while running, show the intent come back.</summary>
+    public const string GainedMessage =
+        "The application has the Server Members intent again (its flags, read again from Discord). The bot stops "
+        + "now so that it restarts with it (" + SettingKey + " is auto).";
+
     /// <summary>How long the bot waits after Discord refuses the intent before it stops to restart.
     /// Discord resets a bot's token when it opens more than 1,000 new connections in a day; at one
     /// restart every five minutes, even a refusal met on every start stays under 300.</summary>
     public static readonly TimeSpan RestartDelay = TimeSpan.FromMinutes(5);
 
-    /// <summary>How often, in auto with the intent asked for, the application's flags are read again.</summary>
+    /// <summary>How often, in auto, the application's flags are read again.</summary>
     public static readonly TimeSpan RecheckInterval = TimeSpan.FromMinutes(10);
 
     /// <summary>The application flags that mean it has the intent: approved, or switched on in the
@@ -63,8 +68,7 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
         Enabled ? GatewayIntents.Guilds | GatewayIntents.GuildMembers : GatewayIntents.Guilds;
 
     /// <summary>Whether a refusal of the intent while running stops the bot, so that its container
-    /// restarts and the decision is made again: only in auto, and only when the intent was asked for.
-    /// The flags are read again while running in the same case.</summary>
+    /// restarts and the decision is made again: only in auto, and only when the intent was asked for.</summary>
     public bool RestartsOnRefusal => Mode == ServerMembersIntentMode.Auto && Enabled;
 
     /// <summary>The critical log line for a refusal (close code 4014), saying what happens next.</summary>
@@ -150,11 +154,16 @@ public sealed record ServerMembersIntent(ServerMembersIntentMode Mode, bool Enab
         }
     }
 
-    /// <summary>Whether flags read again while running show the intent gone, so that the bot must
-    /// restart without it: only in auto with the intent asked for.</summary>
+    /// <summary>Whether flags read again while running disagree with the decision — the intent gone
+    /// while the bot asks for it, or back while it does not — so that the bot must restart to follow
+    /// them: only in auto.</summary>
     /// <param name="flags">The application's flags as read again.</param>
     /// <returns>True when the bot should restart.</returns>
-    public bool LostOnRecheck(ApplicationFlags flags) => RestartsOnRefusal && !HasMembersIntent(flags);
+    public bool ChangedOnRecheck(ApplicationFlags flags) =>
+        Mode == ServerMembersIntentMode.Auto && Enabled != HasMembersIntent(flags);
+
+    /// <summary>The log line for a restart after <see cref="ChangedOnRecheck"/>.</summary>
+    public string RecheckMessage => Enabled ? LostMessage : GainedMessage;
 
     /// <summary>Whether a disconnect was Discord refusing an intent: a gateway close with code
     /// 4014, however Discord.Net wrapped it.</summary>

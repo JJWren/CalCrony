@@ -1,11 +1,11 @@
 namespace CalCrony.Bot;
 
-/// <summary>In auto, with the intent asked for, reads the application's flags again every
-/// <see cref="ServerMembersIntent.RecheckInterval"/>. Whether Discord closes a running connection
-/// when an application loses the Server Members intent is not known; if it does not, the bot would
-/// go on believing it has the intent, with member events no longer arriving and role snapshots
-/// renewed from a member cache that no longer changes. Finding the flags gone, the bot stops at
-/// once so that it restarts without the intent. A read that fails changes nothing.</summary>
+/// <summary>In auto, reads the application's flags again every <see cref="Interval"/> and restarts
+/// the bot at once when they disagree with the decision made at start. The intent gone: whether
+/// Discord closes a running connection when an application loses it is not known, and if it does
+/// not, member events would stop arriving while role snapshots were renewed from a member cache that
+/// no longer changes. The intent back (approved after a review, or switched on again): a bot running
+/// without it picks it up without being restarted by hand. A read that fails changes nothing.</summary>
 /// <param name="intent">The decision made at start.</param>
 /// <param name="reader">Reads the application's flags.</param>
 /// <param name="configuration">The application configuration.</param>
@@ -18,17 +18,21 @@ public sealed class ServerMembersIntentWatch(
     IntentRestart restart,
     ILogger<ServerMembersIntentWatch> logger) : BackgroundService
 {
-    /// <summary>Reads the flags on a timer until they show the intent gone or the host stops.</summary>
+    /// <summary>How often the flags are read again; <see cref="ServerMembersIntent.RecheckInterval"/>
+    /// unless a test sets it.</summary>
+    public TimeSpan Interval { get; init; } = ServerMembersIntent.RecheckInterval;
+
+    /// <summary>Reads the flags on a timer until they disagree with the decision or the host stops.</summary>
     /// <param name="stoppingToken">Signals host shutdown.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var token = configuration["Discord:BotToken"];
-        if (!intent.RestartsOnRefusal || string.IsNullOrWhiteSpace(token))
+        if (intent.Mode != ServerMembersIntentMode.Auto || string.IsNullOrWhiteSpace(token))
         {
             return;
         }
 
-        using var timer = new PeriodicTimer(ServerMembersIntent.RecheckInterval);
+        using var timer = new PeriodicTimer(Interval);
         try
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -36,9 +40,9 @@ public sealed class ServerMembersIntentWatch(
                 try
                 {
                     var flags = await reader.ReadAsync(token, stoppingToken);
-                    if (intent.LostOnRecheck(flags))
+                    if (intent.ChangedOnRecheck(flags))
                     {
-                        restart.Schedule(ServerMembersIntent.LostMessage, TimeSpan.Zero);
+                        restart.Schedule(intent.RecheckMessage, TimeSpan.Zero);
                         return;
                     }
                 }

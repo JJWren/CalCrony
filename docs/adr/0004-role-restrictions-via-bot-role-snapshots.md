@@ -133,6 +133,7 @@ keep their names on the web.
 - **The member cache is not trusted for roles.** Without the intent no member update reaches the
   bot's cache, not even for a role the bot granted itself, so attendee-role grants and removals
   skip the cache's "already done" check and go through REST, which Discord applies idempotently.
-- **In auto the flags are read again every ten minutes**, in case Discord takes the intent away
-  without closing the connection; the member cache would otherwise stop changing while syncs went
-  on renewing the marker from it.
+- **In auto the flags are read again every ten minutes**, and a change either way restarts the
+  bot: in case Discord takes the intent away without closing the connection, when the member cache
+  would otherwise stop changing while syncs went on renewing the marker from it, and so that a bot
+  running without the intent takes it up again once the application has it.

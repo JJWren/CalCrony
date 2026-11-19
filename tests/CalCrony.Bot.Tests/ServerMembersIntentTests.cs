@@ -184,19 +184,38 @@ public class ServerMembersIntentTests
     }
 
     [Fact]
-    public void Flags_read_again_show_the_intent_lost_only_in_auto_with_the_intent_asked_for()
+    public void In_auto_flags_read_again_restart_the_bot_when_the_intent_is_gone_or_back()
     {
-        var auto = ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, ApplicationFlags.GatewayGuildMembersLimited);
+        var withIt = ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, ApplicationFlags.GatewayGuildMembersLimited);
+        var withoutIt = ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, (ApplicationFlags)0);
+        var unread = ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, null, "timed out");
 
-        Assert.True(auto.LostOnRecheck((ApplicationFlags)0));
-        Assert.True(auto.LostOnRecheck(ApplicationFlags.GatewayPresenceLimited));
-        Assert.False(auto.LostOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));
-        Assert.False(auto.LostOnRecheck(ApplicationFlags.GatewayGuildMembers));
+        // Gone while the bot asks for it — also when it only asked because the first read failed.
+        Assert.True(withIt.ChangedOnRecheck((ApplicationFlags)0));
+        Assert.True(withIt.ChangedOnRecheck(ApplicationFlags.GatewayPresenceLimited));
+        Assert.True(unread.ChangedOnRecheck((ApplicationFlags)0));
+        Assert.Equal(ServerMembersIntent.LostMessage, withIt.RecheckMessage);
 
-        // Auto that left the intent out, on and off are not looking for a loss.
-        Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.Auto, (ApplicationFlags)0).LostOnRecheck((ApplicationFlags)0));
-        Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.On, null).LostOnRecheck((ApplicationFlags)0));
-        Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.Off, null).LostOnRecheck((ApplicationFlags)0));
+        // Back while the bot runs without it.
+        Assert.True(withoutIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembers));
+        Assert.True(withoutIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));
+        Assert.Equal(ServerMembersIntent.GainedMessage, withoutIt.RecheckMessage);
+
+        // Agreeing flags change nothing.
+        Assert.False(withIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));
+        Assert.False(withIt.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembers));
+        Assert.False(withoutIt.ChangedOnRecheck((ApplicationFlags)0));
+        Assert.False(unread.ChangedOnRecheck(ApplicationFlags.GatewayGuildMembersLimited));
+    }
+
+    [Fact]
+    public void On_and_off_never_restart_on_flags_read_again()
+    {
+        foreach (var flags in new[] { (ApplicationFlags)0, ApplicationFlags.GatewayGuildMembersLimited })
+        {
+            Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.On, null).ChangedOnRecheck(flags));
+            Assert.False(ServerMembersIntent.Decide(ServerMembersIntentMode.Off, null).ChangedOnRecheck(flags));
+        }
     }
 
     [Theory]

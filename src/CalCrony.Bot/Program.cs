@@ -31,7 +31,8 @@ builder.Services.AddHttpClient<CalCronyApiClient>((sp, http) =>
     http.BaseAddress = new Uri(config["Api:BaseUrl"] ?? "http://localhost:8080");
     http.DefaultRequestHeaders.Add("X-Api-Key", config["Api:ApiKey"] ?? "");
 });
-builder.Services.AddHttpClient<ApplicationFlagsReader>();
+// One client for the life of the bot: the watch reads the flags every ten minutes.
+builder.Services.AddSingleton(new ApplicationFlagsReader(new HttpClient()));
 
 builder.Services.AddSingleton<NativeEventMirror>();
 builder.Services.AddSingleton<AttendeeRoleManager>();

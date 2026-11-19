@@ -366,15 +366,17 @@ two accounts: one holding the role, one not.
       role; when the event ends (or the account leaves the option), the attendee role is taken
       away again. Without the intent the bot's cached roles are never updated, so it now goes to
       Discord for each grant and removal; this item shows the removal happens.
-- [ ] Intent switched on again, test bot restarted → `Server Members intent: on (auto: the
-      application has it)`; within one reconcile the website seats the account with the role.
+- [ ] Intent switched on again, the test bot left running → within 10 minutes its log has "The
+      application has the Server Members intent again", it restarts, and the new start line reads
+      `Server Members intent: on (auto: the application has it)`; within one reconcile the website
+      seats the account with the role.
 - [ ] With the test bot running and the intent on, the intent switched off → the bot comes back
       without it, either after Discord closes the connection (code 4014 in the log, a restart 5
       minutes later) or within 10 minutes, when it reads the flags again and finds the intent gone
       (a restart at once). Note which of the two happened.
 - [ ] To look at, not to pass: with the intent off, the bot given a new role with Manage Roles →
-      whether `/create attendee-role:` sees the permission before a restart (the bot's own member
-      may not be updated without the intent).
+      whether `/create attendee-role:` sees the permission without a restart (Discord is said to
+      send the bot's own member updates without the intent; this shows whether it does).
 
 ---
 

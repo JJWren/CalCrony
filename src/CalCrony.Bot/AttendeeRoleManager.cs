@@ -13,14 +13,16 @@ namespace CalCrony.Bot;
 /// member cache is not kept current.</param>
 public class AttendeeRoleManager(DiscordSocketClient client, ILogger<AttendeeRoleManager> logger, ServerMembersIntent membersIntent)
 {
-    /// <summary>Gives the user the role, skipping when they already have it.</summary>
+    /// <summary>Gives the user the role, skipping when the member cache shows they already have it
+    /// (with the Server Members intent; without it the cache is not current and the grant is sent).</summary>
     /// <param name="guildId">The Discord guild id.</param>
     /// <param name="roleId">The Discord role id.</param>
     /// <param name="userId">The Discord user id.</param>
     public Task TryGrantAsync(long guildId, long roleId, long userId) =>
         TryApplyAsync(guildId, roleId, userId, grant: true);
 
-    /// <summary>Removes the role from the user, skipping when they don't have it.</summary>
+    /// <summary>Removes the role from the user, skipping when the member cache shows they don't have it
+    /// (with the Server Members intent; without it the cache is not current and the removal is sent).</summary>
     /// <param name="guildId">The Discord guild id.</param>
     /// <param name="roleId">The Discord role id.</param>
     /// <param name="userId">The Discord user id.</param>

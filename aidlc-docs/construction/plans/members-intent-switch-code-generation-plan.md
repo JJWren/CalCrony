@@ -354,9 +354,8 @@ otherwise built as written. Findings and answers:
 8. *Nits*: the role-snapshot routes' summary no longer says the bot always has the intent; the
    retention sweep's list is named for what it holds; the auto refusal says to set `off` if the
    bot keeps restarting; `Program.cs` ends with `await host.RunAsync()`.
-9. *Info (security), older than this change*: a click that reaches the bot from a server it does
-   not have cached is let through by the Discord-side check. Not changed here; raised with Joshua
-   separately.
+9. *Info (security), older than this change*: one older point in the Discord-side check,
+   outside this change. Not changed here; raised with Joshua separately.
 
 These answers refine the approved rules: 3.1.6 (the decision holds until a restart) gains the
 re-read of 4; 3.2.2 gains the five-minute wait of 3; 3.2.3's wording follows 5; and 3.5.2 holds
@@ -364,3 +363,40 @@ through 1.
 
 The suite on the answers: 2,653 tests green (Bot 545, 15 new) with the same 17 skipped, and the
 build's warnings unchanged.
+
+### 8.6 Review, round 2 (on `7e17f61`)
+
+Both agents read the answers from git. **Security**: the three low findings of round 1 closed,
+and nothing in the new code; one low point on the public text, item 9 of 8.5 saying more about the
+older point than a plain mention, now reworded, with the audit entry trimmed to match.
+**Quality**: every round-1 finding closed; two minor points and five nits:
+
+1. *Minor: the re-read watched one direction only*, so a bot that started without the intent would
+   not take it up again, after an approval say, until restarted by hand. **Answered**: the watch
+   runs in auto whatever the start decided and restarts the bot at once when the flags disagree
+   with the decision either way. README, ADR 0004 and the live item say so. Tested: the decision
+   in both directions, and the watch itself with a short interval (a disagreement restarts once
+   and ends the watch; agreeing flags and failed reads change nothing; `on`, `off` and a bot
+   without a token read nothing).
+2. *Minor: the new reader had not been run against Discord.* **Answered**: run once with the hosted
+   application's token, read only: flags 10518528, the intent switched on, and unset and `auto`
+   decide `on (auto: the application has it)`; `on` and `off` decide without reading; a token
+   Discord refuses gives `HttpRequestException: Discord answered 401 Unauthorized.`. The run of 8.3
+   was with the first reader.
+3. *Nits*: the reader is one singleton with its own client, rather than a typed client held by the
+   watch; the restart tests no longer race (a one-second delay, and a one-minute delay ended by a
+   shutdown); the watch has tests; `AttendeeRoleManager`'s summaries say when the cache is trusted;
+   the live script's item to look at is reworded (Discord is said to send the bot's own member
+   updates without the intent, and the item shows whether it does).
+
+Rule 3.1.6 accordingly: in auto the decision holds until the flags, read again, disagree with it.
+
+A second round of mutation checks took out, one at a time, eighteen rules of the answers to both
+rounds: in the reader the timeout, the error status, the number check, the token and the time
+limit; in the restart the once-only guard, the shutdown case and the failed exit; the restart
+delay; the re-read in `on` and `off`, in one direction only, and with its messages swapped; a
+failed read at start, and `on` and `off` reading Discord; and in the watch running in `on` and
+`off`, never restarting, reading on after its restart, and ending on a failed read. Every one
+failed a test (the time limit's by hanging the run, ended by its 60-second limit). The suite after:
+2,660 tests green (Bot 552) with the same 17 skipped, the build's warnings unchanged, and the
+release summaries pass their check.

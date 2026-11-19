@@ -16,12 +16,12 @@ public class IntentRestartTests
         var failed = 0;
         var restart = new IntentRestart(lifetime, NullLogger<IntentRestart>.Instance) { MarkFailed = () => failed++ };
 
-        Assert.True(restart.Schedule("refused", TimeSpan.FromMilliseconds(200)));
+        Assert.True(restart.Schedule("refused", TimeSpan.FromSeconds(1)));
         Assert.False(restart.Schedule("refused again", TimeSpan.Zero));
         Assert.Equal(0, lifetime.Stops); // not before the delay
 
-        await lifetime.Stopped.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await Task.Delay(100);
+        await lifetime.Stopped.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await Task.Delay(200);
         Assert.Equal(1, lifetime.Stops);
         Assert.Equal(1, failed);
     }
@@ -33,15 +33,18 @@ public class IntentRestartTests
         var failed = 0;
         var restart = new IntentRestart(lifetime, NullLogger<IntentRestart>.Instance) { MarkFailed = () => failed++ };
 
-        restart.Schedule("refused", TimeSpan.FromMilliseconds(200));
+        // A delay far longer than the test: only an ordinary shutdown can end it, and that must
+        // not turn into a stop of this class's own.
+        restart.Schedule("refused", TimeSpan.FromMinutes(1));
         await lifetime.Stopping.CancelAsync();
-        await Task.Delay(400);
+        await Task.Delay(300);
 
         Assert.Equal(0, lifetime.Stops);
         Assert.Equal(0, failed); // an ordinary shutdown keeps its exit code
     }
 
-    private sealed class FakeLifetime : IHostApplicationLifetime
+    /// <summary>A host lifetime that records stops.</summary>
+    internal sealed class FakeLifetime : IHostApplicationLifetime
     {
         public CancellationTokenSource Stopping { get; } = new();
 
