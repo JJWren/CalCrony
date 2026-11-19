@@ -3577,3 +3577,10 @@ Availability for @GM
 **Context**: Operations — the records of the date limit and delivery posts: pull request opened.
 
 ---
+## Records — the date limit and delivery posts: pull request #208 merged
+**Timestamp**: 2026-11-19T00:23:35Z
+**User Input**: "Yes, merge #208"
+**AI Response**: His answer to "Merge #208 once its checks are green?", asked after it was opened, with yes as the recommendation. Every check on #208 was green at `885a454`, the head both agents read, and `master` was still `f05e1d0`. Squash-merged through the REST call, at that head, at 00:23:55Z as `b1f5c58`; its tree is `885a454`'s. GitHub deleted the branch. With this, the date limit and delivery posts are merged, released in 0.37.2, live on prod and recorded.
+**Context**: Operations — the records of the date limit and delivery posts: merged, on Joshua's go-ahead.
+
+---
