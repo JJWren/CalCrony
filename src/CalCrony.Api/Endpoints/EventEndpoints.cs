@@ -68,7 +68,19 @@ public static class EventEndpoints
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     internal static Task<IResult?> GuardEventMutateAsync(
         HttpContext context, GuildAccessService access, Event ev, CancellationToken cancellationToken) =>
-        GuardMutateAsync(context, access, ev.GuildId, ev.CreatorId,
+        GuardEventMutateAsync(context, access, ev.GuildId, ev.CreatorId, cancellationToken);
+
+    /// <summary>The same guard from the event's server and creator alone, which never change once
+    /// the event is made: for a route that checks the caller before it locks and loads the event.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="guildId">The event's Discord guild (server) id.</param>
+    /// <param name="creatorId">The event creator's Discord id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
+    internal static Task<IResult?> GuardEventMutateAsync(
+        HttpContext context, GuildAccessService access, long guildId, long creatorId, CancellationToken cancellationToken) =>
+        GuardMutateAsync(context, access, guildId, creatorId,
             "Only the event creator or a server manager can change this event.", cancellationToken);
 
     /// <summary>Shared creator-or-manager mutate guard (events + series).</summary>
@@ -556,6 +568,15 @@ public static class EventEndpoints
                 return badDays;
             }
 
+            // The length the event ends up with, its own or its template's, may not reach the
+            // gap between two of its dates: the date it runs into would never be posted.
+            if (Validation.LengthReachesNextDate(
+                    durationMinutes, rule.Unit, rule.Interval, rule.MonthlyMode, rule.DaysOfWeek, startsAt.InZone(zone).Date)
+                is { } tooLong)
+            {
+                return tooLong;
+            }
+
             if (request.RepeatUntilText is not null && request.RepeatCount is not null)
             {
                 return Results.BadRequest(new ErrorResponse("Choose either an end date or a number of times, not both."));
@@ -840,17 +861,37 @@ public static class EventEndpoints
         // aggregates must not both promote the same queue head or double-seat a freed spot.
         // Early returns roll back via the transaction's dispose.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // The caller's right to change the event is checked before any lock is taken, from the
+        // event's server and creator, which never change.
+        var owner = await db.Events.Where(e => e.Id == id)
+            .Select(e => new { e.GuildId, e.CreatorId, e.SeriesId })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (owner is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await GuardEventMutateAsync(context, access, owner.GuildId, owner.CreatorId, cancellationToken) is { } denied)
+        {
+            return denied;
+        }
+
+        // A change to the whole series also locks the series row, before the event row, and only
+        // then reads the event and its series: the length checks below see the series as it
+        // stands, not as it stood before another request changed it.
+        if (request.Scope == EditScope.Series && owner.SeriesId is Guid lockedSeriesId)
+        {
+            await db.Database.ExecuteSqlAsync(
+                $"""SELECT "Id" FROM "EventSeries" WHERE "Id" = {lockedSeriesId} FOR UPDATE""", cancellationToken);
+        }
+
         await LockEventRowAsync(db, id, cancellationToken);
 
         var ev = await LoadEventAsync(db, id, cancellationToken);
         if (ev is null)
         {
             return Results.NotFound();
-        }
-
-        if (await GuardEventMutateAsync(context, access, ev, cancellationToken) is { } denied)
-        {
-            return denied;
         }
 
         // Ask-per-edit: a live occurrence of an active series must say whether the change is
@@ -879,6 +920,20 @@ public static class EventEndpoints
             ?? Validation.BadDuration(request.DurationMinutes)) is { } invalid)
         {
             return invalid;
+        }
+
+        // A new length for the whole series may not reach the gap between two of its dates. The
+        // length a series already has is no change, so a series made before this check can still
+        // be changed in everything else; one occurrence alone may still be made longer. With a
+        // new start as well, the check is made below, from the date the series will repeat from.
+        if (applyToSeries
+            && request.WhenText is null
+            && request.DurationMinutes is int seriesLength
+            && seriesLength != (series!.DurationMinutes ?? EventTimes.DefaultLengthMinutes)
+            && Validation.LengthReachesNextDate(
+                seriesLength, series.Unit, series.Interval, series.MonthlyMode, series.DaysOfWeek, series.AnchorDate) is { } tooLong)
+        {
+            return tooLong;
         }
 
         if (request.AttendeeRoleId is not null && request.ClearAttendeeRole)
@@ -956,6 +1011,26 @@ public static class EventEndpoints
             if (!parser.TryResolve(request.WhenText, zone, out var startsAt, out var error))
             {
                 return Results.BadRequest(new ErrorResponse(error!));
+            }
+
+            // A new start for the whole series moves the date it repeats from, and with it the gap
+            // between two of its dates for a monthly date (29 days on the 29th or 30th, 28 on any
+            // other): the length the series will have may not reach the gap from the new date. A
+            // series that reaches its gap already, as one made before this check may, can still be
+            // moved with the length it has.
+            if (applyToSeries)
+            {
+                var lengthNow = series!.DurationMinutes ?? EventTimes.DefaultLengthMinutes;
+                var lengthToBe = request.DurationMinutes ?? lengthNow;
+                var reachesAlready = Validation.LengthReachesNextDate(
+                    lengthNow, series.Unit, series.Interval, series.MonthlyMode, series.DaysOfWeek, series.AnchorDate) is not null;
+                if ((lengthToBe != lengthNow || !reachesAlready)
+                    && Validation.LengthReachesNextDate(
+                        lengthToBe, series.Unit, series.Interval, series.MonthlyMode, series.DaysOfWeek,
+                        startsAt.InZone(zone).Date) is { } tooLongFromThere)
+                {
+                    return tooLongFromThere;
+                }
             }
 
             ev.StartsAt = startsAt;

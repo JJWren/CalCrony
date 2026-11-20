@@ -70,6 +70,8 @@ public static class SeriesEndpoints
         IClock clock,
         CancellationToken cancellationToken)
     {
+        // Early returns roll back via the transaction's dispose.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var series = await LoadSeriesAsync(db, id, cancellationToken);
         if (series is null)
         {
@@ -81,6 +83,13 @@ public static class SeriesEndpoints
         {
             return denied;
         }
+
+        // A change of the schedule waits for a lock on the series row, as a change of the whole
+        // series' length does, and reads the series again once it holds it, so the check of its
+        // length below sees the length as it stands.
+        await db.Database.ExecuteSqlAsync(
+            $"""SELECT "Id" FROM "EventSeries" WHERE "Id" = {id} FOR UPDATE""", cancellationToken);
+        await db.Entry(series).ReloadAsync(cancellationToken);
 
         // Validate against effective values; the tracked entity is only mutated after every
         // check passes so a 400 can never leave a half-applied edit.
@@ -101,6 +110,18 @@ public static class SeriesEndpoints
         if (Validation.BadRecurrenceDays(unit, days) is { } badDays)
         {
             return badDays;
+        }
+
+        // A new schedule may not bring two dates nearer than the series' length: the date an
+        // occurrence runs into would never be posted. The schedule sent again as it is, or a change
+        // of its end alone, is no change, so a series made before this check can still be changed
+        // in everything else while it runs; reviving an ended one is checked like a new series.
+        if ((series.Ended || unit != series.Unit || interval != series.Interval || mode != series.MonthlyMode
+             || days != series.DaysOfWeek)
+            && Validation.ScheduleReachesLength(
+                series.DurationMinutes, unit, interval, mode, days, series.AnchorDate, reviving: series.Ended) is { } tooNear)
+        {
+            return tooNear;
         }
 
         if (request.End is SeriesEndChoice.Keep or SeriesEndChoice.Never
@@ -221,6 +242,7 @@ public static class SeriesEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Results.Ok(series.ToDto(liveEventId));
     }
 

@@ -164,6 +164,69 @@ public static class RecurrenceCalculator
         }
     }
 
+    /// <summary>The fewest days between two dates a schedule repeats on, as the calendar shows them:
+    /// the interval for a daily schedule; seven days times the interval for a weekly one, or with a
+    /// day set the nearest two of its days, across the end of the week too; for a monthly one
+    /// repeating every month, 28 days — four weeks for a weekday of the month, and February for a
+    /// date, except a date on the 29th or the 30th, which no February has every year: 29 days;
+    /// 365 days times the interval for a yearly one. For a monthly or a yearly schedule that
+    /// repeats less often than that, 28 or 365 days times the interval is a lower bound, never more
+    /// than the real gap, and more than any length an event may have. A clock change does not
+    /// count: a day is a day. A first date on a day outside a day set is not one the schedule
+    /// repeats on, so the gap from it to the set's first day is not counted.</summary>
+    /// <param name="unit">The recurrence unit.</param>
+    /// <param name="interval">Every N units (1-12).</param>
+    /// <param name="mode">The monthly mode (ignored for non-month units).</param>
+    /// <param name="days">The weekly day set (ignored for non-week units; None = anchor weekday).</param>
+    /// <param name="anchor">The schedule anchor date: a monthly schedule by date repeats on its day.</param>
+    /// <returns>The days.</returns>
+    public static long ShortestGapDays(
+        RecurrenceUnit unit, int interval, MonthlyMode mode, RecurrenceDays days, LocalDate anchor)
+    {
+        switch (unit)
+        {
+            case RecurrenceUnit.Day:
+                return interval;
+
+            case RecurrenceUnit.Week when days != RecurrenceDays.None:
+            {
+                // Monday is 1 and Sunday 7. The last day of the set to the first one of the next
+                // week the set fires in is the gap across the end of the week.
+                var ticked = RecurrenceDaySets.Split(days)
+                    .Select(RecurrenceDaySets.ToDayOfWeek)
+                    .Select(day => day == DayOfWeek.Sunday ? 7 : (int)day)
+                    .Order()
+                    .ToList();
+
+                // A set that names no real day, which no route stores, is read as no set.
+                if (ticked.Count == 0)
+                {
+                    return 7L * interval;
+                }
+
+                var gap = 7L * interval - (ticked[^1] - ticked[0]);
+                for (var i = 1; i < ticked.Count; i++)
+                {
+                    gap = Math.Min(gap, ticked[i] - ticked[i - 1]);
+                }
+
+                return gap;
+            }
+
+            case RecurrenceUnit.Week:
+                return 7L * interval;
+
+            case RecurrenceUnit.Year:
+                return 365L * interval;
+
+            case RecurrenceUnit.Month when interval == 1 && mode == MonthlyMode.DayOfMonth && anchor.Day is 29 or 30:
+                return 29;
+
+            default:
+                return 28L * interval;
+        }
+    }
+
     /// <summary>Human-readable rule, e.g. "Repeats every 2 weeks on Friday · 3 of 10".</summary>
     /// <param name="series">The series row (with notification specs loaded).</param>
     /// <returns>The human-readable rule text.</returns>
