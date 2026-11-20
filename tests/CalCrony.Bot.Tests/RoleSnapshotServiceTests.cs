@@ -31,6 +31,24 @@ public class RoleSnapshotServiceTests
     }
 
     [Fact]
+    public void A_sync_says_its_members_are_known_unless_the_bot_runs_without_the_server_members_intent()
+    {
+        var existing = new Dictionary<long, string> { [1] = "Raider" };
+        (long, IReadOnlyCollection<long>)[] members = [(100, [1])];
+
+        var full = RoleSnapshotService.BuildSyncRequest([1, 2], existing, members);
+        Assert.True(full.MembersKnown);
+        Assert.Single(full.Members);
+
+        // Without the intent the bot cannot see who holds what: the names and tombstones go as
+        // before, no member at all, and the API is told the members are unknown.
+        var namesOnly = RoleSnapshotService.BuildSyncRequest([1, 2], existing, members, membersKnown: false);
+        Assert.False(namesOnly.MembersKnown);
+        Assert.Empty(namesOnly.Members);
+        Assert.Equal([(1L, "Raider"), (2L, (string?)null)], namesOnly.Roles.Select(r => (r.RoleId, r.Name)));
+    }
+
+    [Fact]
     public void A_member_update_pushes_only_when_the_watched_part_of_the_role_set_changed()
     {
         var watched = new HashSet<ulong> { 1, 2 };
