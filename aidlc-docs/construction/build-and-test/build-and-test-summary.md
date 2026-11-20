@@ -179,3 +179,58 @@ stage. A failure would have meant a `fix:` PR and a re-run of its block; none wa
 table as they stood. Release 0.37.0 followed the same day on his go-ahead — PR #175
 squash-merged at 22:01:58Z as `f904e33`, `v0.37.0` tagged and published — and prod was rolled
 to it at 22:16Z.
+
+## Free slots count CalCrony events (v0.38.0, issue #192)
+
+Build and test for this change takes the same collapsed form: the suite on `master`, the live
+items added to section 12 of [`live-e2e-script.md`](live-e2e-script.md), and this section. The
+change is on `master` as `f05e1d0` (PR #197, squash-merged 2026-11-18T23:15:51Z).
+
+### Automated coverage (on the merged tree, 2026-11-18)
+
+The suite on the tree the squash has: 2,657 tests, none failing — 1,654 API, 499 bot, 154 web,
+350 for the release-summary tool, 17 of which are skipped on Windows and run in CI — with no
+error and 22 warnings in the Release build; `build-test` passed on `f05e1d0` as well. The
+change's own tests cover who an event counts for, which events count, a series' later dates,
+the server boundary, the by-name refusal, role lookups, the number of database reads, a series
+whose rule cannot be stepped, and the reply's new sentences. 42 rules of the change were each
+taken out once, and each time a committed test failed (section 9 of the change's plan).
+
+### What no automated test reaches
+
+- Discord itself: the reply as the client shows it, with the sentence naming CalCrony events.
+- A second server that shares the bot and a member (item 6), and the role and event grids with a
+  calendar linked on the test application (item 7).
+
+### On the test stack (2026-11-18)
+
+- For the live pass the stack ran the merged build, `0.0.0-main.f05e1d0`: the API restarted at
+  23:20:54Z and the bot and the web app at 23:21:00Z, after 0.37.2 was on prod; the database
+  container, started at 09:20:12Z that morning, was left as it was. The bot registered its
+  commands in the test server and reached Ready; the start-up logs held only the known notices.
+- The stack logs each call the bot makes and its status, but not who a lookup names or what a
+  reply says: which item a call belongs to rests on the order of the calls and on Joshua's
+  reports.
+
+### Live results (filled during the pass)
+
+| Section 12 item | Result | Findings / fix PRs |
+|---|---|---|
+| 1 — a new event inside saved hours is cut from one's own list, with the new sentence | ✔ on Joshua's report; the stack shows the event (23:38:59Z) and a lookup after it (23:39:49Z) | none |
+| 2 — a seat on **Going** blocks; **Maybe** and **Not going** do not; waitlisted does not | In part: ✔ on Joshua's report for the RSVP changes, which the stack shows from both accounts with lookups after each (23:40:53Z–23:43:17Z); the waitlisted case is not shown | none |
+| 3 — a creator who answers **Not going** stays blocked | ✔ reported by Joshua at 23:44Z as the creator staying busy after **Not going** and **Maybe**, which is the rule (FR21) | none |
+| 4 — a cancelled or deleted event frees the time | ✔ on Joshua's report; the stack shows the event deleted (23:45:06Z) | none |
+| 5 — a weekly event blocks its later dates for its creator only | ✔ on Joshua's report; the stack shows the weekly series created (23:48:39Z) with lookups after it, and RSVP changes on it from 01:15:57Z, ending in one removed at 01:15:59Z, with a lookup after (01:16:29Z) | none |
+| 6 — an event in another server does not count | Not run | — |
+| 7 — `/availability role` and `/availability event` unchanged | Not run | — |
+| 8 — **Must pass**: a member named without saved hours is refused, whatever events they have | ✔ 2026-11-19: a lookup refused at 01:17:18Z, when neither account had saved hours and the one that could be named had its weekly event; Joshua confirmed the reply's text | none |
+
+Joshua ran the items from two accounts on 2026-11-18 and 2026-11-19 and reported that they
+tested well. Before 0.38.0 was released, the item marked **Must pass** had to pass, and it did.
+Items 6 and 7 were not run, and the waitlisted case of item 2 is not shown; whether any of
+them had to be run first was Joshua's call when he approved this stage.
+
+**Approved, 2026-11-19.** Joshua approved build and test ("Yes, proceed") with the items in the
+table as they stood. Release 0.38.0 followed the same day on his go-ahead — PR #207
+squash-merged at 01:24:11Z as `f6152d7`, `v0.38.0` published at 01:24:23Z — and prod was
+rolled to it at 03:26Z.

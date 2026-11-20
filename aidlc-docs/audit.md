@@ -3644,6 +3644,13 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Inception — approval of the plan asked; waiting for Joshua.
 
 ---
+## Code Generation — the take-ins read and pushed; 0.37.2 released
+**Timestamp**: 2026-11-18T23:10:57Z
+**User Input**: (none — continuation of the Auto-fix report)
+**AI Response**: Both review agents confirmed `0b6b5f3` and `433afe4`: the merge exact, and nothing under the public-text rule. Two optional words are taken into the plan: #204's checks "weaken nothing on the free-slots route", and the few words answered were in the plan, the state line and the entry of 23:02:36Z. Before the push, 0.37.2 was released (#200, merged at 23:08:45Z); its commit changes only `CHANGELOG.md`, which this change does not touch, so it was not taken in. The branch was pushed by its name at 2026-11-18T23:10:31Z (`ebaa7c6..433afe4`); the remote's head is `433afe4`, and nothing else was pushed. By Joshua's answer "A", this pull request's merge waits for 0.37.2 to be rolled out, and then for his go-ahead.
+**Context**: Construction — delivery (plan section 8): pushed under Auto-fix; 0.37.2 released; the merge waits for its rollout and Joshua's go-ahead.
+
+---
 ## Server Members intent — plan approved
 **Timestamp**: 2026-11-18T23:11:26Z
 **User Input**: "Approve, all A"
@@ -3651,11 +3658,46 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Inception complete; Construction — code generation starts.
 
 ---
+## Code Generation — go-ahead to merge pull request #197
+**Timestamp**: 2026-11-18T23:14:55Z
+**User Input**: "Ready for merge"
+**AI Response**: Read as the go-ahead to squash-merge pull request #197 at its reviewed head `433afe4`. His answer of 20:48:02Z put this merge after the release of 0.37.2 and its rollout; this go-ahead comes after the release (23:08:45Z) and before the rollout, and is read as his decision to merge now. Merging this change into `master` does not change what is on prod, which stays on 0.37.1 until the rollout has its own go-ahead. Every check passed on `433afe4` (`build-test`, `pr-title`, `lint-workflows`, both CodeQL analyses and the secret scan; `publish-main` skipped, as on every pull request), and GitHub lists it as mergeable; `master` (`6e0d8b2`, the release of 0.37.2, `CHANGELOG.md` only) merges with it without a conflict. Not a go-ahead for the release of 0.38.0 or any rollout.
+**Context**: Construction — delivery (plan section 8): the merge.
+
+---
 ## Date limit and delivery posts — prod rollout of 0.37.2
 **Timestamp**: 2026-11-18T23:16:27Z
 **User Input**: "Yes, roll out now"
 **AI Response**: His answer to "Roll out 0.37.2 to prod now?", asked after the release, with yes as the recommendation. Prod ran 0.37.1 with no delivery pending, so no row queued before the upgrade was waiting. The database was backed up first. The tag was pinned to 0.37.2 and a dry run showed that only the API, the bot and the web would be recreated; they were pulled and restarted on it, the database container left as it was. The API started at 23:17:25Z and applied the migration `WidenDeliveryPayload`, which makes the payload column `text`; `/health` and `/health/ready` report 0.37.2; the bot connected and was ready; the logs since the start show only the known start-up notices, and no error. Both changes are live on prod.
 **Context**: Operations — prod rollout of 0.37.2, on Joshua's go-ahead.
+
+---
+## Code Generation — pull request #197 squash-merged
+**Timestamp**: 2026-11-18T23:16:50Z
+**User Input**: (none — continuation of "Ready for merge")
+**AI Response**: Pull request #197 was squash-merged through the REST call, pinned to its reviewed head `433afe4`, at 2026-11-18T23:15:51Z as `f05e1d0` on `master`; its tree is the one `git merge-tree` gave for `master` (`6e0d8b2`) and `433afe4`, which differed from `master` only in the pull request's 33 files. The squash title is `feat: free slots count this server's CalCrony events (#197)`, and its message is the pull request's text with one count brought up to date: 42 rules of the change taken out one at a time, where the text, written before the per-series guard, says 41; the pull request's text itself is left as it is. Issue #192 closed with the merge at 23:15:53Z, and GitHub deleted the branch. The records written after the last push (`53b54c2`, `c27323e`) are carried to the local branch `docs/log-free-slots-calcrony-events-merge`, cut from `f05e1d0`, with this entry; nothing of it is pushed. Prod stays on 0.37.1. Next, each on its own go-ahead: the test stack on `:main`, the live items, the build-and-test approval, the release of 0.38.0 and its rollout.
+**Context**: Construction — delivery (plan section 8): merged; build and test follow.
+
+---
+## Build and Test — when the merged build goes on the test stack, asked
+**Timestamp**: 2026-11-18T23:17:23Z
+**User Input**: (none — continuation of "Ready for merge")
+**AI Response**: After the merge, release-please opened pull request #207 for 0.38.0, and `master`'s checks on `f05e1d0` were running. Question put to Joshua: when the merged build goes on the test stack (the `:main` image, app services only) for the live items of section 12. A) After 0.37.2's own check on the test stack and its rollout, recommended: the stack stays as that check needs it, and the live items run on `:main` after. B) Now, once `master`'s checks have published `:main`, which carries 0.37.2's changes as well. The live items are his to run, the build-and-test approval follows them, and the release of 0.38.0 and its rollout each wait for their own go-ahead.
+**Context**: Build and test (collapsed form): the test stack asked; nothing deployed.
+
+---
+## Build and Test — the test stack answered: after the 0.37.2 rollout
+**Timestamp**: 2026-11-18T23:19:43Z
+**User Input**: "After 0.37.2 rollout"
+**AI Response**: Read as answer A to the question of 23:17:23Z: the merged build goes on the test stack (the `:main` image, app services only) once 0.37.2 has had its own check on the test stack and has been rolled out to prod; the live items of section 12 follow on it. Not a go-ahead for the rollout of 0.37.2, which has its own, nor for the release of 0.38.0. Nothing is deployed now; prod stays on 0.37.1.
+**Context**: Build and test (collapsed form): the order settled; the test stack waits for the 0.37.2 rollout.
+
+---
+## Build and Test — the merged build on the test stack
+**Timestamp**: 2026-11-18T23:21:57Z
+**User Input**: (none — continuation of "After 0.37.2 rollout"; 0.37.2 was reported live on prod since 23:17:25Z, and prod's `/health` reported `0.37.2` when read here)
+**AI Response**: `master`'s checks on `f05e1d0` had passed, the `publish-main` job among them. The test stack's app services were refreshed to the `:main` images, app services only, after a dry run that showed the database container left as it was: the API started at 23:20:54Z and the bot and the web app at 23:21:00Z, each on the newly published image; the database container is the one started at 09:20:12Z. `/health` and `/health/ready` report `0.0.0-main.f05e1d0`. The start-up logs show only the known notices (the `HTTP_PORTS` override and the EF multiple-collection warning); the bot connected, registered its commands in the test guild and reached Ready. The live items of section 12 for this change are handed to Joshua to run from his accounts; nothing is recorded as run until the stack's logs show it.
+**Context**: Build and test (collapsed form): the test stack runs the merged build; the live items are Joshua's to run.
 
 ---
 ## Server Members intent — code generated, local commit
@@ -3686,11 +3728,25 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Code generation (part 2) — the review's second read.
 
 ---
+## Build and Test — the live items: Joshua runs them
+**Timestamp**: 2026-11-18T23:40:51Z
+**User Input**: "I'll run them"
+**AI Response**: Logged. The test bot's log already shows the first free-slots lookup of the run at 23:39:49Z. What was run is read from the test stack's logs once the calls have gone quiet, and nothing is recorded as passed from his answer alone.
+**Context**: Build and test (collapsed form): the live items under way on the test stack.
+
+---
 ## Code generation — one place for an event's end: the third read, and the completion gate asked
 **Timestamp**: 2026-11-18T23:42:23Z
 **User Input**: (none — this entry records the question put to Joshua)
 **AI Response**: Both review agents read the record of their second read and the pull request's draft text, and neither found a fault; their nits, on wording, line length and who ran which tests, are answered in section 7 of the plan and in that record, before anything is pushed. The change has been read three times without a fault: `SeriesProjection.EndOf` returns `EventTimes.End`, `SeriesProjection.DefaultLengthMinutes` is gone, the summaries name `EventTimes.DefaultLengthMinutes`, and the new test has its four cases; `master` is taken in at `f05e1d0`, and on that tree the Release build has no error and the same 22 warnings and 2,661 tests pass. Both agents read this commit before the push. Asked: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage" (recommended: B). On B, the push of `refactor/event-end-one-place` and its pull request, `refactor: work out an event's end in one place`, are asked next, each on Joshua's go-ahead.
 **Context**: Code generation (part 2) — the completion gate; waiting for Joshua's answer.
+
+---
+## Build and Test — live item 3 reported
+**Timestamp**: 2026-11-18T23:44:26Z
+**User Input**: "For step 3, after marking not going and/or maybe, user A is still marked not available for the time period of the event"
+**AI Response**: That is item 3's expected result: the creator's time stays out of their list whatever they answer, as FR21 has it ("does not release a creator"), approved as Q2 A on 2026-11-16 over the option that would have let a creator's own "Not going" free them. The test stack's logs show the run so far: RSVP changes on one event by two members between 23:41:03Z and 23:43:07Z, and free-slots lookups after them, all answered with 200. Told Joshua that a way for a creator to free their own time would be a change of its own, if he wants one. The run is still being read; nothing is recorded as passed yet.
+**Context**: Build and test (collapsed form): the live items under way.
 
 ---
 ## Server Members intent — mutation checks and review round 1 answered
@@ -3705,6 +3761,13 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **User Input**: "B) Continue"
 **AI Response**: Read as the answer to the gate alone: code generation is complete, and the next stage, build and test in the repository's collapsed form, runs the pull request's checks, which need the push. The push and the pull request are asked next, as their own go-ahead. Both review agents read `95b1c81`, the commit before this one, which holds records only: the security agent found nothing, and the quality agent found that the entry of 23:42:23Z says the change had been read three times, when it was read twice and the records after it twice more, and that it names no commit for the third read, which was of `500c188`, the record of the second read, amended into `95b1c81` before anything was pushed. Section 7 of the plan, its status and step 5.2, and the state file have it. Committed locally; both agents read this commit before the push. `master` is still `f05e1d0`; release pull request #207 (0.38.0) is open, and if it merges first, `master` is taken in again before the push. Asked: "Push `refactor/event-end-one-place` and open its pull request, `refactor: work out an event's end in one place`?" (recommended: yes, once both agents have read this commit).
 **Context**: Code generation (part 2) — completion gate answered; next, the push and the pull request, on Joshua's go-ahead.
+
+---
+## Build and Test — the live run read from the logs; the must-pass item asked again
+**Timestamp**: 2026-11-18T23:53:35Z
+**User Input**: "tests well"
+**AI Response**: Read against the test stack's logs and database. Run, between 23:35:08Z and 23:51:32Z: both accounts saved their hours; an event was created at 23:38:59Z, both accounts changed their RSVP on it with lookups after each change (items 1 to 3; item 3 reported by Joshua at 23:44Z as the creator staying busy, which is the rule), and it was deleted at 23:45:06Z (item 4); a weekly series was created at 23:48:39Z by one account, which RSVP'd Going to its first occurrence, with two lookups after (item 5). Every lookup was answered with 200. Not shown: item 8, the must-pass item. One account cleared its hours at 23:51:06Z, and the only lookup after that was answered rather than refused, which fits that account looking itself up — allowed, since the refusal is for a member other than the one asking — and not the by-name refusal, which the logs would show as a 400. Items 6 and 7, both optional, were not run. Asked Joshua to run item 8 once: from the account that still has hours, name the one that cleared its hours.
+**Context**: Build and test (collapsed form): items 1 to 5 run; the must-pass item still to run.
 
 ---
 ## Records — the date limit and delivery posts: go-ahead to push and open their pull request
@@ -3791,6 +3854,13 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Construction — delivery posts: the scheduler's save tests, on Joshua's go-ahead.
 
 ---
+## Build and Test — the must-pass item seen in the logs
+**Timestamp**: 2026-11-19T01:17:57Z
+**User Input**: (none — read from the test stack; the question of 23:53:35Z was not answered in words)
+**AI Response**: Between 01:15:57Z and 01:17:18Z on 2026-11-19: an RSVP on the weekly event was removed, the second account cleared its saved hours at 01:16:48Z, so neither account had any, and two lookups were answered (01:16:29Z and 01:17:05Z, 200) before one was refused at 01:17:18Z with a 400. With no saved hours on either account, a lookup of oneself is answered and a lookup naming the other member is refused, and the member that could be named still had its weekly event; so the refusal fits item 8, a member named without saved hours refused whatever events they have. The logs show the status only, not the text, so Joshua is asked to confirm that the reply read "That member hasn't saved their available hours, so their free slots can't be listed by name." before item 8 is recorded as passed.
+**Context**: Build and test (collapsed form): items 1 to 5 run; item 8 seen, its text to be confirmed; items 6 and 7 not run.
+
+---
 ## Build and test — one place for an event's end: Joshua's go-ahead for the push and the pull request
 **Timestamp**: 2026-11-19T01:18:34Z
 **User Input**: "Push and open"
@@ -3798,11 +3868,46 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Build and test, in the repository's collapsed form — the push and the pull request.
 
 ---
+## Build and Test — the must-pass item confirmed; the live results recorded
+**Timestamp**: 2026-11-19T01:19:44Z
+**User Input**: "Yes, that text"
+**AI Response**: Item 8 recorded as passed: the lookup refused at 01:17:18Z showed "That member hasn't saved their available hours, so their free slots can't be listed by name.", as Joshua confirmed. The build-and-test summary gains a section for this change: the suite on the merged tree, what no automated test reaches, the test stack, and the live results item by item — items 1 to 5 and 8 passed on Joshua's reports, with what the stack shows of each; the waitlisted case of item 2 not shown; items 6 and 7 not run.
+**Context**: Build and test (collapsed form): the live results recorded.
+
+---
+## Build and Test — approval asked
+**Timestamp**: 2026-11-19T01:19:46Z
+**User Input**: (none — continuation)
+**AI Response**: Question put to Joshua, word for word: "Build and test instructions complete. Ready to proceed to Operations stage?" A) Yes, recommended: build and test approved with the live results as they stand (items 6 and 7 not run, the waitlisted case of item 2 not shown); the release of 0.38.0 is asked next, on its own. B) Not yet: one or more of those is run first.
+**Context**: Build and test (collapsed form): the stage's approval asked.
+
+---
+## Build and Test — approved
+**Timestamp**: 2026-11-19T01:20:44Z
+**User Input**: "Yes, proceed" (sent twice in one message)
+**AI Response**: Read as answer A to the question of 01:19:46Z: build and test approved with the live results as they stand — items 1 to 5 and the item marked **Must pass** passed, the waitlisted case of item 2 not shown, items 6 and 7 not run. The state file ticks the stage; the build-and-test summary and the plan say so. Not a go-ahead for the release of 0.38.0 or its rollout, each asked on its own.
+**Context**: Build and test (collapsed form): approved; the release is asked next.
+
+---
 ## Code generation, part 2 — the feed and long repeating events: both agents' second read, and the answers
 **Timestamp**: 2026-11-19T01:20:51Z
 **User Input**: (none since "Yes, A" at 2026-11-18T23:54:14Z)
 **AI Response**: Before the second read the branch was rebuilt as one commit on `master` (`b1f5c58`, with pull request #208 taken in), and in it the first entry's quotation of the hand-over was shortened. Both agents read that commit, `1b43098`, and confirmed the first round's answers by reading and by runs of their own; neither found a critical, high or medium finding. Both found that a new start for the whole series was never checked: since a monthly date on the 29th or 30th has a gap of 29 days, moving it to another day could leave a series as long as its gap. The edit route now checks a new start from its new date, with the length the series will have; a test makes the move alone and with a new length, and the move the other way is accepted, and taking the check out makes it fail. The security agent also found the series route taking its lock before its permission check (it now locks after it and reads the series again) and the edit route locking the event row before the series row (the series row is now locked first). The quality agent also found that refusing to revive an ended series advised making its occurrences shorter, which an ended series cannot be (a revival is now asked only for dates further apart), and nits: the raised count's limit had no test (one is added), the web form's length is now a limit written in the plan's section 4, and the plan's records of the rebuilt commit were out of date. One warning more than `master`'s came from a new web test's base class, which bUnit has replaced; it is built on the new one now. On the result the whole suite passes: 2,744 tests (1,738 API, 499 bot, 157 web, 350 for the release-notes tool; seventeen of the tool's tests run in CI only), with the same 22 warnings as `master`, and the release summary passes the repository's check. The plan's section 8 lists every finding and its answer. The branch is again one commit on `master` `b1f5c58`. Next: both agents read it, then the completion gate. Nothing is pushed.
 **Context**: Construction — code generation, part 2: the second review round answered.
+
+---
+## Operations — release of 0.38.0 asked
+**Timestamp**: 2026-11-19T01:21:35Z
+**User Input**: (none — continuation of "Yes, proceed")
+**AI Response**: Release pull request #207, `chore(master): release 0.38.0`, at its head `68e3323`, lists one feature: this change (#197, `f05e1d0`); `master` since 0.37.2 holds only this change and #208, records only. Its "Release summary" comment shows `docs/release-notes/0.38.0.md` as on `master`, 833 of 1,800 characters, this change's two bullets and its how-to, with the example `who:@GM` inside a code span, as in the earlier summaries. Its CI and CodeQL runs wait for approval, as on every release pull request; the secret scan passed. Question put to Joshua: A) Release now, recommended: approve the two waiting runs, and once `build-test` and `pr-title` pass, merge #207 through the REST call pinned to its head; the release workflow then tags `v0.38.0`, publishes the three images and posts the announcement to the community Discord before prod is rolled out, and the prod rollout is asked right after. B) Not yet.
+**Context**: Operations: the release asked; nothing released.
+
+---
+## Operations — go-ahead to release 0.38.0
+**Timestamp**: 2026-11-19T01:22:52Z
+**User Input**: "Release now"
+**AI Response**: Read as answer A to the question of 01:21:35Z: approve the two waiting runs on release pull request #207, and once `build-test` and `pr-title` pass, merge it through the REST call pinned to its head; the release workflow then tags `v0.38.0`, publishes the images and posts the announcement. Not a go-ahead for the prod rollout, asked after the release.
+**Context**: Operations: the release under way.
 
 ---
 ## Build and test — one place for an event's end: `master` taken in at `b1f5c58` before the push
@@ -3817,6 +3922,13 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **User Input**: (none in this session — the release and the rollout that carried this fix were done on Joshua's go-ahead in the session that ran them, "Yes, release now" and "Yes, roll out now", recorded there at 23:08:09Z and 23:16:27Z)
 **AI Response**: Release 0.37.2 carries this fix: pull request #200 was merged at 23:08:45Z as `6e0d8b2`, `v0.37.2` was published at 23:08:57Z, `1fce915` is in it, and its release notes carry this fix's line under "What's new". The prod rollout of 0.37.2 restarted the API at 23:17:25Z and the bot and the web app at 23:17:43Z on the 0.37.2 images, and the API and the web app report healthy, so the fix has been live on prod since then. Nothing was done in this session for either step; this entry records both for this fix, as read from GitHub and from the prod stack on 2026-11-19 at 01:26Z. The state file's line for the release and the rollout is ticked, and the plan's status says so.
 **Context**: Operations — the release and the prod rollout.
+
+---
+## Operations — 0.38.0 released
+**Timestamp**: 2026-11-19T01:29:24Z
+**User Input**: (none — continuation of "Release now")
+**AI Response**: Release pull request #207's checks were already running when looked at, so there was nothing to approve; `build-test`, `pr-title` and `lint-workflows` passed on its head `68e3323`, and it was squash-merged through the REST call pinned to that head at 01:24:08Z as `f6152d7`, titled `chore(master): release 0.38.0 (#207)`. The release run passed every job: `v0.38.0` tagged and published at 01:24:23Z with the release summary on top of the notes (read back, the same text as `0.38.0.md`), the three images published as `:0.38.0` by 01:28:40Z, and the announcement posted to the community Discord at 01:28:45Z. Prod still runs 0.37.2. Question put to Joshua: A) Roll out now, recommended: a backup of the prod database first, the pinned tag set to 0.38.0, and the API, the bot and the web app restarted with the database container left as it is; there is no migration, so rolling back is the tag set back and the same restart. B) Not yet.
+**Context**: Operations: released; the prod rollout asked.
 
 ---
 ## Build and test — one place for an event's end: pushed, and pull request #210 opened
@@ -3854,11 +3966,39 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Construction — code generation, part 2: the completion gate answered; next, the push and the pull request, on Joshua's go-ahead.
 
 ---
+## Operations — go-ahead to roll out 0.38.0
+**Timestamp**: 2026-11-19T03:25:50Z
+**User Input**: "Roll out now"
+**AI Response**: Read as answer A to the question of 01:29:24Z: a backup of the prod database first, the pinned tag set to 0.38.0, and the API, the bot and the web app restarted with the database container left as it is; no migration.
+**Context**: Operations: the prod rollout under way.
+
+---
+## Operations — 0.38.0 rolled out to prod
+**Timestamp**: 2026-11-19T03:27:30Z
+**User Input**: (none — continuation of "Roll out now")
+**AI Response**: Prod ran 0.37.2 with the pinned tag 0.37.2. A backup of the prod database was taken first: `calcrony-prod-pre-0.38.0-20261119T032600Z.sql`, 2,408,925 bytes, `pg_dump` ending cleanly. The pinned tag was set to 0.38.0 in a shell that had not read `.env`, and `docker compose config --images` showed the three app images at 0.38.0; after the pull, a dry run showed the API, the bot and the web app recreated and the database container left as it was. The API started at 03:26:33Z and the bot and the web app at 03:26:39Z, all on their 0.38.0 images and healthy; the database container is the one started on 2026-11-15. `/health` and `/health/ready` report 0.38.0; there was no migration, and the history still holds 26 entries. The logs show only the known start-up notices (the `HTTP_PORTS` override, the EF multiple-collection warning, and the bot's "A Ready handler is blocking the gateway task" before Ready); the bot registered its commands globally. Rolling back is the tag set back to 0.37.2 and the same restart. The state file ticks the release and the rollout.
+**Context**: Operations: released and rolled out; the change is live.
+
+---
+## Operations — the records pull request asked
+**Timestamp**: 2026-11-19T03:27:49Z
+**User Input**: (none — continuation of "Roll out now")
+**AI Response**: The records written since the last push of pull request #197 sit on the local branch `docs/log-free-slots-calcrony-events-merge`, cut from `f05e1d0`: the merge, the test stack, the live run, the build-and-test approval, the release and the rollout. Question put to Joshua: A) Open the records pull request, recommended: take in `master`, have both review agents read every commit on the branch, then push it by name and open the pull request; its merge is asked on its own after its checks pass. B) Not now: the branch stays local.
+**Context**: Operations: the change is live; its records go out next.
+
+---
 ## Build and test — one place for an event's end: Joshua's go-ahead for the merge, and `master` taken in at `dab6a31`
 **Timestamp**: 2026-11-19T03:30:06Z
 **User Input**: "Merge when green"
 **AI Response**: Read as the go-ahead to squash-merge pull request #210 once its checks pass. Every check had passed on `2573c7f`: `pr-title`, `lint-workflows`, `build-test`, both CodeQL analyses (C# and JavaScript/TypeScript), CodeQL and GitGuardian; `publish-main` is skipped on pull requests. `master` had since moved to `dab6a31` (pull request #209, merged at 03:25:44Z, which adds tests and records), and the pull request's records conflicted with it. It is merged in as `315fac2`: only the audit file conflicted, and it keeps master's text as it is, master's own change to its entry of 23:53:37Z included, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself. Outside the records the merge is `master` with this change's two files. On `315fac2` the Release build has no error and the same 22 warnings, and 2,677 tests pass and none fails (1,674 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Section 7 of the plan, its status and step 5.3, and the state file have it. Both agents read the merge and this commit before the push. The branch then goes up by its name, with the record of the push and the pull request, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head. Its message is the pull request's title and text, with the checklist's line on the suite brought up to date (2,677 tests, with `master` at `dab6a31` merged in); the text on GitHub is left as it is.
 **Context**: Build and test, in the repository's collapsed form — the merge's go-ahead.
+
+---
+## Operations — go-ahead to open the records pull request
+**Timestamp**: 2026-11-19T03:32:05Z
+**User Input**: "Open it"
+**AI Response**: Read as answer A to the question of 03:27:49Z: take in `master`, have both review agents read every commit on the branch, then push `docs/log-free-slots-calcrony-events-merge` by its name and open the records pull request. Its merge is asked on its own.
+**Context**: Operations: the records go out.
 
 ---
 ## Operations — the moved occurrence: go-ahead to open and merge the records pull request
@@ -3889,6 +4029,20 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Construction — code generation, part 2: the read before the push taken up again; `master` taken in before the push.
 
 ---
+## Operations — the records branch read; corrections; one phrase put to Joshua
+**Timestamp**: 2026-11-19T23:54:13Z
+**User Input**: "weekly limit reset" (the two review agents had stopped on a usage limit and were resumed after it)
+**AI Response**: Before the reviews were done, `master` was taken in twice on the records branch: `dab6a31` (#208, the release of 0.38.0 and #209) as `7e8ee8c`, and `11afb47` (#211, records only) as `00a0635`; only the audit trail conflicted each time, merged by its stamps, and taking either side's entries out gives the other side's file exactly. Both review agents read the whole branch: the merges exact, and nothing above minor. Corrections to earlier entries, which stay as written: release pull request #207 merged at 01:24:11Z, GitHub's time, where the entry of 01:29:24Z says 01:24:08Z, read from this machine's clock; the RSVP changes of items 2 and 3 began at 23:40:53Z, where the entry of 23:44:26Z, written from part of the log, says 23:41:03Z; and the input of the entry of 01:20:44Z was "Yes, proceed" sent twice, as two paragraphs of one message. The summary, the plan and the state line now say that 0.38.0 was released and rolled out, mark item 2 as run in part, word item 7 and the test count exactly, and name the push of `433afe4`. The test stack's logs of the live run are gone with its containers, recreated as every morning, so its times stand as read then. One point is put to Joshua: a wording point in the entry of 23:21:57Z, not yet pushed. A) Reword it before the first push, recommended: the branch rebuilt as one commit on `master`, read by both agents, then pushed. B) Push it as it stands.
+**Context**: Operations: the records pull request; the push waits for Joshua's answer and both agents' read.
+
+---
+## Operations — the phrase reworded; the records branch rebuilt as one commit
+**Timestamp**: 2026-11-20T02:22:33Z
+**User Input**: "Reword it"
+**AI Response**: Joshua's answer to the question of 23:54:13Z: A, the recommended one. The phrase in the input line of the entry of 2026-11-18T23:21:57Z, not yet pushed, now says that 0.37.2 was reported live on prod since 23:17:25Z; the rest of that entry is as it was. `master` had not moved past `11afb47`, so nothing was taken in. The records branch `docs/log-free-slots-calcrony-events-merge` is rebuilt as one commit on `11afb47` whose files are those of the branch before the rebuild apart from that phrase and this entry; its earlier commits, among them the take-ins `7e8ee8c` and `00a0635` named above, stay on this machine. Next: both review agents read the one commit; on their clean read it goes up by its name and the records pull request is opened, under "Open it"; its merge is asked on its own.
+**Context**: Operations: the records pull request; the phrase changed before the first push.
+
+---
 ## Build and test — one place for an event's end: `master` taken in at `ca45e61`, which has the same edit from pull request #212
 **Timestamp**: 2026-11-20T02:30:38Z
 **User Input**: (none in this session since "Try again", logged at 23:40:48Z)
@@ -3901,6 +4055,13 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **User Input**: "B"
 **AI Response**: Joshua chose B, continue to the next stage, with the code as it stands and the refinements of the plan's sections 8.5 to 8.8. By section 7 of the plan that is the go-ahead to take `master` in, run the suite and the reviewers' read again, push the branch and open the pull request; the merge, the release and the rollout each wait for their own go-ahead. `master` had moved to `ca45e61`: release 0.38.0 (#207, with #197), #208, #209, #211 and #212, and release pull request #213 for 0.38.1 is open.
 **Context**: Construction — code generation complete; Build and test, step 7.1 of the plan.
+
+---
+## Operations — the rebuilt commit read; `master` taken in by a second rebuild
+**Timestamp**: 2026-11-20T02:32:10Z
+**User Input**: (none — continuation of "Reword it")
+**AI Response**: Both review agents read `1b2e5d3`: the reworded phrase and the entry of 02:22:33Z exact, the rest of the tree as they had read it, and nothing private in the commit, its message or the pull request's text. Both found that `master` had moved: #212 merged at 02:23:15Z as `ca45e61`, 31 seconds after `1b2e5d3` was made, and conflicted with it in the audit trail and the state file. So the one commit is rebuilt again, now on `ca45e61`: the audit trail merged by its stamps, and taking either side's entries out gives the other side's file exactly; the state file keeps this branch's three lines with #212's section after them. `1b2e5d3` stays on this machine with the earlier commits, so the entry of 02:22:33Z, true at its stamp, is read with this one: the commit that goes up sits on `ca45e61`. Their wording points are answered: a wording point in the entry of 23:54:13Z, not yet pushed, is answered in its text; the pull request's title and the commit's message now say "free slots counting CalCrony events" and name this pull request's own course; and the entry of 23:54:13Z left out one row it changed, item 5's, which reads "RSVP changes on it from 01:15:57Z, ending in one removed at 01:15:59Z, with a lookup after (01:16:29Z)". Next: both agents read the rebuilt commit; on their clean read it goes up by its name and the pull request is opened.
+**Context**: Operations: the records pull request; `master` taken in before the first push.
 
 ---
 ## Server Members intent — `master` (`ca45e61`) merged in
