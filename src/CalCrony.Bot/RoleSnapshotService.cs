@@ -17,11 +17,16 @@ namespace CalCrony.Bot;
 /// and a full sync reads the watched set INSIDE the lock, so no writer can land with a set older
 /// than one already written. Strictly best-effort in the <see cref="AttendeeRoleManager"/> posture:
 /// every failure is logged, nothing throws into the gateway, and the web simply stays fail-closed
-/// until the next sync lands.</summary>
+/// until the next sync lands. Without the Server Members intent the bot cannot see who holds what:
+/// it never downloads a member list or pushes a member, and its syncs carry the names alone, marked
+/// as members unknown, so the API keeps the names for display and the web asks for restricted
+/// choices to be made from Discord.</summary>
 /// <param name="client">The Discord socket client.</param>
 /// <param name="api">The CalCrony API client.</param>
 /// <param name="logger">The host logger.</param>
-public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiClient api, ILogger<RoleSnapshotService> logger)
+/// <param name="membersIntent">Whether the bot has the Server Members intent.</param>
+public sealed class RoleSnapshotService(
+    DiscordSocketClient client, CalCronyApiClient api, ILogger<RoleSnapshotService> logger, ServerMembersIntent membersIntent)
 {
     /// <summary>The existing watched roles per guild — what a member update is compared against.
     /// Registered at the START of a sync, before the member list is captured, so an update that
@@ -108,7 +113,8 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
                 // only once the clear has landed: kept, it makes the next reconcile (which unions
                 // cached guilds in) retry a clear that failed, since an unrestricted guild is
                 // absent from the API's own listing.
-                var cleared = await api.SyncGuildRolesAsync((long)guild.Id, new RoleSyncRequest([], []));
+                var cleared = await api.SyncGuildRolesAsync(
+                    (long)guild.Id, new RoleSyncRequest([], [], MembersKnown: membersIntent.Enabled));
                 if (cleared.Success)
                 {
                     watched.TryRemove(guild.Id, out _);
@@ -136,7 +142,8 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     /// <summary>The sync body, run under the guild's lock: resolves the watched roles and every
     /// member holding one, and replaces the guild's snapshot. The member cache is lazy
     /// (AlwaysDownloadUsers is off), so the full member list is pulled first — a chunked gateway
-    /// request, once per sync, not per RSVP.</summary>
+    /// request, once per sync, not per RSVP. Without the Server Members intent there is no list to
+    /// pull: the roles are resolved and sent alone, marked as members unknown.</summary>
     /// <param name="guild">The guild to sync.</param>
     /// <param name="watchedRoleIds">The roles the API wants snapshots for.</param>
     private async Task SyncLockedAsync(SocketGuild guild, IReadOnlyList<long> watchedRoleIds)
@@ -157,14 +164,15 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
             // already see this set so it queues behind the lock and lands after this PUT.
             watched[guild.Id] = [.. existing.Keys.Select(id => (ulong)id)];
 
-            if (!guild.HasAllMembers)
+            if (membersIntent.Enabled && !guild.HasAllMembers)
             {
                 await guild.DownloadUsersAsync();
             }
 
             var request = BuildSyncRequest(
                 watchedRoleIds, existing,
-                guild.Users.Select(u => ((long)u.Id, (IReadOnlyCollection<long>)[.. u.Roles.Select(r => (long)r.Id)])));
+                guild.Users.Select(u => ((long)u.Id, (IReadOnlyCollection<long>)[.. u.Roles.Select(r => (long)r.Id)])),
+                membersKnown: membersIntent.Enabled);
             var result = await api.SyncGuildRolesAsync((long)guild.Id, request);
             if (!result.Success)
             {
@@ -212,7 +220,8 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     {
         try
         {
-            if (!watched.TryGetValue(guild.Id, out var set) || set.Count == 0)
+            // Without the Server Members intent no member row is kept, so there is none to remove.
+            if (!membersIntent.Enabled || !watched.TryGetValue(guild.Id, out var set) || set.Count == 0)
             {
                 return;
             }
@@ -241,20 +250,29 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
 
     /// <summary>The sync payload, pure: a row for EVERY watched role — with the name when it exists
     /// and null when the guild no longer has it, the tombstone that makes a restriction on a deleted
-    /// role vacuous — and one row per member holding at least one existing watched role.</summary>
+    /// role vacuous — and one row per member holding at least one existing watched role; or, when
+    /// the members are not known (no Server Members intent), no member at all and the request
+    /// marked so.</summary>
     /// <param name="watchedRoleIds">The roles the API wants snapshots for.</param>
     /// <param name="existingRoles">The watched roles the guild still has, with their names.</param>
     /// <param name="members">Every member with the roles they hold.</param>
+    /// <param name="membersKnown">Whether the bot can see the guild's members.</param>
     /// <returns>The request the sync route takes.</returns>
     public static RoleSyncRequest BuildSyncRequest(
         IReadOnlyList<long> watchedRoleIds,
         IReadOnlyDictionary<long, string> existingRoles,
-        IEnumerable<(long UserId, IReadOnlyCollection<long> RoleIds)> members)
+        IEnumerable<(long UserId, IReadOnlyCollection<long> RoleIds)> members,
+        bool membersKnown = true)
     {
         var roles = watchedRoleIds
             .Distinct()
             .Select(id => new RoleNameDto(id, existingRoles.GetValueOrDefault(id)))
             .ToList();
+        if (!membersKnown)
+        {
+            return new RoleSyncRequest(roles, [], MembersKnown: false);
+        }
+
         var existingWatched = roles.Where(r => r.Name is not null).Select(r => r.RoleId).ToHashSet();
         var rows = members
             .Select(m => new MemberRolesDto(m.UserId, [.. m.RoleIds.Where(existingWatched.Contains).Distinct().Order()]))
@@ -272,7 +290,9 @@ public sealed class RoleSnapshotService(DiscordSocketClient client, CalCronyApiC
     {
         try
         {
-            if (!watched.TryGetValue(after.Guild.Id, out var set) || set.Count == 0)
+            // Without the Server Members intent no member row is kept, so a member update that
+            // still arrives pushes nothing.
+            if (!membersIntent.Enabled || !watched.TryGetValue(after.Guild.Id, out var set) || set.Count == 0)
             {
                 return;
             }

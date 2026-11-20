@@ -31,10 +31,16 @@ public record MemberRolesDto(long UserId, IReadOnlyList<long> RoleIds);
 
 /// <summary>A full role snapshot for one guild: every watched role the bot was asked about and
 /// every member holding at least one of them. Replaces the guild's stored snapshot wholesale
-/// and stamps the guild as synced.</summary>
+/// and stamps the guild as synced — unless the bot says it cannot see who holds what (it runs
+/// without the Server Members intent), when only the names are stored, every member row goes and
+/// the guild is left unsynced, so the web asks for the choice to be made from Discord.</summary>
 /// <param name="Roles">The watched roles, resolved.</param>
-/// <param name="Members">The members holding any of them; members holding none are omitted.</param>
-public record RoleSyncRequest(IReadOnlyList<RoleNameDto> Roles, IReadOnlyList<MemberRolesDto> Members);
+/// <param name="Members">The members holding any of them; members holding none are omitted. Empty
+/// when <paramref name="MembersKnown"/> is false.</param>
+/// <param name="MembersKnown">Whether the bot could see the guild's members; true when absent,
+/// which is what a bot older than this field sends.</param>
+public record RoleSyncRequest(
+    IReadOnlyList<RoleNameDto> Roles, IReadOnlyList<MemberRolesDto> Members, bool MembersKnown = true);
 
 /// <summary>One member's current watched roles, pushed by the bot on a member update. An empty
 /// list removes the member's row.</summary>

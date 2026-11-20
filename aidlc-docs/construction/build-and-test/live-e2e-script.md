@@ -365,6 +365,40 @@ account:
 - [ ] `docker compose restart api` → boot logs clean; `/health/ready` 200 again; a Retention line
       appears at startup when anything qualified for purge.
 
+### 15. Running without the Server Members intent
+
+Needs the test application's **Server Members Intent** switched off in the Discord Developer
+Portal (Bot page, Privileged Gateway Intents) for its first items, and on again for the last. The
+test bot runs with `Discord__ServerMembersIntent` unset, so `auto`. Before starting, an event in
+the test server with an RSVP option limited to a role (`restrict-to:`) and an attendee role, and
+two accounts: one holding the role, one not.
+
+- [ ] Intent off, test bot restarted → its log has `Server Members intent: off (auto: the
+      application does not have it)`; it connects, and `/list`, `/create` and a reminder work.
+- [ ] **Must pass**, both ways. In Discord, the account without the role clicks the restricted
+      option → refused with "is limited to @role"; the account with the role → seated. The check
+      reads the member from the click itself, which needs no intent; this item shows that it holds.
+- [ ] `/availability role role:<any>` and `/availability slots who:<a role>` → "Listing who holds a
+      role needs Discord's Server Members access…"; `/availability slots who:<yourself>` still lists.
+- [ ] On the website, the account with the role picks the restricted option → "We can't confirm
+      your roles right now — RSVP from Discord."; the event shows the restricted and granted roles
+      by name, not `role #…`.
+- [ ] The attendee role: the account with the role is seated in Discord and gets the attendee
+      role; when the event ends (or the account leaves the option), the attendee role is taken
+      away again. Without the intent the bot's cached roles are never updated, so it now goes to
+      Discord for each grant and removal; this item shows the removal happens.
+- [ ] Intent switched on again, the test bot left running → within 10 minutes its log has "The
+      application has the Server Members intent again", it restarts, and the new start line reads
+      `Server Members intent: on (auto: the application has it)`; within one reconcile the website
+      seats the account with the role.
+- [ ] With the test bot running and the intent on, the intent switched off → the bot comes back
+      without it, either after Discord closes the connection (code 4014 in the log, a restart 5
+      minutes later) or within 10 minutes, when it reads the flags again and finds the intent gone
+      (a restart at once). Note which of the two happened.
+- [ ] To look at, not to pass: with the intent off, the bot given a new role with Manage Roles →
+      whether `/create attendee-role:` sees the permission without a restart (Discord is said to
+      send the bot's own member updates without the intent; this shows whether it does).
+
 ---
 
 ## Part C — Recording results & the v1.0.0 gate

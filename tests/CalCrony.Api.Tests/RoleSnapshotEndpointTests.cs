@@ -375,6 +375,186 @@ public class RoleSnapshotEndpointTests(WebAuthFixture fixture) : IClassFixture<W
         Assert.Null(await SyncedAtAsync(guild));
     }
 
+    [Fact]
+    public async Task A_sync_without_members_keeps_names_and_tombstones_drops_every_member_row_and_clears_the_marker()
+    {
+        const long guild = 12191;
+        const long tank = 995191;
+        const long deleted = 995192;
+        const long unwatched = 995193;
+        await CreateEventAsync(guild, "Watched", [tank, deleted]);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(tank, "Tank"), new RoleNameDto(deleted, null)],
+            [new MemberRolesDto(1911, [tank])]))).EnsureSuccessStatusCode();
+        Assert.NotNull(await SyncedAtAsync(guild));
+
+        // The bot runs without the Server Members intent: it still resolves the watched roles,
+        // and says it cannot tell who holds them.
+        var namesOnly = await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(tank, "Tank (renamed)"), new RoleNameDto(deleted, null), new RoleNameDto(unwatched, "Stale")],
+            [],
+            MembersKnown: false));
+        Assert.Equal(HttpStatusCode.NoContent, namesOnly.StatusCode);
+
+        var roles = await RolesAsync(guild);
+        Assert.Equal("Tank (renamed)", roles[tank]);
+        Assert.True(roles.ContainsKey(deleted));
+        Assert.Null(roles[deleted]);
+        Assert.False(roles.ContainsKey(unwatched)); // the API's watch list still decides what is kept
+        Assert.Empty(await MembersAsync(guild)); // no member data the bot can no longer keep current
+        Assert.Null(await SyncedAtAsync(guild)); // so the web cannot read an absent row as "holds none"
+
+        // The intent back: the next full sync stores members and the marker again.
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(tank, "Tank")], [new MemberRolesDto(1912, [tank])]))).EnsureSuccessStatusCode();
+        Assert.Equal(new[] { 1912L }, (await MembersAsync(guild)).Keys);
+        Assert.NotNull(await SyncedAtAsync(guild));
+    }
+
+    [Fact]
+    public async Task A_sync_that_says_its_members_are_unknown_but_lists_some_is_refused_and_changes_nothing()
+    {
+        const long guild = 12192;
+        const long tank = 995194;
+        await CreateEventAsync(guild, "Watched", [tank]);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(tank, "Tank")], [new MemberRolesDto(1921, [tank])]))).EnsureSuccessStatusCode();
+        var syncedAt = await SyncedAtAsync(guild);
+
+        var refused = await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(tank, "Other")], [new MemberRolesDto(1922, [tank])], MembersKnown: false));
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal(
+            "Members must be empty when MembersKnown is false.",
+            (await refused.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        Assert.Equal("Tank", (await RolesAsync(guild))[tank]);
+        Assert.Equal(new[] { 1921L }, (await MembersAsync(guild)).Keys);
+        Assert.Equal(syncedAt, await SyncedAtAsync(guild));
+    }
+
+    [Fact]
+    public async Task A_sync_from_a_bot_that_does_not_send_the_field_is_read_as_members_known()
+    {
+        const long guild = 12193;
+        const long tank = 995195;
+        await CreateEventAsync(guild, "Watched", [tank]);
+
+        // The body a bot older than the field sends.
+        var response = await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new
+        {
+            roles = new[] { new { roleId = tank, name = "Tank" } },
+            members = new[] { new { userId = 1931L, roleIds = new[] { tank } } },
+        });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(new[] { 1931L }, (await MembersAsync(guild)).Keys);
+        Assert.NotNull(await SyncedAtAsync(guild));
+    }
+
+    [Fact]
+    public async Task After_a_sync_without_members_the_web_is_asked_to_rsvp_from_discord_and_names_still_show()
+    {
+        const long guild = 12194;
+        const long raider = 995196;
+        const long granted = 995197;
+        var (member, memberSession) = await fixture.LoginAsync(1219401, (guild, "G", false));
+        var (manager, managerSession) = await fixture.LoginAsync(1219402, (guild, "G", true));
+        var (creator, creatorSession) = await fixture.LoginAsync(CreatorId, (guild, "G", false));
+        var ev = await CreateEventAsync(guild, "Raiders only", [raider], attendeeRoleId: granted);
+        var poll = await CreatePollAsync(guild, "Raid night?", [raider]);
+
+        // A full sync had listed the member as a holder; then the bot lost the intent.
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(raider, "Raider"), new RoleNameDto(granted, "Veteran")],
+            [new MemberRolesDto(memberSession.UserId, [raider])]))).EnsureSuccessStatusCode();
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(raider, "Raider"), new RoleNameDto(granted, "Veteran")], [], MembersKnown: false)))
+            .EnsureSuccessStatusCode();
+
+        var web = await member.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{memberSession.UserId}", new RsvpRequest(ev.AttendingOption!.Id));
+        Assert.Equal(HttpStatusCode.Conflict, web.StatusCode);
+        var error = (await web.Content.ReadFromJsonAsync<ErrorResponse>())!;
+        Assert.Equal("We can't confirm your roles right now — RSVP from Discord.", error.Error);
+        Assert.Equal(ErrorCodes.RoleRestricted, error.Code);
+
+        // A poll limited to the role is answered the same way.
+        var vote = await member.PutAsJsonAsync(
+            $"/polls/{poll.Id}/votes/{memberSession.UserId}", new PutPollVotesRequest([poll.Options[0].Id]));
+        Assert.Equal(HttpStatusCode.Conflict, vote.StatusCode);
+        Assert.Equal(
+            "We can't confirm your roles right now — vote from Discord.",
+            (await vote.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+
+        // The creator and a manager still pass, and the bot, which checks Discord itself, still
+        // seats the member.
+        Assert.Equal(HttpStatusCode.OK, (await creator.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{creatorSession.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await manager.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{managerSession.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Client.PutAsJsonAsync(
+            $"/events/{ev.Id}/rsvps/{memberSession.UserId}", new RsvpRequest(ev.AttendingOption.Id))).StatusCode);
+
+        // The web still names both roles.
+        var fetched = (await member.GetFromJsonAsync<EventDto>($"/events/{ev.Id}"))!;
+        Assert.Equal("Raider", Assert.Single(fetched.Options[0].AllowedRoles!).Name);
+        Assert.Equal("Veteran", Assert.Single(fetched.Options, o => o.AttendeeRoleId == granted).AttendeeRoleName);
+    }
+
+    [Fact]
+    public async Task Retention_trims_and_drops_names_kept_without_members_as_it_does_a_full_snapshot()
+    {
+        const long kept = 12195;
+        const long idle = 12196;
+        const long live = 995198;
+        const long ended = 995199;
+        await CreateEventAsync(kept, "Live", [live]);
+        var ending = await CreateEventAsync(kept, "Ending", [ended]);
+        var idleEnding = await CreateEventAsync(idle, "Ending too", [live]);
+        (await Client.PutAsJsonAsync($"/guilds/{kept}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(live, "Live"), new RoleNameDto(ended, "Ended")], [], MembersKnown: false)))
+            .EnsureSuccessStatusCode();
+        (await Client.PutAsJsonAsync($"/guilds/{idle}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(live, "Live")], [], MembersKnown: false))).EnsureSuccessStatusCode();
+        await EndAsync(ending);
+        await EndAsync(idleEnding);
+
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
+            await retention.PurgeAsync(SystemClock.Instance.GetCurrentInstant(), CancellationToken.None);
+        }
+
+        Assert.Equal(new[] { live }, (await RolesAsync(kept)).Keys); // trimmed to the role still named
+        Assert.Empty(await RolesAsync(idle)); // nothing named any more: gone
+    }
+
+    [Fact]
+    public async Task The_bot_found_gone_at_a_presence_sync_drops_names_kept_without_members()
+    {
+        const long guild = 12197;
+        const long role = 995200;
+        await CreateEventAsync(guild, "Restricted", [role]);
+        (await Client.PutAsJsonAsync($"/guilds/{guild}/roles/sync", new RoleSyncRequest(
+            [new RoleNameDto(role, "Raider")], [], MembersKnown: false))).EnsureSuccessStatusCode();
+        Assert.Single(await RolesAsync(guild));
+
+        // The bot's presence sync lists every other server it is in, and not this one.
+        List<long> present;
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CalCronyDbContext>();
+            present = await db.Guilds.Where(g => g.BotPresent && g.Id != guild).Select(g => g.Id).ToListAsync();
+        }
+
+        (await Client.PutAsJsonAsync("/guilds/presence/sync", new SyncGuildPresenceRequest(
+            [.. present.Select(id => new GuildSnapshotDto(id))]))).EnsureSuccessStatusCode();
+
+        Assert.Empty(await RolesAsync(guild));
+        Assert.Null(await SyncedAtAsync(guild));
+    }
+
     private async Task<EventDto> CreateEventAsync(
         long guildId, string title, long[] allowedRoleIds, bool weekly = false, long? attendeeRoleId = null)
     {
