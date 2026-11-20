@@ -4141,3 +4141,52 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Build and test — pull request #215, `master` taken in.
 
 ---
+## Scheduler sweep — the request and workspace detection
+**Timestamp**: 2026-11-20T16:33:14Z
+**User Input**: (none in words — this session was started from the session for the follow-up work on older code, with the next step it had put to Joshua on 2026-11-17)
+**AI Response**: Workspace detection: brownfield; the existing state file is resumed; `master` stood at `d451895` (#215) when this session began, and the hosted instance runs release 0.38.0. The work: the scheduler's sweep, and the event edit route beside it. First the points named in the follow-up are checked under test, with tests that are not committed; then Joshua is told what stands, with a recommended fix and its size for each, and asked what to include before anything is built. Reverse engineering is skipped, as on the earlier changes: the state file, the ADRs and the Docs page are the architecture record. Nothing is pushed, opened, merged, released or rolled out without his go-ahead, asked at each of those steps.
+**Context**: Inception — workspace detection. Next: requirements analysis.
+
+---
+## Scheduler sweep — the points checked; four questions put to Joshua
+**Timestamp**: 2026-11-20T16:33:14Z
+**User Input**: (none — no input from Joshua in this session yet)
+**AI Response**: The sweep, `SweepSave`, `SeriesMaterializer` and the event edit route were read on `master` at `d451895` and run under test there, with tests that are not committed. Four lettered questions were put to Joshua in the session, each with a recommendation and the size of the work: a test that holds the order in which the sweep takes its rows; whether the sweep should take each row before it changes it and decide a series' next occurrence under a lock; two answers of the event edit route (a status outside the four; a 500 where a 409 belongs); and one ordering case in the sweep's save. Nothing is built, and no branch has been made for the work yet.
+**Context**: Inception — requirements analysis (verification depth). Waiting for Joshua's answers.
+
+---
+## Scheduler sweep — Joshua's answers
+**Timestamp**: 2026-11-20T17:13:10Z
+**User Input**: "Go with recommended answers"
+**AI Response**: Read as A to each of the four questions, each the recommended answer: (1) a test that holds the order in which the sweep takes its rows; (2) the sweep takes each row before it changes it, with an update that applies only while the row is as the sweep read it, takes series rows before event rows, and works out a series' next occurrence from the series as it stands, under a lock; `SweepSave`'s retry rules go, and its tests are replaced; (3) the event edit route refuses a status outside the four with a 400, and answers 409 rather than 500 when a series would get a second upcoming occurrence, or when the route loses a race for a lock; (4) the ordering case in the sweep's save closes with (2). Not read as approval of a plan, which does not exist yet: next, a branch and the code-generation plan, in plain words, put to him for approval before anything is built. `master` has moved to `bcb9a2e` (#214, #216, records only).
+**Context**: Inception — requirements analysis answered. Next: workflow planning and the code-generation plan, for approval.
+
+---
+## Scheduler sweep — the plan written; approval asked
+**Timestamp**: 2026-11-20T17:20:02Z
+**User Input**: (none — continuation of "Go with recommended answers")
+**AI Response**: The branch `fix/sweep-claims` is cut from `master` at `bcb9a2e`. The plan is `construction/plans/sweep-claims-code-generation-plan.md`: the sweep finds what it may change, takes those rows in one fixed order (series, events with the occurrences of those series, reminders, polls), reads them again and works from what it then reads; the save keeps its failure log and loses its two rules for a row that had changed; the event edit route refuses a status outside the four with a 400 and answers 409 where it answered 500; `SweepSaveTests.cs` is replaced by `SweepRowLockTests.cs`, with a table of what becomes of each of its sixteen tests. Three questions put to Joshua, each with a recommendation: no line in the release notes (Q1, A); the route's three sentences as written (Q2, A); approval of the plan as written (Q3, A). Nothing is built.
+**Context**: Workflow planning and code generation, part 1 — the plan, put to Joshua for approval.
+
+---
+## Scheduler sweep — the plan approved
+**Timestamp**: 2026-11-20T20:28:01Z
+**User Input**: "Approve, all A"
+**AI Response**: Joshua approved the plan as written: Q1 A, no line in the release notes; Q2 A, the edit route's three sentences as written; Q3 A, the plan approved. Code generation, part 2, begins on `fix/sweep-claims` (`master` still `bcb9a2e`): the baseline first, then the tests, then the code, as section 5 of the plan sets out. The push, the pull request, the merge, the release and the rollout each still wait for his own go-ahead.
+**Context**: Workflow planning and code generation, part 1 — approved. Code generation, part 2, begins.
+
+---
+## Scheduler sweep — code generation, part 2: built and checked
+**Timestamp**: 2026-11-20T20:54:35Z
+**User Input**: (none — continuation of "Approve, all A")
+**AI Response**: Built on `fix/sweep-claims`, tests first, as section 5 of the plan sets out; `master` stayed at `bcb9a2e`. The baseline there: a full Release build with no error and 21 warnings, and the whole suite green, 2,835 tests (1,765 API, 562 bot, 157 web, 351 for the release-notes tool, seventeen of whose tests are skipped on this machine and run in CI). `SweepRowLockTests` (22 tests) replaces `SweepSaveTests`, and `EventStatusEditTests` (9 cases) is new; on the code before the change 26 of those 31 fail, and the other 5 check what the old code already did. The code is as section 6 of the plan describes: the sweep in three steps, `SweepSave.cs` deleted, the edit route's 400 and two 409s. On the change: a full Release build with no error and the same 21 warnings; the whole suite green, 2,850 tests (1,780 API, 562 bot, 157 web, 351 for the release-notes tool, seventeen skipped); and twenty-one rule removals, each made on its own in a checkout of its own, each failing at least one test (section 6 lists them). Next: the work as one commit, read by the two review agents, one for security and one for code quality, before the completion gate. Nothing is pushed.
+**Context**: Construction — code generation, part 2, complete; Build and test begins with the review agents' read.
+
+---
+## Scheduler sweep — the review agents' first read answered
+**Timestamp**: 2026-11-20T21:45:52Z
+**User Input**: (none — continuation of "Approve, all A")
+**AI Response**: Two review agents read `d0d23c8`, one for security and one for code quality. Neither found anything in the code that held up a push. Answered in the commit that replaces it, as section 6 of the plan lists: one more test, that rows made due after the sweep has found its rows are left to the next sweep; four tests made stricter; the two deadlock tests made to stop the edit every time; a second deadlock test, met as the edit saves; one comment, one overload made private, and the plan's steps ticked. The wording of the plan's opening and of step 2 of its section 1.1, and of four earlier entries here, was changed at the review, before anything was pushed; what was asked, answered and approved is unchanged. On the new commit: a full Release build with no error and the same 21 warnings; the whole suite green, 2,852 tests (1,782 API, 562 bot, 157 web, 351 for the release-notes tool, seventeen skipped); twenty-eight rule removals, each failing at least one test; and on the code before the change, 28 of the 33 cases of the two new test classes fail, and the other 5 check what the old code already did. Both agents are to read the new commit before the completion gate. Nothing is pushed.
+**Context**: Build and test — the review agents' first read answered; their second read follows.
+
+---

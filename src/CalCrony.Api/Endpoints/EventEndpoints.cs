@@ -836,7 +836,10 @@ public static class EventEndpoints
         return ev.ToDto(channelName, roleNames);
     }
 
-    /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs template + re-anchor).</summary>
+    /// <summary>Applies a partial update; live series occurrences require a Scope (occurrence-only vs
+    /// template + re-anchor). A status outside the four is refused (400). An edit that would give a
+    /// series a second live occurrence, or that the database stops because it and another
+    /// transaction each wait for rows the other holds, answers 409 and changes nothing.</summary>
     /// <param name="context">The current HTTP request context (carries the caller identity).</param>
     /// <param name="access">The guild-membership guard service.</param>
     /// <param name="id">The event id.</param>
@@ -847,6 +850,63 @@ public static class EventEndpoints
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The route response; failure statuses follow the rules described in the summary.</returns>
     private static async Task<IResult> UpdateEvent(
+        HttpContext context,
+        GuildAccessService access,
+        Guid id,
+        UpdateEventRequest request,
+        CalCronyDbContext db,
+        NaturalDateTimeParser parser,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        // The transaction of the edit is rolled back by the time either failure reaches here.
+        try
+        {
+            return await UpdateEventCoreAsync(context, access, id, request, db, parser, clock, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException
+        {
+            SqlState: Npgsql.PostgresErrorCodes.UniqueViolation,
+            ConstraintName: CalCronyDbContext.LiveOccurrenceIndex,
+        })
+        {
+            return Results.Conflict(new ErrorResponse("This series already has an upcoming occurrence."));
+        }
+        catch (Exception ex) when (IsDeadlock(ex))
+        {
+            return Results.Conflict(new ErrorResponse("This event changed at the same time — try again."));
+        }
+    }
+
+    /// <summary>Whether the database stopped a statement because its transaction and another each
+    /// waited for rows the other held. The database provider may hand the database's error on
+    /// inside exceptions of its own.</summary>
+    /// <param name="failure">The failure.</param>
+    /// <returns>True when it did.</returns>
+    private static bool IsDeadlock(Exception failure)
+    {
+        for (var e = failure; e is not null; e = e.InnerException)
+        {
+            if (e is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.DeadlockDetected })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The body of <see cref="UpdateEvent"/>, whose summary has its rules.</summary>
+    /// <param name="context">The current HTTP request context (carries the caller identity).</param>
+    /// <param name="access">The guild-membership guard service.</param>
+    /// <param name="id">The event id.</param>
+    /// <param name="request">The request body.</param>
+    /// <param name="db">The database context.</param>
+    /// <param name="parser">The natural-language datetime parser.</param>
+    /// <param name="clock">The time source.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The route response.</returns>
+    private static async Task<IResult> UpdateEventCoreAsync(
         HttpContext context,
         GuildAccessService access,
         Guid id,
@@ -910,6 +970,13 @@ public static class EventEndpoints
         }
 
         var applyToSeries = series is not null && isLive && request.Scope == EditScope.Series;
+
+        // An event is scheduled, started, ended or cancelled, and a status is stored only as one
+        // of those.
+        if (request.Status is { } status && !Enum.IsDefined(status))
+        {
+            return Results.BadRequest(new ErrorResponse("Choose a status of scheduled, started, ended or cancelled."));
+        }
 
         // Friendly 400s instead of Postgres truncation 500s. One check covers both the event
         // write and the applyToSeries template write — they use the same request fields.
