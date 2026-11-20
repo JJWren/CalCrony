@@ -14,7 +14,9 @@ step 0.2 and its counts are recorded in section 9.
 CalCrony events`.
 **Status**: approved by Joshua on 2026-11-17, as written ("Continue"); generated on 2026-11-17 and
 reviewed in four rounds (section 9); the completion gate was answered "Continue" on 2026-11-18,
-and the branch was rebuilt as one commit on `master` before the first push (section 9).
+and the branch was rebuilt as one commit on `master` before the first push (section 9); pushed
+as pull request #197 and squash-merged as `f05e1d0` on 2026-11-18 ("Ready for merge"); build and
+test approved, released as 0.38.0 (`f6152d7`) and rolled out to prod on 2026-11-19 (section 9).
 
 By the workflow plan, this file is the unit's application design (section 3), its functional
 design (section 4) and its code-generation plan (sections 5–8), approved together.
@@ -922,12 +924,47 @@ release-summary tool; 17 of the tool's tests skipped on Windows), and the releas
 check finds no problem.
 
 Both agents read `ceaa324` and `3356b59`: the merge exact, nothing under the public-text rule,
-and #204's checks leave the free-slots route as it was. Code quality found one minor point in
+and #204's checks weaken nothing on the free-slots route. Code quality found one minor point in
 the audit entry of 23:02:36Z, which says #203 was taken in while `aeff22d` was, where `master`
 moved to it then and it was taken in after the records of that take-in, and a few words in this
-plan and the state line, answered here. `master` then moved to `ee844fb` (#206, records only) and
-is merged in as `0b6b5f3`: only the audit trail conflicted, merged by its stamps as before, and
-nothing outside `aidlc-docs` differs from `3356b59`, so the results above stand.
+plan, the state line and that entry, answered here and in the audit trail. `master` then moved
+to `ee844fb` (#206, records only) and is merged in as `0b6b5f3`: only the audit trail
+conflicted, merged by its stamps as before, and nothing outside `aidlc-docs` differs from
+`3356b59`, so the results above stand.
+
+Both agents confirmed `0b6b5f3` and `433afe4`, and the branch was pushed by its name at
+23:10:31Z (`ebaa7c6..433afe4`). Before the push, 0.37.2 was released (#200, at 23:08:45Z); its
+commit changes only `CHANGELOG.md`, which this change does not touch, so it was not taken in.
+This change's merge waits for 0.37.2 to be rolled out, by Joshua's answer, and then for his
+go-ahead.
+
+### Merged (2026-11-18)
+
+Joshua then answered "Ready for merge", after the release of 0.37.2 and before its rollout: his
+decision to merge now, which leaves prod on 0.37.1 until the rollout has its own go-ahead. Every
+check had passed on `433afe4`, and `master` (`6e0d8b2`, `CHANGELOG.md` only) merged with it
+without a conflict, so the head was merged as it stood: squash-merged through the REST call,
+pinned to `433afe4`, at 23:15:51Z as `f05e1d0`, whose tree is the one `git merge-tree` gave for
+`6e0d8b2` and `433afe4`. The squash message is the pull request's text with one count brought up
+to date: 42 rules of the change taken out one at a time, where the text, written before the
+per-series guard, says 41. #192 closed with the merge, and GitHub deleted the branch. The records
+written after the last push are carried to the local branch
+`docs/log-free-slots-calcrony-events-merge`, cut from `f05e1d0`, for a records pull request of
+their own. Next, each on its own go-ahead: the test stack on `:main`, the live items of section
+12 of the live script, the build-and-test approval, the release of 0.38.0 and its rollout.
+
+### Build and test, release and rollout (2026-11-18 and 2026-11-19)
+
+After 0.37.2 was on prod, the test stack ran the merged build (`0.0.0-main.f05e1d0`, from
+23:20:54Z), and Joshua ran the live items from two accounts: items 1 to 5 and the item marked
+**Must pass** passed, the waitlisted case of item 2 is not shown, and items 6 and 7 were not run
+(the build-and-test summary). He approved build and test on 2026-11-19 ("Yes, proceed").
+
+0.38.0 was released on his "Release now": release pull request #207 squash-merged at 01:24:11Z
+as `f6152d7`, `v0.38.0` published at 01:24:23Z with the release summary on top of its notes, the
+three images by 01:28:40Z and the announcement at 01:28:45Z. On his "Roll out now" prod was rolled
+to it after a backup of its database, the app services only and with no migration: the API
+started at 03:26:33Z, and `/health` reports 0.38.0.
 
 ## 10. Plan checklist
 
