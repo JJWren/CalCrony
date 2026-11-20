@@ -390,6 +390,89 @@ public class RecurrenceCalculatorTests
         Assert.Equal(expected, RecurrenceCalculator.Describe(series));
     }
 
+    // The fewest days between two dates a schedule repeats on. With a day set, the gap across the
+    // end of the week counts too: Friday to Monday is three days, Sunday to Monday one; every second
+    // week, Friday to the Monday after next is ten, and every third week, Sunday to the Monday after
+    // it is fifteen, so Monday to Sunday, six, is the nearest. A monthly schedule repeating every
+    // month: 28 days, February's length, for a date up to the 28th or on the 31st, and four weeks
+    // for a weekday of the month; 29 for a date on the 29th or the 30th, which no February has
+    // every year. Monthly every 3 months: 84 days, a lower bound. Yearly: 365 days times the interval.
+    [Theory]
+    [InlineData(RecurrenceUnit.Day, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 1)]
+    [InlineData(RecurrenceUnit.Day, 3, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 3)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 7)]
+    [InlineData(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 14)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Tuesday, 15, 1)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Thursday, 15, 3)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Friday, 15, 3)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Sunday, 15, 1)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Weekdays, 15, 1)]
+    [InlineData(RecurrenceUnit.Week, 1, MonthlyMode.DayOfMonth, RecurrenceDays.Wednesday, 15, 7)]
+    [InlineData(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Friday, 15, 4)]
+    [InlineData(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, RecurrenceDays.Friday, 15, 14)]
+    [InlineData(RecurrenceUnit.Week, 3, MonthlyMode.DayOfMonth, RecurrenceDays.Monday | RecurrenceDays.Sunday, 15, 6)]
+    [InlineData(RecurrenceUnit.Week, 2, MonthlyMode.DayOfMonth, (RecurrenceDays)128, 15, 14)] // names no real day, which no route stores: read as no set
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 28)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 28, 28)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 29, 29)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 30, 29)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 31, 28)]
+    [InlineData(RecurrenceUnit.Month, 1, MonthlyMode.NthWeekday, RecurrenceDays.None, 30, 28)]
+    [InlineData(RecurrenceUnit.Month, 3, MonthlyMode.DayOfMonth, RecurrenceDays.None, 30, 84)]
+    [InlineData(RecurrenceUnit.Year, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 365)]
+    [InlineData(RecurrenceUnit.Year, 2, MonthlyMode.DayOfMonth, RecurrenceDays.None, 15, 730)]
+    public void Shortest_gap_is_the_fewest_days_between_two_dates_the_schedule_repeats_on(
+        RecurrenceUnit unit, int interval, MonthlyMode mode, RecurrenceDays days, int anchorDay, long expected) =>
+        Assert.Equal(expected, RecurrenceCalculator.ShortestGapDays(unit, interval, mode, days, new LocalDate(2027, 1, anchorDay)));
+
+    [Fact]
+    public void Shortest_gap_of_a_day_set_is_the_smallest_step_the_calculator_takes()
+    {
+        // Every day set every 1 to 3 weeks, stepped by the calculator for 20 weeks from an anchor
+        // on each of its days: the shortest gap is the smallest step seen.
+        foreach (var interval in new[] { 1, 2, 3 })
+        {
+            for (var mask = 1; mask <= (int)RecurrenceDays.All; mask++)
+            {
+                var days = (RecurrenceDays)mask;
+                foreach (var day in RecurrenceDaySets.Split(days))
+                {
+                    var anchor = new LocalDate(2026, 11, 2).Next(ToIso(day)).PlusWeeks(-1);
+                    var dates = new List<LocalDate> { anchor };
+                    while (dates[^1] < anchor.PlusWeeks(20))
+                    {
+                        dates.Add(RecurrenceCalculator.NextDate(RecurrenceUnit.Week, interval, MonthlyMode.DayOfMonth, anchor, dates[^1], days));
+                    }
+
+                    var smallest = dates.Zip(dates.Skip(1), (a, b) => (long)Period.DaysBetween(a, b)).Min();
+                    Assert.Equal(smallest, RecurrenceCalculator.ShortestGapDays(RecurrenceUnit.Week, interval, MonthlyMode.DayOfMonth, days, anchor));
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void Shortest_gap_of_a_monthly_schedule_by_date_is_the_smallest_step_the_calculator_takes()
+    {
+        // Every day of the month as the anchor, stepped by the calculator for eight years from
+        // January 2027, two of them leap years: the shortest gap is the smallest step seen.
+        for (var day = 1; day <= 31; day++)
+        {
+            var anchor = new LocalDate(2027, 1, day);
+            var dates = new List<LocalDate> { anchor };
+            while (dates[^1] < anchor.PlusYears(8))
+            {
+                dates.Add(RecurrenceCalculator.NextDate(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, anchor, dates[^1]));
+            }
+
+            var smallest = dates.Zip(dates.Skip(1), (a, b) => (long)Period.DaysBetween(a, b)).Min();
+            Assert.Equal(smallest, RecurrenceCalculator.ShortestGapDays(RecurrenceUnit.Month, 1, MonthlyMode.DayOfMonth, RecurrenceDays.None, anchor));
+        }
+    }
+
+    private static IsoDayOfWeek ToIso(RecurrenceDays day) =>
+        RecurrenceDaySets.ToDayOfWeek(day) is DayOfWeek.Sunday ? IsoDayOfWeek.Sunday : (IsoDayOfWeek)(int)RecurrenceDaySets.ToDayOfWeek(day);
+
     private static EventSeries Series(RecurrenceUnit unit, int interval, MonthlyMode mode) => new()
     {
         Id = Guid.NewGuid(),
