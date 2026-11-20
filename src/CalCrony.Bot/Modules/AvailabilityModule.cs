@@ -117,8 +117,9 @@ public class AvailabilityModule(CalCronyApiClient api, ServerMembersIntent membe
 
     /// <summary>Free slots for a member, or for everyone holding a role, over one or more whole
     /// days: the times every counted member is inside their available hours with nothing on a
-    /// linked calendar. Unlike <c>role</c>, which checks one window someone already has in mind,
-    /// this finds the windows.</summary>
+    /// linked calendar and none of their CalCrony events in this server. Unlike <c>role</c>,
+    /// which checks one window someone already has in mind and reads calendars alone, this finds
+    /// the windows.</summary>
     /// <param name="who">A member, or the role whose members are looked at. The caller can always
     /// name themself; another member is listed only once they have saved their own available
     /// hours, which the API decides (<see cref="FreeSlotTarget.ForUser"/>).</param>

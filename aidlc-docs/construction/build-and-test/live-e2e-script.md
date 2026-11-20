@@ -328,6 +328,27 @@ the prerequisites above:
 - [ ] The test stack's migration history lists `AddAvailableHours`; a member who never saved
       hours is treated as before.
 
+Free slots count CalCrony events (v0.38.0) — none of these items needs a linked calendar; they
+are run on accounts with saved hours, and the items that name another member need a second
+account:
+
+- [ ] As a member with saved hours, `/create` an event inside those hours. `/availability slots
+      who:<yourself>` no longer lists that time, and the sentence under the range says "clear of
+      their CalCrony events in this server".
+- [ ] A second account with saved hours RSVPs **Going** to that event → `who:<that member>` has
+      the gap. On **Maybe** or **Not going** the time is back. Waitlisted on an event that is
+      full, the time stays free.
+- [ ] The creator RSVPs **Not going** to their own event → the time stays out of their list.
+- [ ] Cancel the event, or delete it → the time is back on the next lookup.
+- [ ] A weekly repeating event: the creator's list for the week after next (`when:` that date)
+      has the gap on its weekday; the second account's list for that date does not, until it
+      RSVPs to that occurrence once it exists.
+- [ ] An event in another server that shares the bot and the member does not cut the list here.
+- [ ] `/availability role` and `/availability event` are as before: the grid shows linked
+      calendars alone, with no block for a CalCrony event.
+- [ ] The item marked **Must pass** above still passes: a member named without saved hours is
+      refused, with the same text, whatever events they have.
+
 ### 13. Permission-precheck bails
 
 - [ ] Remove Manage Events from the bot → `/settings native-events on` bails friendly.

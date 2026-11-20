@@ -98,6 +98,22 @@ public class DocsPageTests : TestContext
         Assert.Contains("inside each member's available hours (8 AM to 11 PM until they save their own)", entry);
         Assert.Contains("counted on saved hours alone", entry);
 
+        // …and on the member's own CalCrony events in the server: whose events count, which RSVPs
+        // do, what a repeating event adds, and that events never make a member counted.
+        Assert.Contains("with nothing on a linked calendar and none of their CalCrony events in this server", entry);
+        Assert.Contains(
+            "An event counts for the member who created it and for members holding a seat on its attending option (Going by default)",
+            entry);
+        Assert.Contains("a waitlisted RSVP or one on another option doesn't count", entry);
+        Assert.Contains("whoever created the event stays busy even if they RSVP elsewhere", entry);
+        Assert.Contains("A repeating event's later dates count for the member who created it", entry);
+        Assert.Contains("aren't counted, whatever events they have", entry);
+
+        // The other availability commands are as they were, and the entry says so.
+        Assert.Contains(
+            "Only slots counts CalCrony events: /availability role, /availability event and the grid show linked calendars alone",
+            entry);
+
         // …and the command reference lists the subcommand beside the two it joins.
         Assert.Contains(cut.FindAll("table td code"), code => code.TextContent == "/availability role|event|slots");
     }
@@ -117,6 +133,26 @@ public class DocsPageTests : TestContext
     }
 
     [Fact]
+    public void Docs_page_says_an_occurrence_has_to_end_before_the_next_date_and_how_the_feed_lists_one_that_cannot()
+    {
+        var cut = Render<Docs>();
+
+        var recurring = Flat(Entry(cut, "Recurring events").TextContent);
+        Assert.Contains("so an occurrence has to end before the next date begins", recurring);
+        Assert.Contains(
+            "a length that reaches the gap between two of the dates it repeats on (a day, for a daily event) is refused, "
+            + "with the longest the schedule allows.",
+            recurring);
+
+        var feed = Flat(Entry(cut, "ICS subscribe feed").TextContent);
+        Assert.Contains(
+            "Within the year ahead, a date an event will not post, because the occurrence before it is still running "
+            + "then, is left out, and an event as long as the gap between its dates (made before that was refused) is "
+            + "listed date by date.",
+            feed);
+    }
+
+    [Fact]
     public void Docs_page_explains_available_hours_in_an_entry_of_its_own()
     {
         var cut = Render<Docs>();
@@ -130,7 +166,8 @@ public class DocsPageTests : TestContext
         Assert.Contains("even without a linked calendar", entry);
         Assert.Contains(
             "Saving hours also lets members of the servers you share with CalCrony list your free slots by name, " +
-            "which shows roughly the hours you keep and, if your calendar is linked, when you're busy inside them; " +
+            "which shows roughly the hours you keep and when you're busy inside them: " +
+            "with your CalCrony events in that server and, if your calendar is linked, with what's on your calendar; " +
             "reset takes that back.",
             entry);
 

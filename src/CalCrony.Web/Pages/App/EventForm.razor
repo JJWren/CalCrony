@@ -326,6 +326,11 @@ else
     /// a no-op resend would still be refused while members hold several RSVPs.</summary>
     private bool loadedAllowMultipleRsvps;
 
+    /// <summary>The length as loaded for an edit, so the update carries it only when it changed:
+    /// sent unchanged with a change to the whole series, the length of this one occurrence would
+    /// become the whole series' length.</summary>
+    private int? loadedDuration;
+
     /// <summary>The event the last edit route loaded, so the next create route on this reused
     /// instance can tell it is coming from an edit and reset the opt-in switch.</summary>
     private Guid? loadedEventId;
@@ -522,6 +527,7 @@ else
             title = ev.Title;
             description = ev.Description;
             duration = ev.DurationMinutes;
+            loadedDuration = ev.DurationMinutes;
             location = ev.Location;
             imageUrl = ev.ImageUrl;
             recurrenceSummary = ev.RecurrenceSummary;
@@ -699,7 +705,8 @@ else
                 Title: title,
                 WhenText: string.IsNullOrWhiteSpace(when) ? null : when,
                 Description: description,
-                DurationMinutes: duration,
+                // Only a changed length is sent — null leaves it alone (see loadedDuration).
+                DurationMinutes: duration == loadedDuration ? null : duration,
                 Location: location,
                 ImageUrl: imageUrl,
                 Scope: scope,

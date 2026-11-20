@@ -231,7 +231,7 @@ Each has a recommendation. Answer with a letter after `[Answer]:`.
   the log line and that it connects (no server data touched). Done in part, differently: see 8.3.
 - [x] 5.4 Both review agents, one on security and one on correctness and quality, read the local
   commits; findings answered and recorded in section 8, and read again until neither has one.
-- [ ] 5.5 Completion gate.
+- [x] 5.5 Completion gate: answered B on 2026-11-20 ("B").
 
 ## 7. Delivery
 
@@ -429,3 +429,12 @@ records commit that follows. The security agent had nothing left after round 3.
 The code merges with it cleanly; `aidlc-docs/audit.md`, `aidlc-docs/aidlc-state.md` and
 `docs/release-notes/0.38.0.md`, to which #197 also adds a line, are to be merged by hand when
 `master` is taken in, after the completion gate.
+
+### 8.9 `master` taken in (step 7.1)
+
+On Joshua's B, `master` `ca45e61` was merged in. Since the plan was written, release 0.38.0 went
+out (#207, with #197) and release pull request #213 (0.38.1, for #212) opened. So Q4 A's "0.38.0"
+is now the next minor release: a `feat:` merged while #213 is open makes it 0.39.0, and by
+CONTRIBUTING's rule `0.38.1.md` is renamed `0.39.0.md` with this change's line and how-to after
+#212's. If 0.38.1 is released first, the file goes back to `0.38.1.md` and this line moves to a
+`0.39.0.md` of its own. The code merged by itself; the records were merged by hand.

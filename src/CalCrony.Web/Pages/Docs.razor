@@ -206,11 +206,13 @@
         Friday") or years; weekly schedules can tick a set of days (Tue + Thu, or the Weekdays
         preset) and still repeat every N weeks. The schedule is anchored on the first occurrence
         with timezone-aware math, so 8pm stays 8pm across DST. When one occurrence ends or is
-        skipped, the next posts itself; end by date or count, or never. Edits and reminders ask
-        "this occurrence or the whole series?"; <code>/series edit</code> changes the rule or end
-        condition afterwards, and editing an ended series revives it. On the web: pick the schedule
-        on the event form (repeat controls with live previews), and skip, stop, or change the rule
-        from the event page.
+        skipped, the next posts itself, so an occurrence has to end before the next date begins:
+        a length that reaches the gap between two of the dates it repeats on (a day, for a daily
+        event) is refused, with the longest the schedule allows. End by date or count, or never.
+        Edits and reminders ask "this occurrence or the whole series?"; <code>/series edit</code>
+        changes the rule or end condition afterwards, and editing an ended series revives it. On
+        the web: pick the schedule on the event form (repeat controls with live previews), and
+        skip, stop, or change the rule from the event page.
     </li>
     <li class="mb-2">
         <b>Live list</b> — <code>/livelist create</code> posts an upcoming-events embed the bot
@@ -247,9 +249,13 @@
         <b>ICS subscribe feed</b> — <code>/link</code> (or the server settings page) gives a
         tokenized URL for Google, Apple, and Outlook calendars; the calendar is named after the
         server ("CalCrony · Your Server"). Repeating events carry their full schedule (RRULE), so
-        subscribers see every future occurrence. Each entry's description names its channel and
-        links to the event's web page and to the RSVP embed in Discord — except recurring series,
-        which link to the server's events page instead, since their live occurrence rotates.
+        subscribers see every future occurrence. Within the year ahead, a date an event will not
+        post, because the occurrence before it is still running then, is left out, and an event as
+        long as the gap between its dates (made before that was refused) is listed date by date.
+        Each entry's
+        description names its channel and links to the event's web page and to the RSVP embed in
+        Discord — except recurring series, which link to the server's events page instead, since
+        their live occurrence rotates.
         Calendar apps refresh on their own schedule (see Good to know below).
     </li>
     <li class="mb-2">
@@ -274,12 +280,18 @@
         default), <code>days</code> how many (7 by default) and <code>duration</code> the shortest
         slot worth listing (60 minutes by default). A slot is time inside each member's available
         hours (8 AM to 11 PM until they save their own), read in that member's own timezone (the
-        server's, if they haven't set one), with nothing on a linked calendar. It is listed under
-        the day it starts on, and a day with none of its own that begins inside one says until
-        when it's free. Members with neither saved hours nor a linked calendar aren't counted, and
-        the reply lists them under <b>Not counted</b> (a long list ends in a count); it also says
-        when a member was counted on saved hours alone. Read-only: it never blocks creating or
-        RSVPing.
+        server's, if they haven't set one), with nothing on a linked calendar and none of their
+        CalCrony events in this server. An event counts for the member who created it and for
+        members holding a seat on its attending option (Going by default): a waitlisted RSVP or
+        one on another option doesn't count, and whoever created the event stays busy even if
+        they RSVP elsewhere. A repeating event's later dates count for the member who created
+        it. Only <code>slots</code> counts CalCrony events: <code>/availability role</code>,
+        <code>/availability event</code> and the grid show linked calendars alone. A slot is
+        listed under the day it starts on, and a day with none of its own that begins inside one
+        says until when it's free. Members with neither saved hours nor a linked calendar aren't
+        counted, whatever events they have, and the reply lists them under <b>Not counted</b> (a
+        long list ends in a count); it also says when a member was counted on saved hours alone.
+        Read-only: it never blocks creating or RSVPing.
     </li>
     <li class="mb-2">
         <b>Available hours</b> (per member; only you can set yours) —
@@ -292,8 +304,9 @@
         back to the default. With saved hours you are counted in free-slot lists even without a
         linked calendar, marked as hours only.
         Saving hours also lets members of the servers you share with CalCrony list your free slots
-        by name, which shows roughly the hours you keep and, if your calendar is linked, when
-        you're busy inside them; <code>reset</code> takes that back.
+        by name, which shows roughly the hours you keep and when you're busy inside them: with
+        your CalCrony events in that server and, if your calendar is linked, with what's on your
+        calendar; <code>reset</code> takes that back.
     </li>
 </ul>
 

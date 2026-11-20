@@ -45,11 +45,14 @@ public enum AvailableHoursDays
 public static class AvailableHoursText
 {
     /// <summary>What is said wherever hours are saved or shown: saving them lets other members
-    /// list one's free slots by name. One wording, so the surfaces cannot drift.</summary>
+    /// list one's free slots by name, and what such a list shows — the hours kept and, inside
+    /// them, when one is busy: with one's CalCrony events in the server the list is made in and,
+    /// with a calendar linked, with what is on it. One wording, so the surfaces cannot drift.</summary>
     public const string SavedNotice =
         "Saved hours can be looked up by name: members of the servers you share with CalCrony can list your free slots " +
-        "with `/availability slots`, which shows roughly the hours you keep and, if your calendar is linked, " +
-        "when you're busy inside them. `/settings available-hours reset` takes that back.";
+        "with `/availability slots`, which shows roughly the hours you keep and when you're busy inside them: " +
+        "with your CalCrony events in that server and, if your calendar is linked, with what's on your calendar. " +
+        "`/settings available-hours reset` takes that back.";
 
     /// <summary>The reply to <c>off</c> when nothing is saved: there is no saved day to switch
     /// off, and a command called "off" is not what should start a member's hours being listed.</summary>

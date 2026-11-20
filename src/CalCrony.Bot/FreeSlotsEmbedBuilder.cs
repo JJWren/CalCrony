@@ -5,9 +5,10 @@ using Discord;
 
 namespace CalCrony.Bot;
 
-/// <summary>Renders a free-slots answer as a Discord embed: the range and what the slots rest on,
-/// one line per day, the members who were counted on less than a calendar and their own hours,
-/// and the members who could not be counted, each with the reason.</summary>
+/// <summary>Renders a free-slots answer as a Discord embed: the range and what the slots rest on
+/// — hours, linked calendars and, when the answer says so, CalCrony events — one line per day,
+/// the members who were counted on less than a calendar and their own hours, and the members
+/// who could not be counted, each with the reason.</summary>
 public static class FreeSlotsEmbedBuilder
 {
     /// <summary>Slots listed per day before the rest collapse into "+N more". Fourteen days at this
@@ -19,6 +20,9 @@ public static class FreeSlotsEmbedBuilder
 
     /// <summary>The field naming members who were left out.</summary>
     public const string NotCountedTitle = "Not counted";
+
+    /// <summary>What the sentence adds about one member's CalCrony events, when they were counted.</summary>
+    private const string ClearOfTheirEvents = " and clear of their CalCrony events in this server";
 
     private const long SecondsPerDay = 24 * 60 * 60;
 
@@ -133,16 +137,22 @@ public static class FreeSlotsEmbedBuilder
     /// <returns>The day's label.</returns>
     private static string FormatDate(DateOnly date) => date.ToString("ddd MMM d", CultureInfo.InvariantCulture);
 
-    /// <summary>One sentence on what the slots rest on — whose hours and whose calendars — and
-    /// whose timezone the hours are read in when a member has set none, since that moves every
-    /// time in the list. While every counted member is on the default hours it states them once
-    /// for everyone; once a counted member has saved hours it speaks of each member's own.</summary>
+    /// <summary>One sentence on what the slots rest on — whose hours, whose calendars and whose
+    /// CalCrony events — and whose timezone the hours are read in when a member has set none,
+    /// since that moves every time in the list. While every counted member is on the default
+    /// hours it states them once for everyone; once a counted member has saved hours it speaks
+    /// of each member's own. CalCrony events are named only when the answer says they were
+    /// counted (<see cref="FreeSlotsResponse.EventsCounted"/>): an API that does not count them
+    /// gets the sentences as they were before events counted, so the reply never claims more
+    /// than was done. The events are "their" events, the ones that count for a member, since an
+    /// event of the server blocks only the members it counts for.</summary>
     /// <param name="response">The API's answer.</param>
     /// <returns>The sentence.</returns>
     private static string BasisSentence(FreeSlotsResponse response)
     {
         if (response.CountedMembers == 0)
         {
+            // Events never change who is counted, so there is nothing to say about them here.
             return $"Nobody could be counted, so there are no slots to list. {WhyNobodyWasCounted(response.Members)}";
         }
 
@@ -152,18 +162,26 @@ public static class FreeSlotsEmbedBuilder
         }
 
         const string InTheirZone = "read in their timezone (the server's if they haven't set one)";
+        var events = response.EventsCounted;
         if (response.CountedMembers == 1)
         {
             // With one member counted and saved hours in play, that member is the one who saved them.
             var onHoursAlone = response.Members.Any(member => member.State == FreeSlotMemberState.HoursOnly);
+            var andTheirEvents = events ? ClearOfTheirEvents : "";
             return (response.Members.Count, onHoursAlone) switch
             {
-                (1, false) => $"Free on their linked calendar, inside the available hours they saved, {InTheirZone}.",
+                (1, false) => $"Free on their linked calendar{andTheirEvents}, inside the available hours they saved, {InTheirZone}.",
+                (1, true) when events =>
+                    $"Inside the available hours they saved, {InTheirZone},{ClearOfTheirEvents}. " +
+                    "No calendar is linked, so those events are all that can show them as busy.",
                 (1, true) =>
                     $"Inside the available hours they saved, {InTheirZone}. " +
                     "No calendar is linked, so anything else they have on isn't taken into account.",
                 (_, false) =>
-                    $"When the one counted member is free on their linked calendar, inside the available hours they saved, {InTheirZone}.",
+                    $"When the one counted member is free on their linked calendar{andTheirEvents}, inside the available hours they saved, {InTheirZone}.",
+                (_, true) when events =>
+                    $"Inside the one counted member's saved available hours, {InTheirZone},{ClearOfTheirEvents}. " +
+                    "They have no calendar linked, so those events are all that can show them as busy.",
                 (_, true) =>
                     $"Inside the one counted member's saved available hours, {InTheirZone}. " +
                     "They have no calendar linked, so anything else they have on isn't taken into account.",
@@ -173,9 +191,10 @@ public static class FreeSlotsEmbedBuilder
         var onTheDefault = response.Members.Any(member => member.State == FreeSlotMemberState.DefaultHours)
             ? $" ({AvailableHoursText.DefaultRange} for anyone who hasn't saved theirs)"
             : "";
+        var orAnEvent = events ? " and no CalCrony event of their own in this server" : "";
         return
             $"When all {response.CountedMembers} counted members are free: each inside their available hours{onTheDefault}, " +
-            "read in their own timezone (the server's for anyone who hasn't set one), with nothing on a linked calendar.";
+            $"read in their own timezone (the server's for anyone who hasn't set one), with nothing on a linked calendar{orAnEvent}.";
     }
 
     /// <summary>The sentence while every counted member is on the default hours: it states them
@@ -186,17 +205,19 @@ public static class FreeSlotsEmbedBuilder
     {
         var from = TimeOfDayText.Format(AvailableHoursLimits.DefaultStartMinute);
         var to = TimeOfDayText.Format(AvailableHoursLimits.DefaultEndMinute);
+        var andTheirEvents = response.EventsCounted ? ClearOfTheirEvents : "";
+        var andTheirOwnEvents = response.EventsCounted ? " and clear of their own CalCrony events in this server" : "";
 
         return (response.Members.Count, response.CountedMembers) switch
         {
             (1, _) =>
-                $"Free on their linked calendar, between {from} and {to} in their timezone " +
+                $"Free on their linked calendar{andTheirEvents}, between {from} and {to} in their timezone " +
                 "(the server's if they haven't set one).",
             (_, 1) =>
-                $"When the one counted member is free on their linked calendar, between {from} and {to} " +
+                $"When the one counted member is free on their linked calendar{andTheirEvents}, between {from} and {to} " +
                 "in their timezone (the server's if they haven't set one).",
             var (_, counted) =>
-                $"When all {counted} counted members are free on their linked calendars, " +
+                $"When all {counted} counted members are free on their linked calendars{andTheirOwnEvents}, " +
                 $"each between {from} and {to} in their own timezone (the server's for anyone who hasn't set one).",
         };
     }
