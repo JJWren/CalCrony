@@ -3430,6 +3430,13 @@ Availability for @GM
 **Context**: Construction — delivery posts: `master` (`c97c15e`) merged in; pushed on Auto-fix's standing leave once both agents' read is clean.
 
 ---
+## Request bodies and snapshot lists — pushed; pull request #204 opened
+**Timestamp**: 2026-11-18T20:55:22Z
+**User Input**: (none)
+**AI Response**: Both agents read the result of the take-in and confirmed it. `fix/request-bodies-and-snapshot-lists` was pushed at 20:54:28Z, by its name only, at `62cec78` on `master` `c97c15e`, and pull request #204 was opened at 20:54:42Z with the fix commit's subject as its title, `fix: refuse unreadable or oversized request bodies and snapshot lists with an entry missing`, and a body that says what is refused and where, which the security agent read before it was opened; no auto-merge. The app bound the pull request to this session with Auto-fix on. These records stay on a local branch for a later push. Next: the pull request's checks; the squash merge waits for Joshua's go-ahead.
+**Context**: Build and test — step 6.1 of the plan done; step 6.2 next.
+
+---
 ## Code Generation — the records and `master` at `c97c15e` read and pushed
 **Timestamp**: 2026-11-18T20:56:44Z
 **User Input**: (none — continuation of the Auto-fix report)
@@ -3449,6 +3456,13 @@ Availability for @GM
 **User Input**: "Restrict updates"
 **AI Response**: Read as his choice of the recommended follow-up: the `protect-master` ruleset gains the "Restrict updates" rule, so that only those who may bypass the ruleset, the repository's admins, can update `master`. A ruleset is a security setting, so he sets it himself. Read through the API at 22:37Z, the ruleset (last changed 2026-11-17T23:13:05Z) did not have the rule yet; he was given the steps, and the rule is to be checked through the API once he says it is saved, and then on the ruleset's record of the next merge.
 **Context**: Operations — the ruleset change waits for Joshua; its check follows.
+
+---
+## Request bodies and snapshot lists — go-ahead to merge pull request #204 once its checks are green
+**Timestamp**: 2026-11-18T22:38:17Z
+**User Input**: "Yes, when green"
+**AI Response**: The squash merge of pull request #204 has Joshua's go-ahead, once its checks are green. They are: `build-test`, `pr-title`, `lint-workflows`, CodeQL and GitGuardian passed, and `publish-main` was skipped, as it is on a pull request. No review and no comment was left on it. Its head is `62cec78`, the commit that was pushed, and `master` is still at `c97c15e`. It is merged through the REST call, squash, pinned to that head, with the pull request's text as the commit message. Next: the merge, then the test stack on the new `main` images.
+**Context**: Build and test — step 6.2 of the plan: the merge.
 
 ---
 ## Operations — `protect-master` restricts updates to `master`
@@ -3479,6 +3493,13 @@ Availability for @GM
 **Context**: Operations — the records of the follow-up go out on Joshua's go-ahead; their merge is the first under the "Restrict updates" rule.
 
 ---
+## Request bodies and snapshot lists — the merge refused for a conflict; `master` taken in by a merge and pushed
+**Timestamp**: 2026-11-18T22:46:03Z
+**User Input**: (none)
+**AI Response**: The merge call at 22:39Z was refused: pull request #190 had merged into `master` at 22:38:40Z (`aeff22d`), and #204 now conflicted with it, in the two records files only. Nothing was merged. Auto-fix is on, so the branch is not rebased: `master` is merged into it by a merge commit. While that was read, `master` moved again, to `5b30e5b` (pull request #203, records only), so the merge was made once more, from the pushed head `62cec78` and `5b30e5b`: `47dda92`. The records are resolved as `master`'s files with this change's nine entries here in their places by timestamp and its state section after `master`'s last; `SettingsEndpoints.cs`, which #190 and this change both touch, merged by itself, and outside the records the merged tree differs from `master` by exactly this change's lines. On that code, from 22:41Z to 22:43Z: the build without incremental state with 0 errors and the baseline's 22 warnings, and 2,591 tests passed and none failed (1,598 API, 490 bot, 154 web, 349 release notes: `master`'s own 2,533 and the 58 added), with 17 skipped. Both agents read the merge and confirmed it, including how this change meets #190's code. `47dda92` was pushed at 22:45:50Z, a fast-forward of the branch. Next: the checks on it, then the merge on Joshua's go-ahead of 22:38:17Z.
+**Context**: Build and test — step 6.2 of the plan: `master` taken in before the merge.
+
+---
 ## Code Generation — `master` taken in for pull request #197 (Auto-fix) after #190 merged
 **Timestamp**: 2026-11-18T22:46:04Z
 **User Input**: (none — the app's Auto-fix reported that pull request #197 had merge conflicts with `master`)
@@ -3493,11 +3514,25 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; this pull request's merge waits for the 0.37.2 release and rollout.
 
 ---
+## Request bodies and snapshot lists — pull request #204 merged
+**Timestamp**: 2026-11-18T22:48:52Z
+**User Input**: (none)
+**AI Response**: Every check on `47dda92` passed: `build-test`, `pr-title`, `lint-workflows`, CodeQL and both of its analyses, and GitGuardian. `master` was still at `5b30e5b`. On Joshua's go-ahead of 22:38:17Z, pull request #204 was squash-merged through the REST call, pinned to the head `47dda92`, with the pull request's title and text: merged at 22:48:37Z as `384ea0d`, whose tree is the tree of `47dda92`. GitHub deleted the branch. The merge started CI on `master`, whose `publish-main` builds the `main` images the test stack runs, and release-please, which takes this change into the next release. Next: the test stack on those images; the release and the prod rollout each wait for their own go-ahead.
+**Context**: Build and test — step 6.2 of the plan: the merge.
+
+---
 ## Operations — the first merges under "Restrict updates"; `master` taken in for pull request #205
 **Timestamp**: 2026-11-18T22:49:37Z
 **User Input**: (none — continuation of "Yes, through merge")
 **AI Response**: Pull request #205, `docs: log the code owners follow-up and say that only admins can update master`, was opened at 22:45:32Z from the pushed branch, and every check on its head `b61efef` was green by 22:48:32Z. Just before the merge call, `master` was found at `384ea0d` (#204, merged 22:48:36Z), not `5b30e5b`, so no merge was made: `master` was taken into the branch, the audit log kept in time order, to be pushed again and merged once green. The ruleset's records of the first two merges under the new rule, #203 (`5b30e5b`, 22:40:33Z) and #204 (`384ea0d`), each list `update` as "Cannot update this protected ref." with the merge let through by the admin's bypass: a pull request's merge is held to the rule, and only an admin can make it.
 **Context**: Operations — the rule is seen at work; #205 is to be merged once its checks are green again.
+
+---
+## Request bodies and snapshot lists — the test stack runs the merged fix
+**Timestamp**: 2026-11-18T22:53:44Z
+**User Input**: (none)
+**AI Response**: `publish-main` published the `main` images of `384ea0d` at 22:52:49Z, and the test stack's API, bot and web app were pulled and restarted on them at 22:53:09Z, the database container left as it was. `/health` reports `0.0.0-main.384ea0d`. On the test stack, through the parse route, which writes nothing: an ordinary request is read as before; a JSON body in a character set that can't be read is answered 415 with the sentence; and an unknown time zone of 70 characters is quoted as its first 64 and `…`. The release and the prod rollout each wait for Joshua's go-ahead.
+**Context**: Build and test — step 6.2 of the plan done.
 
 ---
 ## Operations — records pull request #205 merged; the release pull request still updated under the rule
@@ -3533,6 +3568,13 @@ Availability for @GM
 **User Input**: "Yes, through merge"
 **AI Response**: Read as A to the question asked at 22:59:52Z: the local branch `docs/log-records-pr-205-merge` is pushed with the keyring login, its pull request `docs: log the code owners unit through its last step` is opened, and it is squash-merged by the REST call, its head named, once its checks are green. `master` was fetched first and had not moved from `4242144`, which the branch already holds. This is the unit's last entry here: the merge of this pull request is noted outside the repository.
 **Context**: Operations — the code owners unit is complete; its last records go out on Joshua's go-ahead.
+
+---
+## Request bodies and snapshot lists — no line in the release summary
+**Timestamp**: 2026-11-18T23:02:04Z
+**User Input**: "No line"
+**AI Response**: This change gets no line in the release summary, `docs/release-notes/0.37.2.md`: its summary is for what users notice, and the bot and the web app never send the requests it refuses. That settles what step 6.3 of the plan waits for on this change's side. Release pull request #200 (0.37.2) now carries it with five other fixes; by the note that held 0.37.2 for two of them, the release goes on Joshua's go-ahead after the look at delivery posts on the test stack that their own plan asks for. The release and the prod rollout each wait for his go-ahead.
+**Context**: Build and test done; release (step 6.3 of the plan) next, on its own go-ahead.
 
 ---
 ## Delivery posts — the look on the test stack: result
@@ -3708,5 +3750,19 @@ Availability for @GM
 **User Input**: "Try again"
 **AI Response**: Read as asking for the quality agent's read of `70b2cd3`, the commit to be pushed, which had stopped, to be taken up again. The security agent had read that commit and found nothing that should hold up a push. While the read waited, `master` moved to `11afb47`: pull request #211, records of the moved-occurrence fix, merged at 2026-11-19T03:40:15Z. Nothing had been pushed, so it is taken in as the plan says, and the branch is again one commit, on `11afb47`. The audit log is `master`'s, with this change's entries placed among #211's by their timestamps; the state file merged without a conflict; and outside the records the tree is the one both agents read. The tests do not read the records, so the suite's result on that tree stands. Both agents read the result before the push. Nothing is pushed.
 **Context**: Construction — code generation, part 2: the read before the push taken up again; `master` taken in before the push.
+
+---
+## Request bodies and snapshot lists — go-ahead for the remaining steps; the release and the rollout found done
+**Timestamp**: 2026-11-20T02:32:34Z
+**User Input**: "Go ahead"
+**AI Response**: Read as the go-ahead for the three steps still open on this change: the release, the prod rollout and the records pull request. The first two were done in the meantime, each on Joshua's go-ahead in the session that ran them: 0.37.2 was released on 2026-11-18 at 23:08:57Z (release pull request #200, `6e0d8b2`), and `v0.37.2` contains this change's `384ea0d`; prod has run it since 0.37.2 went live there at 23:17Z that day, and has run 0.38.0, which carries it too, since 2026-11-19 at 03:26:33Z. What is left here: a read-only look at prod, and these records, rebuilt on `master` `ca45e61` and put out as a docs pull request once both agents have read them.
+**Context**: Operations — the release and the rollout done; the records.
+
+---
+## Request bodies and snapshot lists — checked on prod
+**Timestamp**: 2026-11-20T02:34:21Z
+**User Input**: (none)
+**AI Response**: On prod (0.38.0) at 02:33Z, through the parse route, which writes nothing: an ordinary request is read as before; a JSON body in a character set that can't be read is answered 415 with `The request body is in a character set that can't be read — send it as UTF-8.`; and an unknown time zone of 70 characters is quoted as its first 64 and `…`. Next: these records, read by both agents, then their pull request.
+**Context**: Operations — the rollout checked.
 
 ---

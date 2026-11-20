@@ -228,16 +228,19 @@ A box is ticked in the turn its step completes.
 Approving this plan covers the changes above and committing them locally. Everything that leaves
 this machine waits for its own go-ahead.
 
-- [ ] 6.1 *Go-ahead (the completion gate):* take `master` in if it has moved — the audit entries by
+- [x] 6.1 *Go-ahead (the completion gate):* take `master` in if it has moved — the audit entries by
       timestamp, every section of the state file kept, the suite again and the reviewers' read of
       the result — then push the branch and open the pull request.
-- [ ] 6.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
+- [x] 6.2 Checks green; a review if one starts. *Go-ahead:* squash merge. The test stack then takes
       `:main`.
-- [ ] 6.3 *Go-ahead:* the release — the patch release that release-please opens — once it is
+- [x] 6.3 *Go-ahead:* the release — the patch release that release-please opens — once it is
       settled with Joshua whether this change gets a line in the release summary
-      (`docs/release-notes/<version>.md`).
-- [ ] 6.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
-      No migration.
+      (`docs/release-notes/<version>.md`). *(Settled 2026-11-18: no line — Joshua, "No line".
+      Released in 0.37.2 the same day at 23:08:57Z, release pull request #200, on Joshua's
+      go-ahead in the session that ran it.)*
+- [x] 6.4 *Go-ahead:* prod rollout, by the usual steps: backup, the pinned tag, app services only.
+      No migration. *(Live on prod with 0.37.2 since 2026-11-18, 23:17Z, on Joshua's go-ahead in
+      the session that ran it; checked there on 2026-11-20: section 7.)*
 
 ## 7. Notes from generation
 
@@ -342,3 +345,19 @@ this machine waits for its own go-ahead.
   top of it, the audit entries in their places by timestamp and the state section after
   `master`'s last. Nothing outside `aidlc-docs` differs from the tree the suite ran on, so its
   result stands; both agents read the result before the push.
+- **Pull request #204 (6.1 and 6.2).** Pushed and opened on 2026-11-18 at 20:54Z, with Auto-fix
+  on. On Joshua's go-ahead to merge once green, the merge was first refused, because pull request
+  #190 merged into `master` as it was asked; `master` (with #190, and #203, records only) was taken
+  in by a merge commit, `47dda92`: the records merged by hand, the code by itself. 2,591 tests
+  passed on that tree (`master`'s own 2,533 and the 58 added), with the baseline's 22 warnings, and
+  both agents read the merge before it was pushed. Squash-merged at 22:48:37Z as `384ea0d`, whose
+  tree is the tree of `47dda92`. The test stack runs it since 22:53Z: its API reports
+  `0.0.0-main.384ea0d`, and there a body in a character set that can't be read is answered 415
+  with the sentence, and a long unknown time zone is quoted as its first 64 characters and `…`.
+- **Release and rollout (6.3 and 6.4).** Released in 0.37.2 on 2026-11-18 at 23:08:57Z, with no
+  line in the release summary, and live on prod from 23:17Z the same day; each was run, on
+  Joshua's go-ahead, by the session that held 0.37.2 for two other fixes. Prod has run 0.38.0,
+  which carries this change too, since 2026-11-19. Checked there on 2026-11-20 through the parse
+  route, which writes nothing: an ordinary request is read as before, a body in a character set
+  that can't be read is answered 415 with the sentence, and a long unknown time zone is quoted as
+  its first 64 characters and `…`.
