@@ -5,7 +5,8 @@ using NodaTime;
 
 namespace CalCrony.Api.Tests;
 
-/// <summary>What a running series goes on to post, asked of the projection directly: the later
+/// <summary>When an occurrence ends and what a running series goes on to post, asked of the
+/// projection directly: an occurrence's end (<see cref="SeriesProjection.EndOf"/>), the later
 /// starts the public calendar projects (<see cref="SeriesProjection.Upcoming"/>), and the later
 /// occurrences a free-slots lookup counts for the member who created it, the ones the scheduler
 /// will create after the occurrence that exists (<see cref="SeriesProjection.LaterOccurrences"/>).
@@ -309,6 +310,25 @@ public class SeriesProjectionTests
         Assert.Equal(15, later.Count);
         Assert.Equal((At(2027, 11, 11, 18), At(2027, 11, 11, 19)), later[0]);
         Assert.Equal((At(2027, 11, 25, 18), At(2027, 11, 25, 19)), later[^1]);
+    }
+
+    [Theory]
+    [InlineData(null, 2, 19, 0)]
+    [InlineData(1, 2, 18, 1)]
+    [InlineData(90, 2, 19, 30)]
+    [InlineData(40320, 30, 18, 0)]
+    public void EndOf_is_where_EventTimes_says_an_event_ends(
+        int? durationMinutes, int day, int hour, int minute)
+    {
+        // An occurrence that starts at 18:00 UTC on Monday 2 November 2026. With no length set it
+        // runs an hour (EventTimes.DefaultLengthMinutes); 40,320 minutes, the longest an event
+        // may last, is four weeks.
+        var start = Instant.FromUtc(2026, 11, 2, 18, 0);
+
+        var end = SeriesProjection.EndOf(start, durationMinutes);
+
+        Assert.Equal(Instant.FromUtc(2026, 11, day, hour, minute), end);
+        Assert.Equal(EventTimes.End(start, durationMinutes), end);
     }
 
     [Fact]
