@@ -3514,6 +3514,20 @@ Availability for @GM
 **Context**: Construction — delivery (plan section 8): conflicts resolved under Auto-fix; the push waits for both agents' read; this pull request's merge waits for the 0.37.2 release and rollout.
 
 ---
+## Refactor request — one place for an event's end
+**Timestamp**: 2026-11-18T22:47:36Z
+**User Input**: (none typed by Joshua — the task was handed over from another session, the one of pull request #196, once that pull request had merged. In that session's words: "Pull request #196 merged on 2026-11-18 as `1fce915`. It made the anonymous public month calendar show only the dates a repeating series really posts when its posted occurrence was moved later or runs long, and added `SeriesProjection`, which works out an occurrence's end itself. Pull request #189 ("fix: limit how far ahead a date can be set") merged the same day as `3e35071` and added `EventTimes`, which the scheduler and the ICS feed now use for the same sum. That leaves two places that compute an event's end." And the task: "In CalCrony, make `SeriesProjection.EndOf` (`src/CalCrony.Api/Services/SeriesProjection.cs`, added by pull request #196) call `EventTimes.End` (`src/CalCrony.Api/Services/EventTimes.cs`, added by pull request #189). Use `EventTimes.DefaultLengthMinutes` instead of `SeriesProjection.DefaultLengthMinutes`, and correct that constant's doc comment: "each keeps its own copy of the value" stopped being true with #189." Further on: "Users won't notice this change, so it gets no release-notes bullet." and "Done looks like: the plan approved, the change made with tests, and both agents' clean read. Then, each on his go-ahead: the push, the pull request and the merge." The hand-over also listed what stays as it is (sections 2 and 3 of the plan) and repeated this repository's rules.)
+**AI Response**: Brownfield, aidlc-state resumed; `master` on GitHub at `aeff22d` (pull request #190), and this branch, `refactor/event-end-one-place`, is cut from it. A change inside one helper of the API, so the workflow runs at minimal depth: the task is the requirement; no user stories, application design or units; one construction unit, with one file that is both the functional note and the code-generation plan. Read first: `SeriesProjection`, `EventTimes`, the public calendar's builder, every use of either helper, their tests, and the plan of pull request #196. `SeriesProjection.DefaultLengthMinutes` is used nowhere outside `SeriesProjection`. Baseline on `aeff22d`: the Release build has no error and 22 warnings, and 2,533 tests pass and none fails (1,540 API, 490 bot, 154 web and 349 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Nothing is changed under `src` or `tests` before Joshua has approved the plan.
+**Context**: Inception (brownfield) — workspace detection and intent analysis; next, the plan.
+
+---
+## Workflow planning and code generation plan — one place for an event's end: approval asked
+**Timestamp**: 2026-11-18T22:48:16Z
+**User Input**: (none — this entry records the question put to Joshua)
+**AI Response**: Plan written: `aidlc-docs/construction/plans/event-end-code-generation-plan.md`, both the functional note and the code-generation plan. `SeriesProjection.EndOf` is to return what `EventTimes.End` returns, keeping its name and its signature, so that its two callers do not change; `SeriesProjection.DefaultLengthMinutes` is to be removed, so that `EventTimes.DefaultLengthMinutes` is the API's one value for the length of an event that has none set (Q1, recommended A; B keeps the constant, set to that value, with its summary corrected); one new test with four cases; nothing else under `src` changes, and no line in the release summary. The plan, the state file's new section and these two entries are one local commit; nothing is pushed. Asked: "Plan complete: functional note and code-generation plan. Do you approve it, with Q1 answered A, or do you want changes?" (recommended: approve, with Q1 = A).
+**Context**: Workflow planning and the code-generation plan (part 1), at minimal depth; waiting for Joshua's approval.
+
+---
 ## Request bodies and snapshot lists — pull request #204 merged
 **Timestamp**: 2026-11-18T22:48:52Z
 **User Input**: (none)
@@ -3584,6 +3598,13 @@ Availability for @GM
 **Context**: Construction — delivery posts: the look of the plan's step 6.3 done.
 
 ---
+## Workflow planning and code generation plan — one place for an event's end: Joshua's approval
+**Timestamp**: 2026-11-18T23:02:35Z
+**User Input**: "Approve, Q1 A"
+**AI Response**: Read as the approval of the plan as written, with Q1 answered A: `SeriesProjection.DefaultLengthMinutes` is removed, and `EventTimes.DefaultLengthMinutes` is the API's one value for the length of an event that has none set. The plan's status and its answer are updated; the code and its test are generated next, on `refactor/event-end-one-place`.
+**Context**: Workflow planning and the code-generation plan (part 1) approved; next, code generation (part 2).
+
+---
 ## Code Generation — round 10; `master` taken in again with #204 and #205
 **Timestamp**: 2026-11-18T23:02:36Z
 **User Input**: (none — continuation of the Auto-fix report)
@@ -3603,6 +3624,13 @@ Availability for @GM
 **User Input**: (none yet — this entry records the report and the approval prompt before they are put to Joshua)
 **AI Response**: Confirmed by runs on `master` at `5b30e5b`, and again at `4242144` with the same results, in scratch tests kept outside the repository, at both levels: on fixed dates without a database (what the scheduler's own `SeriesMaterializer` posts, asked as each occurrence ends; the calendar's builder; the feed's own lines and its entry with the repeat rule, read back with Ical.Net; and the repeat line the bot and the web show), and through the routes (the create route, the calendar's month views, the feed read back with Ical.Net, and the scheduler's pass run at each occurrence's end). What each one sees today when an occurrence of a series lasts as long as the gap to its next date, or longer: the creator is told nothing — the create route answers 201 with the schedule's repeat line ("Repeats daily · 1 of 4"), and a change of the whole series' length through the edit route, or of its schedule through the series route, that makes such a series answers 200; a calendar visitor sees what the series posts, since pull request #196; a feed subscriber sees the first upcoming date right and then every date of the schedule. Daily, 4 times, 24 hours long: the series posts Monday, Wednesday, Friday and Sunday, and the feed lists Monday, Wednesday, Thursday and Friday; a series with a count ends early in the feed. Also seen: where the clocks go forward, a daily occurrence a minute short of a day holds back the date after that night (09:00 New York time). Listing two years of a series' dates took 0.01 to 0.4 milliseconds in the six schedules tried. The plan is `aidlc-docs/construction/plans/feed-long-series-code-generation-plan.md`, report and code-generation plan in one. Put to Joshua: "Requirements analysis complete. Do you want to request changes or continue to the next stage?" — where continuing is the approval of that plan — with its three questions, each with a recommendation: Q1, what the feed lists for a series whose occurrences can hold its dates back (A, the occurrences it will post, as entries of their own, a year ahead); Q2, what happens when someone makes such a series (A, it is refused, with the longest length the schedule allows); Q3, which gap the refusal measures (A, the gap between the dates as the calendar shows them). Nothing under `src` or `tests` is changed, and nothing is pushed.
 **Context**: Inception into construction at minimal depth — the plan waits for Joshua's approval and his answers to Q1–Q3; the plan and the records are committed locally.
+
+---
+## Code generation — one place for an event's end: the change and its checks
+**Timestamp**: 2026-11-18T23:07:21Z
+**User Input**: (none — no input from Joshua since "Approve, Q1 A")
+**AI Response**: Generated on `refactor/event-end-one-place` as the plan says, with Q1 answered A: `SeriesProjection.EndOf` returns `EventTimes.End(startsAt, durationMinutes)`; `SeriesProjection.DefaultLengthMinutes` is removed, and the two summaries that spoke of "the default" length name `EventTimes.DefaultLengthMinutes`; the new test, `EndOf_is_where_EventTimes_says_an_event_ends`, has its four cases, and the test class's summary names both things it asks of the helper. Under `src`, only `Services/SeriesProjection.cs` changes. The Release build has no error and the same 22 warnings as the baseline, and 2,537 tests pass and none fails (1,544 API, 490 bot, 154 web and 349 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI): the baseline's 2,533 and the four new cases. The API, built once with its documentation file turned on and outside the commit, resolves the new references, and no warning names `SeriesProjection.cs`. No invisible characters in what the branch adds. Section 7 of the plan and the state file have it. Committed locally; nothing is pushed. Next: the two review agents read the branch's commits before anything is pushed.
+**Context**: Code generation (part 2), at minimal depth; next, the review.
 
 ---
 ## Code Generation — `ceaa324` and its records read; `master` taken in once more (records only)
@@ -3633,11 +3661,39 @@ Availability for @GM
 **Context**: Operations — prod rollout of 0.37.2, on Joshua's go-ahead.
 
 ---
+## Code generation — one place for an event's end: the review, and `master` taken in at `f05e1d0`
+**Timestamp**: 2026-11-18T23:29:42Z
+**User Input**: (none — no input from Joshua since "Approve, Q1 A")
+**AI Response**: Two review agents read the branch, its two commits with `master` at `ee844fb` merged in, and the draft text of the pull request: one for security and privacy, one for quality and accuracy. Neither found a fault in the change: by reading and by runs of their own, `EndOf` gives the end `EventTimes.End` gives, `PublicCalendarBuilder.cs`, `EventTimes.cs` and the calendar's route are as on `master`, and no route's answer changes. Both found that `master` had moved on while they read, to `f05e1d0`: pull request #200, the release of 0.37.2 (merged at 23:08:45Z), and pull request #197 (merged at 23:15:51Z), which rewrites `SeriesProjection.cs` and `SeriesProjectionTests.cs`. Nothing had been pushed, so the branch is made again on `aeff22d` with one merge of `master`, at `f05e1d0`, as `73fc5bf`, in place of the merge of `ee844fb` they read. The records keep master's text as it is, with this branch's entries each placed among master's by its timestamp and its state section after master's. The two files are #197's with this change made to them: the constant removed, `EndOf` returning `EventTimes.End`, the summaries that spoke of the default length naming `EventTimes.DefaultLengthMinutes`, #197's `SeriesSchedule` now among them, and the test class's summary naming `EndOf` as well, with the new test before `Upcoming`'s. #197's own new code already takes an occurrence's end from `EventTimes.End`. `PublicCalendarBuilder.cs` and `EventTimes.cs` are as on `master`. On the merged tree the Release build has no error and the same 22 warnings, and 2,661 tests pass and none fails (1,658 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI); with the documentation file turned on, every reference in the API resolves and no warning names `SeriesProjection.cs`. The quality agent also found that the plan's status did not say that `master` had been taken in, which it now does, and that the entry of 22:47:36Z gives `master` on GitHub as `aeff22d`: pull request #203 had merged at 22:40:32Z, so it was `5b30e5b` by then; the branch was cut from `aeff22d`, where the baseline ran. Section 7 of the plan and the state file have it. Committed locally; nothing is pushed. Next: both agents read the new merge and this record, then the completion gate.
+**Context**: Code generation (part 2) — the review, and `master` taken in before the push.
+
+---
 ## Code generation, part 2 — the feed and long repeating events: code generated and checked; a finding of the checks put to Joshua as Q4
 **Timestamp**: 2026-11-18T23:35:01Z
 **User Input**: (none since "Approve, all A" at 2026-11-18T23:07:54Z — this entry records the work since and the question before it is put to Joshua)
 **AI Response**: Baseline on `master` 4242144, before any change to `src`: the Release build has no error and 22 warnings, and 2,591 tests pass (1,598 API, 490 bot, 154 web, 349 for the release-notes tool; seventeen of the tool's tests run in CI only). The tests of the plan's section 6 were written first and run on that code: 22 fail, each at its assertion, and the controls pass. Then the code, committed locally as `fce8c75`: `SeriesProjection.EndOf` calls `EventTimes.End`, made here to the letter of the separate change that does the same, which has not landed; `RecurrenceCalculator.ShortestGapDays`; the refusal in the create route, the edit route (a new length for the whole series) and the series route (a new unit, interval or day set), with a sentence that names the longest length the schedule allows; the feed takes a series' first date from `SeriesProjection` and lists a series that can hold a date back entry by entry, a year ahead; and the Docs page's two sentences. On that commit the whole suite passes: 2,650 tests (1,656 API, 490 bot, 155 web, 349 for the tool), the Release build with the same 22 warnings. The rows of section 1 run again through the routes: the feed, the calendar and the series agree in all twelve. The date text of the New York test reads as written for every day to the end of 2032 (8,944 texts). Found in the checks: a series that only a clock change brings to its gap — daily, 23 h 59 min, in New York, the length the refusal names — is written entry by entry too, about 350 entries a year; 20 of them among 40 daily series make the feed 2.1 MB and about 850 milliseconds a read, against 28 KB and 66 milliseconds without them, and the refusal does not stop anyone making them. Put to Joshua as Q4 of the plan, recommended A: such a series keeps its one entry with the repeat rule, with the date it holds back written into it as an exception, a year ahead, and entries of their own stay for series as long as their gap, which can no longer be made. The release summary's bullet waits as well: the open release 0.37.2 has 55 of its 1,800 characters left. The review agents have not read the change yet. Nothing is pushed.
 **Context**: Construction — code generation, part 2: generated and checked; Q4 asked before the review.
+
+---
+## Code generation — one place for an event's end: the second read, and corrections to the entry of 23:29:42Z
+**Timestamp**: 2026-11-18T23:37:17Z
+**User Input**: (none — no input from Joshua since "Approve, Q1 A")
+**AI Response**: Both review agents read `8c93b63`, `844f8ff`, `73fc5bf` and `e775448`, and the pull request's draft text. Neither found a fault in the change or in the merge: by reading and by runs of their own, `73fc5bf` differs from `f05e1d0` outside the records only in `SeriesProjection.cs` and `SeriesProjectionTests.cs`, as the plan says; `PublicCalendarBuilder.cs` and `EventTimes.cs` are as on `master`; master's records are kept as they are, with this branch's entries by their timestamps; the quality agent's own run of the whole suite on `73fc5bf` gives the counts recorded; and the security agent's runs of 165 tests on that code pass. Corrections to the entry of 23:29:42Z: pull request #203 merged at 22:40:33Z, GitHub's time, not 22:40:32Z, the time of its commit; pull request #200 merged at 23:08:45Z, before the review began, so only #197 merged while the agents read; and with the documentation file turned on, the references this change adds resolve and no warning names `SeriesProjection.cs`, while the build reports three ambiguous references in `AttendeeRoleSync.cs`, which this change does not touch. The first read covered `98b4d81`, `f71d3ad`, `055a7c5` (the merge of `ee844fb`) and `f33a05c`, none of which was pushed; when the branch was made again, the entry of 23:12:47Z, which recorded the merge of `ee844fb`, went with that merge. Section 7 of the plan now lists the reads' findings with their answers, and one long line of the pull request's draft text is rewrapped. Committed locally; nothing is pushed. Next: both agents read this record, then the completion gate.
+**Context**: Code generation (part 2) — the review's second read.
+
+---
+## Code generation — one place for an event's end: the third read, and the completion gate asked
+**Timestamp**: 2026-11-18T23:42:23Z
+**User Input**: (none — this entry records the question put to Joshua)
+**AI Response**: Both review agents read the record of their second read and the pull request's draft text, and neither found a fault; their nits, on wording, line length and who ran which tests, are answered in section 7 of the plan and in that record, before anything is pushed. The change has been read three times without a fault: `SeriesProjection.EndOf` returns `EventTimes.End`, `SeriesProjection.DefaultLengthMinutes` is gone, the summaries name `EventTimes.DefaultLengthMinutes`, and the new test has its four cases; `master` is taken in at `f05e1d0`, and on that tree the Release build has no error and the same 22 warnings and 2,661 tests pass. Both agents read this commit before the push. Asked: "Code generation complete. Choose: A) Request Changes  B) Continue to Next Stage" (recommended: B). On B, the push of `refactor/event-end-one-place` and its pull request, `refactor: work out an event's end in one place`, are asked next, each on Joshua's go-ahead.
+**Context**: Code generation (part 2) — the completion gate; waiting for Joshua's answer.
+
+---
+## Code generation — one place for an event's end: Joshua's answer at the completion gate
+**Timestamp**: 2026-11-18T23:53:19Z
+**User Input**: "B) Continue"
+**AI Response**: Read as the answer to the gate alone: code generation is complete, and the next stage, build and test in the repository's collapsed form, runs the pull request's checks, which need the push. The push and the pull request are asked next, as their own go-ahead. Both review agents read `95b1c81`, the commit before this one, which holds records only: the security agent found nothing, and the quality agent found that the entry of 23:42:23Z says the change had been read three times, when it was read twice and the records after it twice more, and that it names no commit for the third read, which was of `500c188`, the record of the second read, amended into `95b1c81` before anything was pushed. Section 7 of the plan, its status and step 5.2, and the state file have it. Committed locally; both agents read this commit before the push. `master` is still `f05e1d0`; release pull request #207 (0.38.0) is open, and if it merges first, `master` is taken in again before the push. Asked: "Push `refactor/event-end-one-place` and open its pull request, `refactor: work out an event's end in one place`?" (recommended: yes, once both agents have read this commit).
+**Context**: Code generation (part 2) — completion gate answered; next, the push and the pull request, on Joshua's go-ahead.
 
 ---
 ## Records — the date limit and delivery posts: go-ahead to push and open their pull request
@@ -3689,6 +3745,13 @@ Availability for @GM
 **Context**: Construction — delivery posts: the scheduler's save tests, on Joshua's go-ahead.
 
 ---
+## Build and test — one place for an event's end: Joshua's go-ahead for the push and the pull request
+**Timestamp**: 2026-11-19T01:18:34Z
+**User Input**: "Push and open"
+**AI Response**: Read as the go-ahead to push `refactor/event-end-one-place` and open its pull request, `refactor: work out an event's end in one place`, with the draft text both review agents read. Before the push, both agents read this commit, and `master` is fetched again: if it has moved, it is merged in first, the suite is run on that tree, and both agents read the merge. The branch is pushed by its name; the pull request's checks are the build and test of the repository's collapsed form. The merge waits for its own go-ahead.
+**Context**: Build and test, in the repository's collapsed form — the push and the pull request.
+
+---
 ## Code generation, part 2 — the feed and long repeating events: both agents' second read, and the answers
 **Timestamp**: 2026-11-19T01:20:51Z
 **User Input**: (none since "Yes, A" at 2026-11-18T23:54:14Z)
@@ -3696,11 +3759,25 @@ Availability for @GM
 **Context**: Construction — code generation, part 2: the second review round answered.
 
 ---
+## Build and test — one place for an event's end: `master` taken in at `b1f5c58` before the push
+**Timestamp**: 2026-11-19T01:22:59Z
+**User Input**: (none — no input from Joshua since "Push and open")
+**AI Response**: `master` had moved to `b1f5c58`: pull request #208, records only, merged at 00:23:55Z. It is merged in as `f2ee6c7`: only the audit file conflicted, and it keeps master's text as it is, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself, to master's file with this section after it. Outside the records the tree is that of `73fc5bf`. On `f2ee6c7` the Release build has no error and the same 22 warnings, and 2,661 tests pass and none fails (1,658 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Both agents read `de7fd42` and `f2ee6c7` and found nothing in the merge; the quality agent asked for this record, and both for the pull request's draft text to name `b1f5c58`, which it now does. Section 7 of the plan, its step 5.3 and the state file have it. Both agents read this commit; then the branch is pushed by its name and the pull request opened.
+**Context**: Build and test, in the repository's collapsed form — `master` taken in before the push.
+
+---
 ## Operations — the moved occurrence: released in 0.37.2 and live on prod
 **Timestamp**: 2026-11-19T01:27:26Z
 **User Input**: (none in this session — the release and the rollout that carried this fix were done on Joshua's go-ahead in the session that ran them, "Yes, release now" and "Yes, roll out now", recorded there at 23:08:09Z and 23:16:27Z)
 **AI Response**: Release 0.37.2 carries this fix: pull request #200 was merged at 23:08:45Z as `6e0d8b2`, `v0.37.2` was published at 23:08:57Z, `1fce915` is in it, and its release notes carry this fix's line under "What's new". The prod rollout of 0.37.2 restarted the API at 23:17:25Z and the bot and the web app at 23:17:43Z on the 0.37.2 images, and the API and the web app report healthy, so the fix has been live on prod since then. Nothing was done in this session for either step; this entry records both for this fix, as read from GitHub and from the prod stack on 2026-11-19 at 01:26Z. The state file's line for the release and the rollout is ticked, and the plan's status says so.
 **Context**: Operations — the release and the prod rollout.
+
+---
+## Build and test — one place for an event's end: pushed, and pull request #210 opened
+**Timestamp**: 2026-11-19T01:29:46Z
+**User Input**: (none — no input from Joshua since "Push and open")
+**AI Response**: Both review agents read `5e4ea37`, the record of the take-in of `b1f5c58` with the list of the later reads, and found nothing in it. `master` had then moved to `f6152d7`: pull request #207, the release of 0.38.0, `CHANGELOG.md` only, merged at 01:24:11Z. It is merged in without a conflict, as `2573c7f`, which both agents read and found nothing in; on it the Release build has no error and the same 22 warnings, and 2,661 tests pass and none fails (1,658 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Both asked for the pull request's draft text to name `f6152d7`, which it does. `refactor/event-end-one-place` was pushed by its name, created on GitHub at 01:28:33Z with `2573c7f` at its head, and pull request #210, `refactor: work out an event's end in one place`, was opened at 01:28:43Z with the text both agents read; GitHub finds it mergeable, and its checks run on `2573c7f`. Auto-fix is on and auto-merge off. Section 7 of the plan, its step 5.4 and the state file have it. This record stays local until the merge's go-ahead, since pushing it runs the checks again; both agents read it before it goes up. The merge waits for Joshua's go-ahead.
+**Context**: Build and test, in the repository's collapsed form — the pull request and its checks.
 
 ---
 ## Code generation, part 2 — the feed and long repeating events: both agents' third read, and the answers
@@ -3731,6 +3808,13 @@ Availability for @GM
 **Context**: Construction — code generation, part 2: the completion gate answered; next, the push and the pull request, on Joshua's go-ahead.
 
 ---
+## Build and test — one place for an event's end: Joshua's go-ahead for the merge, and `master` taken in at `dab6a31`
+**Timestamp**: 2026-11-19T03:30:06Z
+**User Input**: "Merge when green"
+**AI Response**: Read as the go-ahead to squash-merge pull request #210 once its checks pass. Every check had passed on `2573c7f`: `pr-title`, `lint-workflows`, `build-test`, both CodeQL analyses (C# and JavaScript/TypeScript), CodeQL and GitGuardian; `publish-main` is skipped on pull requests. `master` had since moved to `dab6a31` (pull request #209, merged at 03:25:44Z, which adds tests and records), and the pull request's records conflicted with it. It is merged in as `315fac2`: only the audit file conflicted, and it keeps master's text as it is, master's own change to its entry of 23:53:37Z included, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself. Outside the records the merge is `master` with this change's two files. On `315fac2` the Release build has no error and the same 22 warnings, and 2,677 tests pass and none fails (1,674 API, 499 bot, 154 web and 350 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Section 7 of the plan, its status and step 5.3, and the state file have it. Both agents read the merge and this commit before the push. The branch then goes up by its name, with the record of the push and the pull request, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head. Its message is the pull request's title and text, with the checklist's line on the suite brought up to date (2,677 tests, with `master` at `dab6a31` merged in); the text on GitHub is left as it is.
+**Context**: Build and test, in the repository's collapsed form — the merge's go-ahead.
+
+---
 ## Operations — the moved occurrence: go-ahead to open and merge the records pull request
 **Timestamp**: 2026-11-19T03:32:19Z
 **User Input**: "Open, merge green"
@@ -3745,11 +3829,25 @@ Availability for @GM
 **Context**: Construction — code generation, part 2: go-ahead to push and open the pull request; `master` taken in before the push.
 
 ---
+## Build and test — one place for an event's end: Joshua's "Try again", and `master` taken in at `11afb47`
+**Timestamp**: 2026-11-19T23:40:48Z
+**User Input**: "Try again"
+**AI Response**: Read as the word to take pull request #210 up again: resolve its conflict with `master` and merge it once its checks pass, under his go-ahead of 2026-11-19T03:30:06Z ("Merge when green"); the change's code is as it was then. Every check passed on the head pushed at 03:36:14Z, `8507b5a`: `pr-title`, `lint-workflows`, `build-test`, both CodeQL analyses, CodeQL and GitGuardian, with `publish-main` skipped. `master` had meanwhile moved to `11afb47` (pull request #211, records only, merged at 03:40:15Z), and the pull request's records conflicted with it, as Auto-fix reported. It is merged in as `5b83a53`: only the audit file conflicted, and it keeps master's text as it is, with this branch's entries each placed among master's by its timestamp; git merged the state file by itself. Outside the records the tree is that of `315fac2`, so its result stands: 2,677 tests pass and none fails. Section 7 of the plan, its status and step 5.3, and the state file have it. Both agents read the merge and this commit before the push. The branch then goes up by its name, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head, its message the pull request's title and text with the checklist's line on the suite naming 2,677 tests and `11afb47`.
+**Context**: Build and test, in the repository's collapsed form — the merge, taken up again.
+
+---
 ## Code generation, part 2 — the feed and long repeating events: the read before the push taken up again, and `master` taken in at `11afb47`
 **Timestamp**: 2026-11-19T23:40:55Z
 **User Input**: "Try again"
 **AI Response**: Read as asking for the quality agent's read of `70b2cd3`, the commit to be pushed, which had stopped, to be taken up again. The security agent had read that commit and found nothing that should hold up a push. While the read waited, `master` moved to `11afb47`: pull request #211, records of the moved-occurrence fix, merged at 2026-11-19T03:40:15Z. Nothing had been pushed, so it is taken in as the plan says, and the branch is again one commit, on `11afb47`. The audit log is `master`'s, with this change's entries placed among #211's by their timestamps; the state file merged without a conflict; and outside the records the tree is the one both agents read. The tests do not read the records, so the suite's result on that tree stands. Both agents read the result before the push. Nothing is pushed.
 **Context**: Construction — code generation, part 2: the read before the push taken up again; `master` taken in before the push.
+
+---
+## Build and test — one place for an event's end: `master` taken in at `ca45e61`, which has the same edit from pull request #212
+**Timestamp**: 2026-11-20T02:30:38Z
+**User Input**: (none in this session since "Try again", logged at 23:40:48Z)
+**AI Response**: Every check had passed by 23:46:05Z on `6b0a398`, the head pushed at 23:43:18Z on 2026-11-19, but the merge was not made then: Auto-fix wakes this session for a conflict, a failed check or a review comment, not for checks that pass, and nothing else woke it. At 02:23:16Z on 2026-11-20 `master` moved to `ca45e61`, pull request #212, and this pull request's records conflicted with it, as Auto-fix reported. #212 makes the same edit to `SeriesProjection.cs` as this change, line for line, as its text says. It is merged in as `1c62e80`: the audit file and the state file conflicted, and they keep master's text as it is, with this branch's entries each placed among master's by its timestamp and this work's state section after master's; `SeriesProjection.cs` merged by itself, to master's file. So the branch now changes nothing under `src`: what it adds to `master` is the test of section 5 of the plan, the test class's summary and the records. On `1c62e80` the Release build has no error and the same 22 warnings, and 2,766 tests pass and none fails (1,759 API, 499 bot, 157 web and 351 for the release-notes tool, seventeen of whose tests are skipped on this Windows machine and run in CI). Section 7 of the plan, its status and step 5.3, and the state file have it. The pull request's text is brought up to date to say so, and the squash commit's message is that text. Both agents read the merge, this commit and that text before the push; the branch then goes up by its name, and once every check passes on the new head and `master` has not moved, the pull request is squash-merged by the REST call pinned to that head, under Joshua's go-ahead ("Merge when green").
+**Context**: Build and test, in the repository's collapsed form — the merge, with `master` taken in again.
 
 ---
 ## Request bodies and snapshot lists — go-ahead for the remaining steps; the release and the rollout found done
