@@ -7,8 +7,9 @@ using NodaTime;
 namespace CalCrony.Api.Endpoints;
 
 /// <summary>Bot-only role snapshot endpoints (ADR 0004). The API never asks Discord who holds a
-/// role; the bot, which runs the GuildMembers intent, writes snapshots here and the API reads
-/// them to answer WEB callers' signup restrictions and to name the roles events grant (#167).
+/// role; the bot, which runs the GuildMembers intent when its application has it, writes snapshots
+/// here and the API reads them to answer WEB callers' signup restrictions and to name the roles
+/// events grant (#167). Without the intent the bot writes names alone, and the guild stays unsynced.
 /// Rows exist only for watched roles — roles a live restriction names or a live event or running
 /// series grants — and only for members holding at least one of them, following the
 /// channel-snapshot model: the API publishes what it references, the bot pushes exactly that.</summary>
@@ -66,7 +67,11 @@ public static class RoleSnapshotEndpoints
     /// watch list, read in the same transaction, decides what may be stored at all: a payload the
     /// bot captured before a restriction was removed (a web clear, an event ending) is filtered
     /// to the roles still watched, so a sync can never re-add rows for a role nothing names. A list
-    /// with an entry missing altogether is refused before the snapshot is touched.</summary>
+    /// with an entry missing altogether is refused before the snapshot is touched. A sync whose
+    /// members are not known — the bot runs without the Server Members intent — stores the names
+    /// alone, drops every member row and leaves the guild unsynced, so the web answers a restricted
+    /// choice with "from Discord" rather than reading an absent row as "holds none"; one that says
+    /// so and still lists members is refused.</summary>
     /// <param name="guildId">The Discord guild (server) id.</param>
     /// <param name="request">The request body.</param>
     /// <param name="db">The database context.</param>
@@ -84,6 +89,11 @@ public static class RoleSnapshotEndpoints
         if (request.Roles.Any(r => r is null) || request.Members.Any(m => m is null))
         {
             return Results.BadRequest(new ErrorResponse("Roles and Members can't have an entry missing."));
+        }
+
+        if (!request.MembersKnown && request.Members.Count > 0)
+        {
+            return Results.BadRequest(new ErrorResponse("Members must be empty when MembersKnown is false."));
         }
 
         var now = clock.GetCurrentInstant();
@@ -139,7 +149,9 @@ public static class RoleSnapshotEndpoints
             });
         }
 
-        guild.RolesSyncedAt = now;
+        // No marker without members: the names stay for display, and nothing answers for a web
+        // caller's roles until a sync from a bot that can see the members lands.
+        guild.RolesSyncedAt = request.MembersKnown ? now : null;
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Results.NoContent();
@@ -302,7 +314,11 @@ public static class RoleSnapshotEndpoints
             .Where(g => g.Id == guildId)
             .Select(g => new { g.BotPresent, g.RolesSyncedAt })
             .FirstOrDefaultAsync(cancellationToken);
-        if (guild?.RolesSyncedAt is null)
+        // Names kept without members carry no marker, so a guild is passed over only when it has
+        // neither a marker nor a role row.
+        if (guild is null
+            || (guild.RolesSyncedAt is null
+                && !await db.GuildRoles.AnyAsync(r => r.GuildId == guildId, cancellationToken)))
         {
             // Nothing to reconcile — the leave or another sweep got here first.
             return 0;

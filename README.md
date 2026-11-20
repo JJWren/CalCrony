@@ -134,6 +134,7 @@ Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/
 |---|---|---|
 | `Discord__BotToken` | *(empty)* | Bot token; without it the bot logs a warning and idles |
 | `Discord__TestGuildId` | *(empty)* | If set, slash commands register to that guild instantly; otherwise globally (can take up to an hour) |
+| `Discord__ServerMembersIntent` | `auto` | Whether the bot asks Discord for the **Server Members** intent: `auto` asks only when the application has it, read from Discord at start and every 10 minutes after; when the application loses the intent or gets it back, the bot restarts at once to follow, and if Discord refuses the intent, 5 minutes later. `on` always asks, and if Discord refuses it the bot stays offline until restarted; `off` never asks. Any other value stops the bot at start |
 | `Api__BaseUrl` / `Api__ApiKey` | `http://localhost:8080` / — | How the bot reaches the API |
 | `Api__PublicBaseUrl` | falls back to `Api__BaseUrl` | Public URL used when showing the ICS feed link |
 | `Api__PollSeconds` | `15` | Outbox polling cadence |
@@ -141,7 +142,7 @@ Anonymous routes (no credential): `/health`, `/feeds/*` (token in URL), `/oauth/
 | `Discord__SupportServerInvite` | *(empty)* | Community-server invite shown by `/help` — must be absolute https; the line is omitted when unset, so test and self-hosted bots don't advertise the hosted server |
 | `Donations__BuyMeACoffeeUrl` | *(empty)* | Donate link shown by `/help` — must be absolute https; omitted when unset |
 
-`/availability role`, and `/availability slots` when `who` is a role, require the **Server Members** privileged gateway intent, enabled in the Discord Developer Portal.
+`/availability role`, and `/availability slots` when `who` is a role, require the **Server Members** privileged gateway intent, enabled in the Discord Developer Portal; so do the role checks on the website for an RSVP option or poll limited to a role. Without the intent the bot still runs: those two commands answer with a sentence saying so, and on the website a member is asked to make a restricted choice from Discord, where it is checked as before. An application whose servers reach more than 10,000 users must apply to Discord to keep the intent.
 
 ### Web (`CalCrony.Web` container)
 
@@ -179,7 +180,7 @@ Go-live checklist:
 2. A strong `CALCRONY_JWT_SIGNING_KEY` (≥32 chars — `openssl rand -base64 32`); the API refuses to start with a short one, and web login refuses to be configured without one. Rotating it later just signs everyone out.
 3. A named volume behind `Calendar__DataProtectionKeyPath` (see the warning above).
 4. The API fronted by a reverse proxy at a public HTTPS URL, with `Api__PublicBaseUrl` set to it, and `{Api__PublicBaseUrl}/oauth/google/callback` registered as an authorized redirect URI on your Google OAuth client.
-5. A Discord application with the bot token, the Server Members intent enabled, and the bot invited with this URL (grants `bot` + `applications.commands` and the Manage Events / Manage Roles / thread permissions the features need — servers that invited an older build must re-invite or grant the bot's role):
+5. A Discord application with the bot token, the Server Members intent enabled (without it the bot runs with role lists and the website's role checks off; see the bot's configuration above), and the bot invited with this URL (grants `bot` + `applications.commands` and the Manage Events / Manage Roles / thread permissions the features need — servers that invited an older build must re-invite or grant the bot's role):
 
    ```text
    https://discord.com/oauth2/authorize?client_id=<your-app-id>&permissions=335275969536&scope=bot+applications.commands
