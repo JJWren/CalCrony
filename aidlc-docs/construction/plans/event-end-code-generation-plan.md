@@ -11,10 +11,11 @@ session of pull request #196, once that pull request had merged.
 **Status**: written 2026-11-18 and approved by Joshua the same day as written, with Q1 answered
 A ("Approve, Q1 A"); code generated and checked the same day; the change read twice by two review
 agents without a fault, and each record after it read again before the push, their findings
-answered; `master` taken in before the push, last at `f6152d7`, and after it at `dab6a31` and
-`11afb47` (section 7). Approved at the completion gate the same day ("B) Continue"); pushed on
-2026-11-19 on Joshua's go-ahead ("Push and open"), as pull request #210; the merge has his
-go-ahead ("Merge when green"), taken up again on his "Try again".
+answered; `master` taken in before the push, last at `f6152d7`, and after it at `dab6a31`,
+`11afb47` and `ca45e61`, which has the same edit from pull request #212 (section 7). Approved at
+the completion gate the same day ("B) Continue"); pushed on 2026-11-19 on Joshua's go-ahead
+("Push and open"), as pull request #210; the merge has his go-ahead ("Merge when green"), taken
+up again on his "Try again".
 
 A change inside one helper of the API, with a test, that nobody using CalCrony will notice, so
 the workflow runs at minimal depth: the task is the requirement; no user stories, application
@@ -116,8 +117,8 @@ The rest is held by the tests already there, unchanged: the calendar's, the feed
   to Next Stage". Answered B on 2026-11-18 ("B) Continue").
 - [x] 5.3 Before the push, `master` merged in: its records as they are, with this branch's audit
   entries placed among them by timestamp. Done at `f05e1d0`, `b1f5c58` and `f6152d7` (section 7),
-  the last just before the push, and after the push at `dab6a31` and `11afb47`, before the
-  merge.
+  the last just before the push, and after the push at `dab6a31`, `11afb47` and `ca45e61`, before
+  the merge.
 - [x] 5.4 The push and the pull request, on Joshua's go-ahead. Given on 2026-11-19 ("Push and
   open"); pushed the same day, after `master` was taken in at `f6152d7`, as pull request #210.
 - [ ] 5.5 The merge, on his go-ahead. The change then goes out with the next release, whose
@@ -178,9 +179,9 @@ documentation file turned on, the references this change adds resolve and no war
 **`master` taken in again.** After the completion gate, `master` moved to `b1f5c58` (pull request
 #208, records only, merged at 00:23:55Z on 2026-11-19). It is merged in the same way, as
 `f2ee6c7`: only the audit file conflicted, and git merged the state file by itself, to master's
-file with this section after it. Outside the records the tree is that of `73fc5bf`; on
-`f2ee6c7` the Release build has no error and the same 22 warnings, and the same 2,661 tests pass
-and none fails.
+file with this work's state section after it. Outside the records the tree is that of
+`73fc5bf`; on `f2ee6c7` the Release build has no error and the same 22 warnings, and the same
+2,661 tests pass and none fails.
 
 **Review.** Two review agents read the branch before any push, together with the draft text of
 the pull request: one for security and privacy, one for quality and accuracy.
@@ -269,3 +270,20 @@ minutes later, to `11afb47` (pull request #211, records only, merged at 03:40:15
 request's records conflicted with it. On Joshua's "Try again" it is merged in as `5b83a53`, in
 the same way; git merged the state file by itself. Outside the records the tree is that of
 `315fac2`, so its result stands.
+
+**`master` taken in with #212.** Every check had passed on `6b0a398`, the head pushed with that
+merge, by 23:46:05Z on 2026-11-19, but the merge was not made then: Auto-fix wakes this session
+for a conflict, a failed check or a review comment, not for checks that pass, and nothing else
+woke it. At 02:23:16Z on 2026-11-20 `master` moved to `ca45e61`: pull request #212, which makes
+the same edit to `SeriesProjection.cs` as this change, line for line, as its text says, besides
+its own changes to the feed, to the routes that make and change a repeating event, to the event
+form and the Docs page, and elsewhere in `SeriesProjection.cs`. This pull request's records
+conflicted with it. It is merged in as `1c62e80`: the audit file and the state file conflicted,
+and they keep master's text as it is, with this branch's entries placed among master's by their
+timestamps and this work's state section after master's; `SeriesProjection.cs` merged by itself,
+to master's file. So the branch now changes nothing under `src`: what it adds to `master` is the
+test of section 5, the test class's summary and these records. On `1c62e80` the Release build
+has no error and the same 22 warnings, and 2,766 tests pass and none fails (1,759 API, 499 bot,
+157 web and 351 for the release-notes tool, with the same seventeen skipped), the eighty-nine
+more being those of #212. This pull request's text is brought up to date to say so before the
+merge, and the squash commit's message is that text.
