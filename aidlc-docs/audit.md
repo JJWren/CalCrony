@@ -4190,3 +4190,17 @@ On 2026-11-18, his answer to the question "Build a switch so the bot can run wit
 **Context**: Build and test — the review agents' first read answered; their second read follows.
 
 ---
+## Scheduler sweep — both agents' read done; the completion gate put to Joshua
+**Timestamp**: 2026-11-20T22:01:03Z
+**User Input**: (none — continuation of "Approve, all A")
+**AI Response**: Both review agents read `b01d370`, the one commit that replaces `c406000`, and found nothing that holds up a push: the security agent read it from the branch, and the quality agent compared the plan with the text Joshua approved. The completion gate is put to Joshua: A) request changes, or B) continue to the next stage, with B recommended. As a question of its own, with yes recommended: whether to push the branch by its name and open the pull request, its title the commit's. The merge, the release and the prod rollout each wait for their own go-ahead. Nothing is pushed.
+**Context**: Construction — code generation complete; the completion gate.
+
+---
+## Scheduler sweep — Joshua's answer at the completion gate
+**Timestamp**: 2026-11-21T01:26:03Z
+**User Input**: "B) Continue"
+**AI Response**: Read as the answer to the gate alone, as at the gate of 2026-11-18T23:53:19Z: code generation is complete, and the next stage, build and test in the repository's collapsed form, runs the pull request's checks, which need the push. The push and the pull request are asked next, as their own go-ahead. Plan step 5.5 is ticked; section 6 of the plan records the agents' second and third reads and this answer, and its status line and the state file have it. Committed locally as one commit of records on `b01d370`, which both agents read, with the pull request's draft text, before the push. `master` is still `bcb9a2e`; release pull request #213 (0.39.0) is open, and if `master` moves before the push, it is taken in first. Asked: "Push `fix/sweep-claims` and open its pull request, `fix: take the rows the scheduler changes before it changes them, and refuse an unknown event status`?" (recommended: yes, once both agents have read the records commit).
+**Context**: Construction — code generation complete; build and test: next, the push and the pull request, on Joshua's go-ahead.
+
+---

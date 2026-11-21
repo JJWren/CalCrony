@@ -11,8 +11,9 @@ holds the order in which the sweep takes its rows.
 #213 is open for 0.39.0, with #210, #212 and #215.
 **Branch**: `fix/sweep-claims`, cut from `master` → one pull request with a `fix:` title.
 **Status**: written 2026-11-20 and approved by Joshua the same day as written, with Q1–Q3 all
-answered A ("Approve, all A"). Built on 2026-11-20 (section 6); the review agents' read under
-way.
+answered A ("Approve, all A"). Built on 2026-11-20 (section 6) and read three times by the
+review agents, the third time with nothing that holds up a push; the completion gate answered
+"B) Continue" on 2026-11-21. Next: the push and the pull request, on Joshua's go-ahead.
 
 A change inside existing components, so the workflow runs at minimal depth: the task is the
 requirement; no user stories, application design, units, NFR or infrastructure stages; one unit,
@@ -158,9 +159,9 @@ them.
 - [x] This plan's section 6 (as built), the state file, the audit log.
 
 ### 5.5 Review before any push
-- [ ] Two review agents, one for security and one for code quality, read the commit; their
+- [x] Two review agents, one for security and one for code quality, read the commit; their
   findings are answered in a commit they read again. The pushed head is a commit they read.
-- [ ] The completion gate with Joshua. The push, the pull request, the merge, the release and the
+- [x] The completion gate with Joshua. The push, the pull request, the merge, the release and the
   rollout each wait for his own go-ahead.
 
 ## 6. As built
@@ -250,3 +251,11 @@ edit saves; the comment on the order in which the series are advanced; the overl
 the plan's opening and of step 2 of 1.1, and of four earlier entries in the audit log, was
 changed at the review, before anything was pushed; what was asked, answered and approved is
 unchanged.
+
+**Review, rounds 2 and 3**, by the same two agents. Round 2, on `c406000`, the commit that
+answered round 1: nothing in the code held up a push. Answered in `b01d370`, which replaces it:
+the example of what `SaveFailure.Describe` returns moved to the overload that other code calls,
+and the wording of the records. Round 3, on `b01d370`: nothing holds up a push.
+
+**Completion gate**, 2026-11-21: Joshua answered "B) Continue". The push and the pull request are
+asked next, as their own go-ahead; the merge, the release and the rollout each wait for theirs.

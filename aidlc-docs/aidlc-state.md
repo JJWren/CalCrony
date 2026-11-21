@@ -232,5 +232,5 @@ Milestone order: M9 series rule editing → M10 Discord native-event mirroring �
 - [x] Workflow planning and the code-generation plan — one document: `construction/plans/sweep-claims-code-generation-plan.md`, written 2026-11-20 with three questions, each with a recommendation; **approved by Joshua the same day, as written, with Q1–Q3 answered A ("Approve, all A")**.
 - [ ] User stories, application design, units, NFR and infrastructure stages — skipped: a change inside existing components, with one stakeholder answering the questions directly.
 - [x] Code generation — built 2026-11-20 on `fix/sweep-claims`, tests first: `DeliveryScheduler` in three steps (find, take, read again), `SweepSave.cs` and `SweepSaveTests.cs` deleted, the edit route's 400 and two 409s; `SweepRowLockTests` (23) and `EventStatusEditTests` (10 cases). Plan section 6 has it as built.
-- [ ] Build and test — the whole suite on the commit, the two review agents' read, the completion gate, and the pull request's checks.
+- [ ] Build and test — done: the whole suite on the commit, the two review agents' read (the third read, of `b01d370`, found nothing that holds up a push) and the completion gate (Joshua: "B) Continue", 2026-11-21). Next: the push and the pull request, on his go-ahead, then the pull request's checks.
 - [ ] Release and the prod rollout — each on its own go-ahead.
