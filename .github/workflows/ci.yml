@@ -17,6 +17,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # global.json holds dotnet to the newest .NET 10 SDK on the runner. No later step prints the
+      # SDK it runs on, so this puts its version in the log, where a change of SDK would show.
+      - name: Show the .NET SDK
+        run: dotnet --version
+
       - name: Restore
         run: dotnet restore CalCrony.slnx
 
