@@ -139,6 +139,8 @@ An issue is never closed silently — the closing comment or linked PR must make
 
 ## Local dev quickstart
 
+`global.json` holds `dotnet` in this repository to the .NET 10 SDK: it uses the newest 10.0 SDK installed (10.0.100 or later), never one of a later major version. With only a newer SDK installed, `dotnet build`, `dotnet test`, `dotnet run` and the other SDK commands stop with "A compatible .NET SDK was not found"; install a .NET 10 SDK beside it.
+
 ```bash
 dotnet test CalCrony.slnx        # full suite; Docker must be running (Testcontainers)
 docker compose up -d postgres    # just the database for local API runs
