@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.39.0](https://github.com/JJWren/CalCrony/compare/v0.38.0...v0.39.0) (2026-11-23)
+
+
+### Features
+
+* keep the bot running without the Server Members intent ([#215](https://github.com/JJWren/CalCrony/issues/215)) ([d451895](https://github.com/JJWren/CalCrony/commit/d4518950f25c0f457cdecfbb38319cd3d79e9ec9))
+
+
+### Bug Fixes
+
+* list only the dates a repeating event posts in the feed, and refuse a length that reaches the next date ([#212](https://github.com/JJWren/CalCrony/issues/212)) ([ca45e61](https://github.com/JJWren/CalCrony/commit/ca45e612b6db706d8ab7c70d2cc53760fa9d493e))
+* take the rows the scheduler changes before it changes them, and refuse an unknown event status ([#217](https://github.com/JJWren/CalCrony/issues/217)) ([558baae](https://github.com/JJWren/CalCrony/commit/558baae723680205ffeccf64d34be9d7d95e037d))
+
 ## [0.38.0](https://github.com/JJWren/CalCrony/compare/v0.37.2...v0.38.0) (2026-11-19)
 
 
